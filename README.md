@@ -12,6 +12,19 @@ home: a large clock, a paged desktop, a clear Liquid Glass dock and matching app
 | --- | --- |
 | ![Stress Test](docs/stress-test.png) | ![Performance Log](docs/performance-log.png) |
 
+## Features
+
+- Landscape-first console home for the AYN Odin 3; pure platform, no AndroidX or Gradle.
+- Clock, date, weather and live status (CPU, network, battery, Bluetooth, sound).
+- Paged icon grid with folders, drag and drop, resizable widgets and a grid-snapped clock.
+- Liquid Glass dock with full and popup app drawers, built for controller-first navigation.
+- Wallpaper card with live, video and recent wallpapers; IN USE marker and long-press remove.
+- Wallpaper-derived accent across home, dock, drawer, built-in apps and the overlay.
+- OLED protection: 1 px spiral pixel shift and a 10% idle dim, without freezing live data.
+- Performance overlay with CPU/GPU/RAM/FPS, per-core telemetry, lock and direct controls.
+- Tuning, display, fan, RGB, controller, touch, file and media apps built in.
+- 25 languages; resolution, scaling and orientation aware.
+
 ## Wallpaper
 
 On the Odin 3 the stock wallpaper is the framework default particle image
