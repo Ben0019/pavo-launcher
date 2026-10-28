@@ -316,6 +316,17 @@ final class PerfTuner {
                 + "; settings put global performance_mode " + mode);
     }
 
+    /** Live Odin performance mode, or -1 when it cannot be read. */
+    static int readPerformanceMode(Context context) {
+        if (context == null) return -1;
+        try {
+            return Settings.System.getInt(context.getContentResolver(),
+                    "performance_mode", -1);
+        } catch (Throwable ignored) {
+            return -1;
+        }
+    }
+
     static void setFanMode(Context context, int mode) {
         Root.write("settings put system fan_mode " + mode
                 + "; settings put global fan_mode " + mode);
@@ -325,11 +336,43 @@ final class PerfTuner {
         Root.write("settings put system fan_speed " + raw);
     }
 
+    /** Live fan mode from system settings, or -1 when it cannot be read. */
+    static int fanMode(Context context) {
+        if (context == null) return -1;
+        try {
+            return Settings.System.getInt(context.getContentResolver(), "fan_mode", -1);
+        } catch (Throwable ignored) {
+            return -1;
+        }
+    }
+
+    /** Live fan duty setting (0-50000), or -1 when it cannot be read. */
+    static int fanSpeed(Context context) {
+        if (context == null) return -1;
+        try {
+            return Settings.System.getInt(context.getContentResolver(), "fan_speed", -1);
+        } catch (Throwable ignored) {
+            return -1;
+        }
+    }
+
+    /**
+     * True when another app, the game panel or a preset switch has taken the fan
+     * away from the curve, so the controller has to write its duty again.
+     */
+    static boolean fanManualDrifted(Context context, int dutyPercent) {
+        if (dutyPercent < 0) return true;
+        if (fanMode(context) != FAN_MANUAL) return true;
+        int speed = fanSpeed(context);
+        return speed >= 0 && speed != dutyPercent * 500;
+    }
+
     static void setFanManual(int percent) {
         int value = Math.max(10, Math.min(100, percent)) * 500;
         Root.write("settings put system fan_mode " + FAN_MANUAL
                 + "; settings put global fan_mode " + FAN_MANUAL
-                + "; settings put system fan_speed " + value);
+                + "; settings put system fan_speed " + value
+                + "; settings put global fan_speed " + value);
     }
 
     static int closestIndex(int[] values, int target) {

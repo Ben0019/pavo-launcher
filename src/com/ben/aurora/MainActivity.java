@@ -998,6 +998,14 @@ public final class MainActivity extends Activity {
         if (AuroraInputService.shouldRun(this)) AuroraInputService.ensureStarted(this);
         else AuroraInputService.stop(this);
         if (new TuneStore(this).hasOverrides()) PerAppTuneService.start(this);
+        // Re-arm the background fan control after an update, a reboot or a
+        // process kill; otherwise the curve only comes back when Fan Control
+        // is opened by hand.
+        if (new FanProfileStore(this).hasOverrides()) {
+            PerAppFanService.start(this);
+        } else if (prefs.fanAppMode() == FanActivity.MODE_CURVE) {
+            FanCurveService.start(this);
+        }
         applySurfaceTransparency();
         IntentFilter f = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         lastBatteryIntent = registerReceiver(batteryReceiver, f);

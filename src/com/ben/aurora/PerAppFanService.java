@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,6 +34,7 @@ public final class PerAppFanService extends Service {
     private boolean lastApplyOk;
     private String lastKey = "";
     private int lastCurveDuty = -1;
+    private final FanCurveController curveController = new FanCurveController();
     private String lastNotificationText = "";
     private FanProfileStore store;
     private Prefs prefs;
@@ -181,20 +183,25 @@ public final class PerAppFanService extends Service {
             if (!key.equals(lastKey)) {
                 lastKey = key;
                 lastCurveDuty = -1;
+                curveController.reset();
             }
             float[] temps = PerfTuner.temperatures();
             float temp = Math.max(temps[0], temps[1]);
             if (temp <= 0f) temp = 40f;
-            int duty = FanCurve.dutyAt(profile.curve, temp);
-            if (duty != lastCurveDuty) {
+            int duty = curveController.next(profile.curve, temp,
+                    SystemClock.uptimeMillis());
+            if (duty >= 0) {
                 PerfTuner.setFanManual(duty);
                 lastCurveDuty = duty;
+            } else if (PerfTuner.fanManualDrifted(this, curveController.applied())) {
+                PerfTuner.setFanManual(curveController.applied());
             }
             lastApplyOk = true;
             return true;
         }
 
-        if (!key.equals(lastKey) || !lastApplyOk) {
+        if (!key.equals(lastKey) || !lastApplyOk
+                || PerfTuner.fanMode(this) != profile.mode) {
             if (profile.mode == PerfTuner.FAN_MANUAL) {
                 PerfTuner.setFanManual(profile.manualPct);
             } else {

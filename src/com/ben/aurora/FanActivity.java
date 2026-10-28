@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -89,6 +90,7 @@ public final class FanActivity extends AuroraGlassActivity {
     private int mode;
     private int manualPct;
     private String curve;
+    private final FanCurveController curveController = new FanCurveController();
     private boolean polling;
     private boolean suppress;
     private boolean applying;
@@ -124,7 +126,14 @@ public final class FanActivity extends AuroraGlassActivity {
                     float[] temps = PerfTuner.readTemperatures();
                     float temp = Math.max(temps[0], temps[1]);
                     if (temp <= 0f) temp = 40f;
-                    PerfTuner.setFanManual(FanCurve.dutyAt(currentCurve, temp));
+                    int duty = curveController.next(currentCurve, temp,
+                            SystemClock.uptimeMillis());
+                    if (duty >= 0) {
+                        PerfTuner.setFanManual(duty);
+                    } else if (PerfTuner.fanManualDrifted(
+                            FanActivity.this, curveController.applied())) {
+                        PerfTuner.setFanManual(curveController.applied());
+                    }
                 }
             });
             main.postDelayed(this, 1500L);
@@ -444,6 +453,7 @@ public final class FanActivity extends AuroraGlassActivity {
             @Override
             public void onCurveChanged(String value) {
                 curve = value;
+                curveController.reset();
                 saveCurrentProfile();
                 if (mode != MODE_CURVE) selectMode(MODE_CURVE);
                 main.removeCallbacks(curveServiceUpdate);
@@ -646,6 +656,7 @@ public final class FanActivity extends AuroraGlassActivity {
         mode = normalizeMode(profile.mode);
         manualPct = profile.manualPct;
         curve = profile.curve;
+        curveController.reset();
         suppress = true;
         if (manualBar != null) {
             manualBar.setProgress(Math.max(0, Math.min(90, manualPct - 10)));
@@ -759,6 +770,7 @@ public final class FanActivity extends AuroraGlassActivity {
         if (!resumed || mode != MODE_CURVE || profileStore == null
                 || !profileStore.hasOverrides() || localCurve) return;
         localCurve = true;
+        curveController.reset();
         main.removeCallbacks(localCurveTick);
         main.post(localCurveTick);
     }

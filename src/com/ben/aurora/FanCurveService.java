@@ -27,6 +27,8 @@ public final class FanCurveService extends Service {
     private Handler handler;
     private volatile boolean running;
     private int lastDuty = -1;
+    private String lastCurve = "";
+    private final FanCurveController controller = new FanCurveController();
     private long startedAt;
 
     static void start(Context c) {
@@ -87,6 +89,8 @@ public final class FanCurveService extends Service {
         }
         startedAt = SystemClock.uptimeMillis();
         lastDuty = -1;
+        lastCurve = "";
+        controller.reset();
         startForeground(NOTIFICATION_ID, notification(prefs));
         if (handler != null) {
             handler.removeCallbacks(tick);
@@ -107,10 +111,20 @@ public final class FanCurveService extends Service {
             float[] temps = PerfTuner.readTemperatures();
             float temp = Math.max(temps[0], temps[1]);
             if (temp <= 0f) temp = 40f;
-            int duty = FanCurve.dutyAt(prefs.fanCurve(), temp);
-            if (duty != lastDuty) {
+            String curve = prefs.fanCurve();
+            if (!curve.equals(lastCurve)) {
+                lastCurve = curve;
+                controller.reset();
+            }
+            int duty = controller.next(curve, temp, SystemClock.uptimeMillis());
+            if (duty >= 0) {
                 lastDuty = duty;
                 PerfTuner.setFanManual(duty);
+            } else if (PerfTuner.fanManualDrifted(FanCurveService.this,
+                    controller.applied())) {
+                // The game panel or a preset switched the fan away from the
+                // curve; re-assert it instead of waiting for the temperature.
+                PerfTuner.setFanManual(controller.applied());
             }
             handler.postDelayed(this, 1500L);
         }
