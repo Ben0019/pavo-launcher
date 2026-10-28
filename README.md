@@ -4,9 +4,13 @@ A landscape-first home screen for the **AYN Odin 3** (`NX789J`), built as a pure
 Android app (no AndroidX, no Gradle). It replaces the stock launcher with a console-style
 home: a large clock, a paged desktop, a clear Liquid Glass dock and matching app drawers.
 
-| Home | App drawer | Settings |
+| Home | Fan Control | Performance Tuner |
 | --- | --- | --- |
-| ![home](docs/home.png) | ![drawer](docs/drawer.png) | ![style](docs/style.png) |
+| ![Home](docs/home.png) | ![Fan Control](docs/fan-control.png) | ![Performance Tuner](docs/performance-tuner.png) |
+
+| Stress Test | Performance Log |
+| --- | --- |
+| ![Stress Test](docs/stress-test.png) | ![Performance Log](docs/performance-log.png) |
 
 ## Features
 
