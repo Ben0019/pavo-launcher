@@ -77,21 +77,22 @@ final class DeviceProfile {
     }
 
     private static volatile DeviceProfile cached;
+    private static volatile boolean probedWithContext;
 
     static DeviceProfile get(Context context) {
+        Context app = context == null ? null : context.getApplicationContext();
+        // A null-context caller (a background service) gets a quick profile; the
+        // first caller with a context re-probes once so settings-dependent facts
+        // such as the performance-mode support are not lost.
+        if (app != null && !probedWithContext) {
+            probedWithContext = true;
+            DeviceProfile p = probe(app);
+            cached = p;
+            prefs(app).edit().putString("profile", encode(p)).apply();
+            return p;
+        }
         DeviceProfile p = cached;
         if (p != null) return p;
-        Context app = context == null ? null : context.getApplicationContext();
-        if (app != null) {
-            String stored = prefs(app).getString("profile", null);
-            if (stored != null) {
-                p = decode(stored);
-                if (p != null) {
-                    cached = p;
-                    return p;
-                }
-            }
-        }
         p = probe(app);
         cached = p;
         if (app != null) prefs(app).edit().putString("profile", encode(p)).apply();
@@ -100,6 +101,7 @@ final class DeviceProfile {
 
     static void invalidate(Context context) {
         cached = null;
+        probedWithContext = false;
         if (context != null) {
             prefs(context.getApplicationContext()).edit().remove("profile").apply();
         }
