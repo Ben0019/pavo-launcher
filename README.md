@@ -70,34 +70,16 @@ Without those variables it falls back to `keystore.jks` (created on first use).
 
 ## Install
 
-```bash
-export PATH=$HOME/.local/opt/platform-tools:$PATH
-adb install -r Aurora.apk
-```
+Install `Aurora.apk` on the device (or run `adb install -r Aurora.apk`), then set it as the
+home app:
 
-### Make Aurora the home app
+1. Open **Settings**.
+2. Go to **Apps**.
+3. Open **Default apps**.
+4. Tap **Home screen**.
+5. Choose **Aurora**.
 
-```bash
-adb shell cmd package set-home-activity com.ben.aurora/.MainActivity
-```
-
-### Revert to the stock launcher
-
-```bash
-adb shell cmd package set-home-activity com.android.launcher3/.uioverrides.QuickstepLauncher
-```
-
-### Enable the notification-shade gesture (optional)
-
-Either accept the prompt shown the first time you swipe down on the home, or:
-
-```bash
-adb shell settings put secure enabled_accessibility_services \
-    com.ben.aurora/com.ben.aurora.AuroraA11yService
-adb shell settings put secure accessibility_enabled 1
-```
-
-Disable it again in **Settings → Accessibility → Aurora**.
+To return to the stock launcher, repeat the steps and choose the stock launcher.
 
 ## Tested on
 
