@@ -1,0 +1,23 @@
+# build output
+build/
+Aurora.apk
+Aurora.apk.idsig
+
+# native binaries built by build.sh from native/*.c
+assets/aurora-remap
+assets/aurora-touchmap
+
+# signing material
+keystore.jks
+*.jks
+*.keystore
+
+# local IDE / machine files
+.idea/
+*.iml
+.DS_Store
+local.properties
+
+# internal agent notes and demo capture
+AGENTS.md
+health_demo.mp4

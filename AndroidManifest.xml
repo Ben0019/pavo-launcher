@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ben.aurora"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk
+        android:minSdkVersion="31"
+        android:targetSdkVersion="35" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:directBootAware="true"
+        android:enableOnBackInvokedCallback="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Aurora">
+
+        <activity
+            android:name=".MainActivity"
+            android:clearTaskOnLaunch="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".AuroraA11yService"
+            android:exported="true"
+            android:directBootAware="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service" />
+        </service>
+
+        <service
+            android:name=".PerfTuneService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="performance_tuning" />
+        </service>
+
+        <service
+            android:name=".PerfOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="performance_monitor_overlay" />
+        </service>
+
+        <service
+            android:name=".AuroraInputService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="controller_shortcuts" />
+        </service>
+
+        <service
+            android:name=".RgbService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="joystick_rgb_lighting" />
+        </service>
+
+        <service
+            android:name=".FanCurveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="fan_curve" />
+        </service>
+
+        <service
+            android:name=".PerAppFanService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="per_app_fan_profile" />
+        </service>
+
+        <service
+            android:name=".PerAppTuneService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="per_app_performance" />
+        </service>
+
+        <service
+            android:name=".BatteryGuardService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="battery_health_guard" />
+        </service>
+
+        <service
+            android:name=".TouchMapService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="controller_touch_mapping" />
+        </service>
+
+        <activity
+            android:name=".ControllerMapActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Controller Remapper"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.controllermap"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".PerfLogActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Performance Logs"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.perflogs"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".DisplayActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Display"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.display"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".RgbActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="RGB Lighting"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.rgb"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".FanActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Fan Control"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.fan"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".TouchMapperActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Touch Mapper"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.touchmapper"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".PerformanceTunerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Performance Tuner"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.tuner"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <receiver
+            android:name=".DeviceHealthBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name=".DeviceHealthActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Device Health"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.devicehealth"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+
+        <activity
+            android:name=".BenchmarkActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Stress Test"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.benchmark"
+            android:theme="@style/Theme.Aurora.Transparent" />
+        <activity
+            android:name=".ImageViewerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Image Viewer"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.files"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".VideoPlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Video Player"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.files"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".AudioPlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Audio Player"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.files"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".FileEditorActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Text Editor"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.files"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".ScreenRecorderActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Screen Recorder"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.screenrecorder"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <service
+            android:name=".ScreenRecorderService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|microphone"
+            android:stopWithTask="false" />
+
+        <activity
+            android:name=".FileManagerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="File Manager"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.files"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
+            android:name=".BenchmarkResultActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Stress Test Result"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.benchmark"
+            android:theme="@style/Theme.Aurora.Transparent" />
+        <activity
+            android:name=".PerfControlActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="fullSensor"
+            android:taskAffinity="com.ben.aurora.controls"
+            android:theme="@style/Theme.Aurora.Transparent" />
+        <provider
+            android:name=".AuroraFileProvider"
+            android:authorities="com.ben.aurora.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+    </application>
+</manifest>
