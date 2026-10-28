@@ -50,7 +50,7 @@ echo "==> link"
   --min-sdk-version 31 \
   --target-sdk-version 35 \
   --version-code 1 \
-  --version-name 1.0
+  --version-name 1.0.0
 
 echo "==> compile"
 javac -Xlint:-options -source 17 -target 17 \
