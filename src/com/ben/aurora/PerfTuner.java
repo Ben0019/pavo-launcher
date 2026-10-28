@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
  */
 final class PerfTuner {
 
-    static final String FAN_DIR = "/sys/class/gpio5_pwm2";
     static final int FAN_OFF = 0;
     static final int FAN_LOW = 1;
     static final int FAN_SMART = 4;
@@ -35,6 +34,7 @@ final class PerfTuner {
 
     static final class Cpu {
         int policy;
+        String path;
         String label;
         int cores;
         int floorMin;
@@ -85,8 +85,7 @@ final class PerfTuner {
 
     static State readState(Context context) {
         State s = new State();
-        s.efficiency = readCpu(0, "EFFICIENCY", 6, 384000);
-        s.performance = readCpu(6, "PERFORMANCE", 2, 1017600);
+        readCpus(s);
         s.gpu = readGpu();
         s.fan = readFan(context);
         s.performanceMode = Settings.System.getInt(context.getContentResolver(),
@@ -103,8 +102,7 @@ final class PerfTuner {
      */
     static State readStateLocal(Context context) {
         State s = new State();
-        s.efficiency = readCpu(0, "EFFICIENCY", 6, 384000);
-        s.performance = readCpu(6, "PERFORMANCE", 2, 1017600);
+        readCpus(s);
         s.gpu = readGpu();
         s.fan = readFanLocal(context);
         s.performanceMode = Settings.System.getInt(context.getContentResolver(),
@@ -123,8 +121,7 @@ final class PerfTuner {
 
     static State readStateForHold(Context context) {
         State s = new State();
-        s.efficiency = readCpu(0, "EFFICIENCY", 6, 384000);
-        s.performance = readCpu(6, "PERFORMANCE", 2, 1017600);
+        readCpus(s);
         s.gpu = readGpu();
         readTemps(s);
         s.root = Root.isReady();
@@ -137,13 +134,33 @@ final class PerfTuner {
         return new float[]{s.cpuTemp, s.gpuTemp};
     }
 
-    private static Cpu readCpu(int policy, String label, int cores, int floorMin) {
+    private static DeviceProfile profile() {
+        return DeviceProfile.get(null);
+    }
+
+    private static void readCpus(State s) {
+        DeviceProfile p = profile();
+        s.efficiency = readCpu(p.efficiency(), "EFFICIENCY");
+        s.performance = readCpu(p.performance(), "PERFORMANCE");
+    }
+
+    private static Cpu readCpu(DeviceProfile.Cluster cluster, String fallbackLabel) {
         Cpu c = new Cpu();
-        c.policy = policy;
-        c.label = label;
-        c.cores = cores;
-        c.floorMin = floorMin;
-        String base = "/sys/devices/system/cpu/cpufreq/policy" + policy;
+        String base;
+        if (cluster != null) {
+            c.path = cluster.path;
+            c.policy = -1;
+            c.label = cluster.label == null || cluster.label.isEmpty()
+                    ? fallbackLabel : cluster.label;
+            c.cores = cluster.cores();
+            c.floorMin = cluster.min > 0 ? cluster.min : 384000;
+            base = cluster.path;
+        } else {
+            c.label = fallbackLabel;
+            c.cores = 1;
+            c.floorMin = 384000;
+            base = "/sys/devices/system/cpu/cpufreq/policy0";
+        }
         c.freqs = readInts(base + "/scaling_available_frequencies");
         if (c.freqs.length == 0) {
             c.freqs = readInts(base + "/scaling_freq_table");
@@ -160,17 +177,34 @@ final class PerfTuner {
 
     private static Gpu readGpu() {
         Gpu g = new Gpu();
-        String base = "/sys/class/kgsl/kgsl-3d0";
-        g.freqs = readInts(base + "/devfreq/available_frequencies");
-        if (g.freqs.length == 0) g.freqs = readInts(base + "/gpu_available_frequencies");
-        Arrays.sort(g.freqs);
-        g.governors = readWords(base + "/devfreq/available_governors");
-        g.governor = readWord(base + "/devfreq/governor");
-        g.min = readInt(base + "/devfreq/min_freq");
-        g.max = readInt(base + "/devfreq/max_freq");
-        g.cur = readInt(base + "/devfreq/cur_freq");
+        DeviceProfile p = profile();
+        String base = p.gpuPath == null ? "" : p.gpuPath;
+        if (base.isEmpty()) return g;
+        if (p.kgsl) {
+            g.freqs = readInts(base + "/devfreq/available_frequencies");
+            if (g.freqs.length == 0) g.freqs = readInts(base + "/gpu_available_frequencies");
+            Arrays.sort(g.freqs);
+            g.governors = readWords(base + "/devfreq/available_governors");
+            g.governor = readWord(base + "/devfreq/governor");
+            g.min = readInt(base + "/devfreq/min_freq");
+            g.max = readInt(base + "/devfreq/max_freq");
+            g.cur = readInt(base + "/devfreq/cur_freq");
+        } else {
+            g.freqs = readInts(base + "/available_frequencies");
+            Arrays.sort(g.freqs);
+            g.governors = readWords(base + "/available_governors");
+            g.governor = readWord(base + "/governor");
+            g.min = readInt(base + "/min_freq");
+            g.max = readInt(base + "/max_freq");
+            g.cur = readInt(base + "/cur_freq");
+        }
         if (g.max <= 0 && g.freqs.length > 0) g.max = g.freqs[g.freqs.length - 1];
         return g;
+    }
+
+    private static String fanDir() {
+        String d = profile().fanDir;
+        return d == null ? "" : d;
     }
 
     private static Fan readFan(Context context) {
@@ -190,17 +224,20 @@ final class PerfTuner {
         ContentResolver cr = context.getContentResolver();
         f.mode = Settings.System.getInt(cr, "fan_mode", FAN_SMART);
         f.speedPref = Settings.System.getInt(cr, "fan_speed", 25000);
-        f.state = readInt(FAN_DIR + "/state");
-        f.duty = readInt(FAN_DIR + "/duty");
-        f.period = readInt(FAN_DIR + "/period");
-        f.rpm = readInt(FAN_DIR + "/speed");
+        String dir = fanDir();
+        f.state = readInt(dir + "/state");
+        f.duty = readInt(dir + "/duty");
+        f.period = readInt(dir + "/period");
+        f.rpm = readInt(dir + "/speed");
         return f;
     }
 
     private static int readFanInt(String name) {
-        int direct = readInt(FAN_DIR + "/" + name);
+        String dir = fanDir();
+        if (dir.isEmpty()) return 0;
+        int direct = readInt(dir + "/" + name);
         if (direct > 0) return direct;
-        String out = Root.run("cat " + FAN_DIR + "/" + name).trim();
+        String out = Root.run("cat " + dir + "/" + name).trim();
         return parseInt(out);
     }
 
@@ -212,11 +249,33 @@ final class PerfTuner {
     static boolean prepare() {
         boolean ok = Root.ensure();
         if (!ok) return false;
-        Root.write("for p in 0 6; do d=/sys/devices/system/cpu/cpufreq/policy$p; "
-                + "chmod 666 $d/scaling_max_freq $d/scaling_min_freq $d/scaling_governor; done");
-        Root.write("d=/sys/class/kgsl/kgsl-3d0; chmod 666 $d/max_gpuclk "
-                + "$d/devfreq/max_freq $d/devfreq/min_freq $d/devfreq/governor");
+        Root.write(chmodCpu());
+        Root.write(chmodGpu());
         return true;
+    }
+
+    private static String chmodCpu() {
+        StringBuilder b = new StringBuilder();
+        for (DeviceProfile.Cluster c : profile().clusters) {
+            if (b.length() > 0) b.append("; ");
+            b.append("chmod 666 ").append(c.path)
+                    .append("/scaling_max_freq ").append(c.path)
+                    .append("/scaling_min_freq ").append(c.path)
+                    .append("/scaling_governor");
+        }
+        return b.toString();
+    }
+
+    private static String chmodGpu() {
+        DeviceProfile p = profile();
+        if (p.gpuPath == null || p.gpuPath.isEmpty()) return "true";
+        if (p.kgsl) {
+            return "chmod 666 " + p.gpuPath + "/max_gpuclk " + p.gpuPath
+                    + "/devfreq/max_freq " + p.gpuPath + "/devfreq/min_freq "
+                    + p.gpuPath + "/devfreq/governor";
+        }
+        return "chmod 666 " + p.gpuPath + "/max_freq " + p.gpuPath
+                + "/min_freq " + p.gpuPath + "/governor";
     }
 
     /**
@@ -226,11 +285,11 @@ final class PerfTuner {
      */
     static boolean preparePServer() {
         if (!PServer.available()) return false;
-        PServer.run("for p in 0 6; do d=/sys/devices/system/cpu/cpufreq/policy$p; "
-                + "chmod 666 $d/scaling_max_freq $d/scaling_min_freq $d/scaling_governor; done");
-        PServer.run("chmod 666 /sys/class/kgsl/kgsl-3d0/max_gpuclk "
-                + "/sys/class/kgsl/kgsl-3d0/devfreq/max_freq "
-                + "/sys/class/kgsl/kgsl-3d0/devfreq/min_freq");
+        for (DeviceProfile.Cluster c : profile().clusters) {
+            PServer.run("chmod 666 " + c.path + "/scaling_max_freq "
+                    + c.path + "/scaling_min_freq " + c.path + "/scaling_governor");
+        }
+        PServer.run(chmodGpu());
         return true;
     }
 
@@ -254,10 +313,17 @@ final class PerfTuner {
         int lowest = g.freqs[0];
         min = Math.max(lowest, min);
         max = Math.max(min, max);
-        PServer.run("echo " + max + " > /sys/class/kgsl/kgsl-3d0/max_gpuclk");
-        PServer.run("echo " + lowest + " > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq");
-        PServer.run("echo " + max + " > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq");
-        PServer.run("echo " + min + " > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq");
+        DeviceProfile p = profile();
+        String d = p.gpuPath;
+        if (d == null || d.isEmpty()) return;
+        PServer.run("echo " + max + " > " + d
+                + (p.kgsl ? "/max_gpuclk" : "/max_freq"));
+        PServer.run("echo " + lowest + " > " + d + "/"
+                + (p.kgsl ? "devfreq/min_freq" : "min_freq"));
+        PServer.run("echo " + max + " > " + d + "/"
+                + (p.kgsl ? "devfreq/max_freq" : "max_freq"));
+        PServer.run("echo " + min + " > " + d + "/"
+                + (p.kgsl ? "devfreq/min_freq" : "min_freq"));
     }
 
     static void setFanModePServer(int mode) {
@@ -269,7 +335,7 @@ final class PerfTuner {
     /** Bench mode fan: manual 100% so the blower ramps immediately. */
     static void setFanManualPServer(int percent) {
         if (!PServer.available()) return;
-        int value = Math.max(10, Math.min(100, percent)) * 500;
+        int value = fanValue(percent);
         PServer.run("settings put system fan_mode " + FAN_MANUAL
                 + "; settings put global fan_mode " + FAN_MANUAL
                 + "; settings put system fan_speed " + value
@@ -301,14 +367,30 @@ final class PerfTuner {
 
     static void setGpu(Gpu g, int max, int min) {
         if (g == null || g.freqs.length == 0) return;
+        DeviceProfile p = profile();
+        String d = p.gpuPath;
+        if (d == null || d.isEmpty()) return;
         int lowest = g.freqs[0];
         min = Math.max(lowest, min);
         max = Math.max(min, max);
-        String d = "/sys/class/kgsl/kgsl-3d0";
-        Root.write("d=" + d + "; echo " + max + " >$d/max_gpuclk; "
-                + "echo " + lowest + " >$d/devfreq/min_freq; "
-                + "echo " + max + " >$d/devfreq/max_freq; "
-                + "echo " + min + " >$d/devfreq/min_freq");
+        if (p.kgsl) {
+            Root.write("d=" + d + "; echo " + max + " >$d/max_gpuclk; "
+                    + "echo " + lowest + " >$d/devfreq/min_freq; "
+                    + "echo " + max + " >$d/devfreq/max_freq; "
+                    + "echo " + min + " >$d/devfreq/min_freq");
+        } else {
+            Root.write("d=" + d + "; echo " + max + " >$d/max_freq; "
+                    + "echo " + lowest + " >$d/min_freq; "
+                    + "echo " + max + " >$d/max_freq; "
+                    + "echo " + min + " >$d/min_freq");
+        }
+    }
+
+    /** Duty value for a percentage on this device's fan controller. */
+    private static int fanValue(int percent) {
+        int period = profile().fanPeriod;
+        if (period <= 0) period = 50000;
+        return Math.max(1, Math.min(100, percent)) * period / 100;
     }
 
     static void setPerformanceMode(int mode) {
@@ -368,7 +450,7 @@ final class PerfTuner {
     }
 
     static void setFanManual(int percent) {
-        int value = Math.max(10, Math.min(100, percent)) * 500;
+        int value = fanValue(percent);
         Root.write("settings put system fan_mode " + FAN_MANUAL
                 + "; settings put global fan_mode " + FAN_MANUAL
                 + "; settings put system fan_speed " + value
@@ -390,6 +472,7 @@ final class PerfTuner {
     }
 
     private static String cpuPath(Cpu c) {
+        if (c.path != null && !c.path.isEmpty()) return c.path;
         return "/sys/devices/system/cpu/cpufreq/policy" + c.policy;
     }
 

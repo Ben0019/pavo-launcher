@@ -409,7 +409,8 @@ public final class DeviceHealthActivity extends AuroraGlassActivity {
         TextView title = text("DEVICE HEALTH", 12f, accent(), false);
         title.setLetterSpacing(0.15f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        TextView sub = text("ODIN 3  ·  BATTERY & POWER", 8.5f, MUTED, false);
+        TextView sub = text(DeviceProfile.get(this).name.toUpperCase()
+                + "  ·  BATTERY & POWER", 8.5f, MUTED, false);
         sub.setLetterSpacing(0.12f);
         titles.addView(title);
         titles.addView(sub);

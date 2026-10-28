@@ -25,7 +25,13 @@ final class ThermalSensors {
     private static final List<File> cpuFiles = new ArrayList<>();
     private static final List<File> fallbackCpuFiles = new ArrayList<>();
     private static final List<File> gpuFiles = new ArrayList<>();
-    private static final File KGSL_TEMP = new File("/sys/class/kgsl/kgsl-3d0/temp");
+    private static File kgslTemp() {
+        DeviceProfile p = DeviceProfile.get(null);
+        if (p.kgsl && p.gpuPath != null && !p.gpuPath.isEmpty()) {
+            return new File(p.gpuPath, "temp");
+        }
+        return new File("/sys/class/kgsl/kgsl-3d0/temp");
+    }
     private static boolean scanned;
 
     private ThermalSensors() {}
@@ -42,7 +48,7 @@ final class ThermalSensors {
 
     static float gpuTemp() {
         ensureScanned();
-        float best = readTemp(KGSL_TEMP);
+        float best = readTemp(kgslTemp());
         for (File f : gpuFiles) best = Math.max(best, readTemp(f));
         return best;
     }

@@ -997,6 +997,13 @@ public final class MainActivity extends Activity {
         if (prefs.controllerRemapEnabled()) ControllerRemapManager.ensureStarted(this);
         if (AuroraInputService.shouldRun(this)) AuroraInputService.ensureStarted(this);
         else AuroraInputService.stop(this);
+        DeviceProfile.get(this);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                DeviceProfile.refreshWithPServer(MainActivity.this);
+            }
+        }, "device-probe").start();
         if (new TuneStore(this).hasOverrides()) PerAppTuneService.start(this);
         // Re-arm the background fan control after an update, a reboot or a
         // process kill; otherwise the curve only comes back when Fan Control

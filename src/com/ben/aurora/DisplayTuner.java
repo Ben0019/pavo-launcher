@@ -84,11 +84,13 @@ final class DisplayTuner {
             }
         } catch (Throwable ignored) {
         }
+        int fallbackPeak = s.refreshRates.length == 0
+                ? 60 : s.refreshRates[s.refreshRates.length - 1];
         try {
             s.minRefresh = Settings.System.getInt(context.getContentResolver(),
                     "min_refresh_rate", 0);
             s.peakRefresh = Settings.System.getInt(context.getContentResolver(),
-                    "peak_refresh_rate", 120);
+                    "peak_refresh_rate", fallbackPeak);
         } catch (Throwable ignored) {
         }
         try {

@@ -507,7 +507,8 @@ public final class FanActivity extends AuroraGlassActivity {
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
         info.setPadding(dp(2), 0, dp(2), dp(2));
-        TextView rear = text("ODIN 3  ·  REAR", 10.5f, accent, true);
+        TextView rear = text(DeviceProfile.get(this).name.toUpperCase()
+                + "  ·  REAR", 10.5f, accent, true);
         rear.setLetterSpacing(0.12f);
         rear.setGravity(Gravity.END);
         info.addView(rear);
@@ -792,7 +793,8 @@ public final class FanActivity extends AuroraGlassActivity {
         title.setGravity(Gravity.CENTER);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView sub = text("ODIN 3  ·  ACTIVE COOLING", 10f, MUTED, false);
+        TextView sub = text(DeviceProfile.get(this).name.toUpperCase()
+                + "  ·  ACTIVE COOLING", 10f, MUTED, false);
         sub.setGravity(Gravity.CENTER);
         sub.setPadding(0, dp(3), 0, 0);
         titles.addView(sub, new LinearLayout.LayoutParams(

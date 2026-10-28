@@ -260,7 +260,8 @@ final class BatteryPackView extends View {
 
         textPaint.setTextSize(dp(7.4f));
         textPaint.setColor(0x77FFFFFF);
-        canvas.drawText("ODIN 3  ·  " + Math.max(0, targetLevel) + "%",
+        canvas.drawText(DeviceProfile.get(getContext()).name.toUpperCase()
+                + "  ·  " + Math.max(0, targetLevel) + "%",
                 body.left + dp(8f), body.top + dp(15f), textPaint);
 
         if (separated) {

@@ -154,7 +154,9 @@ final class PerfSampler {
     }
 
     private void readGpu(PerfStats s) {
-        File kgsl = new File("/sys/class/kgsl/kgsl-3d0");
+        DeviceProfile profile = DeviceProfile.get(null);
+        File kgsl = profile.kgsl && profile.gpuPath != null && !profile.gpuPath.isEmpty()
+                ? new File(profile.gpuPath) : new File("/sys/class/kgsl/kgsl-3d0");
         long hz = readLong(new File(kgsl, "gpuclk"));
         long max = readLong(new File(kgsl, "max_gpuclk"));
         int busy = -1;

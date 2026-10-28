@@ -354,7 +354,7 @@ final class ThermalBoardView extends View {
             float x = 400 + i * 18;
             c.drawLine(x, 160, x + 7, 167, detail);
         }
-        c.drawText("ODIN 3", 466, 184, smallText);
+        c.drawText(DeviceProfile.get(getContext()).name.toUpperCase(), 466, 184, smallText);
     }
 
     private void drawChips(Canvas c) {

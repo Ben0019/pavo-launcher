@@ -599,6 +599,7 @@ final class AppDrawerOverlayView extends FrameLayout {
 
     private List<Apps.Entry> builtinEntries(int px) {
         List<Apps.Entry> out = new ArrayList<>();
+        DeviceProfile profile = DeviceProfile.get(context);
         int accent = ColorTuning.colour(accent());
         Apps.Entry tuner = new Apps.Entry(Loc.s(context, "Performance Tuner"), PERF_TUNER_PKG, "");
         tuner.icon = Apps.performanceTunerIcon(px, accent);
@@ -612,12 +613,16 @@ final class AppDrawerOverlayView extends FrameLayout {
         Apps.Entry controller = new Apps.Entry(Loc.s(context, "Controller Remapper"), CONTROLLER_PKG, "");
         controller.icon = Apps.controllerMapIcon(px, accent);
         out.add(controller);
-        Apps.Entry rgb = new Apps.Entry(Loc.s(context, "RGB Lighting"), RGB_PKG, "");
-        rgb.icon = Apps.rgbIcon(px, accent);
-        out.add(rgb);
-        Apps.Entry fan = new Apps.Entry(Loc.s(context, "Fan Control"), FAN_PKG, "");
-        fan.icon = Apps.fanIcon(px, accent);
-        out.add(fan);
+        if (profile.rgb) {
+            Apps.Entry rgb = new Apps.Entry(Loc.s(context, "RGB Lighting"), RGB_PKG, "");
+            rgb.icon = Apps.rgbIcon(px, accent);
+            out.add(rgb);
+        }
+        if (profile.fanControl) {
+            Apps.Entry fan = new Apps.Entry(Loc.s(context, "Fan Control"), FAN_PKG, "");
+            fan.icon = Apps.fanIcon(px, accent);
+            out.add(fan);
+        }
         Apps.Entry touchMap = new Apps.Entry(Loc.s(context, "Touch Mapper"), TOUCH_MAP_PKG, "");
         touchMap.icon = Apps.touchMapperIcon(px, accent);
         out.add(touchMap);

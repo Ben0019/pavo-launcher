@@ -401,8 +401,15 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         bottomLp.topMargin = dp(7);
         body.addView(bottomRow, bottomLp);
 
-        efficiencyCard = new CpuCard(topRow, 0, "EFFICIENCY", "6 cores · C0–C5");
-        performanceCard = new CpuCard(bottomRow, 6, "PERFORMANCE", "2 cores · C6–C7");
+        DeviceProfile profile = DeviceProfile.get(this);
+        DeviceProfile.Cluster eff = profile.efficiency();
+        DeviceProfile.Cluster perf = profile.performance();
+        efficiencyCard = new CpuCard(topRow, 0,
+                eff == null || eff.label.isEmpty() ? "EFFICIENCY" : eff.label,
+                clusterLabel(eff));
+        performanceCard = new CpuCard(bottomRow, 0,
+                perf == null || perf.label.isEmpty() ? "PERFORMANCE" : perf.label,
+                clusterLabel(perf));
         thermalCard(topRow);
         gpuCard = new GpuCard(bottomRow);
 
@@ -443,7 +450,8 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
                 11, 19, 1, TypedValue.COMPLEX_UNIT_SP);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView subtitle = text("ODIN 3  ·  CPU / GPU / THERMALS", 9.5f, MUTED, false);
+        TextView subtitle = text(DeviceProfile.get(this).name.toUpperCase()
+                + "  ·  CPU / GPU / THERMALS", 9.5f, MUTED, false);
         subtitle.setLetterSpacing(0.13f);
         subtitle.setGravity(Gravity.CENTER);
         subtitle.setSingleLine(true);
@@ -917,7 +925,7 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         rootStatus = text("CHECKING ROOT…", 11f, AMBER, true);
         rootStatus.setPadding(0, dp(3), 0, 0);
         card.addView(rootStatus);
-        modeStatus = text("ODIN MODE —", 10f, MUTED, false);
+        modeStatus = text("MODE —", 10f, MUTED, false);
         modeStatus.setPadding(0, dp(3), 0, 0);
         card.addView(modeStatus);
         TextView hint = text("Tuning reset on reboot. Values are limited to the "
@@ -943,7 +951,7 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         footer.addView(hints, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        modeStatus = text("ODIN MODE —", 8.5f, 0x88FFFFFF, false);
+        modeStatus = text("MODE —", 8.5f, 0x88FFFFFF, false);
         modeStatus.setLetterSpacing(0.06f);
         LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -1031,6 +1039,15 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
     // ------------------------------------------------------------------
     // CPU card
     // ------------------------------------------------------------------
+
+    private static String clusterLabel(DeviceProfile.Cluster c) {
+        if (c == null) return "";
+        int n = c.cores();
+        String range = c.cpus.length > 0
+                ? "C" + c.cpus[0] + "–C" + c.cpus[c.cpus.length - 1] : "";
+        return n + " core" + (n == 1 ? "" : "s")
+                + (range.isEmpty() ? "" : " · " + range);
+    }
 
     private final class CpuCard {
         final int cluster;
@@ -1465,8 +1482,9 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
             }
         }
         if (modeStatus != null) {
-            modeStatus.setText("ODIN MODE " + cfg.performanceMode
-                    + "  ·  min " + ghz(cfg.p0Min) + " / " + ghz(cfg.p6Min));
+            String min = "min " + ghz(cfg.p0Min) + " / " + ghz(cfg.p6Min);
+            modeStatus.setText(DeviceProfile.get(this).performanceModes
+                    ? "MODE " + cfg.performanceMode + "  ·  " + min : min);
         }
         if (updateRoot) setRootState(snapshot.root);
     }

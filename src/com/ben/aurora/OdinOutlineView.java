@@ -165,7 +165,7 @@ final class OdinOutlineView extends View implements SensorEventListener {
                 }
             }
         });
-        setContentDescription("Odin 3 controller layout");
+        setContentDescription(DeviceProfile.get(getContext()).name + " controller layout");
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         setCameraDistance(16000f * getResources().getDisplayMetrics().density);
     }
@@ -769,7 +769,8 @@ final class OdinOutlineView extends View implements SensorEventListener {
         c.drawText("AYN", 180f, 139f, text);
         text.setTextSize(3.6f);
         text.setColor(0x668EC8EA);
-        c.drawText("TRANSPARENT BLUE  ·  ODIN 3", 180f, 146f, text);
+        c.drawText("TRANSPARENT BLUE  ·  "
+                + DeviceProfile.get(getContext()).name.toUpperCase(), 180f, 146f, text);
     }
 
     private void drawBackVent(Canvas c, float x, float y, float w, float h) {

@@ -385,7 +385,7 @@ final class FanBackView extends View {
         c.drawLine(91, 101, 164, 101, detail);
         c.drawLine(91, 113, 130, 113, detail);
         c.drawText("8000mAh", 94, 66, text);
-        c.drawText("ODIN 3", 94, 126, text);
+        c.drawText(DeviceProfile.get(getContext()).name.toUpperCase(), 94, 126, text);
         Paint wire = new Paint(Paint.ANTI_ALIAS_FLAG);
         wire.setStyle(Paint.Style.STROKE);
         wire.setStrokeWidth(1.2f);

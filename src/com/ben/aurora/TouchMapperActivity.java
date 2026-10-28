@@ -330,7 +330,8 @@ public final class TouchMapperActivity extends AuroraGlassActivity {
         title.setGravity(Gravity.CENTER);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView subtitle = text("ODIN 3  ·  CONTROLLER TO ON-SCREEN TOUCH", 9.5f, MUTED, false);
+        TextView subtitle = text(DeviceProfile.get(this).name.toUpperCase()
+                + "  ·  CONTROLLER TO ON-SCREEN TOUCH", 9.5f, MUTED, false);
         subtitle.setLetterSpacing(0.13f);
         subtitle.setGravity(Gravity.CENTER);
         subtitle.setPadding(0, dp(2), 0, 0);
