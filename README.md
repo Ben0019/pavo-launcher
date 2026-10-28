@@ -128,67 +128,6 @@ The result is cached for 30 minutes and refreshed on resume, every 30 minutes, b
 weather line, or via **Settings → Refresh weather now**. Only the coordinates are sent to the
 weather service; if all providers fail the cached reading stays on screen.
 
-## Project layout
-
-```text
-AndroidManifest.xml              package/orientation/HOME intent filter, a11y service
-build.sh                         manual aapt2/javac/d8/apksigner build
-res/                             drawables, strings, theme, a11y config, device wallpaper
-src/com/ben/aurora/
-  MainActivity.java              desktop, header, dock, drawer, folders, menus, dialogs, gestures
-  Pager.java                     horizontal snapping page pager
-  GridPage.java                  one home page: multi-widget/cell layout and drop highlight
-  ItemView.java                  icon + label cell with tap / long-press / drag handling
-  Store.java                     persisted pages, dock, AppWidgets and per-app overrides (JSON)
-  Item.java                      desktop item model (app / web shortcut / folder)
-  IconPack.java                  appfilter.xml/drawable.xml catalogue + themed bitmap resolver
-  WidgetFrame.java               long-press edit takeover and drag wrapper for AppWidgets
-  WallpaperView.java             wallpaper sources (device/custom/aurora/video), grain, blur, scrim
-  DockView.java                  clear-glass dock (BitmapShader, built-in shades, specular, noise)
-  GlassPanel.java                shared clear/frosted glass card (backdrop sample + built-in recipe)
-  Motion.java                    shared springy scale/pop helpers for cards and dialogs
-  DrawerScrimView.java           full-screen dim with a rounded cut-out behind the drawer card
-  MagicLampView.java             macOS genie mesh warp for drawers, menus and settings submenus
-  ScreenCaptureBackdrop.java     fast raw screencap -> quarter-res blur for the floating card
-  LiquidGlass.java               Apple-style refracting rim + specular + inner shadow pass
-  Backdrop.java                  live blurred screen snapshot sampled by the glass surfaces
-  Menu.java                      anchored popup menu
-  Weather.java                   Open-Meteo + device/IP location, WMO condition mapping
-  Apps.java                      launcher app query/dedupe, icons, folder previews, app-info
-  SysStats.java                  /proc/stat CPU load + TrafficStats throughput
-  AuroraA11yService.java         optional global-action helper (notification drawer)
-  Blur.java                      box blur
-  IconView.java                  icon rendering helper (legacy drawer cell)
-  BatteryGlyph.java              battery pill glyph
-  HeaderStatusGlyph.java         Bluetooth and notification-sound header glyphs
-  FanActivity.java               built-in fan presets, curve editor and live rear fan model
-  FanProfile.java                fan-only profile encoding for global/per-app contexts
-  FanProfileStore.java           persisted per-app fan overrides
-  PerAppFanService.java          foreground watcher applying per-app/global fan profiles
-  FanCurve.java                  fan curve parsing and temperature interpolation
-  FanCurveView.java              draggable temperature-to-duty graph
-  FanBackView.java               animated rear chassis, fan blades and airflow
-  ThermalBoardView.java          CPU/RAM mainboard outline for the tuner thermal card
-  FanCurveService.java           foreground service applying the curve from peak temperature
-  RgbActivity.java               built-in RGB Lighting colour wheel, live joystick previews, modes
-  RgbControl.java                SN3112 joystick LED sysfs transport (PServer/direct)
-  RgbService.java                foreground service for animated and screen-follow modes
-  ColorWheelView.java            touch HSV colour wheel with saturation radius
-  JoystickPreviewView.java       outlined joystick with live axes and RGB ring
-  ScreenAmbient.java             PServer raw-screencap dominant-colour sampler
-  ControllerMapActivity.java     controller remapping / turbo / combination editor
-  OdinOutlineView.java           live Odin face/control outline with pressed-state glow
-  ControllerMapConfig.java       remap profile and Odin evdev button catalogue
-  ControllerRemapManager.java    selects/starts root or rootless remapping
-  RootlessRemap.java             accessibility key filter + Java mapping/turbo/combo engine
-  RootlessUinput.java            app-UID /system/bin/uinput virtual controller helper
-  ../native/aurora-remap.c       evdev grab + uinput virtual-controller daemon
-  ColorWheel.java                HSV/RGB colour wheel used by the clock/date picker
-  WeatherGlyph.java              self-drawn weather condition icon
-  Prefs.java                     persisted settings
-  Ui.java                        dp/rounded-drawable helpers
-```
-
 ## Roadmap
 
 The core launcher is feature-complete. Possible future work:
