@@ -425,7 +425,11 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
     }
 
     private View buildHeader() {
-        FrameLayout header = new FrameLayout(this);
+        // Horizontal row so the centred title can never be covered by the
+        // status chips: the title takes the space the two side groups leave.
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
 
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
@@ -434,24 +438,24 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         title.setLetterSpacing(0.05f);
         title.setGravity(Gravity.CENTER);
+        title.setSingleLine(true);
+        title.setAutoSizeTextTypeUniformWithConfiguration(
+                11, 19, 1, TypedValue.COMPLEX_UNIT_SP);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         TextView subtitle = text("ODIN 3  ·  CPU / GPU / THERMALS", 9.5f, MUTED, false);
         subtitle.setLetterSpacing(0.13f);
         subtitle.setGravity(Gravity.CENTER);
+        subtitle.setSingleLine(true);
         subtitle.setPadding(0, dp(2), 0, 0);
         titles.addView(subtitle, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        header.addView(titles, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout leftControls = new LinearLayout(this);
         leftControls.setOrientation(LinearLayout.HORIZONTAL);
         leftControls.setGravity(Gravity.CENTER_VERTICAL);
-        FrameLayout.LayoutParams leftLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.START | Gravity.CENTER_VERTICAL);
-        header.addView(leftControls, leftLp);
+        header.addView(leftControls, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         appSelector = new LinearLayout(this);
         appSelector.setOrientation(LinearLayout.HORIZONTAL);
@@ -501,13 +505,17 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         addFocusable(resetAppChip, true);
         headerFocus.add(resetAppChip);
 
+        LinearLayout.LayoutParams titlesLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        titlesLp.leftMargin = dp(12);
+        titlesLp.rightMargin = dp(12);
+        header.addView(titles, titlesLp);
+
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.HORIZONTAL);
         controls.setGravity(Gravity.CENTER_VERTICAL);
-        FrameLayout.LayoutParams controlsLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.END | Gravity.CENTER_VERTICAL);
-        header.addView(controls, controlsLp);
+        header.addView(controls, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         profileStatus = text("READING…", 9.5f, accent, true);
         profileStatus.setLetterSpacing(0.12f);

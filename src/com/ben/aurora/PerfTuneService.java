@@ -152,19 +152,22 @@ public final class PerfTuneService extends Service {
         if (Math.max(temps[0], temps[1]) >= THERMAL_LIMIT_C) {
             return new boolean[]{true};
         }
-        PerfTuner.Root.ensure();
-        PerfTuner.State state = PerfTuner.readStateForHold(this);
-        int p0Max = prefs.tuneP0Max();
-        int p6Max = prefs.tuneP6Max();
-        int gpuMax = prefs.tuneGpuMax();
-        if (p0Max <= 0 || p6Max <= 0 || gpuMax <= 0) {
+        // The per-app watcher already owns the clocks whenever it is active.
+        if (PerAppTuneService.isRunning()) {
             return new boolean[]{false};
         }
-        PerfTuner.setCpu(state.efficiency, p0Max, prefs.tuneP0Min(),
-                prefs.tuneP0Gov());
-        PerfTuner.setCpu(state.performance, p6Max, prefs.tuneP6Min(),
-                prefs.tuneP6Gov());
-        PerfTuner.setGpu(state.gpu, gpuMax, prefs.tuneGpuMin());
+        TuneConfig cfg = new TuneStore(this).global();
+        if (cfg == null) {
+            return new boolean[]{false};
+        }
+        PerfTuner.Root.ensure();
+        PerfTuner.State state = PerfTuner.readStateForHold(this);
+        if (PerfTuner.readPerformanceMode(this) != cfg.performanceMode) {
+            PerfTuner.setPerformanceMode(cfg.performanceMode);
+        }
+        PerfTuner.setCpu(state.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
+        PerfTuner.setCpu(state.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
+        PerfTuner.setGpu(state.gpu, cfg.gpuMax, cfg.gpuMin);
         return new boolean[]{false};
     }
 
