@@ -99,89 +99,11 @@ adb shell settings put secure accessibility_enabled 1
 
 Disable it again in **Settings → Accessibility → Aurora**.
 
-## Configuration
-
-### Wallpaper
-
-On the Odin 3 the stock wallpaper is the framework default particle image
-(`framework-res` → `drawable-nodpi/default_wallpaper.png`, 1920×1080). The system never writes
-it to `/data/system/users/0/wallpaper`, so a normal app calling `WallpaperManager.getDrawable()`
-only receives an Android-14+ *colour-extracted gradient* fallback — not the real wallpaper.
-Aurora ships a copy (`res/drawable-nodpi/device_wallpaper.png`, 284 KB) and uses it as the
-default backdrop so the home screen matches the lock screen.
-
-Change it at any time with **Settings → Change wallpaper**: choose a still, a video from
-`Movies/Aurora Wallpapers`, an installed live wallpaper, or one of the recent history tiles.
-Custom images and video frames also set the Android wallpaper.
-
-### Weather
-
-The clock widget shows the current temperature and WMO condition. Data comes from
-[Open-Meteo](https://open-meteo.com/) (free, no API key). Location resolution:
-
-1. If **Use device location** is enabled and coarse-location permission is granted, Aurora asks
-   the network provider for a fix (last-known first, then a single current-location request).
-2. Otherwise it resolves an approximate location from the IP (`ipapi.co`, falling back to
-   `ipwho.is`).
-
-The result is cached for 30 minutes and refreshed on resume, every 30 minutes, by tapping the
-weather line, or via **Settings → Refresh weather now**. Only the coordinates are sent to the
-weather service; if all providers fail the cached reading stays on screen.
-
-## Roadmap
-
-The core launcher is feature-complete. Possible future work:
-
-1. **Widget reconfiguration** — re-open a provider's configure activity for an existing widget
-   (currently configuration runs when the widget is first added).
-2. **Icon-pack fallbacks** — support `iconback`/`iconmask` for apps missing from a pack's
-   `appfilter.xml` (mapped icons already work).
-3. **Quickstep integration** — the private-API route for the genuine Pixel close animation.
-
-## Known limitations
-
-### Animation
-
-The opening animation uses the platform scale-up transition from the tapped icon. The closing /
-go-home animation is owned by the system Shell, not by third-party launchers (Android exposes
-only a gesture contract), so Aurora settles the desktop back in when it resumes without dimming
-or a flash.
-
-### Pixel close animation
-
-This is a Quickstep/Shell feature, not a normal launcher API. A launcher only gets it when it is
-the system's **recents/Quickstep provider** and implements Launcher3's `RemoteAnimationRunner` /
-`GestureNavContract` interfaces. That is why only Launcher3-derived launchers can use the
-**QuickSwitch** Magisk/KernelSU module to enable it.
-
-| Option | Gets the real Pixel close animation? |
-| --- | --- |
-| Aurora as-is | No — open animation only (platform scale-up) |
-| Magisk/KernelSU module that systemizes Aurora | No — the Quickstep contract is still missing |
-| **QuickSwitch** + a Launcher3-based launcher (Lawnchair) | **Yes** — the launcher becomes the system Quickstep/recents provider |
-| Port Aurora onto Launcher3's Quickstep interfaces + systemize + set as recents provider | Yes in principle, but a large private-API port that must be redone per Android release |
-
-The practical rooted route is **Lawnchair + QuickSwitch** (or another Launcher3-based launcher).
-Aurora cannot be selected there because it does not implement the Quickstep provider.
-
-### Other
-
-- The bundled device wallpaper does not follow later wallpaper changes; use
-  **Settings → Change wallpaper** instead.
-- Settings and layout persist in `SharedPreferences("aurora")`; **Reset style** returns the
-  appearance to defaults but keeps your layout and per-app customisations.
-- Weather needs internet. Device location or IP geolocation is used; the latter is city-level
-  and can be wrong behind a VPN.
-- The clock/date/weather block is a built-in grid widget. Third-party widgets still need their
-  provider's service if it requires one.
-- Device-specific: relies on `sensorLandscape` and the Odin 3's 1920×1080 panel. It runs on
-  other Android 12+ devices, but the layout is tuned for this screen.
-
 ## Tested on
 
 | | |
 | --- | --- |
-| Device | AYN Odin 3 (`NX789J`) |
+| Device | AYN Odin 3 |
 | OS | Android 15 (SDK 35) |
 | Build | `Odin3_V1.0.0.187_20260616_193307_user` |
 | SoC | Snapdragon 8 Elite / Adreno 830 |
