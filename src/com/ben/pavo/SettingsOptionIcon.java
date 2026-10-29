@@ -58,6 +58,7 @@ final class SettingsOptionIcon extends View {
             case "Transparency": drawTransparency(canvas, s); break;
             case "Builtins": drawControls(canvas, s); break;
             case "Menus": drawTransparency(canvas, s); break;
+            case "Glass": drawTransparency(canvas, s); break;
             case "Home": drawHome(canvas, s); break;
             case "Colors": drawColors(canvas, s); break;
             case "Gestures": drawGestures(canvas, s); break;

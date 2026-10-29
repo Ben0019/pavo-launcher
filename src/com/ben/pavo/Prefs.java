@@ -323,6 +323,16 @@ final class Prefs {
     int folderBackdropDarkness() { return clamp(sp.getInt("folder_darkness", 50), 0, 100); }
     void setFolderBackdropDarkness(int v) { sp.edit().putInt("folder_darkness", clamp(v, 0, 100)).apply(); }
 
+    int popupDrawerSaturation() { return clamp(sp.getInt("popup_drawer_saturation", 150), 0, 200); }
+    void setPopupDrawerSaturation(int v) { sp.edit().putInt("popup_drawer_saturation", clamp(v, 0, 200)).apply(); }
+    int popupDrawerBackdropDarkness() { return clamp(sp.getInt("popup_drawer_darkness", 50), 0, 100); }
+    void setPopupDrawerBackdropDarkness(int v) { sp.edit().putInt("popup_drawer_darkness", clamp(v, 0, 100)).apply(); }
+
+    int settingsSaturation() { return clamp(sp.getInt("settings_saturation", 150), 0, 200); }
+    void setSettingsSaturation(int v) { sp.edit().putInt("settings_saturation", clamp(v, 0, 200)).apply(); }
+    int settingsBackdropDarkness() { return clamp(sp.getInt("settings_darkness", 50), 0, 100); }
+    void setSettingsBackdropDarkness(int v) { sp.edit().putInt("settings_darkness", clamp(v, 0, 100)).apply(); }
+
     int menuSaturation() { return clamp(sp.getInt("menu_saturation", 150), 0, 200); }
     void setMenuSaturation(int v) { sp.edit().putInt("menu_saturation", clamp(v, 0, 200)).apply(); }
     int menuBackdropDarkness() { return clamp(sp.getInt("menu_darkness", 50), 0, 100); }

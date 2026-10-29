@@ -870,6 +870,9 @@ public final class MainActivity extends Activity {
     private boolean justCreatedFolder;
     private String lastFolderKey;
     private float dropFraction = 0.5f;
+    private int glassSurface;
+    private TextView[] glassChips;
+    private SeekBar[] glassBars;
 
     private final Runnable emptyLongPress = new Runnable() {
         @Override
@@ -9656,6 +9659,145 @@ public final class MainActivity extends Activity {
         applyDrawerSurfaceTransparency();
     }
 
+    private int[] GLASS_MINS = {20, 0, 0};
+
+    private int glassValue(int surface, int kind) {
+        switch (surface) {
+            case 0:
+                return kind == 0 ? prefs.dockTransparency()
+                        : kind == 1 ? prefs.dockSaturation() : prefs.dockBackdropDarkness();
+            case 1:
+                return kind == 0 ? prefs.appDrawerTransparency()
+                        : kind == 1 ? prefs.drawerSaturation() : prefs.drawerBackdropDarkness();
+            case 2:
+                return kind == 0 ? prefs.popupDrawerTransparency()
+                        : kind == 1 ? prefs.popupDrawerSaturation()
+                        : prefs.popupDrawerBackdropDarkness();
+            case 3:
+                return kind == 0 ? prefs.folderTransparency()
+                        : kind == 1 ? prefs.folderSaturation() : prefs.folderBackdropDarkness();
+            case 4:
+                return kind == 0 ? prefs.menuTransparency()
+                        : kind == 1 ? prefs.menuSaturation() : prefs.menuBackdropDarkness();
+            case 5:
+                return kind == 0 ? prefs.settingsTransparency()
+                        : kind == 1 ? prefs.settingsSaturation()
+                        : prefs.settingsBackdropDarkness();
+            default:
+                return kind == 0 ? prefs.builtinTransparency()
+                        : kind == 1 ? prefs.builtinSaturation()
+                        : prefs.builtinBackdropDarkness();
+        }
+    }
+
+    private void setGlassValue(int surface, int kind, int value) {
+        switch (surface) {
+            case 0:
+                if (kind == 0) {
+                    prefs.setDockTransparency(value);
+                    if (dock != null) dock.setSurfaceAlpha(value / 100f);
+                } else if (kind == 1) {
+                    prefs.setDockSaturation(value);
+                    applyDockGlassTuning();
+                } else {
+                    prefs.setDockBackdropDarkness(value);
+                    applyDockGlassTuning();
+                }
+                break;
+            case 1:
+                if (kind == 0) {
+                    prefs.setAppDrawerTransparency(value);
+                    applyDrawerSurfaceTransparency();
+                } else if (kind == 1) {
+                    prefs.setDrawerSaturation(value);
+                    applyDrawerGlassTuning();
+                } else {
+                    prefs.setDrawerBackdropDarkness(value);
+                    applyDrawerGlassTuning();
+                }
+                break;
+            case 2:
+                if (kind == 0) {
+                    prefs.setPopupDrawerTransparency(value);
+                    applyDrawerSurfaceTransparency();
+                } else if (kind == 1) {
+                    prefs.setPopupDrawerSaturation(value);
+                } else {
+                    prefs.setPopupDrawerBackdropDarkness(value);
+                }
+                break;
+            case 3:
+                if (kind == 0) {
+                    prefs.setFolderTransparency(value);
+                    if (folderGlass != null) folderGlass.setSurfaceAlpha(value / 100f);
+                    renderHome();
+                } else if (kind == 1) {
+                    prefs.setFolderSaturation(value);
+                    applyFolderGlassTuning();
+                } else {
+                    prefs.setFolderBackdropDarkness(value);
+                    applyFolderGlassTuning();
+                }
+                break;
+            case 4:
+                if (kind == 0) {
+                    prefs.setMenuTransparency(value);
+                } else if (kind == 1) {
+                    prefs.setMenuSaturation(value);
+                } else {
+                    prefs.setMenuBackdropDarkness(value);
+                }
+                break;
+            case 5:
+                if (kind == 0) {
+                    prefs.setSettingsTransparency(value);
+                    if (settingsGlass != null) settingsGlass.setSurfaceAlpha(value / 100f);
+                    if (settingsSubmenuGlass != null) {
+                        settingsSubmenuGlass.setSurfaceAlpha(value / 100f);
+                    }
+                } else if (kind == 1) {
+                    prefs.setSettingsSaturation(value);
+                    applySettingsGlassTuning();
+                } else {
+                    prefs.setSettingsBackdropDarkness(value);
+                    applySettingsGlassTuning();
+                }
+                break;
+            default:
+                if (kind == 0) {
+                    prefs.setBuiltinTransparency(value);
+                } else if (kind == 1) {
+                    prefs.setBuiltinSaturation(value);
+                } else {
+                    prefs.setBuiltinBackdropDarkness(value);
+                }
+                break;
+        }
+    }
+
+    private void selectGlassSurface(int index) {
+        glassSurface = index;
+        if (glassChips != null) {
+            for (int i = 0; i < glassChips.length; i++) {
+                styleGlassChip(glassChips[i], i == index);
+            }
+        }
+        if (glassBars == null) return;
+        for (int kind = 0; kind < glassBars.length; kind++) {
+            if (glassBars[kind] != null) {
+                glassBars[kind].setProgress(Math.max(0, glassValue(index, kind)
+                        - GLASS_MINS[kind]));
+            }
+        }
+    }
+
+    private void styleGlassChip(TextView chip, boolean selected) {
+        if (chip == null) return;
+        chip.setTextColor(selected ? 0xFF10131A : 0xF2FFFFFF);
+        chip.setBackground(Ui.rounded(selected ? wallpaper.accent() : 0x22FFFFFF,
+                Ui.dpf(this, 12), 0x33FFFFFF, Ui.dpf(this, 1)));
+    }
+
     private void applyDockGlassTuning() {
         if (dock != null) {
             dock.setGlassTuning(prefs.dockSaturation() / 100f,
@@ -9680,9 +9822,9 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void applyMenuGlassTuning() {
-        float saturation = prefs.menuSaturation() / 100f;
-        float darkness = prefs.menuBackdropDarkness() / 100f;
+    private void applySettingsGlassTuning() {
+        float saturation = prefs.settingsSaturation() / 100f;
+        float darkness = prefs.settingsBackdropDarkness() / 100f;
         if (settingsGlass != null) {
             settingsGlass.setBackdropSaturation(saturation);
             settingsGlass.setBackdropDarkness(darkness);
@@ -13192,8 +13334,7 @@ public final class MainActivity extends Activity {
         switch (key) {
             case "Dock": return 0xFF00C2FF;
             case "Transparency": return 0xFF00E6A8;
-            case "Builtins": return 0xFF00E6A8;
-            case "Menus": return 0xFF6EE7FF;
+            case "Glass": return 0xFF00E6A8;
             case "Home": return 0xFFFF8A00;
             case "Display": return 0xFFFFC857;
             case "Colors": return 0xFFFF6FD8;
@@ -13306,8 +13447,8 @@ public final class MainActivity extends Activity {
 
         settingsSubmenuGlass = new GlassPanel(this, settingsBackdrop,
                 wallpaper.accent(), 0x330B0E14, 22, true);
-        settingsSubmenuGlass.setBackdropSaturation(prefs.menuSaturation() / 100f);
-        settingsSubmenuGlass.setBackdropDarkness(prefs.menuBackdropDarkness() / 100f);
+        settingsSubmenuGlass.setBackdropSaturation(prefs.settingsSaturation() / 100f);
+        settingsSubmenuGlass.setBackdropDarkness(prefs.settingsBackdropDarkness() / 100f);
         settingsSubmenuGlass.setClearGlass(true);
         settingsSubmenuGlass.setClearBodyAlpha(0x40);
         settingsSubmenuGlass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
@@ -13917,30 +14058,6 @@ public final class MainActivity extends Activity {
                 dock.refreshStyle();
             }
         });
-        addSlider(panel, "Dock transparency", 20, 100, prefs.dockTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setDockTransparency(value);
-                if (dock != null) dock.setSurfaceAlpha(value / 100f);
-            }
-        });
-        addSlider(panel, "Saturation", 0, 200, prefs.dockSaturation(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setDockSaturation(value);
-                applyDockGlassTuning();
-            }
-        });
-        addSlider(panel, "Darkening", 0, 100, prefs.dockBackdropDarkness(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setDockBackdropDarkness(value);
-                applyDockGlassTuning();
-            }
-        });
         addSlider(panel, "Corner radius", 8, 40, prefs.cornerDp(), new IntCallback() {
             @Override
             public void onValue(int value) {
@@ -13987,95 +14104,76 @@ public final class MainActivity extends Activity {
         });
         addDockPositionChooser(panel);
 
-        panel.use("Builtins");
-        addSection(panel, "Built-in apps");
-        TextView transparencyHint = new LTextView(this);
-        transparencyHint.setText("Glass surfaces fade; icons, text and controls stay opaque.");
-        transparencyHint.setTextColor(0x80FFFFFF);
-        transparencyHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        transparencyHint.setPadding(0, 0, 0, Ui.dp(this, 4));
-        panel.addView(transparencyHint);
-        addSlider(panel, "Transparency", 20, 100, prefs.builtinTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setBuiltinTransparency(value);
-            }
-        });
-        TextView builtinHint = new LTextView(this);
-        builtinHint.setText("One value for every built-in app: Fan Control, Display, "
-                + "Stress Test, Performance Logs, File Manager, Device Health, "
-                + "Controller Remapper, Touch Mapper, Overlay & Drawer, the players "
-                + "and the recorder.");
-        builtinHint.setTextColor(0x66FFFFFF);
-        builtinHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        builtinHint.setPadding(0, 0, 0, Ui.dp(this, 10));
-        panel.addView(builtinHint);
-        addSlider(panel, "Saturation", 0, 200, prefs.builtinSaturation(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setBuiltinSaturation(value);
-            }
-        });
-        TextView saturationHint = new LTextView(this);
-        saturationHint.setText("Colour strength of the screen captured behind built-in app "
-                + "cards. 150% matches the original glass; 100% is neutral.");
-        saturationHint.setTextColor(0x66FFFFFF);
-        saturationHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        saturationHint.setPadding(0, 0, 0, Ui.dp(this, 10));
-        panel.addView(saturationHint);
-        addSlider(panel, "Darkening", 0, 100,
-                prefs.builtinBackdropDarkness(), new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setBuiltinBackdropDarkness(value);
-            }
-        });
-        TextView darkHint = new LTextView(this);
-        darkHint.setText("Darkens the captured background inside built-in app cards. "
-                + "0% leaves it unchanged, 100% is black.");
-        darkHint.setTextColor(0x66FFFFFF);
-        darkHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        darkHint.setPadding(0, 0, 0, Ui.dp(this, 10));
-        panel.addView(darkHint);
+        panel.use("Glass");
+        addSection(panel, "Glass");
+        TextView glassHint = new LTextView(this);
+        glassHint.setText("One place for every glass surface. Pick a surface, then tune "
+                + "its transparency, colour and darkness.");
+        glassHint.setTextColor(0x80FFFFFF);
+        glassHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        glassHint.setPadding(0, 0, 0, Ui.dp(this, 8));
+        panel.addView(glassHint);
 
-        panel.use("Menus");
-        addSection(panel, "Menus");
-        addSlider(panel, "Popup menus", 20, 100, prefs.menuTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setMenuTransparency(value);
-            }
-        });
-        addSlider(panel, "Launcher settings", 20, 100, prefs.settingsTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setSettingsTransparency(value);
-                if (settingsGlass != null) settingsGlass.setSurfaceAlpha(value / 100f);
-                if (settingsSubmenuGlass != null) {
-                    settingsSubmenuGlass.setSurfaceAlpha(value / 100f);
+        final String[] glassSurfaces = {"Dock", "App drawer", "Popup drawer", "Folders",
+                "Popups", "Launcher settings", "Built-in apps"};
+        final TextView[] chips = new TextView[glassSurfaces.length];
+        LinearLayout chipRow = new LinearLayout(this);
+        chipRow.setOrientation(LinearLayout.HORIZONTAL);
+        chipRow.setPadding(0, 0, Ui.dp(this, 8), 0);
+        for (int i = 0; i < glassSurfaces.length; i++) {
+            final int index = i;
+            TextView chip = new LTextView(this);
+            chip.setText(glassSurfaces[i]);
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            chip.setSingleLine(true);
+            chip.setPadding(Ui.dp(this, 12), Ui.dp(this, 7), Ui.dp(this, 12), Ui.dp(this, 7));
+            chip.setFocusable(true);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Haptics.click(v);
+                    selectGlassSurface(index);
                 }
-            }
-        });
-        addSlider(panel, "Saturation", 0, 200, prefs.menuSaturation(),
+            });
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            clp.rightMargin = Ui.dp(this, 6);
+            chipRow.addView(chip, clp);
+            chips[i] = chip;
+        }
+        HorizontalScrollView chipScroll = new HorizontalScrollView(this);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        chipScroll.setFillViewport(true);
+        chipScroll.addView(chipRow);
+        LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        chipLp.bottomMargin = Ui.dp(this, 6);
+        panel.addView(chipScroll, chipLp);
+
+        glassChips = chips;
+        glassBars = new SeekBar[3];
+        glassBars[0] = addSlider(panel, "Transparency", 20, 100, glassValue(0, 0),
                 new IntCallback() {
             @Override
             public void onValue(int value) {
-                prefs.setMenuSaturation(value);
-                applyMenuGlassTuning();
+                setGlassValue(glassSurface, 0, value);
             }
         });
-        addSlider(panel, "Darkening", 0, 100, prefs.menuBackdropDarkness(),
+        glassBars[1] = addSlider(panel, "Saturation", 0, 200, glassValue(0, 1),
                 new IntCallback() {
             @Override
             public void onValue(int value) {
-                prefs.setMenuBackdropDarkness(value);
-                applyMenuGlassTuning();
+                setGlassValue(glassSurface, 1, value);
             }
         });
+        glassBars[2] = addSlider(panel, "Darkening", 0, 100, glassValue(0, 2),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                setGlassValue(glassSurface, 2, value);
+            }
+        });
+        selectGlassSurface(0);
 
         panel.use("Home");
         addSection(panel, "Home screen");
@@ -14118,31 +14216,6 @@ public final class MainActivity extends Activity {
         panel.addView(dotsHint);
         addPageAnimationChooser(panel);
 
-        addSlider(panel, "Folder transparency", 20, 100, prefs.folderTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setFolderTransparency(value);
-                if (folderGlass != null) folderGlass.setSurfaceAlpha(value / 100f);
-                renderHome();
-            }
-        });
-        addSlider(panel, "Folder saturation", 0, 200, prefs.folderSaturation(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setFolderSaturation(value);
-                applyFolderGlassTuning();
-            }
-        });
-        addSlider(panel, "Folder darkening", 0, 100, prefs.folderBackdropDarkness(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setFolderBackdropDarkness(value);
-                applyFolderGlassTuning();
-            }
-        });
 
         panel.use("Gestures");
         addSection(panel, "Gestures");
@@ -14321,38 +14394,6 @@ public final class MainActivity extends Activity {
                         }
                     }
                 });
-        addSlider(panel, "App drawer transparency", 20, 100, prefs.appDrawerTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setAppDrawerTransparency(value);
-                applyDrawerSurfaceTransparency();
-            }
-        });
-        addSlider(panel, "Popup app drawer transparency", 20, 100,
-                prefs.popupDrawerTransparency(), new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setPopupDrawerTransparency(value);
-                applyDrawerSurfaceTransparency();
-            }
-        });
-        addSlider(panel, "Saturation", 0, 200, prefs.drawerSaturation(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setDrawerSaturation(value);
-                applyDrawerGlassTuning();
-            }
-        });
-        addSlider(panel, "Darkening", 0, 100, prefs.drawerBackdropDarkness(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setDrawerBackdropDarkness(value);
-                applyDrawerGlassTuning();
-            }
-        });
 
         panel.use("Widgets");
         addSection(panel, "Clock & status");
@@ -14881,8 +14922,7 @@ public final class MainActivity extends Activity {
                 {"Home", "Home screen"},
                 {"Drawer", "App drawer"},
                 {"Dock", "Dock"},
-                {"Builtins", "Built-in apps"},
-                {"Menus", "Menus"},
+                {"Glass", "Glass"},
                 {"Gestures", "Gestures"},
                 {"Feedback", "Feedback & haptics"},
                 {"Widgets", "Clock, weather & status"},
@@ -14968,8 +15008,8 @@ public final class MainActivity extends Activity {
         GlassPanel glass = new GlassPanel(this, settingsBackdrop,
                 wallpaper.accent(), 0x330B0E14, 26, true);
         settingsGlass = glass;
-        glass.setBackdropSaturation(prefs.menuSaturation() / 100f);
-        glass.setBackdropDarkness(prefs.menuBackdropDarkness() / 100f);
+        glass.setBackdropSaturation(prefs.settingsSaturation() / 100f);
+        glass.setBackdropDarkness(prefs.settingsBackdropDarkness() / 100f);
         glass.setClearGlass(true);
         glass.setClearBodyAlpha(0x40);
         glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);

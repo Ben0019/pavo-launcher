@@ -458,8 +458,8 @@ final class AppDrawerOverlayView extends FrameLayout {
         glass.setClearGlass(true);
         glass.setClearBodyAlpha(0);
         glass.setSurfaceAlpha(prefs.drawerOverlayAlpha() / 100f);
-        glass.setBackdropSaturation(prefs.drawerSaturation() / 100f);
-        glass.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
+        glass.setBackdropSaturation(prefs.popupDrawerSaturation() / 100f);
+        glass.setBackdropDarkness(prefs.popupDrawerBackdropDarkness() / 100f);
         glass.addView(panel, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         cardFrame.addView(glass, new FrameLayout.LayoutParams(
