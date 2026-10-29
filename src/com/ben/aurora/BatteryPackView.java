@@ -179,6 +179,9 @@ final class BatteryPackView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        // The home keeps every page attached; drawing the tank off-screen is
+        // expensive software path work that heats the device for nothing.
+        if (!Ui.onScreen(this)) return;
         float w = getWidth();
         float h = getHeight();
         if (w <= 0f || h <= 0f) return;

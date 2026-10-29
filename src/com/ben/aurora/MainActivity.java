@@ -627,6 +627,26 @@ public final class MainActivity extends Activity {
     }
 
     /** Freeze the animated built-in icons so the OLED can go truly static. */
+    /** Only the widgets on the visible page need to sample and repaint. */
+    private void updateWidgetPages(int current) {
+        if (pager == null) return;
+        for (int i = 0; i < pager.getChildCount(); i++) {
+            View page = pager.getChildAt(i);
+            if (page instanceof ViewGroup) setWidgetsActive((ViewGroup) page, i == current);
+        }
+    }
+
+    private void setWidgetsActive(ViewGroup group, boolean active) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof AuroraHomeWidgetView) {
+                ((AuroraHomeWidgetView) child).setActivePage(active);
+            } else if (child instanceof ViewGroup) {
+                setWidgetsActive((ViewGroup) child, active);
+            }
+        }
+    }
+
     private void setHomeIconsPaused(boolean paused) {
         if (content != null) setIconsPaused(content, paused);
         if (dock != null) setIconsPaused(dock, paused);
@@ -1308,6 +1328,7 @@ public final class MainActivity extends Activity {
         setHomeMarqueePaused(false);
         setHomeLiquidPaused(false);
         setHomeIconsPaused(false);
+        if (pager != null) updateWidgetPages(pager.currentPage());
         homeVisualsIdle = false;
         handler.removeCallbacks(homeIdleTick);
         handler.postDelayed(homeIdleTick, HOME_IDLE_MS);
@@ -1580,6 +1601,7 @@ public final class MainActivity extends Activity {
                 if (pageChanged) {
                     handler.removeCallbacks(dockBackdropUpdate);
                     handler.postDelayed(dockBackdropUpdate, 60);
+                    updateWidgetPages(index);
                 }
             }
         });

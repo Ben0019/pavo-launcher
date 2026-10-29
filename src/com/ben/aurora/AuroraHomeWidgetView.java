@@ -102,9 +102,28 @@ final class AuroraHomeWidgetView extends FrameLayout {
         super.onDetachedFromWindow();
     }
 
+    private final boolean[] visible = {true};
+    private volatile boolean activePage = true;
+
+    void setActivePage(boolean active) {
+        activePage = active;
+    }
+
     private void poll() {
         while (running) {
             try {
+                // Off-screen pages keep their widgets attached; sampling there
+                // only burns CPU and repaints hidden views.
+                main.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        visible[0] = Ui.onScreen(AuroraHomeWidgetView.this);
+                    }
+                });
+                if (!activePage || !visible[0]) {
+                    Thread.sleep(750L);
+                    continue;
+                }
                 if (KIND_BATTERY.equals(kind)) {
                     final DeviceHealthReader.Snapshot s =
                             DeviceHealthReader.read(getContext());

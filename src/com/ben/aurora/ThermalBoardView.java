@@ -65,10 +65,29 @@ final class ThermalBoardView extends View {
         float x, y, vx, vy, life, maxLife, size;
     }
 
+    private boolean framePosted;
+    private final Runnable resumeFrame = new Runnable() {
+        @Override
+        public void run() {
+            if (attached && !framePosted) {
+                framePosted = true;
+                Choreographer.getInstance().postFrameCallback(frame);
+            }
+        }
+    };
+
     private final Choreographer.FrameCallback frame = new Choreographer.FrameCallback() {
         @Override
         public void doFrame(long frameTimeNanos) {
+            framePosted = false;
             if (!attached) return;
+            if (!Ui.onScreen(ThermalBoardView.this)) {
+                // Off-screen widget pages must not keep the UI thread busy.
+                lastFrame = 0L;
+                removeCallbacks(resumeFrame);
+                postDelayed(resumeFrame, 500L);
+                return;
+            }
             if (lastFrame == 0L) lastFrame = frameTimeNanos;
             float dt = Math.min(0.05f, (frameTimeNanos - lastFrame) / 1_000_000_000f);
             lastFrame = frameTimeNanos;
@@ -113,7 +132,10 @@ final class ThermalBoardView extends View {
                 if (s.life <= 0f || s.y < 5f) steam.remove(i);
             }
             invalidate();
-            Choreographer.getInstance().postFrameCallback(this);
+            if (attached && !framePosted) {
+                framePosted = true;
+                Choreographer.getInstance().postFrameCallback(this);
+            }
         }
     };
 
@@ -230,6 +252,7 @@ final class ThermalBoardView extends View {
     protected void onDraw(Canvas c) {
         super.onDraw(c);
         if (getWidth() <= 0 || getHeight() <= 0) return;
+        if (!Ui.onScreen(this)) return;
         float s = Math.min(getWidth() / W, getHeight() / H);
         c.save();
         c.translate((getWidth() - W * s) / 2f, (getHeight() - H * s) / 2f);

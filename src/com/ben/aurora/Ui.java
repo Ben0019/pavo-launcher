@@ -131,8 +131,25 @@ final class Ui {
     /** True only when this view is actually drawn on screen, not just attached. */
     static boolean onScreen(android.view.View v) {
         if (v == null || !v.isShown()) return false;
-        android.graphics.Rect r = new android.graphics.Rect();
-        return v.getGlobalVisibleRect(r) && r.width() > 0 && r.height() > 0;
+        if (v.getWidth() <= 0 || v.getHeight() <= 0) return false;
+        int[] loc = new int[2];
+        v.getLocationInWindow(loc);
+        android.view.View root = v.getRootView();
+        int w = root != null && root.getWidth() > 0 ? root.getWidth()
+                : v.getResources().getDisplayMetrics().widthPixels;
+        int h = root != null && root.getHeight() > 0 ? root.getHeight()
+                : v.getResources().getDisplayMetrics().heightPixels;
+        // A pager keeps neighbouring pages laid out beside the window, and the
+        // next page often peeks a few pixels into it. Require a real overlap so
+        // those pages stay idle instead of animating at 120 fps.
+        int left = Math.max(0, loc[0]);
+        int top = Math.max(0, loc[1]);
+        int right = Math.min(w, loc[0] + v.getWidth());
+        int bottom = Math.min(h, loc[1] + v.getHeight());
+        if (right <= left || bottom <= top) return false;
+        long visible = (long) (right - left) * (bottom - top);
+        long area = (long) v.getWidth() * v.getHeight();
+        return visible * 10 >= area * 3;
     }
 
     static int dp(Context c, float value) {
