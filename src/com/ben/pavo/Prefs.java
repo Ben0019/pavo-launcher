@@ -333,6 +333,35 @@ final class Prefs {
     int settingsBackdropDarkness() { return clamp(sp.getInt("settings_darkness", 50), 0, 100); }
     void setSettingsBackdropDarkness(int v) { sp.edit().putInt("settings_darkness", clamp(v, 0, 100)).apply(); }
 
+    boolean ftpAnonymous() { return sp.getBoolean("ftp_anonymous", true); }
+    void setFtpAnonymous(boolean v) { sp.edit().putBoolean("ftp_anonymous", v).apply(); }
+
+    int ftpRoot() { return clamp(sp.getInt("ftp_root", 2), 0, 2); }
+    void setFtpRoot(int v) { sp.edit().putInt("ftp_root", clamp(v, 0, 2)).apply(); }
+
+    int ftpPort() { return clamp(sp.getInt("ftp_port", 2121), 1024, 65535); }
+    void setFtpPort(int v) { sp.edit().putInt("ftp_port", clamp(v, 1024, 65535)).apply(); }
+
+    String ftpUser() { return sp.getString("ftp_user", "pavo"); }
+    void setFtpUser(String v) { sp.edit().putString("ftp_user", v == null ? "pavo" : v).apply(); }
+
+    String ftpPassword() { return sp.getString("ftp_password", "pavo"); }
+    void setFtpPassword(String v) { sp.edit().putString("ftp_password", v == null ? "pavo" : v).apply(); }
+
+    String ftpRemoteHost() { return sp.getString("ftp_remote_host", ""); }
+    int ftpRemotePort() { return clamp(sp.getInt("ftp_remote_port", 21), 1, 65535); }
+    String ftpRemoteUser() { return sp.getString("ftp_remote_user", "anonymous"); }
+    String ftpRemotePassword() { return sp.getString("ftp_remote_password", ""); }
+
+    void setFtpRemote(String host, int port, String user, String password) {
+        sp.edit()
+                .putString("ftp_remote_host", host == null ? "" : host)
+                .putInt("ftp_remote_port", clamp(port, 1, 65535))
+                .putString("ftp_remote_user", user == null ? "anonymous" : user)
+                .putString("ftp_remote_password", password == null ? "" : password)
+                .apply();
+    }
+
     int menuSaturation() { return clamp(sp.getInt("menu_saturation", 150), 0, 200); }
     void setMenuSaturation(int v) { sp.edit().putInt("menu_saturation", clamp(v, 0, 200)).apply(); }
     int menuBackdropDarkness() { return clamp(sp.getInt("menu_darkness", 50), 0, 100); }

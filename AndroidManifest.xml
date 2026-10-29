@@ -287,6 +287,18 @@
         </receiver>
 
         <activity
+            android:name=".FtpActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="FTP"
+            android:launchMode="singleTask"
+            android:screenOrientation="user"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.pavo.ftp"
+            android:theme="@style/Theme.Pavo.Transparent" />
+
+        <activity
             android:name=".DeviceHealthActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
             android:excludeFromRecents="true"

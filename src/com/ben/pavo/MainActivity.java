@@ -162,6 +162,7 @@ public final class MainActivity extends Activity {
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
     private static final String SCREEN_RECORDER_PKG = "com.ben.pavo.screenrecorder";
+    private static final String FTP_PKG = "com.ben.pavo.ftp";
 
     private static final int SRC_NONE = -1;
     private static final int SRC_HOME = 0;
@@ -354,6 +355,7 @@ public final class MainActivity extends Activity {
     private Apps.Entry benchmarkEntry;
     private Apps.Entry fileManagerEntry;
     private Apps.Entry screenRecorderEntry;
+    private Apps.Entry ftpEntry;
     private Apps.Entry controllerMapEntry;
     private Apps.Entry perfTunerEntry;
 
@@ -2190,6 +2192,7 @@ public final class MainActivity extends Activity {
         if (BENCHMARK_PKG.equals(pkg)) return benchmarkEntry();
         if (FILE_MANAGER_PKG.equals(pkg)) return fileManagerEntry();
         if (SCREEN_RECORDER_PKG.equals(pkg)) return screenRecorderEntry();
+        if (FTP_PKG.equals(pkg)) return ftpEntry();
         for (Apps.Entry e : allApps) {
             if (e.pkg.equals(pkg) && (cls == null || e.activity.equals(cls))) return e;
         }
@@ -2207,7 +2210,7 @@ public final class MainActivity extends Activity {
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
-                || SCREEN_RECORDER_PKG.equals(pkg);
+                || SCREEN_RECORDER_PKG.equals(pkg) || FTP_PKG.equals(pkg);
     }
 
     private Apps.Entry perfLogsEntry() {
@@ -2318,6 +2321,15 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return screenRecorderEntry;
+    }
+
+    private Apps.Entry ftpEntry() {
+        if (ftpEntry == null) {
+            ftpEntry = new Apps.Entry(Loc.s(MainActivity.this, "FTP"), FTP_PKG, "");
+            ftpEntry.icon = Apps.ftpIcon(Ui.dp(this, 72),
+                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
+        }
+        return ftpEntry;
     }
 
     /** Rebuild cached built-in icons when the wallpaper accent changes. */
@@ -6393,6 +6405,10 @@ public final class MainActivity extends Activity {
         }
         if (OVERLAY_PKG.equals(item.pkg)) {
             startBuiltIn(new Intent(this, OverlayActivity.class), source);
+            return;
+        }
+        if (FTP_PKG.equals(item.pkg)) {
+            startBuiltIn(new Intent(this, FtpActivity.class), source);
             return;
         }
         if (TOUCH_MAP_PKG.equals(item.pkg)) {

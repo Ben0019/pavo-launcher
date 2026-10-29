@@ -658,6 +658,36 @@ final class Apps {
     }
 
     /** Floating overlay window plus a drawer grid, for the overlay & drawer app. */
+    static Bitmap ftpIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+
+        Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        line.setStyle(Paint.Style.STROKE);
+        line.setStrokeWidth(Math.max(1.6f, size * 0.05f));
+        line.setStrokeCap(Paint.Cap.ROUND);
+        line.setColor(alpha(accent, 0xE6));
+        float cx = size * 0.5f;
+        float cy = size * 0.62f;
+        float node = size * 0.075f;
+        c.drawCircle(cx, cy, node, line);
+        c.drawLine(cx, cy, size * 0.27f, size * 0.31f, line);
+        c.drawLine(cx, cy, size * 0.73f, size * 0.31f, line);
+        c.drawCircle(size * 0.27f, size * 0.31f, node * 0.85f, line);
+        c.drawCircle(size * 0.73f, size * 0.31f, node * 0.85f, line);
+        return b;
+    }
+
     static Bitmap overlayIcon(int px, int accent) {
         int size = Math.max(24, px);
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);

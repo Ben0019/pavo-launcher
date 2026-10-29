@@ -68,6 +68,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
     private static final String SCREEN_RECORDER_PKG = "com.ben.pavo.screenrecorder";
+    private static final String FTP_PKG = "com.ben.pavo.ftp";
 
     private final Context context;
     private final Prefs prefs;
@@ -666,6 +667,9 @@ final class AppDrawerOverlayView extends FrameLayout {
                 SCREEN_RECORDER_PKG, "");
         recorder.icon = Apps.screenRecorderIcon(px, accent);
         out.add(recorder);
+        Apps.Entry ftp = new Apps.Entry(Loc.s(context, "FTP"), FTP_PKG, "");
+        ftp.icon = Apps.ftpIcon(px, accent);
+        out.add(ftp);
         return out;
     }
 
@@ -676,7 +680,7 @@ final class AppDrawerOverlayView extends FrameLayout {
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
-                || SCREEN_RECORDER_PKG.equals(pkg);
+                || SCREEN_RECORDER_PKG.equals(pkg) || FTP_PKG.equals(pkg);
     }
 
     private void launchEntry(final Apps.Entry e) {
@@ -707,6 +711,8 @@ final class AppDrawerOverlayView extends FrameLayout {
             intent = new Intent(context, FileManagerActivity.class);
         } else if (SCREEN_RECORDER_PKG.equals(e.pkg)) {
             intent = new Intent(context, ScreenRecorderActivity.class);
+        } else if (FTP_PKG.equals(e.pkg)) {
+            intent = new Intent(context, FtpActivity.class);
         }
         // Remove the floating drawer before the new activity takes focus. If we
         // rely on the closing animation while the window is being covered, its
