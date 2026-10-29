@@ -777,10 +777,12 @@ public final class ScreenRecorderActivity extends AuroraGlassActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(5), 0, dp(3));
+        row.setPadding(0, dp(Ui.widthDp(this) < 700 ? 3 : 5), 0,
+                dp(Ui.widthDp(this) < 700 ? 2 : 3));
         LinearLayout textColumn = new LinearLayout(this);
         textColumn.setOrientation(LinearLayout.VERTICAL);
-        TextView label = text(title, 10f, 0xFFFFFFFF, false);
+        TextView label = text(title, Ui.widthDp(this) < 700 ? 9f : 10f,
+                0xFFFFFFFF, false);
         label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         TextView desc = note(description);
         textColumn.addView(label);
@@ -817,9 +819,11 @@ public final class ScreenRecorderActivity extends AuroraGlassActivity {
     private LinearLayout section(String title, String subtitle) {
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(LinearLayout.VERTICAL);
-        section.setPadding(dp(14), dp(11), dp(14), dp(11));
+        boolean tight = Ui.widthDp(this) < 700;
+        section.setPadding(dp(tight ? 11 : 14), dp(tight ? 8 : 11),
+                dp(tight ? 11 : 14), dp(tight ? 8 : 11));
         section.setBackground(Ui.rounded(0x30000000, dp(12), 0x33FFFFFF, dp(1)));
-        TextView label = text(title, 10f, 0xFFFFFFFF, false);
+        TextView label = text(title, tight ? 9f : 10f, 0xFFFFFFFF, false);
         label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         label.setLetterSpacing(0.11f);
         section.addView(label, matchWrap());
@@ -1194,7 +1198,7 @@ public final class ScreenRecorderActivity extends AuroraGlassActivity {
     }
 
     private TextView note(String value) {
-        TextView v = text(value, 8.5f, 0xB8FFFFFF, false);
+        TextView v = text(value, Ui.widthDp(this) < 700 ? 8f : 8.5f, 0xB8FFFFFF, false);
         v.setLineSpacing(0f, 1.12f);
         v.setPadding(0, dp(2), 0, 0);
         return v;

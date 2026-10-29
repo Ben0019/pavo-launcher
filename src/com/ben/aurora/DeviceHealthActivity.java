@@ -524,13 +524,16 @@ public final class DeviceHealthActivity extends AuroraGlassActivity {
     private LinearLayout section(LinearLayout parent, String title) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(12), dp(8), dp(12), dp(9));
+        boolean dhTight = Ui.widthDp(this) < 700;
+        card.setPadding(dp(dhTight ? 10 : 12), dp(dhTight ? 6 : 8),
+                dp(dhTight ? 10 : 12), dp(dhTight ? 7 : 9));
         card.setBackground(Ui.rounded(CARD, dp(15), CARD_BORDER, dp(1)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dp(7);
+        lp.bottomMargin = dp(Ui.widthDp(this) < 700 ? 5 : 7);
         parent.addView(card, lp);
-        TextView heading = text(title, 8.5f, accent(), false);
+        TextView heading = text(title, Ui.widthDp(this) < 700 ? 8f : 8.5f,
+                accent(), false);
         heading.setLetterSpacing(0.14f);
         heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         heading.setPadding(0, 0, 0, dp(3));

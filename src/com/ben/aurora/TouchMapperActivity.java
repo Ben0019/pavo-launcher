@@ -386,21 +386,24 @@ public final class TouchMapperActivity extends AuroraGlassActivity {
         rowLp.topMargin = dp(8);
         card.addView(row, rowLp);
 
+        boolean tight = Ui.widthDp(this) < 700;
         targetIcon = new ImageView(this);
         targetIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        row.addView(targetIcon, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        int iconSize = tight ? 36 : 44;
+        row.addView(targetIcon, new LinearLayout.LayoutParams(dp(iconSize), dp(iconSize)));
 
         LinearLayout names = new LinearLayout(this);
         names.setOrientation(LinearLayout.VERTICAL);
         names.setPadding(dp(9), 0, dp(7), 0);
         row.addView(names, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        targetLabel = text("NO GAME SELECTED", 12.5f, TEXT, true);
+        targetLabel = text("NO GAME SELECTED", tight ? 10.5f : 12.5f, TEXT, true);
         if (targetLabel instanceof LTextView) ((LTextView) targetLabel).setLocalize(false);
         targetLabel.setSingleLine(true);
         targetLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
         names.addView(targetLabel);
-        targetPkg = text("Choose a game without controller support", 8.5f, MUTED, false);
+        targetPkg = text("Choose a game without controller support",
+                tight ? 7.5f : 8.5f, MUTED, false);
         targetPkg.setSingleLine(true);
         targetPkg.setEllipsize(android.text.TextUtils.TruncateAt.END);
         names.addView(targetPkg);
