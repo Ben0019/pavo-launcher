@@ -124,6 +124,8 @@ public final class FileManagerActivity extends AuroraGlassActivity {
     private long lastRowNavAt;
     private boolean stickRowEngaged;
     private boolean cursorMode = true;
+    private LinearLayout headerBar;
+    private boolean chromeStickLatched;
     private boolean stickLatched;
     private long lastCursorMoveAt;
     private int heldDir;
@@ -285,6 +287,10 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B
                 && event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0) {
+            if (!cursorMode) {
+                backToCursor();
+                return true;
+            }
             onBackPressed();
             return true;
         }
@@ -357,7 +363,10 @@ public final class FileManagerActivity extends AuroraGlassActivity {
             boolean toolbarFocus = navFocus != null && !cursorMode
                     && (isDescendant(actionRow, navFocus)
                             || navFocus == (activePane == null ? null : activePane.title));
-            if (!cursorMode && !toolbarFocus) cursorMode = true;
+            if (!cursorMode) {
+                // Chrome has focus: the shared navigator moves between buttons.
+                return false;
+            }
             if (cursorMode) {
                 lastDpadKeyAt = SystemClock.uptimeMillis();
                 if (!down) return true;
@@ -374,8 +383,14 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                         moveCursor(-1);
                     }
                 } else if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
-                    startHoldScroll(1);
-                    moveCursor(1);
+                    Pane pane = navPane != null ? navPane : activePane;
+                    if (pane != null && !pane.files.isEmpty()
+                            && clampIndex(pane) == pane.files.size() - 1) {
+                        enterChrome(false);
+                    } else {
+                        startHoldScroll(1);
+                        moveCursor(1);
+                    }
                 } else {
                     stopHoldScroll();
                     switchControllerPane(code == KeyEvent.KEYCODE_DPAD_LEFT);
@@ -408,6 +423,17 @@ public final class FileManagerActivity extends AuroraGlassActivity {
             int source = event.getSource();
             boolean pad = (source & android.view.InputDevice.SOURCE_GAMEPAD) != 0
                     || (source & android.view.InputDevice.SOURCE_JOYSTICK) != 0;
+            if (pad && !cursorMode) {
+                float ry = event.getAxisValue(MotionEvent.AXIS_RZ);
+                if (ry > 0.62f) {
+                    if (!chromeStickLatched) {
+                        chromeStickLatched = true;
+                        backToCursor();
+                    }
+                    return true;
+                }
+                if (Math.abs(ry) < 0.38f) chromeStickLatched = false;
+            }
             if (pad && cursorMode) {
                 float x = event.getAxisValue(MotionEvent.AXIS_X);
                 float y = event.getAxisValue(MotionEvent.AXIS_Y);
@@ -415,6 +441,18 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                 float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
                 if (Math.abs(hatX) > Math.abs(x)) x = hatX;
                 if (Math.abs(hatY) > Math.abs(y)) y = hatY;
+                float rx = event.getAxisValue(MotionEvent.AXIS_Z);
+                float ry = event.getAxisValue(MotionEvent.AXIS_RZ);
+                if (Math.abs(ry) >= 0.62f || Math.abs(rx) >= 0.72f) {
+                    // Right stick always escapes the pane the way it points.
+                    if (!chromeStickLatched) {
+                        chromeStickLatched = true;
+                        if (Math.abs(ry) >= 0.62f) enterChrome(ry < 0f);
+                        else switchControllerPane(rx < 0f);
+                    }
+                    return true;
+                }
+                if (Math.abs(ry) < 0.38f && Math.abs(rx) < 0.45f) chromeStickLatched = false;
                 if (ControllerNav.externalDpadRecent()) return true;
                 if (Math.abs(y) >= 0.62f || Math.abs(x) >= 0.72f) {
                     if (!stickLatched) {
@@ -578,6 +616,54 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         return Math.max(0, Math.min(pane.files.size() - 1, navIndex));
     }
 
+    /**
+     * Leave the file list for the chrome. up goes to the top bar, down to the
+     * footer actions; the row ring is cleared so only the focused button is lit.
+     */
+    private void enterChrome(boolean top) {
+        stopHoldScroll();
+        cursorMode = false;
+        refreshRowRings();
+        if (controllerNav != null) controllerNav.decorateFocusables();
+        View target = null;
+        if (top) {
+            target = firstFocusable(headerBar);
+        } else {
+            target = actionRow != null && actionRow.getChildCount() > 0
+                    ? firstFocusable(actionRow) : null;
+        }
+        if (target == null) target = firstFocusable(controllerRoot);
+        if (target != null) {
+            target.setFocusableInTouchMode(true);
+            target.requestFocus();
+            Haptics.tick(target);
+        }
+    }
+
+    private View firstFocusable(View view) {
+        if (view == null) return null;
+        if (view.isFocusable() && view.getVisibility() == View.VISIBLE
+                && view.isEnabled()) return view;
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                View found = firstFocusable(group.getChildAt(i));
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private void backToCursor() {
+        if (cursorMode) return;
+        cursorMode = true;
+        Pane pane = navPane != null ? navPane : activePane;
+        if (pane == null) return;
+        setActive(pane, false);
+        refreshRowRings();
+        scrollCursorIntoView(pane);
+    }
+
     private void startHoldScroll(int dir) {
         main.removeCallbacks(holdScroll);
         heldDir = dir;
@@ -667,6 +753,7 @@ public final class FileManagerActivity extends AuroraGlassActivity {
 
     private View buildHeader() {
         LinearLayout header = new LinearLayout(this);
+        headerBar = header;
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(0, 0, 0, dp(3));
@@ -702,7 +789,7 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         close.setPadding(dp(7), 0, dp(7), 0);
         close.setMinWidth(dp(34));
         close.setMinHeight(dp(32));
-        close.setFocusable(false);
+        close.setFocusable(true);
         close.setClickable(true);
         close.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { finishAnimated(); }
@@ -720,9 +807,6 @@ public final class FileManagerActivity extends AuroraGlassActivity {
 
     private TextView headerButton(String label, final Runnable action) {
         TextView v = button(label, false);
-        // The toolbar is a touch surface; the controller owns the file cursor,
-        // so it never parks a stray focus ring up here.
-        v.setFocusable(false);
         v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
         v.setMinWidth(0);
         v.setPadding(dp(9), 0, dp(9), 0);
@@ -918,7 +1002,6 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
             TextView up = button("\u2191", false);
-            up.setFocusable(false);
             up.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
             up.setMinWidth(dp(30));
             up.setPadding(0, 0, 0, dp(3));
@@ -2013,9 +2096,12 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                 if (openDialog == dialog) openDialog = null;
                 dialogFocusOrder.clear();
                 if (controllerNav != null) controllerNav.setRoot(controllerRoot);
-                if (previousFocus != null && previousFocus.isAttachedToWindow()) {
-                    previousFocus.requestFocus();
-                }
+                // Whatever the dialog was opened from (list cursor or a toolbar
+                // button), come back to a visible file cursor.
+                cursorMode = true;
+                main.post(new Runnable() {
+                    @Override public void run() { backToCursor(); }
+                });
             }
         });
         dialog.show();
