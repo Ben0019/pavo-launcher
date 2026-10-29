@@ -2976,7 +2976,7 @@ public final class MainActivity extends Activity {
         }
         if (!enabled || frame == null || !(frame.getParent() instanceof GridPage)) return;
         GridPage page = (GridPage) frame.getParent();
-        int pad = Ui.dp(this, 28);
+        int pad = Ui.dp(this, 56);
         Rect r = new Rect(frame.getLeft() - pad, frame.getTop() - pad,
                 frame.getRight() + pad, frame.getBottom() + pad);
         page.setTouchDelegate(new android.view.TouchDelegate(r, frame));
@@ -4439,7 +4439,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("Tap a widget to open it  ·  double-tap to resize  ·  drag an edge once resizing is active");
+        hint.setText("Tap a widget to open it  ·  double-tap to resize  ·  then drag anywhere on the card");
         hint.setTextColor(0x80FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(Ui.dp(this, 9), Ui.dp(this, 3), 0, Ui.dp(this, 7));

@@ -69,6 +69,7 @@ final class WidgetFrame extends FrameLayout {
     private boolean touchPassthrough;
     private int resizeEdge;
     private int pendingResizeEdge;
+    private int activeEdge;
     private Runnable singleTap;
 
     Listener listener;
@@ -130,6 +131,10 @@ final class WidgetFrame extends FrameLayout {
                         // Do not resize on DOWN. A double-tap that starts on a
                         // handle must still be able to turn resize mode off.
                         pendingResizeEdge = edge;
+                        if (activeEdge != edge) {
+                            activeEdge = edge;
+                            invalidate();
+                        }
                         return true;
                     }
                 }
@@ -156,6 +161,10 @@ final class WidgetFrame extends FrameLayout {
                 handler.removeCallbacks(longPress);
                 pressed = false;
                 pendingResizeEdge = 0;
+                if (!resizing && activeEdge != 0) {
+                    activeEdge = 0;
+                    invalidate();
+                }
                 return true;
         }
         return false;
@@ -173,6 +182,7 @@ final class WidgetFrame extends FrameLayout {
                     if (listener != null) listener.onResizeEnd(this, e.getRawX(), e.getRawY());
                     resizing = false;
                     resizeEdge = 0;
+                    activeEdge = 0;
                     updateWidgetCard();
                     invalidate();
                     return true;
@@ -180,6 +190,7 @@ final class WidgetFrame extends FrameLayout {
                     if (listener != null) listener.onResizeCancel(this);
                     resizing = false;
                     resizeEdge = 0;
+                    activeEdge = 0;
                     updateWidgetCard();
                     invalidate();
                     return true;
@@ -333,9 +344,14 @@ final class WidgetFrame extends FrameLayout {
         float w = getWidth();
         float h = getHeight();
         if (w <= 0 || h <= 0) return 0;
-        // Generous edge band: compact widgets should still be easy to grab.
-        // Resize mode is explicitly entered, so make the grab band generous:
-        // nearly the whole outer half of the widget is draggable from either edge.
+        if (resizeMode) {
+            // Once resize mode is armed, any drag on the card resizes from the
+            // nearest corner. Nothing to aim for, and taps still toggle the mode.
+            int edge = 0;
+            edge |= x < w / 2f ? EDGE_LEFT : EDGE_RIGHT;
+            edge |= y < h / 2f ? EDGE_TOP : EDGE_BOTTOM;
+            return edge;
+        }
         float mx = Math.min(Ui.dp(getContext(), 72), w * 0.48f);
         float my = Math.min(Ui.dp(getContext(), 72), h * 0.48f);
         int edge = 0;
@@ -363,12 +379,22 @@ final class WidgetFrame extends FrameLayout {
         edgePaint.setColor(ColorTuning.withAlpha(accent, resizing ? 0xEE : 0x99));
         canvas.drawRoundRect(edgeRect, radius, radius, edgePaint);
         handlePaint.setColor(accent);
-        float r = Ui.dpf(getContext(), 3.8f);
+        float r = Ui.dpf(getContext(), 6.0f);
         float inset = Ui.dpf(getContext(), 2f);
-        canvas.drawCircle(inset + r, inset + r, r, handlePaint);
-        canvas.drawCircle(w - inset - r, inset + r, r, handlePaint);
-        canvas.drawCircle(inset + r, h - inset - r, r, handlePaint);
-        canvas.drawCircle(w - inset - r, h - inset - r, r, handlePaint);
+        float hot = Ui.dpf(getContext(), 9.5f);
+        int[] corners = {EDGE_LEFT | EDGE_TOP, EDGE_RIGHT | EDGE_TOP,
+                EDGE_LEFT | EDGE_BOTTOM, EDGE_RIGHT | EDGE_BOTTOM};
+        float[] xs = {inset, w - inset, inset, w - inset};
+        float[] ys = {inset, inset, h - inset, h - inset};
+        for (int i = 0; i < corners.length; i++) {
+            boolean on = (activeEdge & corners[i]) == corners[i];
+            canvas.drawCircle(xs[i], ys[i], on ? hot : r, handlePaint);
+            if (on) {
+                handlePaint.setColor(0xFFFFFFFF);
+                canvas.drawCircle(xs[i], ys[i], hot * 0.42f, handlePaint);
+                handlePaint.setColor(accent);
+            }
+        }
     }
 
     @Override
