@@ -374,6 +374,7 @@ public final class DeviceHealthActivity extends AuroraGlassActivity {
         leftLp.rightMargin = dp(8);
         content.addView(left, leftLp);
 
+        boolean tight = Ui.widthDp(this) < 700;
         ScrollView scroll = new ScrollView(this);
         scrollView = scroll;
         scroll.setFillViewport(false);
@@ -381,10 +382,40 @@ public final class DeviceHealthActivity extends AuroraGlassActivity {
         scroll.setClipToPadding(false);
         LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.MATCH_PARENT, 1.06f);
-        content.addView(scroll, scrollLp);
+        if (tight) {
+            // The right column runs past the fold on 4:3 panels. A soft fade at
+            // the bottom edge shows there is more to scroll to.
+            FrameLayout wrap = new FrameLayout(this);
+            wrap.addView(scroll, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            final View fade = new View(this);
+            android.graphics.drawable.PaintDrawable pd =
+                    new android.graphics.drawable.PaintDrawable(0x00000000);
+            pd.setShaderFactory(new android.graphics.drawable.ShapeDrawable.ShaderFactory() {
+                @Override
+                public android.graphics.Shader resize(int width, int height) {
+                    return new android.graphics.LinearGradient(0, 0, 0, height,
+                            new int[]{0x00080B10, 0xE6080B10},
+                            null, android.graphics.Shader.TileMode.CLAMP);
+                }
+            });
+            fade.setBackground(pd);
+            FrameLayout.LayoutParams fadeLp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(26), Gravity.BOTTOM);
+            wrap.addView(fade, fadeLp);
+            scroll.setOnScrollChangeListener(new View.OnScrollChangeListener() {
+                @Override
+                public void onScrollChange(View v, int sx, int sy, int osx, int osy) {
+                    fade.setVisibility(v.canScrollVertically(1) ? View.VISIBLE : View.GONE);
+                }
+            });
+            content.addView(wrap, scrollLp);
+        } else {
+            content.addView(scroll, scrollLp);
+        }
         LinearLayout right = new LinearLayout(this);
         right.setOrientation(LinearLayout.VERTICAL);
-        right.setPadding(0, 0, dp(2), dp(8));
+        right.setPadding(0, 0, dp(2), dp(tight ? 22 : 8));
         scroll.addView(right, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -545,11 +576,12 @@ public final class DeviceHealthActivity extends AuroraGlassActivity {
         LinearLayout line = new LinearLayout(this);
         line.setOrientation(LinearLayout.HORIZONTAL);
         line.setGravity(Gravity.CENTER_VERTICAL);
-        line.setPadding(0, dp(2), 0, dp(2));
-        TextView l = text(label, 10f, MUTED, false);
+        boolean tight = Ui.widthDp(this) < 700;
+        line.setPadding(0, dp(tight ? 1 : 2), 0, dp(tight ? 1 : 2));
+        TextView l = text(label, tight ? 9.5f : 10f, MUTED, false);
         line.addView(l, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView v = text(value, 10.5f, TEXT, false);
+        TextView v = text(value, tight ? 10f : 10.5f, TEXT, false);
         v.setGravity(Gravity.END);
         v.setSingleLine(true);
         line.addView(v);
