@@ -20,6 +20,7 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProviderInfo;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -8970,6 +8971,21 @@ public final class MainActivity extends Activity {
                 Ui.dp(this, 380), ViewGroup.LayoutParams.WRAP_CONTENT);
         ulp.topMargin = Ui.dp(this, 10);
         panel.addView(url, ulp);
+        try {
+            ClipboardManager clipboard = (ClipboardManager)
+                    getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null && clipboard.hasPrimaryClip()
+                    && clipboard.getPrimaryClip() != null
+                    && clipboard.getPrimaryClip().getItemCount() > 0) {
+                CharSequence pasted = clipboard.getPrimaryClip().getItemAt(0)
+                        .coerceToText(this);
+                String text = pasted == null ? "" : pasted.toString().trim();
+                if (text.startsWith("http://") || text.startsWith("https://")) {
+                    url.setText(text);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
 
         TextView add = new LTextView(this);
         add.setText("Add");
@@ -8989,7 +9005,7 @@ public final class MainActivity extends Activity {
                 if (!u.startsWith("http://") && !u.startsWith("https://")) u = "https://" + u;
                 String n = name.getText().toString().trim();
                 if (n.isEmpty()) n = u;
-                store.addToHome(Item.web(u, n), capacity());
+                placeNewItem(Item.web(u, n));
                 store.save();
                 dialog.dismiss();
                 refreshVisible();
