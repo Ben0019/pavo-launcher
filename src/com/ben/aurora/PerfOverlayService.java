@@ -116,6 +116,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private int pinchCenterX, pinchCenterY;
     private float targetScale;
     private boolean scaleTickerRunning;
+    private boolean interacting;
     private boolean scaleSettleSave;
 
     private final Runnable longPress = new Runnable() {
@@ -169,6 +170,11 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         @Override
         public void run() {
             if (!running || quiet) return;
+            if (interacting) {
+                // Dragging and pinching must not compete with a root dump.
+                main.postDelayed(this, prefs.perfRefreshMs());
+                return;
+            }
             cleanupOldLogsIfDue();
             if (powerManager != null && !powerManager.isInteractive()) {
                 main.postDelayed(this, prefs.perfRefreshMs());
@@ -1133,6 +1139,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 longPressed = false;
                 gestureLocked = false;
                 lockWarned = false;
+                interacting = true;
                 main.postDelayed(longPress, ViewConfiguration.getLongPressTimeout());
                 return true;
 
@@ -1243,9 +1250,17 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 pinching = false;
                 longPressed = false;
                 gestureLocked = false;
+                endInteraction();
                 return true;
         }
         return false;
+    }
+
+    private void endInteraction() {
+        if (!interacting) return;
+        interacting = false;
+        main.removeCallbacks(sampleTick);
+        main.post(sampleTick);
     }
 
     private float span(MotionEvent e) {
@@ -1277,17 +1292,35 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         prefs.setPerfOverlayPosition(params.x, params.y);
     }
 
+    private int pendingX;
+    private int pendingY;
+    private boolean moveScheduled;
+
+    /** One window move per frame keeps finger tracking smooth. */
+    private final Runnable applyMove = new Runnable() {
+        @Override
+        public void run() {
+            moveScheduled = false;
+            if (container == null || params == null) return;
+            params.x = pendingX;
+            params.y = pendingY;
+            try {
+                windowManager.updateViewLayout(container, params);
+            } catch (Throwable ignored) {
+            }
+        }
+    };
+
     private void moveTo(int x, int y) {
         if (container == null || params == null) return;
         int sw = getResources().getDisplayMetrics().widthPixels;
         int sh = getResources().getDisplayMetrics().heightPixels;
-        params.x = Math.max(0, Math.min(x, Math.max(0, sw - params.width)));
-        params.y = Math.max(0, Math.min(y, Math.max(0, sh - params.height)));
-        try {
-            windowManager.updateViewLayout(container, params);
-        } catch (Throwable ignored) {
+        pendingX = Math.max(0, Math.min(x, Math.max(0, sw - params.width)));
+        pendingY = Math.max(0, Math.min(y, Math.max(0, sh - params.height)));
+        if (!moveScheduled) {
+            moveScheduled = true;
+            main.post(applyMove);
         }
-        if (panel != null) panel.invalidate();
     }
 
     private void clampPosition(boolean save) {
@@ -1302,7 +1335,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             windowManager.updateViewLayout(container, params);
         } catch (Throwable ignored) {
         }
-        if (panel != null) panel.invalidate();
         if (save) prefs.setPerfOverlayPosition(params.x, params.y);
     }
 
