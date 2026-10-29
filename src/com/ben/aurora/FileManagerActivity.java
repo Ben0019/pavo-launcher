@@ -123,6 +123,20 @@ public final class FileManagerActivity extends AuroraGlassActivity {
     private boolean controllerALongFired;
     private long lastRowNavAt;
     private boolean stickRowEngaged;
+    private boolean cursorMode = true;
+    private boolean stickLatched;
+    private long lastCursorMoveAt;
+    private int heldDir;
+    private long holdStartedAt;
+    private final Runnable holdScroll = new Runnable() {
+        @Override public void run() {
+            if (heldDir == 0 || !cursorMode) { heldDir = 0; return; }
+            moveCursor(heldDir);
+            long held = SystemClock.uptimeMillis() - holdStartedAt;
+            long interval = held > 1600L ? 40L : held > 900L ? 55L : 80L;
+            main.postDelayed(this, interval);
+        }
+    };
     private long lastDpadKeyAt;
     private Pane navPane;
     private int navIndex;
@@ -285,24 +299,33 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         if (openDialog == null && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_A) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                 if (event.getRepeatCount() > 0) return true;
-                controllerAFocus = getCurrentFocus();
                 controllerALongFired = false;
-                if (controllerAFocus == null && controllerNav != null) {
-                    controllerNav.focusFirst();
+                if (cursorMode) {
+                    // Hold A selects; a normal press opens. Both act on the
+                    // cursor, never on Android focus.
+                    main.postDelayed(cursorLongPress, 380L);
+                } else {
                     controllerAFocus = getCurrentFocus();
-                }
-                if (controllerAFocus != null) {
-                    main.postDelayed(controllerALongPress, 380L);
+                    if (controllerAFocus == null && controllerNav != null) {
+                        controllerNav.focusFirst();
+                        controllerAFocus = getCurrentFocus();
+                    }
+                    if (controllerAFocus != null) {
+                        main.postDelayed(controllerALongPress, 380L);
+                    }
                 }
                 return true;
             }
             if (event.getAction() == KeyEvent.ACTION_UP) {
+                main.removeCallbacks(cursorLongPress);
                 main.removeCallbacks(controllerALongPress);
-                View focus = controllerAFocus;
                 boolean longFired = controllerALongFired;
-                controllerAFocus = null;
                 controllerALongFired = false;
-                if (focus != null && !longFired) focus.performClick();
+                if (!longFired) {
+                    if (cursorMode) activateCursor();
+                    else if (controllerAFocus != null) controllerAFocus.performClick();
+                }
+                controllerAFocus = null;
                 return true;
             }
             return true;
@@ -312,36 +335,65 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                 && event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0
                 && openDialog == null) {
-            View focus = getCurrentFocus();
-            Object tag = focus == null ? null : focus.getTag();
-            if (tag instanceof File && activePane != null) {
-                setActive(activePane, false);
-                toggleSelected(activePane, (File) tag);
-                Haptics.tick(focus);
+            Pane pane = navPane != null ? navPane : activePane;
+            if (pane != null && !pane.files.isEmpty()) {
+                File file = pane.files.get(clampIndex(pane));
+                setActive(pane, false);
+                cursorMode = true;
+                toggleSelected(pane, file);
+                refreshRowRings();
+                Haptics.tick(pane.list);
                 return true;
             }
         }
-        if (openDialog == null
-                && (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP
-                || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN
-                || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT
-                || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT)) {
+        if (openDialog == null && ControllerNav.isDirectionKey(event)) {
+            // The Odin emits HAT axes alongside the D-pad; mark the key so the
+            // analogue path does not move the cursor a second time.
+            ControllerNav.noteExternalDpad(event);
+            int code = event.getKeyCode();
+            boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+            boolean repeat = down && event.getRepeatCount() > 0;
             View navFocus = getCurrentFocus();
-            Object navTag = navFocus == null ? null : navFocus.getTag();
-            boolean footerFocus = actionRow != null && navFocus != null
-                    && isDescendant(actionRow, navFocus);
-            boolean listFocus = navTag instanceof File || navFocus == null || footerFocus;
-            if (footerFocus && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN) {
-                listFocus = false;
-            }
-            if (listFocus) {
+            boolean toolbarFocus = navFocus != null && !cursorMode
+                    && (isDescendant(actionRow, navFocus)
+                            || navFocus == (activePane == null ? null : activePane.title));
+            if (!cursorMode && !toolbarFocus) cursorMode = true;
+            if (cursorMode) {
+                lastDpadKeyAt = SystemClock.uptimeMillis();
+                if (!down) return true;
                 long now = SystemClock.uptimeMillis();
-                lastDpadKeyAt = now;
-                if (event.getAction() == KeyEvent.ACTION_DOWN
-                        && event.getRepeatCount() == 0) {
-                    handleListNavigation(event.getKeyCode(), 0);
+                if (repeat && now - lastCursorMoveAt < 80L) return true;
+                lastCursorMoveAt = now;
+                if (code == KeyEvent.KEYCODE_DPAD_UP) {
+                    if ((navPane != null ? navPane : activePane) != null
+                            && clampIndex(navPane != null ? navPane : activePane) == 0
+                            && navPane != null && navPane.title != null) {
+                        cursorMode = false;
+                        navPane.title.requestFocus();
+                    } else {
+                        moveCursor(-1);
+                    }
+                } else if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    startHoldScroll(1);
+                    moveCursor(1);
+                } else {
+                    stopHoldScroll();
+                    switchControllerPane(code == KeyEvent.KEYCODE_DPAD_LEFT);
                 }
                 return true;
+            }
+            // Toolbar focus: DOWN returns to the file cursor.
+            if (code == KeyEvent.KEYCODE_DPAD_DOWN && down && !repeat) {
+                cursorMode = true;
+                refreshRowRings();
+                moveCursor(0);
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (down && !repeat) {
+                    switchControllerPane(code == KeyEvent.KEYCODE_DPAD_LEFT);
+                    return true;
+                }
             }
         }
         if (openDialog == null && controllerNav != null
@@ -356,28 +408,33 @@ public final class FileManagerActivity extends AuroraGlassActivity {
             int source = event.getSource();
             boolean pad = (source & android.view.InputDevice.SOURCE_GAMEPAD) != 0
                     || (source & android.view.InputDevice.SOURCE_JOYSTICK) != 0;
-            if (pad) {
-                View focus = getCurrentFocus();
-                if (focus == null || focus.getTag() instanceof File
-                        || isDescendant(actionRow, focus)
-                        || focus == (activePane == null ? null : activePane.list)
-                        || focus == (activePane == null ? null : activePane.title)) {
-                    float y = event.getAxisValue(MotionEvent.AXIS_Y);
-                    float hat = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
-                    if (Math.abs(hat) > Math.abs(y)) y = hat;
-                    long now = SystemClock.uptimeMillis();
-                    if (now - lastDpadKeyAt < 250L) return true;
-                    if (Math.abs(y) >= 0.62f) {
-                        if (!stickRowEngaged) {
-                            stickRowEngaged = true;
-                            handleListNavigation(y > 0f
-                                    ? KeyEvent.KEYCODE_DPAD_DOWN
-                                    : KeyEvent.KEYCODE_DPAD_UP, 0);
+            if (pad && cursorMode) {
+                float x = event.getAxisValue(MotionEvent.AXIS_X);
+                float y = event.getAxisValue(MotionEvent.AXIS_Y);
+                float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+                float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+                if (Math.abs(hatX) > Math.abs(x)) x = hatX;
+                if (Math.abs(hatY) > Math.abs(y)) y = hatY;
+                if (ControllerNav.externalDpadRecent()) return true;
+                if (Math.abs(y) >= 0.62f || Math.abs(x) >= 0.72f) {
+                    if (!stickLatched) {
+                        stickLatched = true;
+                        if (Math.abs(y) >= Math.abs(x)) {
+                            int dir = y > 0f ? 1 : -1;
+                            startHoldScroll(dir);
+                            moveCursor(dir);
+                        } else {
+                            stopHoldScroll();
+                            switchControllerPane(x < 0f);
                         }
-                        return true;
                     }
-                    if (Math.abs(y) <= 0.38f) stickRowEngaged = false;
+                    return true;
                 }
+                if (Math.abs(y) < 0.38f && Math.abs(x) < 0.45f) {
+                    if (stickLatched) stopHoldScroll();
+                    stickLatched = false;
+                }
+                return true;
             }
         }
         if (openDialog == null && controllerNav != null
@@ -490,13 +547,81 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         controllerNav = new ControllerNav(this, root);
         controllerNav.decorateFocusables();
         disableDefaultFocusHighlight(root);
+        // The controller owns a data cursor, not Android focus. Let the root
+        // hold focus so labels and buttons never draw a second, stray ring.
+        root.setFocusableInTouchMode(true);
+        root.requestFocus();
         main.postDelayed(new Runnable() {
             @Override public void run() {
                 if (isFinishing() || isDestroyed() || controllerNav == null) return;
                 controllerNav.decorateFocusables();
                 disableDefaultFocusHighlight(root);
+                root.requestFocus();
             }
         }, 350L);
+    }
+
+    private final Runnable cursorLongPress = new Runnable() {
+        @Override public void run() {
+            Pane pane = navPane != null ? navPane : activePane;
+            if (pane == null || pane.files.isEmpty()) return;
+            controllerALongFired = true;
+            setActive(pane, false);
+            toggleSelected(pane, pane.files.get(clampIndex(pane)));
+            refreshRowRings();
+            Haptics.longPress(pane.list);
+        }
+    };
+
+    private int clampIndex(Pane pane) {
+        if (pane == null || pane.files.isEmpty()) return 0;
+        return Math.max(0, Math.min(pane.files.size() - 1, navIndex));
+    }
+
+    private void startHoldScroll(int dir) {
+        main.removeCallbacks(holdScroll);
+        heldDir = dir;
+        holdStartedAt = SystemClock.uptimeMillis();
+        main.postDelayed(holdScroll, 300L);
+    }
+
+    private void stopHoldScroll() {
+        heldDir = 0;
+        main.removeCallbacks(holdScroll);
+    }
+
+    private void moveCursor(int delta) {
+        Pane pane = navPane != null ? navPane : activePane;
+        if (pane == null || pane.files.isEmpty()) return;
+        int next = clampIndex(pane) + delta;
+        focusRow(pane, Math.max(0, Math.min(pane.files.size() - 1, next)));
+    }
+
+    private void activateCursor() {
+        Pane pane = navPane != null ? navPane : activePane;
+        if (pane == null || pane.files.isEmpty()) return;
+        chooseFile(pane, pane.files.get(clampIndex(pane)));
+    }
+
+    private void scrollCursorIntoView(Pane pane) {
+        if (pane == null || pane.list == null) return;
+        final ListView list = pane.list;
+        final int pos = clampIndex(pane);
+        list.post(new Runnable() {
+            @Override public void run() {
+                int first = list.getFirstVisiblePosition();
+                View child = list.getChildAt(pos - first);
+                int top = list.getPaddingTop();
+                int bottom = list.getHeight() - list.getPaddingBottom();
+                if (child == null) {
+                    list.setSelectionFromTop(pos, top);
+                } else if (child.getTop() < top) {
+                    list.setSelectionFromTop(pos, top);
+                } else if (child.getBottom() > bottom) {
+                    list.setSelectionFromTop(pos, bottom - child.getHeight());
+                }
+            }
+        });
     }
 
     private final Runnable controllerALongPress = new Runnable() {
@@ -510,88 +635,24 @@ public final class FileManagerActivity extends AuroraGlassActivity {
     };
 
     private void switchControllerPane(boolean left) {
+        stopHoldScroll();
         Pane target = left ? leftPane : rightPane;
-        if (target == null) return;
-        setActive(target);
-        focusRow(target, 0);
+        if (target == null || target == navPane) return;
+        focusRow(target, target.cursor);
+        Haptics.tick(target.card);
     }
 
+    /** The one place that moves the file cursor: state first, paint, scroll. */
     private void focusRow(Pane pane, int index) {
         if (pane == null) return;
         setActive(pane, false);
-        if (pane.files.isEmpty()) {
-            if (pane.title != null) pane.title.requestFocus();
-            return;
-        }
-        final int target = Math.max(0, Math.min(pane.files.size() - 1, index));
+        cursorMode = true;
         navPane = pane;
-        navIndex = target;
-        pane.list.setSelection(Math.max(0, target - 1));
-        pane.list.postDelayed(new Runnable() {
-            @Override public void run() {
-                int first = pane.list.getFirstVisiblePosition();
-                View row = pane.list.getChildAt(target - first);
-                if (row == null) {
-                    pane.list.setSelection(target);
-                    pane.list.postDelayed(this, 60L);
-                } else {
-                    row.requestFocus();
-                    final View focusedRow = row;
-                    pane.list.postDelayed(new Runnable() {
-                        @Override public void run() {
-                            if (navPane == pane && navIndex == target
-                                    && getCurrentFocus() != focusedRow) {
-                                focusedRow.requestFocus();
-                            }
-                        }
-                    }, 120L);
-                }
-            }
-        }, 25L);
-    }
-
-    private boolean handleListNavigation(int keyCode, int repeatCount) {
-        View focus = getCurrentFocus();
-        if (focus == null && navPane == null) return false;
-        long now = SystemClock.uptimeMillis();
-        if (repeatCount > 0 && now - lastRowNavAt < 70L) return true;
-        lastRowNavAt = now;
-        Object tag = focus == null ? null : focus.getTag();
-        Pane pane = navPane != null ? navPane : activePane;
-        if (pane == null) return false;
-        if (tag instanceof File) {
-            int found = pane.files.indexOf((File) tag);
-            if (found >= 0) navIndex = found;
-            navPane = pane;
-        }
-        if (navIndex < 0) navIndex = 0;
-        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-            switchControllerPane(true);
-            return true;
-        }
-        if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-            switchControllerPane(false);
-            return true;
-        }
-        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            if (navIndex > 0) {
-                focusRow(pane, navIndex - 1);
-            } else if (pane.title != null) {
-                pane.title.requestFocus();
-            }
-            if (focus != null) Haptics.tick(focus);
-            return true;
-        }
-        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-            if (navIndex + 1 < pane.files.size()) {
-                focusRow(pane, navIndex + 1);
-            } else if (actionRow != null && actionRow.getChildCount() > 0) {
-                actionRow.getChildAt(0).requestFocus();
-            }
-            if (focus != null) Haptics.tick(focus);
-            return true;
-        }
-        return false;
+        navIndex = pane.files.isEmpty()
+                ? 0 : Math.max(0, Math.min(pane.files.size() - 1, index));
+        pane.cursor = navIndex;
+        refreshRowRings();
+        scrollCursorIntoView(pane);
     }
 
     private static boolean isDescendant(ViewGroup parent, View child) {
@@ -641,7 +702,7 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         close.setPadding(dp(7), 0, dp(7), 0);
         close.setMinWidth(dp(34));
         close.setMinHeight(dp(32));
-        close.setFocusable(true);
+        close.setFocusable(false);
         close.setClickable(true);
         close.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { finishAnimated(); }
@@ -659,6 +720,9 @@ public final class FileManagerActivity extends AuroraGlassActivity {
 
     private TextView headerButton(String label, final Runnable action) {
         TextView v = button(label, false);
+        // The toolbar is a touch surface; the controller owns the file cursor,
+        // so it never parks a stray focus ring up here.
+        v.setFocusable(false);
         v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
         v.setMinWidth(0);
         v.setPadding(dp(9), 0, dp(9), 0);
@@ -820,6 +884,7 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         final Set<File> selected = new HashSet<>();
         final File root;
         File dir;
+        int cursor;
         String query = "";
         int loadToken;
         boolean suppressRowClick;
@@ -844,7 +909,8 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                     10.5f, 0xFFFFFFFF, false);
             title.setLetterSpacing(0.10f);
             title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            title.setFocusable(true);
+            // The pane title is a label; the controller cursor lives in the list.
+            title.setFocusable(false);
             title.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { setActive(Pane.this); }
             });
@@ -852,6 +918,7 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
             TextView up = button("\u2191", false);
+            up.setFocusable(false);
             up.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
             up.setMinWidth(dp(30));
             up.setPadding(0, 0, 0, dp(3));
@@ -996,7 +1063,7 @@ public final class FileManagerActivity extends AuroraGlassActivity {
             Object tag = row == null ? null : row.getTag();
             if (!(tag instanceof File)) continue;
             File file = (File) tag;
-            boolean controller = pane == navPane
+            boolean controller = cursorMode && pane == navPane
                     && !pane.files.isEmpty()
                     && pane.files.indexOf(file) == navIndex;
             boolean selected = pane.selected.contains(file);
@@ -2233,32 +2300,23 @@ public final class FileManagerActivity extends AuroraGlassActivity {
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(8), dp(6), dp(8), dp(6));
             boolean selected = pane.selected.contains(file);
-            boolean controllerCurrent = pane == navPane && position == navIndex;
+            boolean controllerCurrent = cursorMode && pane == navPane
+                    && position == navIndex;
             row.setBackground(selected || controllerCurrent
                     ? Ui.focusRing(FileManagerActivity.this, dp(10))
                     : Ui.ripple(FileManagerActivity.this, dp(10)));
-            row.setFocusable(true);
+            // Rows are a data cursor, not Android focus: focus would be lost
+            // every time the adapter rebinds, which is what made the ring blink
+            // out and the stick scroll without a visible selection.
+            row.setFocusable(false);
             row.setClickable(true);
             row.setTag(file);
-            row.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                @Override public void onFocusChange(View v, boolean focused) {
-                    if (focused) {
-                        setActive(pane, false);
-                        navPane = pane;
-                        navIndex = pane.files.indexOf(file);
-                        v.setBackground(Ui.focusRing(FileManagerActivity.this, dp(10)));
-                        v.post(new Runnable() {
-                            @Override public void run() { refreshRowRings(); }
-                        });
-                    } else {
-                        v.setBackground(pane.selected.contains(file)
-                                ? Ui.focusRing(FileManagerActivity.this, dp(10))
-                                : Ui.ripple(FileManagerActivity.this, dp(10)));
-                    }
-                }
-            });
             row.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
+                    navPane = pane;
+                    navIndex = pane.files.indexOf(file);
+                    cursorMode = true;
+                    refreshRowRings();
                     if (pane.suppressRowClick) {
                         pane.suppressRowClick = false;
                         return;
