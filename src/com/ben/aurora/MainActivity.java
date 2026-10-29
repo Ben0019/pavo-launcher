@@ -878,10 +878,42 @@ public final class MainActivity extends Activity {
         @Override
         public void onReceive(Context context, Intent intent) {
             IconPack.invalidate();
+            if (Intent.ACTION_PACKAGE_ADDED.equals(intent.getAction())
+                    && !intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
+                android.net.Uri data = intent.getData();
+                String added = data == null ? null : data.getSchemeSpecificPart();
+                // Chrome installs "Add to Home screen" pages as WebAPKs; place
+                // them on the home screen like the platform launcher does.
+                if (added != null && added.startsWith("org.chromium.webapk")) {
+                    addWebAppToHome(added);
+                }
+            }
             handler.removeCallbacks(reloadApps);
             handler.postDelayed(reloadApps, 400);
         }
     };
+
+    private void addWebAppToHome(String pkg) {
+        try {
+            Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
+            if (launch == null || launch.getComponent() == null) return;
+            Item item = Item.app(pkg, launch.getComponent().getClassName());
+            if (store.contains(item.key())) return;
+            int page = store.addToNewPage(item);
+            store.save();
+            refreshVisible();
+            final int target = page;
+            pager.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (target >= 0 && target < store.pageCount()) {
+                        pager.setPage(target, true);
+                    }
+                }
+            });
+        } catch (Throwable ignored) {
+        }
+    }
 
     // ------------------------------------------------------------------
     // Lifecycle
@@ -952,6 +984,75 @@ public final class MainActivity extends Activity {
         handleShortcutIntent(intent);
     }
 
+    private volatile long pinnedSyncAt;
+
+    /**
+     * Picks up shortcuts that were pinned while the launcher was not in front
+     * (the system only delivers the pin intent once).
+     */
+    private void syncPinnedShortcuts() {
+        if (Build.VERSION.SDK_INT < 26) return;
+        long now = SystemClock.uptimeMillis();
+        if (now - pinnedSyncAt < 4000L) return;
+        pinnedSyncAt = now;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final java.util.List<Item> missing = new java.util.ArrayList<>();
+                final java.util.List<Bitmap> icons = new java.util.ArrayList<>();
+                try {
+                    LauncherApps launcherApps = getSystemService(LauncherApps.class);
+                    if (launcherApps == null) return;
+                    LauncherApps.ShortcutQuery query = new LauncherApps.ShortcutQuery();
+                    query.setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED);
+                    java.util.List<ShortcutInfo> pinned = launcherApps.getShortcuts(
+                            query, android.os.Process.myUserHandle());
+                    if (pinned == null || pinned.isEmpty()) return;
+                    Store current = new Store(MainActivity.this, prefs);
+                    current.load();
+                    for (ShortcutInfo info : pinned) {
+                        String url = "shortcut://" + info.getPackage() + "/" + info.getId();
+                        Item item = Item.web(url, shortcutLabel(info));
+                        if (current.contains(item.key())) continue;
+                        missing.add(item);
+                        icons.add(shortcutIcon(info));
+                    }
+                } catch (Throwable ignored) {
+                    return;
+                }
+                if (missing.isEmpty()) return;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        for (int i = 0; i < missing.size(); i++) {
+                            Item item = missing.get(i);
+                            store.addToNewPage(item);
+                            if (icons.get(i) != null) store.setIcon(item, icons.get(i));
+                        }
+                        store.save();
+                        refreshVisible();
+                        final int target = store.pageCount() - 1;
+                        pager.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (target >= 0) pager.setPage(target, true);
+                            }
+                        });
+                        LToast.makeText(MainActivity.this,
+                                "Pinned shortcut added to home",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        }, "pinned-shortcuts").start();
+    }
+
+    private static String shortcutLabel(ShortcutInfo info) {
+        CharSequence label = info.getShortLabel();
+        if (label == null || label.length() == 0) label = info.getLongLabel();
+        return label == null ? null : label.toString();
+    }
+
     /** Adds a pinned shortcut requested by another app (requestPinShortcut). */
     private void handleShortcutIntent(Intent intent) {
         if (intent == null || Build.VERSION.SDK_INT < 26) return;
@@ -972,7 +1073,23 @@ public final class MainActivity extends Activity {
         CharSequence label = info.getShortLabel();
         if (label == null || label.length() == 0) label = info.getLongLabel();
         String name = label == null ? null : label.toString();
-        ShortcutReceiver.add(this, url, name, shortcutIcon(info));
+        Item item = Item.web(url, name);
+        if (!store.contains(item.key())) {
+            int page = store.addToNewPage(item);
+            Bitmap icon = shortcutIcon(info);
+            if (icon != null) store.setIcon(item, icon);
+            store.save();
+            refreshVisible();
+            final int target = page;
+            pager.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (target >= 0 && target < store.pageCount()) {
+                        pager.setPage(target, true);
+                    }
+                }
+            });
+        }
         LToast.makeText(this, (name == null ? "Shortcut" : name) + " added to home",
                 android.widget.Toast.LENGTH_SHORT).show();
     }
@@ -1058,6 +1175,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        syncPinnedShortcuts();
         if (Loc.applyLocale(this)) {
             recreate();
             return;
