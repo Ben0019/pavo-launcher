@@ -176,7 +176,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         backdropPulsePosted = true;
         // Track moving content closely; once the app behind is static, back off
         // so an idle overlay costs almost nothing.
-        main.postDelayed(backdropPulse, staticBackdropCount >= 3 ? 1200L : 225L);
+        main.postDelayed(backdropPulse, staticBackdropCount >= 3 ? 1200L : 100L);
     }
 
     /**
