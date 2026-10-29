@@ -299,7 +299,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
-        card.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        card.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         card.setPadding(dp(22), dp(14), dp(22), dp(12));
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
                 Math.min(dp(860), sw - dp(32)), sh - dp(32), Gravity.CENTER);

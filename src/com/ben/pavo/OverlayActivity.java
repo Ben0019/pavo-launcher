@@ -190,7 +190,7 @@ public final class OverlayActivity extends PavoGlassActivity {
         GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
-        card.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        card.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         card.setPadding(dp(compact ? 16 : 22), dp(compact ? 8 : 12),
                 dp(compact ? 16 : 22), dp(compact ? 6 : 12));
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(

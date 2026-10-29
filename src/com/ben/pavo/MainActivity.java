@@ -13733,6 +13733,22 @@ public final class MainActivity extends Activity {
         transparencyHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         transparencyHint.setPadding(0, 0, 0, Ui.dp(this, 4));
         panel.addView(transparencyHint);
+        addSlider(panel, "All built-in apps", 20, 100, prefs.builtinTransparency(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setBuiltinTransparency(value);
+            }
+        });
+        TextView builtinHint = new LTextView(this);
+        builtinHint.setText("One value for every built-in app: Fan Control, Display, "
+                + "Stress Test, Performance Logs, File Manager, Device Health, "
+                + "Controller Remapper, Touch Mapper, Overlay & Drawer, the players "
+                + "and the recorder.");
+        builtinHint.setTextColor(0x66FFFFFF);
+        builtinHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        builtinHint.setPadding(0, 0, 0, Ui.dp(this, 10));
+        panel.addView(builtinHint);
         addSlider(panel, "Dock", 20, 100, prefs.dockTransparency(), new IntCallback() {
             @Override
             public void onValue(int value) {

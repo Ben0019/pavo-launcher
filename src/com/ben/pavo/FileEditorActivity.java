@@ -191,7 +191,7 @@ public final class FileEditorActivity extends PavoGlassActivity {
         sheet = new GlassPanel(this, null, ThemeColors.accent(), 0x4D0B0E14, 26, true);
         sheet.setClearGlass(true);
         sheet.setClearBodyAlpha(0);
-        sheet.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        sheet.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         sheet.setBackdropScreenAnchored(true);
         sheet.setPadding(dp(18), dp(10), dp(18), dp(10));
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
@@ -466,7 +466,7 @@ public final class FileEditorActivity extends PavoGlassActivity {
                 0x800B0E14, 20, true);
         panel.setClearGlass(true);
         panel.setClearBodyAlpha(0xD8);
-        panel.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        panel.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         panel.setBackdropScreenAnchored(true);
         panel.setPadding(dp(20), dp(15), dp(20), dp(13));
         TextView heading = text("UNSAVED CHANGES", 15f, TEXT, false);

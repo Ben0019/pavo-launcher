@@ -523,7 +523,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
         GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
-        card.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        card.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         mainCard = card;
         card.setPadding(dp(22), dp(16), dp(22), dp(14));
         card.setOnLongClickListener(new View.OnLongClickListener() {
@@ -779,7 +779,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
         GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0x1A);
-        card.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        card.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         Backdrop detailBackdrop = mainCard == null ? null : mainCard.getBackdrop();
         if (detailBackdrop != null && detailBackdrop.bitmap != null) {
             card.setBackdrop(detailBackdrop);
@@ -1036,7 +1036,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
     private void showLogOptions() {
         if (optionsDialog != null) return;
         final int[] retention = {prefs.perfCleanupHours()};
-        final int[] transparency = {prefs.settingsTransparency()};
+        final int[] transparency = {prefs.builtinTransparency()};
 
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);

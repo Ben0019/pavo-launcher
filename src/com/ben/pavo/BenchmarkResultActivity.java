@@ -135,7 +135,7 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
                 0x800B0E14, 26, true);
         sheet.setClearGlass(true);
         sheet.setClearBodyAlpha(0);
-        sheet.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        sheet.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         sheet.setPadding(dp(20), dp(11), dp(20), dp(10));
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -408,7 +408,7 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
                 0x800B0E14, 20, true);
         panel.setClearGlass(true);
         panel.setClearBodyAlpha(0xD8);
-        panel.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        panel.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         panel.setBackdropScreenAnchored(true);
         panel.setPadding(dp(20), dp(16), dp(20), dp(14));
 

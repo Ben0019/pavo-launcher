@@ -148,7 +148,7 @@ public final class DisplayActivity extends PavoGlassActivity {
         GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
-        card.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        card.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         card.setPadding(dp(tight ? 16 : 22), dp(tight ? 8 : 12),
                 dp(tight ? 16 : 22), dp(tight ? 7 : 10));
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(

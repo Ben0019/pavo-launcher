@@ -338,7 +338,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         GlassPanel sheet = new GlassPanel(this, null, accent(), 0x4D0B0E14, 26, true);
         sheet.setClearGlass(true);
         sheet.setClearBodyAlpha(0);
-        sheet.setSurfaceAlpha(new Prefs(this).settingsTransparency() / 100f);
+        sheet.setSurfaceAlpha(new Prefs(this).builtinTransparency() / 100f);
         sheet.setPadding(dp(20), dp(11), dp(20), dp(10));
         FrameLayout.LayoutParams sheetLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);

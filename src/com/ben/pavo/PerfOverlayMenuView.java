@@ -953,7 +953,7 @@ final class PerfOverlayMenuView extends FrameLayout {
 
         GlassCard(Context c) {
             super(c);
-            surfaceAlpha = prefs.settingsTransparency() / 100f;
+            surfaceAlpha = prefs.builtinTransparency() / 100f;
             setOrientation(VERTICAL);
             setWillNotDraw(false);
             setClipChildren(false);

@@ -363,7 +363,7 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
         sheet = new GlassPanel(this, null, ThemeColors.accent(), 0x4D0B0E14, 26, true);
         sheet.setClearGlass(true);
         sheet.setClearBodyAlpha(0);
-        sheet.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        sheet.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
         sheet.setBackdropScreenAnchored(true);
         sheet.setPadding(dp(18), dp(10), dp(18), dp(9));
         FrameLayout.LayoutParams sheetLp = new FrameLayout.LayoutParams(

@@ -275,6 +275,15 @@ final class Prefs {
     int appDrawerTransparency() { return clamp(sp.getInt("app_drawer_transparency", 95), 20, 100); }
     int popupDrawerTransparency() { return clamp(sp.getInt("popup_drawer_transparency", 95), 20, 100); }
     int settingsTransparency() { return clamp(sp.getInt("settings_transparency", 52), 20, 100); }
+
+    /**
+     * One surface value for every built-in app (Fan Control, File Manager, the
+     * tuner, players ...). Defaults to the launcher settings value so existing
+     * setups keep their look.
+     */
+    int builtinTransparency() {
+        return clamp(sp.getInt("builtin_transparency", settingsTransparency()), 20, 100);
+    }
     int folderTransparency() { return clamp(sp.getInt("folder_transparency", 95), 20, 100); }
 
     void setDockTransparency(int v) { sp.edit().putInt("dock_transparency", clamp(v, 20, 100)).apply(); }
@@ -282,6 +291,7 @@ final class Prefs {
     void setAppDrawerTransparency(int v) { sp.edit().putInt("app_drawer_transparency", clamp(v, 20, 100)).apply(); }
     void setPopupDrawerTransparency(int v) { sp.edit().putInt("popup_drawer_transparency", clamp(v, 20, 100)).apply(); }
     void setSettingsTransparency(int v) { sp.edit().putInt("settings_transparency", clamp(v, 20, 100)).apply(); }
+    void setBuiltinTransparency(int v) { sp.edit().putInt("builtin_transparency", clamp(v, 20, 100)).apply(); }
     void setFolderTransparency(int v) { sp.edit().putInt("folder_transparency", clamp(v, 20, 100)).apply(); }
 
     // --- joystick RGB ---
