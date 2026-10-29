@@ -14,6 +14,9 @@
         <item name="android:colorAccent">#FFFFFFFF</item>
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:windowContentTransitions">true</item>
+        <!-- Pavo draws its own accent focus ring; the platform's white
+             translucent focus block would bloom over whole containers. -->
+        <item name="android:defaultFocusHighlightEnabled">false</item>
     </style>
 
     <style name="NoWindowAnimation">
@@ -32,6 +35,7 @@
     </style>
 
     <style name="Theme.Pavo.Transparent" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:defaultFocusHighlightEnabled">false</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowNoTitle">true</item>

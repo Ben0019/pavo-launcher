@@ -15174,6 +15174,7 @@ public final class MainActivity extends Activity {
                     ViewGroup.LayoutParams.MATCH_PARENT);
         }
         dialog.show();
+        disableFocusHighlight(dialog.getWindow().getDecorView());
         settingsRoot.post(new Runnable() {
             @Override
             public void run() {
@@ -16045,6 +16046,18 @@ public final class MainActivity extends Activity {
         }
         drawerButtonFocusHost = null;
         drawerButtonFocusRing = null;
+    }
+
+    /** Kill the platform focus block on a window's whole view tree. */
+    private static void disableFocusHighlight(View view) {
+        if (view == null) return;
+        view.setDefaultFocusHighlightEnabled(false);
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                disableFocusHighlight(group.getChildAt(i));
+            }
+        }
     }
 
     private void rememberControllerFocus() {
