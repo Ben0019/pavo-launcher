@@ -325,6 +325,20 @@ final class Store {
     }
 
     /** New shortcuts go on their own page so a widget can never cover them. */
+    boolean cellFree(int page, int cell) {
+        if (page < 0 || page >= pages.size() || cell < 0) return false;
+        List<Item> p = pages.get(page);
+        return cell >= p.size() || p.get(cell) == null;
+    }
+
+    void put(int page, int cell, Item item) {
+        if (page < 0 || cell < 0 || item == null) return;
+        while (pages.size() <= page) pages.add(new ArrayList<>());
+        List<Item> p = pages.get(page);
+        while (p.size() <= cell) p.add(null);
+        p.set(cell, item.copy());
+    }
+
     int addToNewPage(Item item) {
         if (item == null) return -1;
         List<Item> page = new ArrayList<>();

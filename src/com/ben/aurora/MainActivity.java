@@ -893,20 +893,45 @@ public final class MainActivity extends Activity {
         }
     };
 
+    /**
+     * Puts a new shortcut in the nearest free cell: the current page first, then
+     * the following pages, then the previous ones, and only then a new page.
+     */
+    private int placeNewItem(Item item) {
+        int current = Math.max(0, pager.currentPage());
+        int count = store.pageCount();
+        java.util.List<Integer> order = new java.util.ArrayList<>();
+        order.add(current);
+        for (int p = current + 1; p < count; p++) order.add(p);
+        for (int p = current - 1; p >= 0; p--) order.add(p);
+        int capacity = capacity();
+        for (int page : order) {
+            for (int cell = 0; cell < capacity; cell++) {
+                if (widgetCovers(page, cell)) continue;
+                if (store.cellFree(page, cell)) {
+                    store.put(page, cell, item);
+                    return page;
+                }
+            }
+        }
+        return store.addToNewPage(item);
+    }
+
     private void addWebAppToHome(String pkg) {
         try {
             Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
             if (launch == null || launch.getComponent() == null) return;
             Item item = Item.app(pkg, launch.getComponent().getClassName());
             if (store.contains(item.key())) return;
-            int page = store.addToNewPage(item);
+            int page = placeNewItem(item);
             store.save();
             refreshVisible();
             final int target = page;
             pager.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (target >= 0 && target < store.pageCount()) {
+                    if (target >= 0 && target < store.pageCount()
+                            && target != pager.currentPage()) {
                         pager.setPage(target, true);
                     }
                 }
@@ -1026,18 +1051,11 @@ public final class MainActivity extends Activity {
                     public void run() {
                         for (int i = 0; i < missing.size(); i++) {
                             Item item = missing.get(i);
-                            store.addToNewPage(item);
+                            placeNewItem(item);
                             if (icons.get(i) != null) store.setIcon(item, icons.get(i));
                         }
                         store.save();
                         refreshVisible();
-                        final int target = store.pageCount() - 1;
-                        pager.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (target >= 0) pager.setPage(target, true);
-                            }
-                        });
                         LToast.makeText(MainActivity.this,
                                 "Pinned shortcut added to home",
                                 android.widget.Toast.LENGTH_SHORT).show();
@@ -1075,7 +1093,7 @@ public final class MainActivity extends Activity {
         String name = label == null ? null : label.toString();
         Item item = Item.web(url, name);
         if (!store.contains(item.key())) {
-            int page = store.addToNewPage(item);
+            int page = placeNewItem(item);
             Bitmap icon = shortcutIcon(info);
             if (icon != null) store.setIcon(item, icon);
             store.save();
@@ -1084,7 +1102,8 @@ public final class MainActivity extends Activity {
             pager.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (target >= 0 && target < store.pageCount()) {
+                    if (target >= 0 && target < store.pageCount()
+                            && target != pager.currentPage()) {
                         pager.setPage(target, true);
                     }
                 }
