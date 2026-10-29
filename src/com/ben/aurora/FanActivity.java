@@ -625,27 +625,7 @@ public final class FanActivity extends AuroraGlassActivity {
         });
         updateManualAppearance();
 
-        boolean narrowFan = Ui.columns(this, 2) == 1;
-        boolean shortFan = Ui.layoutHeightDp(this) < 430;
-        if (narrowFan || shortFan) {
-            content.setOrientation(LinearLayout.VERTICAL);
-            left.setLayoutParams(new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            right.setLayoutParams(new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            LinearLayout.LayoutParams fanCurveLp = (LinearLayout.LayoutParams) curveCard.getLayoutParams();
-            fanCurveLp.height = dp(300);
-            fanCurveLp.weight = 0f;
-            curveCard.setLayoutParams(fanCurveLp);
-            ScrollView fanScroll = new ScrollView(this);
-            fanScroll.setFillViewport(false);
-            fanScroll.setVerticalScrollBarEnabled(false);
-            fanScroll.addView(content, new ScrollView.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            column.addView(fanScroll, contentLp);
-        } else {
-            column.addView(content, contentLp);
-        }
+        column.addView(content, contentLp);
         setContentView(root);
     }
 
