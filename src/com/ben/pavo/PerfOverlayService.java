@@ -153,6 +153,30 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     };
 
     /**
+     * The panel floats over whatever app is in front, and that content changes
+     * (scrolling, tab switches) without the foreground package changing. Keep the
+     * capture fresh while the panel is visible instead of only refreshing when a
+     * different app comes forward.
+     */
+    private final Runnable backdropPulse = new Runnable() {
+        @Override
+        public void run() {
+            backdropPulsePosted = false;
+            if (!running || container == null) return;
+            if (container.getVisibility() == View.VISIBLE && menu == null && detail == null) {
+                capturePanelBackdrop(false);
+            }
+            scheduleBackdropPulse();
+        }
+    };
+
+    private void scheduleBackdropPulse() {
+        if (backdropPulsePosted || !running) return;
+        backdropPulsePosted = true;
+        main.postDelayed(backdropPulse, 2500L);
+    }
+
+    /**
      * Mapper-mode polling is deliberately independent of the metric refresh and
      * the burn-in quiet window.  Closing a game with the system back gesture must
      * return the overlay to touch mode even when stats redraws are paused.
@@ -438,6 +462,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         container.setVisibility(View.VISIBLE);
         applyCardTouchability();
         capturePanelBackdrop();
+        scheduleBackdropPulse();
     }
 
     private void hideOverlayPanel() {
@@ -671,6 +696,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     }
 
     private Backdrop lastPanelBackdrop;
+    private boolean backdropPulsePosted;
+    private boolean panelCaptureInFlight;
     private int burnInIndex;
     private final java.util.Random burnInRandom = new java.util.Random();
     private final Runnable burnInTick = new Runnable() {
@@ -740,6 +767,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         ensureScreenshotAccessibility();
         addOverlay();
         running = true;
+        scheduleBackdropPulse();
         main.removeCallbacks(mapperTick);
         main.post(sampleTick);
         main.post(mapperTick);
@@ -789,6 +817,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         if (container == null && Settings.canDrawOverlays(this)) {
             addOverlay();
             running = true;
+            scheduleBackdropPulse();
             main.removeCallbacks(sampleTick);
             main.removeCallbacks(mapperTick);
             main.post(sampleTick);
@@ -982,7 +1011,13 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     }
 
     private void capturePanelBackdrop() {
+        capturePanelBackdrop(true);
+    }
+
+    private void capturePanelBackdrop(final boolean allowLegacyFallback) {
         if (container == null || panel == null || menu != null || detail != null) return;
+        if (panelCaptureInFlight) return;
+        panelCaptureInFlight = true;
         final PerfOverlayView view = panel;
         // Preferred path: capture only the app window through accessibility, so
         // the overlay never has to disappear (no blink).
@@ -995,6 +1030,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         main.post(new Runnable() {
                             @Override
                             public void run() {
+                                panelCaptureInFlight = false;
+                                scheduleBackdropPulse();
                                 if (panel == view && running) {
                                     lastPanelBackdrop = backdrop;
                                     view.setBackdrop(backdrop);
@@ -1009,12 +1046,20 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         main.post(new Runnable() {
                             @Override
                             public void run() {
-                                if (panel == view && running) capturePanelBackdropLegacy();
+                                panelCaptureInFlight = false;
+                                scheduleBackdropPulse();
+                                if (panel == view && running && allowLegacyFallback) {
+                                    capturePanelBackdropLegacy();
+                                }
                             }
                         });
                     }
                 });
-        if (!requested) capturePanelBackdropLegacy();
+        if (!requested) {
+            panelCaptureInFlight = false;
+            scheduleBackdropPulse();
+            if (allowLegacyFallback) capturePanelBackdropLegacy();
+        }
     }
 
     private void capturePanelBackdropLegacy() {
