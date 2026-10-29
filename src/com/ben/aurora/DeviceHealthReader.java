@@ -59,6 +59,54 @@ final class DeviceHealthReader {
         float gpuTempC = -1f;
     }
 
+    /**
+     * Power-supply fields the home widget needs, read straight from sysfs with
+     * no PServer fallback: a hidden node must not stall the first paint.
+     */
+    static Snapshot readFast(Context c) {
+        Snapshot s = new Snapshot();
+        s.pserver = false;
+        s.level = directNum(BATTERY + "capacity", -1);
+        if (s.level < 0 && c != null) {
+            BatteryManager bm = (BatteryManager) c.getSystemService(Context.BATTERY_SERVICE);
+            if (bm != null) {
+                int v = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                if (v >= 0) s.level = v;
+            }
+        }
+        String status = directText(BATTERY + "status");
+        s.status = status == null ? "--" : clean(status);
+        int temp = directNum(BATTERY + "temp", Integer.MIN_VALUE);
+        if (temp != Integer.MIN_VALUE) s.tempC = temp / 10f;
+        int voltage = directNum(BATTERY + "voltage_now", Integer.MIN_VALUE);
+        if (voltage != Integer.MIN_VALUE) s.voltageV = voltage / 1_000_000f;
+        int usbOnline = directNum(USB + "online", 0);
+        int wirelessOnline = directNum("/sys/class/power_supply/wireless/online", 0);
+        s.plugged = usbOnline == 1 || wirelessOnline == 1;
+        s.charging = "Charging".equalsIgnoreCase(s.status);
+        s.full = "Full".equalsIgnoreCase(s.status) || s.level >= 100;
+        int usbChargeNow = directNum(QCOM + "usb_charge_now", -1);
+        s.separated = s.plugged && usbChargeNow == 0;
+        s.fullUah = directNum(BATTERY + "charge_full", -1);
+        s.designUah = directNum(BATTERY + "charge_full_design", -1);
+        if (s.designUah > 0 && s.fullUah > 0) {
+            s.healthPct = Math.max(0, Math.min(100,
+                    Math.round(s.fullUah * 100f / s.designUah)));
+        }
+        return s;
+    }
+
+    private static int directNum(String path, int fallback) {
+        String v = directText(path);
+        if (v == null) return fallback;
+        try {
+            String[] parts = v.trim().split("\\s+");
+            return Integer.parseInt(parts[0]);
+        } catch (Throwable ignored) {
+            return fallback;
+        }
+    }
+
     static Snapshot read(Context c) {
         Snapshot s = new Snapshot();
         s.pserver = PServer.available();

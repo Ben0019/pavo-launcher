@@ -125,8 +125,10 @@ final class AuroraHomeWidgetView extends FrameLayout {
                     continue;
                 }
                 if (KIND_BATTERY.equals(kind)) {
+                    // Fast, PServer-free read: the widget must paint with the
+                    // real level immediately, not after a hidden node times out.
                     final DeviceHealthReader.Snapshot s =
-                            DeviceHealthReader.read(getContext());
+                            DeviceHealthReader.readFast(getContext());
                     if (!running) break;
                     main.post(new Runnable() {
                         @Override

@@ -199,7 +199,7 @@ final class AppDrawerOverlayView extends FrameLayout {
         screenW = getResources().getDisplayMetrics().widthPixels;
         screenH = getResources().getDisplayMetrics().heightPixels;
         edgePad = Ui.dp(c, 10);
-        columns = 1;
+        columns = Math.max(1, Math.min(2, prefs.drawerOverlayColumns()));
         recomputeWidths();
 
         setFocusableInTouchMode(true);
@@ -525,7 +525,11 @@ final class AppDrawerOverlayView extends FrameLayout {
     private int cardWidth() {
         int strip = Math.max(Ui.dp(context, 56),
                 Ui.dp(context, prefs.drawerOverlayIconDp()) + Ui.dp(context, 28));
-        return searchOpen ? Math.max(strip, Ui.dp(context, 230)) : strip;
+        if (searchOpen) return Math.max(strip, Ui.dp(context, 230));
+        // The two-column drawer has to widen, otherwise both cells are squeezed
+        // into one strip and the second column is clipped away.
+        recomputeWidths();
+        return columns == 2 ? twoColW : oneColW;
     }
 
     private void recomputeWidths() {
@@ -533,7 +537,9 @@ final class AppDrawerOverlayView extends FrameLayout {
                 Ui.dp(context, prefs.drawerOverlayIconDp()) + Ui.dp(context, 28));
         int max = screenW - edgePad * 2;
         oneColW = Math.min(max, strip);
-        twoColW = oneColW;
+        // Two columns must actually be twice as wide, otherwise both cells are
+        // squeezed into a single strip and the second one is clipped.
+        twoColW = Math.min(max, oneColW * 2 + Ui.dp(context, 6));
     }
 
     private void updateColumnsButton() {
@@ -548,6 +554,10 @@ final class AppDrawerOverlayView extends FrameLayout {
         updateColumnsButton();
         applyCardWidth(true);
         updateMetrics();
+        if (adapter != null) adapter.notifyDataSetChanged();
+        list.postDelayed(new Runnable() {
+            @Override public void run() { list.requestLayout(); }
+        }, 200L);
     }
 
     private void applyCardWidth(boolean animate) {

@@ -258,11 +258,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
         }
         content.removeAllViews();
         int perColumn = Math.max(1, (cards.size() + cols - 1) / cols);
-        // Stretching every card to an equal share only works when the panel is
-        // tall enough; on 4:3 panels it clips the card contents, so let the
-        // cards keep their natural height and scroll the column instead.
+        // A wide, tall panel gets equal-height cards with their content centred,
+        // so the grid is symmetrical and no card ends in a void. Short panels
+        // keep content-sized cards that scroll, otherwise the content clips.
         boolean stretch = cols == 3 && Ui.layoutHeightDp(this) >= 560;
-        boolean shortPanel = Ui.layoutHeightDp(this) < 560;
         for (int i = 0; i < cols; i++) {
             LinearLayout column = new LinearLayout(this);
             column.setOrientation(LinearLayout.VERTICAL);
@@ -274,13 +273,11 @@ public final class OverlayActivity extends AuroraGlassActivity {
                         stretch ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT,
                         stretch ? 1f : 0f);
                 lp.topMargin = dp(9);
-                column.addView(cards.get(k), lp);
-            }
-            if (shortPanel) {
-                // Room to scroll the last card clear of the floating overlay.
-                View tail = new View(this);
-                column.addView(tail, new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, dp(72)));
+                View cardView = cards.get(k);
+                if (stretch && cardView instanceof LinearLayout) {
+                    ((LinearLayout) cardView).setGravity(Gravity.CENTER_VERTICAL);
+                }
+                column.addView(cardView, lp);
             }
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);

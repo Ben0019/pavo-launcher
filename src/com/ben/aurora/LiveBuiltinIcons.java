@@ -23,6 +23,7 @@ final class LiveBuiltinIcons {
     static final String BENCHMARK = "com.ben.aurora.benchmark";
     static final String FILE_MANAGER = "com.ben.aurora.files";
     static final String SCREEN_RECORDER = "com.ben.aurora.screenrecorder";
+    static final String OVERLAY = "com.ben.aurora.overlay";
 
     private LiveBuiltinIcons() {}
 
@@ -32,7 +33,7 @@ final class LiveBuiltinIcons {
                 || RGB.equals(pkg) || FAN.equals(pkg)
                 || TOUCH.equals(pkg) || HEALTH.equals(pkg)
                 || BENCHMARK.equals(pkg) || FILE_MANAGER.equals(pkg)
-                || SCREEN_RECORDER.equals(pkg);
+                || SCREEN_RECORDER.equals(pkg) || OVERLAY.equals(pkg);
     }
 
     static long duration(String pkg) {
@@ -46,6 +47,7 @@ final class LiveBuiltinIcons {
         if (FILE_MANAGER.equals(pkg)) return 6200L;
         if (SCREEN_RECORDER.equals(pkg)) return 2600L;
         if (HEALTH.equals(pkg)) return 3000L;
+        if (OVERLAY.equals(pkg)) return 4200L;
         return 2400L;
     }
 
@@ -74,7 +76,69 @@ final class LiveBuiltinIcons {
             drawFileManager(c, size, accent, phase);
         } else if (SCREEN_RECORDER.equals(pkg)) {
             drawRecorder(c, size, accent, phase);
+        } else if (OVERLAY.equals(pkg)) {
+            drawOverlay(c, size, accent, phase);
         }
+    }
+
+    /**
+     * Overlay & Drawer: a floating glass panel whose six tiles shimmer, with a
+     * drawer sheet sliding out and back behind it.
+     */
+    private static void drawOverlay(Canvas c, int size, int accent, float phase) {
+        float t = phase * 2f;
+        float slide = (float) (0.5 - 0.5 * Math.cos(t * Math.PI * 2.0));
+
+        // drawer sheet sliding out from the left edge of the panel
+        RectF sheet = new RectF(size * (0.06f + 0.06f * slide), size * 0.24f,
+                size * (0.24f + 0.06f * slide), size * 0.70f);
+        Paint sheetFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        sheetFill.setColor(alpha(accent, 0x44));
+        c.drawRoundRect(sheet, size * 0.05f, size * 0.05f, sheetFill);
+        Paint sheetLine = new Paint(Paint.ANTI_ALIAS_FLAG);
+        sheetLine.setStyle(Paint.Style.STROKE);
+        sheetLine.setStrokeWidth(Math.max(1f, size * 0.016f));
+        sheetLine.setColor(alpha(accent, (int) (0x66 + 0x66 * slide)));
+        c.drawRoundRect(sheet, size * 0.05f, size * 0.05f, sheetLine);
+
+        // floating panel
+        RectF panel = new RectF(size * (0.26f + 0.05f * slide), size * 0.22f,
+                size * (0.86f + 0.02f * slide), size * 0.66f);
+        Paint panelFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        panelFill.setColor(alpha(accent, 0x22));
+        c.drawRoundRect(panel, size * 0.10f, size * 0.10f, panelFill);
+        Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
+        outline.setStyle(Paint.Style.STROKE);
+        outline.setStrokeWidth(Math.max(1f, size * 0.022f));
+        outline.setColor(alpha(accent, 0xE6));
+        c.drawRoundRect(panel, size * 0.10f, size * 0.10f, outline);
+
+        // six tiles, lit in a wave
+        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        float dotR = size * 0.042f;
+        for (int i = 0; i < 6; i++) {
+            int row = i / 3;
+            int col = i % 3;
+            float wave = (float) (0.5 + 0.5 * Math.sin(
+                    (phase * 2.0 - i * 0.11) * Math.PI * 2.0));
+            dot.setColor(alpha(accent, (int) (0x44 + 0xAA * wave)));
+            float dx = panel.left + panel.width() * (0.20f + col * 0.30f);
+            float dy = panel.top + panel.height() * (0.28f + row * 0.44f);
+            c.drawCircle(dx, dy, dotR * (0.75f + 0.45f * wave), dot);
+        }
+
+        // status bar under the panel
+        Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bar.setColor(alpha(accent, 0x99));
+        c.drawRoundRect(new RectF(size * 0.30f, size * 0.74f,
+                size * 0.70f, size * 0.78f), size * 0.02f, size * 0.02f, bar);
+        Paint spark = new Paint(Paint.ANTI_ALIAS_FLAG);
+        spark.setColor(alpha(accent, 0xF2));
+        float dash = size * 0.10f;
+        float x = size * 0.30f + (size * 0.40f - dash) * (float)
+                (0.5 + 0.5 * Math.sin(t * Math.PI * 2.0));
+        c.drawRoundRect(new RectF(x, size * 0.74f, x + dash, size * 0.78f),
+                size * 0.02f, size * 0.02f, spark);
     }
 
     private static void drawTile(Canvas c, int size, int accent) {

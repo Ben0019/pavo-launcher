@@ -11124,6 +11124,7 @@ public final class MainActivity extends Activity {
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 Haptics.click(seekBar);
+                applySettingsLive();
             }
         });
         glass.addView(bar, new LinearLayout.LayoutParams(
@@ -14449,14 +14450,10 @@ public final class MainActivity extends Activity {
                 {"Dock", "Dock"},
                 {"Transparency", "Transparency"},
                 {"Home", "Home screen"},
-                {"Display", "Display"},
                 {"Gestures", "Gestures"},
                 {"Feedback", "Feedback & haptics"},
-                {"Controls", "Controller remapping"},
                 {"Drawer", "App drawer"},
                 {"Widgets", "Clock, weather & status"},
-                {"Performance", "Performance overlay"},
-                {"Wallpaper", "Wallpaper"},
                 {"Language", "Language"},
                 {"Backup", "Backup & restore"}
         };
@@ -15141,6 +15138,7 @@ public final class MainActivity extends Activity {
                 valueView.setText(v + suffix);
                 if (fromUser) {
                     callback.onValue(v);
+                    scheduleLiveSettings();
                     long now = android.os.SystemClock.uptimeMillis();
                     if (now - lastHaptic[0] >= 45L) {
                         lastHaptic[0] = now;
@@ -15157,6 +15155,7 @@ public final class MainActivity extends Activity {
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 Haptics.click(seekBar);
+                applySettingsLive();
             }
         });
 
@@ -15164,6 +15163,38 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 28)));
         parent.addView(box);
         return bar;
+    }
+
+    private boolean liveSettingsPosted;
+
+    /** Coalesce rapid slider changes into one repaint. */
+    private void scheduleLiveSettings() {
+        if (liveSettingsPosted) return;
+        liveSettingsPosted = true;
+        handler.postDelayed(new Runnable() {
+            @Override public void run() {
+                liveSettingsPosted = false;
+                applySettingsLive();
+            }
+        }, 90L);
+    }
+
+    /**
+     * Re-apply every visual setting immediately so a change is visible on the
+     * home behind the panel, instead of only after closing it.
+     */
+    private void applySettingsLive() {
+        if (isFinishing() || isDestroyed()) return;
+        try {
+            ThemeColors.initialize(this);
+            applyColorTuning();
+            applyWallpaperPresentation();
+            if (dock != null) populateDock();
+            renderHome();
+            if (pager != null) updateDots(pager.currentPage(), pager.pageCount());
+            updateHeaderStatus();
+        } catch (Throwable ignored) {
+        }
     }
 
     private void addSwitch(LinearLayout parent, String name, boolean value,
@@ -15188,6 +15219,7 @@ public final class MainActivity extends Activity {
             public void onCheckedChanged(android.widget.CompoundButton buttonView, boolean isChecked) {
                 Haptics.click(buttonView);
                 callback.onValue(isChecked);
+                applySettingsLive();
             }
         });
         row.addView(sw);
