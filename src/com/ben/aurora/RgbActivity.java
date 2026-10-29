@@ -78,6 +78,7 @@ public final class RgbActivity extends AuroraGlassActivity {
     private boolean leftOn;
     private boolean rightOn;
     private boolean suppress;
+    private boolean tight;
     private boolean firstApply;
     private boolean initialFocusDone;
     private int serviceMode = -1;
@@ -176,6 +177,7 @@ public final class RgbActivity extends AuroraGlassActivity {
         ThemeColors.initialize(this);
         accent = ThemeColors.accent();
         prefs = new Prefs(this);
+        tight = Ui.widthDp(this) < 700;
         mode = prefs.rgbMode();
         color = prefs.rgbColor();
         brightness = prefs.rgbBrightness();
@@ -302,7 +304,8 @@ public final class RgbActivity extends AuroraGlassActivity {
         // Joystick outlines get their own compact card. The title overlays the
         // card so the two outlines stay centred in the full card width.
         FrameLayout joystickCard = new FrameLayout(this);
-        joystickCard.setPadding(dp(14), dp(7), dp(14), dp(7));
+        joystickCard.setPadding(dp(tight ? 10 : 14), dp(tight ? 4 : 7),
+                dp(tight ? 10 : 14), dp(tight ? 4 : 7));
         joystickCard.setBackground(Ui.rounded(CARD_FILL, dp(CARD_RADIUS),
                 CARD_BORDER, dp(1)));
         LinearLayout.LayoutParams joystickCardLp = new LinearLayout.LayoutParams(
@@ -387,7 +390,7 @@ public final class RgbActivity extends AuroraGlassActivity {
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.TOP);
         right.addView(top, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(150)));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(tight ? 126 : 150)));
 
         LinearLayout outputSection = section(top, "OUTPUT", "");
         LinearLayout.LayoutParams outputLp =
@@ -535,10 +538,11 @@ public final class RgbActivity extends AuroraGlassActivity {
     private LinearLayout section(LinearLayout parent, String title, String hint) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(CARD_PADDING), dp(9), dp(CARD_PADDING), dp(9));
+        int cp = tight ? 10 : CARD_PADDING;
+        box.setPadding(dp(cp), dp(tight ? 6 : 9), dp(cp), dp(tight ? 6 : 9));
         box.setBackground(Ui.rounded(CARD_FILL, dp(CARD_RADIUS),
                 CARD_BORDER, dp(1)));
-        TextView t = text(title, 10.5f, accent, true);
+        TextView t = text(title, tight ? 9.5f : 10.5f, accent, true);
         t.setLetterSpacing(0.12f);
         t.setPadding(2, 0, 2, 0);
         box.addView(t);

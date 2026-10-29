@@ -413,8 +413,8 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         thermalCard(topRow);
         gpuCard = new GpuCard(bottomRow);
 
-        boolean narrow = Ui.columns(this, 3) == 1 || Ui.widthDp(this) < 700;
-        boolean shortScreen = Ui.layoutHeightDp(this) < 520;
+        boolean narrow = Ui.columns(this, 3) == 1;
+        boolean shortScreen = Ui.layoutHeightDp(this) < 430;
         if (narrow || shortScreen) {
             // Scroll instead of squeezing the cards on short or narrow panels.
             if (narrow) {
@@ -626,24 +626,20 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         addFocusable(close, true);
         headerFocus.add(close);
 
-        // On narrow panels (4:3 included) the title and the chips do not fit on
-        // one line, so the header becomes two rows.
-        if (Ui.columns(this, 3) == 1 || Ui.widthDp(this) < 700) {
-            header.removeAllViews();
-            header.setOrientation(LinearLayout.VERTICAL);
-            header.setGravity(Gravity.START);
-            header.addView(titles, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            rowLp.topMargin = dp(4);
-            header.addView(row, rowLp);
-            row.addView(leftControls, new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            row.addView(controls);
+        // 4:3 and other narrow panels: shrink the header instead of restacking.
+        if (Ui.widthDp(this) < 700) {
+            title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+            subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
+            appSelectorLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+            profileStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+            stock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+            holdChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+            ((LinearLayout.LayoutParams) profileStatus.getLayoutParams()).rightMargin = dp(5);
+            ((LinearLayout.LayoutParams) stock.getLayoutParams()).rightMargin = dp(5);
+            ((LinearLayout.LayoutParams) holdChip.getLayoutParams()).rightMargin = dp(5);
+            profileStatus.setPadding(dp(7), dp(3), dp(7), dp(3));
+            stock.setPadding(dp(8), dp(3), dp(8), dp(3));
+            holdChip.setPadding(dp(7), dp(3), dp(7), dp(3));
         }
 
         return header;
@@ -1294,8 +1290,9 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
             for (final String gov : cpu.governors) {
                 TextView chip = modeChip(shortGovernor(gov));
                 chip.setTag(governorColor(gov));
-                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
-                chip.setPadding(dp(4), 0, dp(4), 0);
+                boolean tight = Ui.widthDp(PerformanceTunerActivity.this) < 700;
+                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, tight ? 7.5f : 8.5f);
+                chip.setPadding(dp(tight ? 2 : 4), 0, dp(tight ? 2 : 4), 0);
                 chip.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
