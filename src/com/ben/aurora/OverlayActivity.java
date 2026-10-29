@@ -241,8 +241,41 @@ public final class OverlayActivity extends AuroraGlassActivity {
         buildOverlaySection(left);
         buildMetricsSection(middle);
         buildDrawerSection(right);
+        reflowColumns(content, left, middle, right, Ui.columns(this, 3));
 
         setContentView(root);
+    }
+
+    /** Re-flows the six cards into 1, 2 or 3 equal columns. */
+    private void reflowColumns(LinearLayout content, LinearLayout a,
+                               LinearLayout b, LinearLayout c, int cols) {
+        List<View> cards = new ArrayList<>();
+        for (LinearLayout column : new LinearLayout[]{a, b, c}) {
+            while (column.getChildCount() > 0) {
+                cards.add(column.getChildAt(0));
+                column.removeViewAt(0);
+            }
+        }
+        content.removeAllViews();
+        int perColumn = Math.max(1, (cards.size() + cols - 1) / cols);
+        for (int i = 0; i < cols; i++) {
+            LinearLayout column = new LinearLayout(this);
+            column.setOrientation(LinearLayout.VERTICAL);
+            int from = i * perColumn;
+            int to = Math.min(cards.size(), from + perColumn);
+            for (int k = from; k < to; k++) {
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        cols == 1 ? ViewGroup.LayoutParams.WRAP_CONTENT : 0,
+                        cols == 1 ? 0f : 1f);
+                lp.topMargin = dp(9);
+                column.addView(cards.get(k), lp);
+            }
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            if (i > 0) clp.leftMargin = dp(6);
+            content.addView(wrapScroll(column), clp);
+        }
     }
 
     private View wrapScroll(LinearLayout column) {

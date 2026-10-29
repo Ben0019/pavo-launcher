@@ -28,6 +28,24 @@ final class Ui {
      * portrait preserves the launcher's usable width instead of squeezing the
      * header and dock into a narrow phone-width column.
      */
+    /** Column count for card grids, derived from the current screen width. */
+    static int columns(Context c, int max) {
+        if (c == null) return Math.max(1, max);
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        int w = dm.density > 0 ? Math.round(dm.widthPixels / dm.density) : 0;
+        if (w >= 720) return Math.min(3, Math.max(1, max));
+        if (w >= 460) return Math.min(2, Math.max(1, max));
+        return 1;
+    }
+
+    /** Spacing/text scale for compact or very wide screens. */
+    static float densityScale(Context c) {
+        if (c == null) return 1f;
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        int w = dm.density > 0 ? Math.round(dm.widthPixels / dm.density) : 800;
+        return Math.max(0.86f, Math.min(1.16f, w / 800f));
+    }
+
     static Context adaptiveContext(Context base) {
         if (base == null) return null;
         try {
@@ -65,9 +83,10 @@ final class Ui {
                 densityScale = Math.min(size.x, size.y) / (float) nativeShort;
             }
             int scaledDpi = Math.round(baseDpi * densityScale);
-            // Do not let portrait or narrow aspect ratios squeeze the header,
-            // dock and settings cards below a usable width.
-            int widthDpi = Math.round(size.x * 160f / 600f);
+            // Keep at least 820dp of width so multi-column cards, headers and
+            // dialogs always fit; narrower or portrait panels scale instead of
+            // overlapping.
+            int widthDpi = Math.round(size.x * 160f / 820f);
             scaledDpi = Math.min(scaledDpi, widthDpi);
             scaledDpi = Math.max(140, Math.min(640, scaledDpi));
             if (scaledDpi != baseDpi) {
