@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  * the FPS meter. No root shell is needed on AYN/Retroid firmware.
  */
 final class PerfSampler {
-    private static final long FPS_WINDOW_NS = 1_000_000_000L;
+    private static final long FPS_WINDOW_NS = 600_000_000L;
     /** Frames older than this mean the resolved surface is no longer drawing. */
     private static final long FPS_STALE_NS = 3_500_000_000L;
     private static final long PSERVER_OFF_NS = 30_000_000_000L;
@@ -44,6 +44,7 @@ final class PerfSampler {
             + "pid=$(pidof \"$pkg\" 2>/dev/null | awk '{print $1}')\n"
             + "if [ -n \"$pid\" ]; then rss=$(grep VmRSS /proc/$pid/status 2>/dev/null | awk '{print $2}'); [ -n \"$rss\" ] && echo \"RSS:$rss\"; fi\n"
             + "best=\"$cached\"; bestn=0; bestout=\n"
+            + "case \"$best\" in *\"$pkg\"*) ;; *) best=;; esac\n"
             + "if [ -n \"$best\" ]; then\n"
             + "  bestout=$(dumpsys SurfaceFlinger --latency \"$best\" 2>/dev/null)\n"
             + "  bestn=$(printf '%s\\n' \"$bestout\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}')\n"
@@ -58,19 +59,23 @@ final class PerfSampler {
             + "    o=$(dumpsys SurfaceFlinger --latency \"$cand\" 2>/dev/null)\n"
             + "    n=$(printf '%s\\n' \"$o\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}')\n"
             + "    nw=$(printf '%s\\n' \"$o\" | awk 'NR>1 && $2+0>0 {if ($2+0>m) m=$2+0; c++} END {printf \"%.0f\\n\", m}')\n"
-            + "    if [ -z \"$best\" ] || awk -v a=\"${nw:-0}\" -v b=\"$bestNewest\" 'BEGIN{exit !(a>b)}'; then bestNewest=$nw; bestn=$n; best=$cand; bestout=$o; fi\n"
+            + "    better=0;\n"
+            + "    if [ -z \"$best\" ]; then better=1;\n"
+            + "    elif [ \"$n\" -gt \"$bestn\" ]; then better=1;\n"
+            + "    elif [ \"$n\" -eq \"$bestn\" ] && awk -v a=\"${nw:-0}\" -v b=\"$bestNewest\" 'BEGIN{exit !(a>b)}'; then better=1; fi\n"
+            + "    if [ \"$better\" -eq 1 ]; then bestNewest=$nw; bestn=$n; best=$cand; bestout=$o; fi\n"
             + "  done <<EOF\n$cands\nEOF\n"
             + "fi\n"
             + "if [ -n \"$best\" ] && [ \"$bestn\" -gt 0 ]; then echo \"LAYER:$best\"; printf '%s\\n' \"$bestout\"; else echo \"LAYER:\"; fi\n"
             + "} > \"$tmp\" 2>/dev/null\n"
             + "chmod 644 \"$tmp\"\n"
-            + "mv \"$tmp\" \"$out\"\n";
+            + "mv \"$tmp\" \"$out\"\n"
+            + "cp \"$out\" /data/local/tmp/aurora-fps-last.txt 2>/dev/null\n";
 
     private static File pserverScript;
     private static long pserverOffUntil;
     private static String pserverToken;
     private static long pserverStartedNs;
-    private static int pserverFailures;
 
     private final int coreCount;
     private final long[] prevTotal = new long[PerfStats.MAX_CORES];
@@ -81,6 +86,10 @@ final class PerfSampler {
     private long prevGpuTotal;
     private String cachedLayer;
     private long noLayerUntil;
+    private final long[] fpsRecent = new long[3];
+    private int fpsRecentCount;
+    private int fpsRecentIndex;
+    private String fpsRecentLayer;
     private String cachedTargetPkg;
     private String cachedTargetCls;
     private long cachedAppRamKb;
@@ -364,10 +373,9 @@ final class PerfSampler {
         File out = new File(cache, "aurora-fps.txt");
         boolean consumed = false;
         if (pserverToken != null) {
-            String text = readText(out);
+            String text = readAllText(out);
             if (text != null && text.contains("TOKEN:" + pserverToken)) {
                 pserverToken = null;
-                pserverFailures = 0;
                 try {
                     out.delete();
                 } catch (Throwable ignored) {
@@ -375,12 +383,9 @@ final class PerfSampler {
                 parseFpsLatency(s, text, true, now, FPS_STALE_NS);
                 consumed = true;
             } else if (now - pserverStartedNs > 4_000_000_000L) {
+                // The daemon never came back with this run; try again next tick
+                // instead of disabling the meter for a minute.
                 pserverToken = null;
-                pserverFailures++;
-                if (pserverFailures >= 3) {
-                    pserverOffUntil = now + 60_000_000_000L;
-                    pserverFailures = 0;
-                }
             }
         }
         // Keep the pipeline full: a run started right after a sample is read
@@ -400,6 +405,29 @@ final class PerfSampler {
             }
             pserverToken = token;
             pserverStartedNs = now;
+            if (cachedLayer != null) {
+                // Fast path: a cached layer only needs one short dumpsys, so
+                // wait briefly and update this sample instead of the next one.
+                long deadline = now + 260_000_000L;
+                while (System.nanoTime() < deadline) {
+                    String text = readAllText(out);
+                    if (text != null && text.contains("TOKEN:" + token)) {
+                        pserverToken = null;
+                        try {
+                            out.delete();
+                        } catch (Throwable ignored) {
+                        }
+                        parseFpsLatency(s, text, true, System.nanoTime(), FPS_STALE_NS);
+                        return;
+                    }
+                    try {
+                        Thread.sleep(15L);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
         }
         if (consumed) return;
     }
@@ -408,6 +436,7 @@ final class PerfSampler {
                                  long staleLimit) {
         boolean layerFound = !resolved;
         long newest = 0;
+        long refreshNs = 0;
         String layer = null;
         List<Long> times = new ArrayList<>();
         String[] lines = out.split("\n");
@@ -437,6 +466,15 @@ final class PerfSampler {
             }
             if (!layerFound) continue;
             String[] p = line.split("\\s+");
+            if (p.length == 1) {
+                // Header line of --latency: the panel's current vsync period.
+                try {
+                    long v = Long.parseLong(p[0]);
+                    if (v >= 1_000_000L && v <= 40_000_000L) refreshNs = v;
+                } catch (Throwable ignored) {
+                }
+                continue;
+            }
             if (p.length < 3) continue;
             long actual;
             try {
@@ -445,6 +483,9 @@ final class PerfSampler {
                 continue;
             }
             if (actual <= 0 || actual == Long.MAX_VALUE) continue;
+            // Some drivers repeat the same present time for queued frames;
+            // counting duplicates inflates the rate.
+            if (!times.isEmpty() && actual <= times.get(times.size() - 1)) continue;
             times.add(actual);
             if (actual > newest) newest = actual;
         }
@@ -453,10 +494,10 @@ final class PerfSampler {
             if (!layerFound) noLayerUntil = now + 500_000_000L;
         }
         if (!layerFound || times.isEmpty() || newest <= 0) {
-            if (!resolved) {
-                cachedLayer = null;
-                noLayerUntil = now + 1_000_000_000L;
-            }
+            // An empty dump means the layer went away; resolve again instead of
+            // pinning a dead surface for the rest of the session.
+            cachedLayer = null;
+            noLayerUntil = now + 400_000_000L;
             return;
         }
         s.targetPkg = cachedTargetPkg;
@@ -464,12 +505,11 @@ final class PerfSampler {
         s.appRamKb = cachedAppRamKb;
         long age = now - newest;
         if (age > staleLimit) {
-            s.fps = 0;
-            s.fpsValid = true;
             // A stale layer is often the wrong SurfaceView or a just-created one.
-            // Drop it and re-resolve on the next sample instead of waiting two seconds.
+            // Re-resolve, but keep the last reading on screen instead of
+            // flashing a zero for one frame.
             cachedLayer = null;
-            noLayerUntil = now + 500_000_000L;
+            noLayerUntil = now + 400_000_000L;
             return;
         }
         int count = 0;
@@ -481,12 +521,28 @@ final class PerfSampler {
                 if (t < oldest) oldest = t;
             }
         }
+        long raw;
         if (count > 1 && newest > oldest) {
-            s.fps = Math.max(0, Math.min(240,
-                    Math.round((count - 1) * 1_000_000_000f / (newest - oldest))));
+            raw = Math.round((count - 1) * 1_000_000_000.0 / (newest - oldest));
         } else {
-            s.fps = Math.max(0, Math.min(240, count));
+            raw = count;
         }
+        raw = Math.round(raw);
+        // Never report more frames than the panel can show.
+        long cap = refreshNs > 0 ? Math.round(1_000_000_000.0 / refreshNs * 1.10) : 240;
+        raw = Math.max(0, Math.min(Math.max(1, cap), raw));
+        if (fpsRecentLayer == null || !fpsRecentLayer.equals(layer)) {
+            fpsRecentLayer = layer;
+            fpsRecentCount = 0;
+            fpsRecentIndex = 0;
+        }
+        fpsRecent[fpsRecentIndex] = raw;
+        fpsRecentIndex = (fpsRecentIndex + 1) % fpsRecent.length;
+        if (fpsRecentCount < fpsRecent.length) fpsRecentCount++;
+        long[] sorted = new long[fpsRecentCount];
+        System.arraycopy(fpsRecent, 0, sorted, 0, fpsRecentCount);
+        java.util.Arrays.sort(sorted);
+        s.fps = (int) sorted[sorted.length / 2];
         s.fpsValid = true;
     }
 
@@ -514,6 +570,18 @@ final class PerfSampler {
     private static int readPercent(File f) {
         long v = readLong(f);
         return (int) Math.max(0, Math.min(100, v));
+    }
+
+    /** Full read for the latency dump; readText() only samples sysfs-sized files. */
+    private static String readAllText(File f) {
+        try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+            byte[] data = new byte[64 * 1024];
+            int n = in.read(data);
+            if (n <= 0) return null;
+            return new String(data, 0, n);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static String readText(File f) {
