@@ -13749,6 +13749,20 @@ public final class MainActivity extends Activity {
         builtinHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         builtinHint.setPadding(0, 0, 0, Ui.dp(this, 10));
         panel.addView(builtinHint);
+        addSlider(panel, "Background saturation", 0, 200, prefs.builtinSaturation(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setBuiltinSaturation(value);
+            }
+        });
+        TextView saturationHint = new LTextView(this);
+        saturationHint.setText("Colour strength of the screen captured behind built-in app "
+                + "cards. 150% matches the original glass; 100% is neutral.");
+        saturationHint.setTextColor(0x66FFFFFF);
+        saturationHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        saturationHint.setPadding(0, 0, 0, Ui.dp(this, 10));
+        panel.addView(saturationHint);
         addSlider(panel, "Dock", 20, 100, prefs.dockTransparency(), new IntCallback() {
             @Override
             public void onValue(int value) {

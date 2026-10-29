@@ -131,10 +131,18 @@ final class LiveGlassEffect {
     static RenderEffect build(float density, int cardLeft, int cardTop,
                               int cardWidth, int cardHeight, float radiusPx,
                               float scale, float blurDp, boolean chromatic) {
+        return build(density, cardLeft, cardTop, cardWidth, cardHeight, radiusPx,
+                scale, blurDp, chromatic, 1.5f);
+    }
+
+    static RenderEffect build(float density, int cardLeft, int cardTop,
+                              int cardWidth, int cardHeight, float radiusPx,
+                              float scale, float blurDp, boolean chromatic,
+                              float saturationAmount) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null;
 
         ColorMatrix saturation = new ColorMatrix();
-        saturation.setSaturation(1.5f);
+        saturation.setSaturation(Math.max(0f, saturationAmount));
         RenderEffect color = RenderEffect.createColorFilterEffect(
                 new ColorMatrixColorFilter(saturation));
         float blur = blurDp * density * scale;

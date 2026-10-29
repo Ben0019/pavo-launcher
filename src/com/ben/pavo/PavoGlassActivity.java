@@ -134,6 +134,7 @@ abstract class PavoGlassActivity extends Activity {
                         if (decor.getViewTreeObserver().isAlive()) {
                             decor.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                         }
+                        applyBuiltinSaturation(decor);
                         Backdrop appliedBackdrop = null;
                         if (!usesLiveBackdrop()) {
                             appliedBackdrop = BuiltInBackdrop.take();
@@ -160,6 +161,24 @@ abstract class PavoGlassActivity extends Activity {
                         }, 140L);
                     }
                 });
+    }
+
+    /** One saturation value for every glass card in a built-in app. */
+    private void applyBuiltinSaturation(View root) {
+        float value = Math.max(0f, new Prefs(this).builtinSaturation() / 100f);
+        applySaturation(root, value);
+    }
+
+    private static void applySaturation(View view, float value) {
+        if (view instanceof GlassPanel) {
+            ((GlassPanel) view).setBackdropSaturation(value);
+        }
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                applySaturation(group.getChildAt(i), value);
+            }
+        }
     }
 
     private void revealIfGlassNeverAppeared(final View decor) {

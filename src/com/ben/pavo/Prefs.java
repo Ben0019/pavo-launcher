@@ -292,6 +292,15 @@ final class Prefs {
     void setPopupDrawerTransparency(int v) { sp.edit().putInt("popup_drawer_transparency", clamp(v, 20, 100)).apply(); }
     void setSettingsTransparency(int v) { sp.edit().putInt("settings_transparency", clamp(v, 20, 100)).apply(); }
     void setBuiltinTransparency(int v) { sp.edit().putInt("builtin_transparency", clamp(v, 20, 100)).apply(); }
+
+    /** Colour strength of the captured background inside built-in app cards. */
+    int builtinSaturation() {
+        return clamp(sp.getInt("builtin_saturation", 150), 0, 200);
+    }
+
+    void setBuiltinSaturation(int v) {
+        sp.edit().putInt("builtin_saturation", clamp(v, 0, 200)).apply();
+    }
     void setFolderTransparency(int v) { sp.edit().putInt("folder_transparency", clamp(v, 20, 100)).apply(); }
 
     // --- joystick RGB ---

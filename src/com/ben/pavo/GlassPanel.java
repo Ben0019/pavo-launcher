@@ -51,6 +51,7 @@ final class GlassPanel extends LinearLayout {
     private boolean screenAnchoredBackdrop;
     private LiquidGlassShader liquidShader;
     private GlassCardRenderer cardRenderer;
+    private float backdropSaturation = 1.5f;
     private boolean liquidEffect;
     private int clearBodyAlpha = 0xCC;
     private float rimWidthDp;
@@ -178,6 +179,13 @@ final class GlassPanel extends LinearLayout {
      * them (the dock drawers and the floating card). Older menu/settings cards keep
      * their original dark clamped treatment.
      */
+    /** Colour strength of the captured backdrop (1.5 matches the original glass). */
+    void setBackdropSaturation(float value) {
+        backdropSaturation = Math.max(0f, value);
+        if (cardRenderer != null) cardRenderer.setSaturation(backdropSaturation);
+        invalidate();
+    }
+
     void setBackdropScreenAnchored(boolean anchored) {
         screenAnchoredBackdrop = anchored;
         invalidate();
@@ -299,7 +307,10 @@ final class GlassPanel extends LinearLayout {
         float radius = Math.min(radiusPx, Math.min(w, h) / 2f);
         rect.set(0, 0, w, h);
         if (liquidEffect && backdrop != null) {
-            if (cardRenderer == null) cardRenderer = new GlassCardRenderer(this);
+            if (cardRenderer == null) {
+                cardRenderer = new GlassCardRenderer(this);
+                cardRenderer.setSaturation(backdropSaturation);
+            }
             if (cardRenderer.draw(canvas, (int) w, (int) h, radius, backdrop)) {
                 drawReadabilityScrim(canvas, w, h, radius);
                 drawLiquidOverlay(canvas, w, h, radius);
@@ -444,7 +455,10 @@ final class GlassPanel extends LinearLayout {
         }
         boolean liquidDrawn = false;
         if (liquidEffect && backdrop != null) {
-            if (cardRenderer == null) cardRenderer = new GlassCardRenderer(this);
+            if (cardRenderer == null) {
+                cardRenderer = new GlassCardRenderer(this);
+                cardRenderer.setSaturation(backdropSaturation);
+            }
             liquidDrawn = cardRenderer.draw(canvas, (int) w, (int) h, radius, backdrop);
         }
         if (!liquidDrawn && background != null) {

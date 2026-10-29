@@ -38,8 +38,15 @@ final class GlassCardRenderer {
     private int nodeWidth;
     private int nodeHeight;
 
+    private float saturation = 1.5f;
+
     GlassCardRenderer(View view) {
         this.view = view;
+    }
+
+    void setSaturation(float value) {
+        saturation = value;
+        lastBitmap = null;
     }
 
     boolean draw(Canvas canvas, int width, int height, float radius, Backdrop backdrop) {
@@ -84,7 +91,7 @@ final class GlassCardRenderer {
                 node.endRecording();
                 effect = LiveGlassEffect.build(
                         view.getResources().getDisplayMetrics().density,
-                        0, 0, sw, sh, radius * scale, scale, 16f, true);
+                        0, 0, sw, sh, radius * scale, scale, 16f, true, saturation);
                 node.setRenderEffect(effect);
                 lastBitmap = bitmap;
                 lastLocX = location[0];
