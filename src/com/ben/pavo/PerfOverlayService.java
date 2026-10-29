@@ -163,7 +163,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         public void run() {
             backdropPulsePosted = false;
             if (!running || container == null) return;
-            if (container.getVisibility() == View.VISIBLE && menu == null && detail == null) {
+            if (container.getVisibility() == View.VISIBLE && menu == null && detail == null
+                    && (powerManager == null || powerManager.isInteractive())) {
                 capturePanelBackdrop(false);
             }
             scheduleBackdropPulse();
@@ -173,7 +174,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private void scheduleBackdropPulse() {
         if (backdropPulsePosted || !running) return;
         backdropPulsePosted = true;
-        main.postDelayed(backdropPulse, 2500L);
+        // Track moving content closely; once the app behind is static, back off
+        // so an idle overlay costs almost nothing.
+        main.postDelayed(backdropPulse, staticBackdropCount >= 3 ? 1200L : 450L);
     }
 
     /**
@@ -698,6 +701,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private Backdrop lastPanelBackdrop;
     private boolean backdropPulsePosted;
     private boolean panelCaptureInFlight;
+    private long lastBackdropSignature;
+    private int staticBackdropCount;
     private int burnInIndex;
     private final java.util.Random burnInRandom = new java.util.Random();
     private final Runnable burnInTick = new Runnable() {
@@ -840,6 +845,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         main.removeCallbacks(mapperTick);
         main.removeCallbacks(burnInTick);
         main.removeCallbacks(dimTick);
+        main.removeCallbacks(backdropPulse);
         dimOverlay = null;
         finalizeCurrentLog();
         closeMenu();
@@ -993,7 +999,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         }
         params.x = prefs.perfOverlayX();
         params.y = prefs.perfOverlayY();
-
         try {
             windowManager.addView(container, params);
         } catch (Throwable ignored) {
@@ -1024,21 +1029,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         boolean requested = PavoA11yService.captureApplicationWindow(
                 new PavoA11yService.WindowCaptureCallback() {
                     @Override
-                    public void onCaptured(Bitmap bitmap, Rect bounds) {
-                        final Backdrop backdrop = ScreenCaptureBackdrop.fromWindow(
-                                PerfOverlayService.this, bitmap, bounds);
-                        main.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                panelCaptureInFlight = false;
-                                scheduleBackdropPulse();
-                                if (panel == view && running) {
-                                    lastPanelBackdrop = backdrop;
-                                    view.setBackdrop(backdrop);
-                                    applyCardTouchability();
-                                }
-                            }
-                        });
+                    public void onCaptured(final Bitmap bitmap, final Rect bounds) {
+                        composePanelBackdrop(bitmap, bounds, view);
                     }
 
                     @Override
@@ -1508,6 +1500,62 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 });
             }
         });
+    }
+
+    /**
+     * Downscale + blur a window capture off the main thread (~25 ms of CPU), then
+     * hand the card a fresh frame. Consecutive identical frames let the pulse back
+     * off when the app behind is not moving.
+     */
+    private void composePanelBackdrop(final Bitmap bitmap, final Rect bounds,
+            final PerfOverlayView view) {
+        try {
+            worker.execute(new Runnable() {
+                @Override
+                public void run() {
+                    final Backdrop backdrop = ScreenCaptureBackdrop.fromWindow(
+                            PerfOverlayService.this, bitmap, bounds);
+                    final long signature = backdrop == null ? 0L : signature(backdrop.bitmap);
+                    main.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (signature != 0L && signature == lastBackdropSignature) {
+                                staticBackdropCount++;
+                            } else {
+                                staticBackdropCount = 0;
+                                lastBackdropSignature = signature;
+                            }
+                            panelCaptureInFlight = false;
+                            scheduleBackdropPulse();
+                            if (panel == view && running) {
+                                lastPanelBackdrop = backdrop;
+                                view.setBackdrop(backdrop);
+                                applyCardTouchability();
+                            }
+                        }
+                    });
+                }
+            });
+        } catch (Throwable ignored) {
+            panelCaptureInFlight = false;
+        }
+    }
+
+    /** Cheap 16x16 sample of a frame, used to tell moving content from a static app. */
+    private static long signature(Bitmap bitmap) {
+        if (bitmap == null || bitmap.isRecycled()) return 0L;
+        int w = bitmap.getWidth();
+        int h = bitmap.getHeight();
+        if (w <= 0 || h <= 0) return 0L;
+        long hash = 1125899906842597L;
+        for (int gy = 0; gy < 16; gy++) {
+            int y = Math.min(h - 1, gy * h / 16);
+            for (int gx = 0; gx < 16; gx++) {
+                int x = Math.min(w - 1, gx * w / 16);
+                hash = hash * 31 + bitmap.getPixel(x, y);
+            }
+        }
+        return hash;
     }
 
     private Backdrop copyBackdrop(Backdrop source) {
