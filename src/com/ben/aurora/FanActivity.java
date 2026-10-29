@@ -22,6 +22,7 @@ import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -423,8 +424,8 @@ public final class FanActivity extends AuroraGlassActivity {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.HORIZONTAL);
         content.setGravity(Gravity.TOP);
-        column.addView(content, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        LinearLayout.LayoutParams contentLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
 
         LinearLayout left = new LinearLayout(this);
         left.setOrientation(LinearLayout.VERTICAL);
@@ -624,6 +625,27 @@ public final class FanActivity extends AuroraGlassActivity {
         });
         updateManualAppearance();
 
+        boolean narrowFan = Ui.columns(this, 2) == 1;
+        boolean shortFan = Ui.layoutHeightDp(this) < 430;
+        if (narrowFan || shortFan) {
+            content.setOrientation(LinearLayout.VERTICAL);
+            left.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            right.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            LinearLayout.LayoutParams fanCurveLp = (LinearLayout.LayoutParams) curveCard.getLayoutParams();
+            fanCurveLp.height = dp(300);
+            fanCurveLp.weight = 0f;
+            curveCard.setLayoutParams(fanCurveLp);
+            ScrollView fanScroll = new ScrollView(this);
+            fanScroll.setFillViewport(false);
+            fanScroll.setVerticalScrollBarEnabled(false);
+            fanScroll.addView(content, new ScrollView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            column.addView(fanScroll, contentLp);
+        } else {
+            column.addView(content, contentLp);
+        }
         setContentView(root);
     }
 
