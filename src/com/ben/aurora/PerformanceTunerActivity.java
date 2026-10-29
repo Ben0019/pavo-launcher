@@ -24,6 +24,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Space;
 import android.widget.TextView;
@@ -385,7 +386,6 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
         bodyLp.topMargin = dp(8);
-        column.addView(body, bodyLp);
 
         LinearLayout topRow = new LinearLayout(this);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -413,22 +413,55 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         thermalCard(topRow);
         gpuCard = new GpuCard(bottomRow);
 
-        LinearLayout.LayoutParams halfLeft = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-        halfLeft.rightMargin = dp(4);
-        LinearLayout.LayoutParams halfRight = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-        halfRight.leftMargin = dp(4);
-        efficiencyCard.card.setLayoutParams(halfLeft);
-        thermalCardView.setLayoutParams(halfRight);
-        performanceCard.card.setLayoutParams(halfLeft);
-        gpuCard.card.setLayoutParams(halfRight);
+        boolean narrow = Ui.columns(this, 3) == 1;
+        boolean shortScreen = Ui.heightDp(this) < 430;
+        if (narrow || shortScreen) {
+            // Scroll instead of squeezing the cards on short or narrow panels.
+            if (narrow) {
+                topRow.setOrientation(LinearLayout.VERTICAL);
+                bottomRow.setOrientation(LinearLayout.VERTICAL);
+            }
+            int cardHeight = narrow ? 236 : 190;
+            topRow.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            bottomRow.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            efficiencyCard.card.setLayoutParams(stackedCard(narrow ? 0 : 0, cardHeight));
+            thermalCardView.setLayoutParams(stackedCard(narrow ? 7 : 0, cardHeight));
+            performanceCard.card.setLayoutParams(stackedCard(7, cardHeight));
+            gpuCard.card.setLayoutParams(stackedCard(7, cardHeight));
+            ScrollView scroll = new ScrollView(this);
+            scroll.setFillViewport(false);
+            scroll.setVerticalScrollBarEnabled(false);
+            scroll.addView(body, new ScrollView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            column.addView(scroll, bodyLp);
+        } else {
+            LinearLayout.LayoutParams halfLeft = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            halfLeft.rightMargin = dp(4);
+            LinearLayout.LayoutParams halfRight = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            halfRight.leftMargin = dp(4);
+            efficiencyCard.card.setLayoutParams(halfLeft);
+            thermalCardView.setLayoutParams(halfRight);
+            performanceCard.card.setLayoutParams(halfLeft);
+            gpuCard.card.setLayoutParams(halfRight);
+            column.addView(body, bodyLp);
+        }
 
         column.addView(buildFooter(), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
         updateHoldChip();
+    }
+
+    private LinearLayout.LayoutParams stackedCard(int topMarginDp, int heightDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(heightDp));
+        lp.topMargin = dp(topMarginDp);
+        return lp;
     }
 
     private View buildHeader() {

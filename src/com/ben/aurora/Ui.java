@@ -38,6 +38,12 @@ final class Ui {
         return 1;
     }
 
+    static int heightDp(Context c) {
+        if (c == null) return 0;
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        return dm.density > 0 ? Math.round(dm.heightPixels / dm.density) : 0;
+    }
+
     /** Spacing/text scale for compact or very wide screens. */
     static float densityScale(Context c) {
         if (c == null) return 1f;
