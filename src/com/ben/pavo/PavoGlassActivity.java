@@ -143,6 +143,13 @@ abstract class PavoGlassActivity extends Activity {
                                 card.setBackdropScreenAnchored(true);
                                 card.setLiquidEffect(true);
                                 liquidCard = true;
+                            } else {
+                                // Started without the launcher's hand-off (am start,
+                                // automation, recovery): a clear card with no capture
+                                // would be see-through, so fall back to a readable
+                                // frost instead of an invisible pane.
+                                card.setClearGlass(false);
+                                card.setClearBodyAlpha(0xF0);
                             }
                             // Static-backdrop apps get a quiet textured frost.
                             card.setFrosted(true);
