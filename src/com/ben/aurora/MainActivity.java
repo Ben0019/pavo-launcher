@@ -23,9 +23,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
+import android.content.pm.ShortcutInfo;
 import android.content.res.XmlResourceParser;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
@@ -46,6 +48,7 @@ import android.media.AudioManager;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.BatteryManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -172,6 +175,7 @@ public final class MainActivity extends Activity {
 
     private Prefs prefs;
     private Store store;
+    private BroadcastReceiver shortcutRefresh;
     private AppWidgetHost widgetHost;
     private AppWidgetManager widgetManager;
     private final Map<Integer, AppWidgetHostView> widgetViews = new HashMap<>();
@@ -921,6 +925,104 @@ public final class MainActivity extends Activity {
         buildUi();
         loadApps();
         applyWallpaperPresentation();
+
+        // Third-party apps can add a shortcut to the home screen. Legacy
+        // broadcasts refresh the grid through this receiver; pinned shortcuts
+        // arrive in the launch intent.
+        shortcutRefresh = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                store = new Store(MainActivity.this, prefs);
+                store.load();
+                refreshVisible();
+            }
+        };
+        try {
+            registerReceiver(shortcutRefresh,
+                    new IntentFilter(ShortcutReceiver.ACTION_ADDED));
+        } catch (Throwable ignored) {
+        }
+        handleShortcutIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleShortcutIntent(intent);
+    }
+
+    /** Adds a pinned shortcut requested by another app (requestPinShortcut). */
+    private void handleShortcutIntent(Intent intent) {
+        if (intent == null || Build.VERSION.SDK_INT < 26) return;
+        if (!LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT.equals(intent.getAction())) return;
+        LauncherApps.PinItemRequest request = intent.getParcelableExtra(
+                LauncherApps.EXTRA_PIN_ITEM_REQUEST);
+        if (request == null
+                || request.getRequestType() != LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
+            return;
+        }
+        ShortcutInfo info = request.getShortcutInfo();
+        if (info == null) return;
+        if (!request.accept()) return;
+
+        // The launcher is not given the shortcut's intent, only its identity.
+        // Keep the identity and start it later through LauncherApps.
+        String url = "shortcut://" + info.getPackage() + "/" + info.getId();
+        CharSequence label = info.getShortLabel();
+        if (label == null || label.length() == 0) label = info.getLongLabel();
+        String name = label == null ? null : label.toString();
+        ShortcutReceiver.add(this, url, name, shortcutIcon(info));
+        LToast.makeText(this, (name == null ? "Shortcut" : name) + " added to home",
+                android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    private Bitmap shortcutIcon(ShortcutInfo info) {
+        Drawable d = null;
+        try {
+            LauncherApps launcherApps = getSystemService(LauncherApps.class);
+            if (launcherApps != null) {
+                java.lang.reflect.Method getIcon = LauncherApps.class.getMethod(
+                        "getShortcutIcon", String.class, String.class, int.class);
+                Object value = getIcon.invoke(launcherApps, info.getPackage(), info.getId(),
+                        getResources().getDisplayMetrics().densityDpi);
+                if (value instanceof Drawable) d = (Drawable) value;
+            }
+        } catch (Throwable ignored) {
+        }
+        if (d == null) {
+            try {
+                d = getPackageManager().getApplicationIcon(info.getPackage());
+            } catch (Throwable ignored) {
+            }
+        }
+        return ShortcutReceiver.drawableBitmap(d, Ui.dp(this, 72));
+    }
+
+    private boolean launchPinnedShortcut(Item item, ItemView source) {
+        String rest = item.url.substring("shortcut://".length());
+        int slash = rest.lastIndexOf('/');
+        if (slash <= 0) return false;
+        String pkg = rest.substring(0, slash);
+        String id = rest.substring(slash + 1);
+        try {
+            LauncherApps launcherApps = getSystemService(LauncherApps.class);
+            if (launcherApps == null) return false;
+            android.graphics.Rect bounds = null;
+            if (source != null) {
+                int[] loc = new int[2];
+                source.getLocationOnScreen(loc);
+                bounds = new android.graphics.Rect(loc[0], loc[1],
+                        loc[0] + source.getWidth(), loc[1] + source.getHeight());
+            }
+            launcherApps.startShortcut(pkg, id, bounds, null,
+                    android.os.Process.myUserHandle());
+            return true;
+        } catch (Throwable t) {
+            LToast.makeText(this, "Shortcut is no longer available",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return false;
+        }
     }
 
     @Override
@@ -1142,6 +1244,10 @@ public final class MainActivity extends Activity {
         handler.removeCallbacks(controllerYLongPress);
         try {
             unregisterReceiver(batteryReceiver);
+        } catch (Throwable ignored) {
+        }
+        try {
+            unregisterReceiver(shortcutRefresh);
         } catch (Throwable ignored) {
         }
         clockHandler.removeCallbacks(clockTick);
@@ -5469,6 +5575,18 @@ public final class MainActivity extends Activity {
         return v;
     }
 
+    /** Web links open directly; shortcut intents keep their original action. */
+    private static Intent parseWebIntent(String url) {
+        if (url != null && url.startsWith("intent:")) {
+            try {
+                Intent parsed = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                if (parsed != null) return parsed;
+            } catch (Throwable ignored) {
+            }
+        }
+        return new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+    }
+
     private void startLongPressRipple(ItemView v) {
         if (v == null) return;
         int[] loc = new int[2];
@@ -5967,6 +6085,10 @@ public final class MainActivity extends Activity {
     }
 
     private void performLaunch(Item item, ItemView source, boolean fromLamp) {
+        if (item.type == Item.TYPE_WEB && item.url != null
+                && item.url.startsWith("shortcut://")) {
+            if (launchPinnedShortcut(item, source)) return;
+        }
         if (isPerfLogs(item.pkg)) {
             startBuiltIn(new Intent(this, PerfLogActivity.class), source);
             return;
@@ -6017,7 +6139,7 @@ public final class MainActivity extends Activity {
         }
         Intent intent;
         if (item.type == Item.TYPE_WEB) {
-            intent = new Intent(Intent.ACTION_VIEW, Uri.parse(item.url));
+            intent = parseWebIntent(item.url);
         } else {
             intent = new Intent(Intent.ACTION_MAIN);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);

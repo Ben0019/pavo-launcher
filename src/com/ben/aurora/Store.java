@@ -324,6 +324,14 @@ final class Store {
         }
     }
 
+    /** New shortcuts go on their own page so a widget can never cover them. */
+    void addToNewPage(Item item) {
+        if (item == null) return;
+        List<Item> page = new ArrayList<>();
+        page.add(item.copy());
+        pages.add(page);
+    }
+
     void addToHome(Item item, int capacity) {
         for (List<Item> p : pages) {
             for (int i = 0; i < capacity; i++) {
