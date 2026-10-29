@@ -413,8 +413,8 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         thermalCard(topRow);
         gpuCard = new GpuCard(bottomRow);
 
-        boolean narrow = Ui.columns(this, 3) == 1;
-        boolean shortScreen = Ui.layoutHeightDp(this) < 440;
+        boolean narrow = Ui.columns(this, 3) == 1 || Ui.widthDp(this) < 700;
+        boolean shortScreen = Ui.layoutHeightDp(this) < 520;
         if (narrow || shortScreen) {
             // Scroll instead of squeezing the cards on short or narrow panels.
             if (narrow) {
@@ -628,7 +628,7 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
 
         // On narrow panels (4:3 included) the title and the chips do not fit on
         // one line, so the header becomes two rows.
-        if (Ui.columns(this, 3) == 1 || Ui.widthDp(this) < 640) {
+        if (Ui.columns(this, 3) == 1 || Ui.widthDp(this) < 700) {
             header.removeAllViews();
             header.setOrientation(LinearLayout.VERTICAL);
             header.setGravity(Gravity.START);
