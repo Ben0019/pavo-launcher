@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
   <img alt="Android 12+" src="https://img.shields.io/badge/Android-12%2B-3ddc84?logo=android&logoColor=white">
-  <img alt="Pavo 1.0.0" src="https://img.shields.io/badge/Pavo-1.0.0-14b8a6">
+  <img alt="Pavo 1.0.0" src="https://img.shields.io/badge/Pavo-1.0.2-14b8a6">
 </p>
 
 <p align="center">
