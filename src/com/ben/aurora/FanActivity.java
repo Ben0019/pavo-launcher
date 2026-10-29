@@ -470,12 +470,13 @@ public final class FanActivity extends AuroraGlassActivity {
 
         // Rear outline tucked into the card's top-right corner.
         FrameLayout outlineHolder = new FrameLayout(this);
+        boolean tight = Ui.widthDp(this) < 700;
         LinearLayout.LayoutParams holderLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(175));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(tight ? 150 : 175));
         right.addView(outlineHolder, holderLp);
         backView = new FanBackView(this);
         FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(
-                dp(330), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         outlineHolder.addView(backView, blp);
         demoChip = text("DEMO", 8.5f, accent, true);
         demoChip.setGravity(Gravity.CENTER);
@@ -529,7 +530,7 @@ public final class FanActivity extends AuroraGlassActivity {
         statsLp.gravity = Gravity.END;
         info.addView(stats, statsLp);
         LinearLayout.LayoutParams infoLp = new LinearLayout.LayoutParams(
-                dp(240), ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         infoLp.gravity = Gravity.END;
         right.addView(info, infoLp);
 
