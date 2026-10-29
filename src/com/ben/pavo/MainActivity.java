@@ -12958,6 +12958,8 @@ public final class MainActivity extends Activity {
         switch (key) {
             case "Dock": return 0xFF00C2FF;
             case "Transparency": return 0xFF00E6A8;
+            case "Builtins": return 0xFF00E6A8;
+            case "Menus": return 0xFF6EE7FF;
             case "Home": return 0xFFFF8A00;
             case "Display": return 0xFFFFC857;
             case "Colors": return 0xFFFF6FD8;
@@ -13733,15 +13735,15 @@ public final class MainActivity extends Activity {
         });
         addDockPositionChooser(panel);
 
-        panel.use("Transparency");
-        addSection(panel, "Transparency");
+        panel.use("Builtins");
+        addSection(panel, "Built-in apps");
         TextView transparencyHint = new LTextView(this);
         transparencyHint.setText("Glass surfaces fade; icons, text and controls stay opaque.");
         transparencyHint.setTextColor(0x80FFFFFF);
         transparencyHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         transparencyHint.setPadding(0, 0, 0, Ui.dp(this, 4));
         panel.addView(transparencyHint);
-        addSlider(panel, "All built-in apps", 20, 100, prefs.builtinTransparency(),
+        addSlider(panel, "Transparency", 20, 100, prefs.builtinTransparency(),
                 new IntCallback() {
             @Override
             public void onValue(int value) {
@@ -13757,7 +13759,7 @@ public final class MainActivity extends Activity {
         builtinHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         builtinHint.setPadding(0, 0, 0, Ui.dp(this, 10));
         panel.addView(builtinHint);
-        addSlider(panel, "Background saturation", 0, 200, prefs.builtinSaturation(),
+        addSlider(panel, "Saturation", 0, 200, prefs.builtinSaturation(),
                 new IntCallback() {
             @Override
             public void onValue(int value) {
@@ -13771,7 +13773,7 @@ public final class MainActivity extends Activity {
         saturationHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         saturationHint.setPadding(0, 0, 0, Ui.dp(this, 10));
         panel.addView(saturationHint);
-        addSlider(panel, "Background darkening", 0, 100,
+        addSlider(panel, "Darkening", 0, 100,
                 prefs.builtinBackdropDarkness(), new IntCallback() {
             @Override
             public void onValue(int value) {
@@ -13785,6 +13787,9 @@ public final class MainActivity extends Activity {
         darkHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         darkHint.setPadding(0, 0, 0, Ui.dp(this, 10));
         panel.addView(darkHint);
+
+        panel.use("Menus");
+        addSection(panel, "Menus");
         addSlider(panel, "Popup menus", 20, 100, prefs.menuTransparency(),
                 new IntCallback() {
             @Override
@@ -14576,8 +14581,9 @@ public final class MainActivity extends Activity {
                 {"Home", "Home screen"},
                 {"Drawer", "App drawer"},
                 {"Dock", "Dock"},
+                {"Builtins", "Built-in apps"},
+                {"Menus", "Menus"},
                 {"Gestures", "Gestures"},
-                {"Transparency", "Transparency"},
                 {"Feedback", "Feedback & haptics"},
                 {"Widgets", "Clock, weather & status"},
                 {"Backup", "Backup & restore"},
