@@ -52,6 +52,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
     private TextView overlayChip;
     private TextView lockChip;
     private TextView shortcutRow;
+    private TextView perfShortcutRow;
     private TextView perfComboRow;
     private TextView drawerComboRow;
     private boolean suppress;
@@ -234,7 +235,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
 
     private void buildOverlaySection(LinearLayout parent) {
         LinearLayout box = section(parent, "PERFORMANCE OVERLAY",
-                "Drag on screen, pinch to resize, long-press for the menu.");
+                "Pinch to resize, long-press for the menu.");
         overlayChip = toggle(box, "SHOW OVERLAY", prefs.perfOverlay(),
                 new Toggle() {
                     @Override
@@ -303,6 +304,48 @@ public final class OverlayActivity extends AuroraGlassActivity {
                 PerfOverlayService.showDetailFromShortcut(OverlayActivity.this);
             }
         });
+
+        perfShortcutRow = text("", 10f, TEXT, false);
+        perfShortcutRow.setPadding(dp(10), dp(8), dp(10), dp(8));
+        perfShortcutRow.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
+        perfShortcutRow.setFocusable(true);
+        perfShortcutRow.setDefaultFocusHighlightEnabled(false);
+        perfShortcutRow.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (AuroraInputService.beginKeyCapture(OverlayActivity.this)) {
+                    LToast.makeText(OverlayActivity.this,
+                            "Press a controller button for the overlay",
+                            android.widget.Toast.LENGTH_LONG).show();
+                    v.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            refreshState();
+                        }
+                    }, 4200L);
+                } else {
+                    LToast.makeText(OverlayActivity.this,
+                            "Controller service unavailable. Check PServer/root or accessibility.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+        LinearLayout.LayoutParams pslp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        pslp.topMargin = dp(7);
+        box.addView(perfShortcutRow, pslp);
+
+        TextView clearPerfShortcut = text("CLEAR SHORTCUT", 8.5f, 0x99FFFFFF, true);
+        clearPerfShortcut.setPadding(dp(2), dp(6), 0, 0);
+        clearPerfShortcut.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                prefs.setPerfControllerRaw("");
+                refreshState();
+            }
+        });
+        box.addView(clearPerfShortcut);
+
         perfComboRow = comboRow(box, true);
         clearCombo(box, true);
     }
@@ -457,6 +500,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
             String mapped = AuroraA11yService.drawerControllerLabel(prefs);
             shortcutRow.setText("Shortcut: " + mapped + "  ·  tap to map");
         }
+        if (perfShortcutRow != null) {
+            String mapped = AuroraA11yService.controllerLabel(prefs);
+            perfShortcutRow.setText("Shortcut: " + mapped + "  ·  tap to map");
+        }
         if (perfComboRow != null) {
             perfComboRow.setText(comboLabel(prefs.perfCombo(), "Overlay combo"));
         }
@@ -598,7 +645,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
                             final Toggle callback) {
         final TextView chip = text(label, 9.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(10), dp(8), dp(10), dp(8));
+        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
         chip.setFocusable(true);
         chip.setDefaultFocusHighlightEnabled(false);
         setChipSelected(chip, on);
@@ -613,7 +660,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(7);
+        lp.topMargin = dp(5);
         parent.addView(chip, lp);
         return chip;
     }
@@ -639,7 +686,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
     private void action(LinearLayout parent, String label, final Runnable run) {
         TextView row = text(label, 9.5f, TEXT, true);
         row.setGravity(Gravity.CENTER);
-        row.setPadding(dp(10), dp(8), dp(10), dp(8));
+        row.setPadding(dp(10), dp(6), dp(10), dp(6));
         row.setFocusable(true);
         row.setDefaultFocusHighlightEnabled(false);
         row.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
@@ -652,7 +699,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(7);
+        lp.topMargin = dp(5);
         parent.addView(row, lp);
     }
 
@@ -663,7 +710,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         header.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        hlp.topMargin = dp(8);
+        hlp.topMargin = dp(6);
         parent.addView(header, hlp);
 
         TextView name = text(label, 9f, MUTED, false);
