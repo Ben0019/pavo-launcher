@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Aurora</string>
-    <string name="a11y_description">Lets Aurora open the notification shade and lock the screen from its home-screen gestures. No screen content is read.</string>
+    <string name="app_name">Pavo</string>
+    <string name="a11y_description">Lets Pavo open the notification shade and lock the screen from its home-screen gestures. No screen content is read.</string>
 </resources>

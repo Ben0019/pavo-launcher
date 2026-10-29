@@ -155,7 +155,7 @@ final class ControllerMapConfig {
         if (parent != null) parent.mkdirs();
         File tmp = new File(file.getAbsolutePath() + ".tmp");
         try (FileWriter w = new FileWriter(tmp, false)) {
-            w.write("# Aurora controller remapping\n");
+            w.write("# Pavo controller remapping\n");
             w.write("enabled=" + (enabled ? "1" : "0") + "\n");
             w.write("capture=" + (capture ? "1" : "0") + "\n");
             for (Map.Entry<Integer, Integer> e : mappings.entrySet()) {

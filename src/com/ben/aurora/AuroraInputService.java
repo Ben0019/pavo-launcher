@@ -1187,7 +1187,7 @@ public final class AuroraInputService extends Service {
         lp.x = 0;
         lp.y = 0;
         lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
-        lp.setTitle("Aurora app drawer");
+        lp.setTitle("Pavo app drawer");
         if (Build.VERSION.SDK_INT >= 28) {
             lp.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
@@ -1321,7 +1321,7 @@ public final class AuroraInputService extends Service {
                 ? new Notification.Builder(this, CHANNEL)
                 : new Notification.Builder(this);
         return b.setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(Loc.s(this, "Aurora controller"))
+                .setContentTitle(Loc.s(this, "Pavo controller"))
                 .setContentText(Loc.s(this, text))
                 .setContentIntent(pending)
                 .setOngoing(true)

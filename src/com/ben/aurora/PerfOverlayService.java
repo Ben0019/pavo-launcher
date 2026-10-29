@@ -867,7 +867,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
         Notification.Builder b = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_perf)
-                .setContentTitle(Loc.s(this, "Aurora performance overlay"))
+                .setContentTitle(Loc.s(this, "Pavo performance overlay"))
                 .setContentText(Loc.s(this, "CPU, GPU, FPS and battery live above other apps"))
                 .setContentIntent(openIntent)
                 .setOngoing(true)
@@ -957,7 +957,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 type, flags, PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP | Gravity.START;
         params.alpha = 1f;
-        params.setTitle("Aurora performance overlay");
+        params.setTitle("Pavo performance overlay");
         if (Build.VERSION.SDK_INT >= 28) {
             params.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
@@ -1372,7 +1372,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT);
         menuParams.gravity = Gravity.TOP | Gravity.START;
-        menuParams.setTitle("Aurora performance controls");
+        menuParams.setTitle("Pavo performance controls");
         // The GlassPanel card samples a blurred backdrop itself; no window-wide blur.
         // Prefer the accessibility-overlay layer: it is trusted, sits above application
         // overlays and is not subject to other apps' hide/occlude-untrusted-overlays policy.
@@ -1524,7 +1524,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT);
         detailParams.gravity = Gravity.TOP | Gravity.START;
-        detailParams.setTitle("Aurora performance details");
+        detailParams.setTitle("Pavo performance details");
         Ui.blurWindow(detailParams, this, 30);
         detailOnAccessibility = AuroraA11yService.addAccessibilityOverlay(detail, detailParams);
         if (!detailOnAccessibility) {

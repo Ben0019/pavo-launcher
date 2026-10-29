@@ -820,7 +820,7 @@ final class Apps {
         return b;
     }
 
-    /** Clock face used by the Aurora Widgets page. */
+    /** Clock face used by the Pavo Widgets page. */
     static Bitmap clockIcon(int px, int accent) {
         int size = Math.max(24, px);
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);

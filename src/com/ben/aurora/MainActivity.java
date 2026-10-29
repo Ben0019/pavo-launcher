@@ -4554,7 +4554,7 @@ public final class MainActivity extends Activity {
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         tabs.setPadding(0, 0, 0, Ui.dp(this, 5));
-        final TextView auroraTab = widgetTab("AURORA WIDGETS", true);
+        final TextView auroraTab = widgetTab("PAVO WIDGETS", true);
         final TextView installedTab = widgetTab("INSTALLED", false);
         LinearLayout.LayoutParams tabLp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
@@ -11555,7 +11555,7 @@ public final class MainActivity extends Activity {
                 "application/x-zip-compressed",
                 "application/octet-stream"
         });
-        LToast.makeText(this, "Choose an Aurora setup ZIP", Toast.LENGTH_SHORT).show();
+        LToast.makeText(this, "Choose an Pavo setup ZIP", Toast.LENGTH_SHORT).show();
         try {
             startActivityForResult(intent, REQ_IMPORT_SETUP);
         } catch (Throwable t) {
@@ -11582,7 +11582,7 @@ public final class MainActivity extends Activity {
         panel.addView(title);
 
         TextView message = new LTextView(this);
-        message.setText("This replaces your current home layout, icons, wallpaper, dock and Aurora preferences.");
+        message.setText("This replaces your current home layout, icons, wallpaper, dock and Pavo preferences.");
         message.setTextColor(0xB3FFFFFF);
         message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         message.setPadding(0, Ui.dp(this, 8), 0, 0);
@@ -14308,7 +14308,7 @@ public final class MainActivity extends Activity {
         wallRow.addView(device);
         panel.addView(wallRow);
 
-        addSwitch(panel, "Aurora backdrop", prefs.wallpaperMode() == Prefs.MODE_AURORA,
+        addSwitch(panel, "Pavo backdrop", prefs.wallpaperMode() == Prefs.MODE_AURORA,
                 new BoolCallback() {
                     @Override
                     public void onValue(boolean value) {
@@ -14406,7 +14406,7 @@ public final class MainActivity extends Activity {
         });
         panel.addView(languageButton);
         TextView languageHint = new LTextView(this);
-        languageHint.setText("Automatic follows the device language. A manual choice is kept for Aurora only.");
+        languageHint.setText("Automatic follows the device language. A manual choice is kept for Pavo only.");
         languageHint.setTextColor(0x66FFFFFF);
         languageHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         languageHint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 4));
@@ -14690,7 +14690,7 @@ public final class MainActivity extends Activity {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
         } catch (Throwable t) {
-            LToast.makeText(this, "Open Settings → Apps → Aurora → Display over other apps",
+            LToast.makeText(this, "Open Settings → Apps → Pavo → Display over other apps",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -14733,7 +14733,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("Automatic follows the device language. A manual choice is kept for Aurora only.");
+        hint.setText("Automatic follows the device language. A manual choice is kept for Pavo only.");
         hint.setTextColor(0x80FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(Ui.dp(this, 9), Ui.dp(this, 3), Ui.dp(this, 9), Ui.dp(this, 7));
@@ -14968,7 +14968,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("Root runs `su`; Accessibility uses Aurora's enabled service to lock the screen. The other method is used as a fallback.");
+        hint.setText("Root runs `su`; Accessibility uses Pavo's enabled service to lock the screen. The other method is used as a fallback.");
         hint.setTextColor(0x66FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
@@ -15199,7 +15199,7 @@ public final class MainActivity extends Activity {
         if ("accessibility".equals(method)) {
             showSleepAccessibilityHelp();
         } else {
-            LToast.makeText(this, "Could not sleep: enable root or Aurora accessibility",
+            LToast.makeText(this, "Could not sleep: enable root or Pavo accessibility",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -15220,7 +15220,7 @@ public final class MainActivity extends Activity {
                                 public void run() {
                                     if (!AuroraA11yService.lockScreen()) {
                                         LToast.makeText(MainActivity.this,
-                                                "Root sleep failed; enable Aurora accessibility",
+                                                "Root sleep failed; enable Pavo accessibility",
                                                 Toast.LENGTH_LONG).show();
                                     }
                                 }
@@ -15232,7 +15232,7 @@ public final class MainActivity extends Activity {
                             public void run() {
                                 if (!AuroraA11yService.lockScreen()) {
                                     LToast.makeText(MainActivity.this,
-                                            "Root sleep failed; enable Aurora accessibility",
+                                            "Root sleep failed; enable Pavo accessibility",
                                             Toast.LENGTH_LONG).show();
                                 }
                             }
@@ -15263,7 +15263,7 @@ public final class MainActivity extends Activity {
         panel.addView(title);
 
         TextView body = new LTextView(this);
-        body.setText("Locking the screen through accessibility requires Aurora's service. "
+        body.setText("Locking the screen through accessibility requires Pavo's service. "
                 + "Enable Aurora under Settings > Accessibility, or choose Root as the sleep "
                 + "method in Launcher settings.");
         body.setTextColor(0xB3FFFFFF);

@@ -564,7 +564,7 @@ public final class AuroraA11yService extends AccessibilityService {
         lp.x = 0;
         lp.y = 0;
         lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
-        lp.setTitle("Aurora app drawer");
+        lp.setTitle("Pavo app drawer");
         if (Build.VERSION.SDK_INT >= 28) {
             lp.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;

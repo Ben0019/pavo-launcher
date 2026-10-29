@@ -31,7 +31,7 @@ final class AuroraHomeWidgetView extends FrameLayout {
         if (KIND_BATTERY.equals(kind)) return Loc.s(c, "Device Health");
         if (KIND_FAN.equals(kind)) return Loc.s(c, "Fan Control");
         if (KIND_THERMAL.equals(kind)) return Loc.s(c, "Performance Tuner");
-        return Loc.s(c, "Aurora Widget");
+        return Loc.s(c, "Pavo Widget");
     }
 
     static int spanCols(String kind) {

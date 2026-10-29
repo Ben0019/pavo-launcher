@@ -51,7 +51,7 @@ final class PerfSampler {
             + "fi\n"
             + "if [ -z \"$best\" ] || [ \"$bestn\" -eq 0 ]; then\n"
             + "  cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$full\" "
-            + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Aurora performance overlay|ClusterTune|Cluster Tune' "
+            + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Pavo performance overlay|ClusterTune|Cluster Tune' "
             + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 4)\n"
             + "  bestn=0; bestNewest=0; best=; bestout=\n"
             + "  while IFS= read -r cand; do\n"

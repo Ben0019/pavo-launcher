@@ -1,28 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Pavo: a peacock tail read as a constellation — seven rays fanning from a
+     bright star, each tip carrying its own star. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <group android:translateY="-5">
+
+    <!-- fan outline through the star tips -->
     <path
-        android:pathData="M38,54 h32 a12,12 0 0 1 12,12 v6 a12,12 0 0 1 -12,12 h-32 a12,12 0 0 1 -12,-12 v-6 a12,12 0 0 1 12,-12 z"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="3.2"
-        android:fillColor="#00000000"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M42,69 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
-        android:fillColor="#FFFFFFFF" />
-    <path
-        android:pathData="M54,69 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
-        android:fillColor="#FFFFFFFF" />
-    <path
-        android:pathData="M66,69 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
-        android:fillColor="#FFFFFFFF" />
-    <path
-        android:pathData="M44,36 a10,10 0 0 1 20,0"
-        android:strokeColor="#99FFFFFF"
-        android:strokeWidth="3"
+        android:pathData="M32.6,63.8 A30,30 0 0 1 87.4,63.8"
+        android:strokeColor="#5AB8CE"
+        android:strokeWidth="1.5"
+        android:strokeAlpha="0.8"
         android:fillColor="#00000000"
         android:strokeLineCap="round" />
+
+    <!-- rays -->
+    <path
+        android:pathData="M60,76 L32.6,63.8 M60,76 L39.2,54.4 M60,76 L48.8,48.2 M60,76 L60,46 M60,76 L71.2,48.2 M60,76 L80.8,54.4 M60,76 L87.4,63.8"
+        android:strokeColor="#8FEFD9"
+        android:strokeWidth="2.1"
+        android:strokeAlpha="0.92"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+
+    <!-- star tips -->
+    <path
+        android:pathData="M32.6,63.8 m-2.1,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0"
+        android:fillColor="#BFF8EC" />
+    <path
+        android:pathData="M39.2,54.4 m-2.1,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0"
+        android:fillColor="#BFF8EC" />
+    <path
+        android:pathData="M48.8,48.2 m-2.1,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0"
+        android:fillColor="#BFF8EC" />
+    <path
+        android:pathData="M60,46 m-2.7,0 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0"
+        android:fillColor="#E9FFFB" />
+    <path
+        android:pathData="M71.2,48.2 m-2.1,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0"
+        android:fillColor="#BFF8EC" />
+    <path
+        android:pathData="M80.8,54.4 m-2.1,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0"
+        android:fillColor="#BFF8EC" />
+    <path
+        android:pathData="M87.4,63.8 m-2.1,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0"
+        android:fillColor="#BFF8EC" />
+
+    <!-- bright core -->
+    <path
+        android:pathData="M60,76 m-4.4,0 a4.4,4.4 0 1,0 8.8,0 a4.4,4.4 0 1,0 -8.8,0"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M60,76 m-7.8,0 a7.8,7.8 0 1,0 15.6,0 a7.8,7.8 0 1,0 -15.6,0"
+        android:strokeColor="#7FE3CE"
+        android:strokeWidth="1.1"
+        android:strokeAlpha="0.55"
+        android:fillColor="#00000000" />
+    </group>
 </vector>

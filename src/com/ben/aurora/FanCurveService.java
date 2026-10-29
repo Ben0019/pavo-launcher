@@ -139,7 +139,7 @@ public final class FanCurveService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_perf)
-                .setContentTitle(Loc.s(this, "Aurora fan curve"))
+                .setContentTitle(Loc.s(this, "Pavo fan curve"))
                 .setContentText(Loc.s(this, "Temperature-based fan control is active"))
                 .setContentIntent(open)
                 .setOngoing(true)
