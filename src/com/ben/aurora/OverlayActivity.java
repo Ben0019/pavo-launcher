@@ -62,6 +62,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
     private TextView perfComboRow;
     private TextView drawerComboRow;
     private boolean suppress;
+    private boolean compact;
     private boolean pendingOverlay;
     private long lastHaptic;
     private SharedPreferences.OnSharedPreferenceChangeListener prefListener;
@@ -114,6 +115,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         ThemeColors.initialize(this);
         accent = ThemeColors.accent();
         prefs = new Prefs(this);
+        compact = Ui.layoutHeightDp(this) < 660;
         buildUi();
         hideBars();
         refreshState();
@@ -189,7 +191,8 @@ public final class OverlayActivity extends AuroraGlassActivity {
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
         card.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
-        card.setPadding(dp(22), dp(12), dp(22), dp(12));
+        card.setPadding(dp(compact ? 16 : 22), dp(compact ? 8 : 12),
+                dp(compact ? 16 : 22), dp(compact ? 6 : 12));
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         cardLp.setMargins(dp(14), dp(12), dp(14), dp(12));
@@ -241,7 +244,9 @@ public final class OverlayActivity extends AuroraGlassActivity {
         buildOverlaySection(left);
         buildMetricsSection(middle);
         buildDrawerSection(right);
-        reflowColumns(content, left, middle, right, Ui.columns(this, 3));
+        // Short 4:3 panels keep the 3x2 grid too: equal cards with no scrolling.
+        reflowColumns(content, left, middle, right,
+                compact ? 3 : Ui.columns(this, 3));
 
         setContentView(root);
     }
@@ -258,10 +263,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
         }
         content.removeAllViews();
         int perColumn = Math.max(1, (cards.size() + cols - 1) / cols);
-        // A wide, tall panel gets equal-height cards with their content centred,
-        // so the grid is symmetrical and no card ends in a void. Short panels
-        // keep content-sized cards that scroll, otherwise the content clips.
-        boolean stretch = cols == 3 && Ui.layoutHeightDp(this) >= 560;
+        // All six cards always take the same share of the grid: symmetrical at
+        // every resolution, with content compacted on short panels so nothing
+        // has to clip or leave a gap.
+        boolean stretch = true;
         for (int i = 0; i < cols; i++) {
             LinearLayout column = new LinearLayout(this);
             column.setOrientation(LinearLayout.VERTICAL);
@@ -272,13 +277,11 @@ public final class OverlayActivity extends AuroraGlassActivity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         stretch ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT,
                         stretch ? 1f : 0f);
-                lp.topMargin = dp(9);
+                lp.topMargin = dp(compact ? 6 : 9);
                 View cardView = cards.get(k);
                 if (stretch && cardView instanceof LinearLayout) {
-                    // Spread the rows over the full card height so a stretched
-                    // card never ends in a dead block of empty space.
                     stripSpacers((LinearLayout) cardView);
-                    distributeVertically((LinearLayout) cardView);
+                    if (!compact) distributeVertically((LinearLayout) cardView);
                 }
                 column.addView(cardView, lp);
             }
@@ -330,9 +333,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
 
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text("OVERLAY & DRAWER", 19f, TEXT, false);
+        TextView title = text("OVERLAY & DRAWER", compact ? 15f : 19f, TEXT, false);
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         title.setLetterSpacing(0.04f);
+        if (compact) title.setPadding(0, 0, 0, 0);
         titles.addView(title);
         TextView subtitle = text(DeviceProfile.get(this).name.toUpperCase()
                 + "  ·  LIVE OVERLAY", 10f, MUTED, false);
@@ -369,14 +373,15 @@ public final class OverlayActivity extends AuroraGlassActivity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         int cp = Ui.widthDp(this) < 700 ? 11 : CARD_PADDING;
-        box.setPadding(dp(cp), dp(8), dp(cp), dp(8));
+        int vp = compact ? 5 : 8;
+        box.setPadding(dp(cp), dp(vp), dp(cp), dp(vp));
         box.setBackground(Ui.rounded(CARD_FILL, dp(CARD_RADIUS), CARD_BORDER, dp(1)));
 
-        TextView t = text(title, 10.5f, accent, true);
+        TextView t = text(title, compact ? 9.5f : 10.5f, accent, true);
         t.setLetterSpacing(0.12f);
         t.setPadding(dp(2), 0, dp(2), 0);
         box.addView(t);
-        if (hint != null && !hint.isEmpty()) {
+        if (hint != null && !hint.isEmpty() && !compact) {
             TextView h = text(hint, 9f, MUTED, false);
             h.setPadding(dp(2), dp(2), dp(2), 0);
             box.addView(h);
@@ -498,13 +503,13 @@ public final class OverlayActivity extends AuroraGlassActivity {
                 LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT);
-                rlp.topMargin = i == 0 ? 0 : dp(5);
+                rlp.topMargin = i == 0 ? 0 : dp(compact ? 3 : 5);
                 box.addView(row, rlp);
             }
             final int index = i;
             TextView chip = modeChip(METRICS[i]);
-            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 7.5f);
-            chip.setPadding(dp(3), dp(5), dp(3), dp(5));
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, compact ? 7f : 7.5f);
+            chip.setPadding(dp(3), dp(compact ? 3 : 5), dp(3), dp(compact ? 3 : 5));
             metricChips.add(chip);
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -820,9 +825,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
 
     private TextView toggle(LinearLayout parent, String label, boolean on,
                             final Toggle callback) {
-        final TextView chip = text(label, 9.5f, TEXT, true);
+        final TextView chip = text(label, compact ? 8.5f : 9.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
+        chip.setPadding(dp(compact ? 8 : 10), dp(compact ? 3 : 6),
+                dp(compact ? 8 : 10), dp(compact ? 3 : 6));
         attachFocus(chip);
         setChipSelected(chip, on);
         chip.setOnClickListener(new View.OnClickListener() {
@@ -836,7 +842,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(5);
+        lp.topMargin = dp(compact ? 3 : 5);
         parent.addView(chip, lp);
         return chip;
     }
@@ -850,9 +856,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
     }
 
     private TextView modeChip(String label) {
-        TextView chip = text(label, 8.5f, TEXT, true);
+        TextView chip = text(label, compact ? 7.5f : 8.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(6), dp(5), dp(6), dp(5));
+        chip.setPadding(dp(compact ? 2 : 6), dp(compact ? 2 : 5),
+                dp(compact ? 2 : 6), dp(compact ? 2 : 5));
         attachFocus(chip);
         chip.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
         return chip;
@@ -906,7 +913,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         bar.setThumbOffset(0);
         bar.setSplitTrack(false);
         attachFocus(bar);
-        bar.setPadding(dp(10), dp(2), dp(10), dp(2));
+        bar.setPadding(dp(10), dp(compact ? 0 : 2), dp(10), dp(compact ? 0 : 2));
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -927,7 +934,8 @@ public final class OverlayActivity extends AuroraGlassActivity {
             }
         });
         parent.addView(bar, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                compact ? dp(16) : ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
     /** Controller focus ring drawn as a foreground so states stay intact. */
