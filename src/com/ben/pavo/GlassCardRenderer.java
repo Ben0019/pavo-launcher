@@ -39,6 +39,7 @@ final class GlassCardRenderer {
     private int nodeHeight;
 
     private float saturation = 1.5f;
+    private float darkness;
 
     GlassCardRenderer(View view) {
         this.view = view;
@@ -46,6 +47,11 @@ final class GlassCardRenderer {
 
     void setSaturation(float value) {
         saturation = value;
+        lastBitmap = null;
+    }
+
+    void setDarkness(float value) {
+        darkness = Math.max(0f, Math.min(1f, value));
         lastBitmap = null;
     }
 
@@ -91,7 +97,8 @@ final class GlassCardRenderer {
                 node.endRecording();
                 effect = LiveGlassEffect.build(
                         view.getResources().getDisplayMetrics().density,
-                        0, 0, sw, sh, radius * scale, scale, 16f, true, saturation);
+                        0, 0, sw, sh, radius * scale, scale, 16f, true, saturation,
+                        darkness);
                 node.setRenderEffect(effect);
                 lastBitmap = bitmap;
                 lastLocX = location[0];

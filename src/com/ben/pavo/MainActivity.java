@@ -13763,6 +13763,20 @@ public final class MainActivity extends Activity {
         saturationHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         saturationHint.setPadding(0, 0, 0, Ui.dp(this, 10));
         panel.addView(saturationHint);
+        addSlider(panel, "Background darkening", 0, 100,
+                prefs.builtinBackdropDarkness(), new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setBuiltinBackdropDarkness(value);
+            }
+        });
+        TextView darkHint = new LTextView(this);
+        darkHint.setText("Darkens the captured background inside built-in app cards. "
+                + "0% leaves it unchanged, 100% is black.");
+        darkHint.setTextColor(0x66FFFFFF);
+        darkHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        darkHint.setPadding(0, 0, 0, Ui.dp(this, 10));
+        panel.addView(darkHint);
         addSlider(panel, "Dock", 20, 100, prefs.dockTransparency(), new IntCallback() {
             @Override
             public void onValue(int value) {

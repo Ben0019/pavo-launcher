@@ -163,20 +163,24 @@ abstract class PavoGlassActivity extends Activity {
                 });
     }
 
-    /** One saturation value for every glass card in a built-in app. */
+    /** One saturation/darkness pair for every glass card in a built-in app. */
     private void applyBuiltinSaturation(View root) {
-        float value = Math.max(0f, new Prefs(this).builtinSaturation() / 100f);
-        applySaturation(root, value);
+        Prefs prefs = new Prefs(this);
+        float saturation = Math.max(0f, prefs.builtinSaturation() / 100f);
+        float darkness = prefs.builtinBackdropDarkness() / 100f;
+        applyGlassTuning(root, saturation, darkness);
     }
 
-    private static void applySaturation(View view, float value) {
+    private static void applyGlassTuning(View view, float saturation, float darkness) {
         if (view instanceof GlassPanel) {
-            ((GlassPanel) view).setBackdropSaturation(value);
+            GlassPanel panel = (GlassPanel) view;
+            panel.setBackdropSaturation(saturation);
+            panel.setBackdropDarkness(darkness);
         }
         if (view instanceof android.view.ViewGroup) {
             android.view.ViewGroup group = (android.view.ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) {
-                applySaturation(group.getChildAt(i), value);
+                applyGlassTuning(group.getChildAt(i), saturation, darkness);
             }
         }
     }

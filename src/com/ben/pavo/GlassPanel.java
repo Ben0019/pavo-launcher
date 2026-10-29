@@ -52,6 +52,7 @@ final class GlassPanel extends LinearLayout {
     private LiquidGlassShader liquidShader;
     private GlassCardRenderer cardRenderer;
     private float backdropSaturation = 1.5f;
+    private float backdropDarkness;
     private boolean liquidEffect;
     private int clearBodyAlpha = 0xCC;
     private float rimWidthDp;
@@ -186,6 +187,13 @@ final class GlassPanel extends LinearLayout {
         invalidate();
     }
 
+    /** 0 = untouched capture, 1 = black. */
+    void setBackdropDarkness(float value) {
+        backdropDarkness = Math.max(0f, Math.min(1f, value));
+        if (cardRenderer != null) cardRenderer.setDarkness(backdropDarkness);
+        invalidate();
+    }
+
     void setBackdropScreenAnchored(boolean anchored) {
         screenAnchoredBackdrop = anchored;
         invalidate();
@@ -310,6 +318,7 @@ final class GlassPanel extends LinearLayout {
             if (cardRenderer == null) {
                 cardRenderer = new GlassCardRenderer(this);
                 cardRenderer.setSaturation(backdropSaturation);
+                cardRenderer.setDarkness(backdropDarkness);
             }
             if (cardRenderer.draw(canvas, (int) w, (int) h, radius, backdrop)) {
                 drawReadabilityScrim(canvas, w, h, radius);
@@ -458,6 +467,7 @@ final class GlassPanel extends LinearLayout {
             if (cardRenderer == null) {
                 cardRenderer = new GlassCardRenderer(this);
                 cardRenderer.setSaturation(backdropSaturation);
+                cardRenderer.setDarkness(backdropDarkness);
             }
             liquidDrawn = cardRenderer.draw(canvas, (int) w, (int) h, radius, backdrop);
         }

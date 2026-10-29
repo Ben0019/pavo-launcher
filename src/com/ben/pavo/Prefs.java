@@ -301,6 +301,15 @@ final class Prefs {
     void setBuiltinSaturation(int v) {
         sp.edit().putInt("builtin_saturation", clamp(v, 0, 200)).apply();
     }
+
+    /** 0 = untouched capture, 100 = black. Applies inside built-in app cards. */
+    int builtinBackdropDarkness() {
+        return clamp(sp.getInt("builtin_darkness", 0), 0, 100);
+    }
+
+    void setBuiltinBackdropDarkness(int v) {
+        sp.edit().putInt("builtin_darkness", clamp(v, 0, 100)).apply();
+    }
     void setFolderTransparency(int v) { sp.edit().putInt("folder_transparency", clamp(v, 20, 100)).apply(); }
 
     // --- joystick RGB ---

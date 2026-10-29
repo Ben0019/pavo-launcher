@@ -132,17 +132,34 @@ final class LiveGlassEffect {
                               int cardWidth, int cardHeight, float radiusPx,
                               float scale, float blurDp, boolean chromatic) {
         return build(density, cardLeft, cardTop, cardWidth, cardHeight, radiusPx,
-                scale, blurDp, chromatic, 1.5f);
+                scale, blurDp, chromatic, 1.5f, 0f);
     }
 
     static RenderEffect build(float density, int cardLeft, int cardTop,
                               int cardWidth, int cardHeight, float radiusPx,
                               float scale, float blurDp, boolean chromatic,
                               float saturationAmount) {
+        return build(density, cardLeft, cardTop, cardWidth, cardHeight, radiusPx,
+                scale, blurDp, chromatic, saturationAmount, 0f);
+    }
+
+    static RenderEffect build(float density, int cardLeft, int cardTop,
+                              int cardWidth, int cardHeight, float radiusPx,
+                              float scale, float blurDp, boolean chromatic,
+                              float saturationAmount, float darkness) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null;
 
         ColorMatrix saturation = new ColorMatrix();
         saturation.setSaturation(Math.max(0f, saturationAmount));
+        float scaleDown = 1f - Math.max(0f, Math.min(1f, darkness));
+        if (scaleDown < 0.999f) {
+            ColorMatrix dim = new ColorMatrix(new float[]{
+                    scaleDown, 0f, 0f, 0f, 0f,
+                    0f, scaleDown, 0f, 0f, 0f,
+                    0f, 0f, scaleDown, 0f, 0f,
+                    0f, 0f, 0f, 1f, 0f});
+            saturation.postConcat(dim);
+        }
         RenderEffect color = RenderEffect.createColorFilterEffect(
                 new ColorMatrixColorFilter(saturation));
         float blur = blurDp * density * scale;
