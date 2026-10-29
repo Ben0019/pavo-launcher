@@ -197,6 +197,7 @@ final class ItemView extends LinearLayout {
         if (enabled) {
             label.setSingleLine(true);
             label.setMaxLines(1);
+            label.setHorizontallyScrolling(true);
             label.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
             label.setMarqueeRepeatLimit(-1);
         } else {
@@ -215,10 +216,9 @@ final class ItemView extends LinearLayout {
     }
 
     private void updateMarqueeSelection() {
-        boolean focused = isFocused();
-        label.setSelected(marquee && !marqueePaused && focused
+        // Every label scrolls, focused or not, like the stock launcher.
+        label.setSelected(marquee && !marqueePaused
                 && label.getVisibility() == View.VISIBLE);
-        if (!focused) label.scrollTo(0, 0);
     }
 
     /** The dock uses 1.0 so its outer cells cannot clip the ring at the pill edge. */
