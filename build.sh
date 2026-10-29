@@ -9,9 +9,9 @@ JAVA_HOME="${JAVA_HOME:-$HOME/.local/opt/jdk}"
 PATH="$JAVA_HOME/bin:$PATH"
 
 # Signing material is never committed. Override these for your own key.
-KS="${AURORA_KEYSTORE:-keystore.jks}"
-KS_PASS="${AURORA_KEYSTORE_PASS:-aurora}"
-KEY_PASS="${AURORA_KEY_PASS:-$KS_PASS}"
+KS="${PAVO_KEYSTORE:-keystore.jks}"
+KS_PASS="${PAVO_KEYSTORE_PASS:-aurora}"
+KEY_PASS="${PAVO_KEY_PASS:-$KS_PASS}"
 
 if [[ ! -x "$BT/aapt2" ]]; then
   echo "Android build-tools 35.0.0 not found in $SDK" >&2
@@ -28,9 +28,9 @@ NATIVE_CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android3
 if [[ -x "$NATIVE_CC" ]]; then
   mkdir -p assets
   "$NATIVE_CC" -O2 -Wall -Wextra -fPIE -pie -s \
-    -o assets/aurora-remap native/aurora-remap.c
+    -o assets/pavo-remap native/pavo-remap.c
   "$NATIVE_CC" -O2 -Wall -Wextra -fPIE -pie -s \
-    -o assets/aurora-touchmap native/aurora-touchmap.c -lm
+    -o assets/pavo-touchmap native/pavo-touchmap.c -lm
 else
   echo "Android NDK compiler not found at $NATIVE_CC" >&2
   exit 1
@@ -71,14 +71,14 @@ cp build/apk/base.apk build/apk/unsigned.apk
 
 if [[ ! -f "$KS" ]]; then
   mkdir -p "$(dirname "$KS")"
-  keytool -genkeypair -keystore "$KS" -alias aurora \
+  keytool -genkeypair -keystore "$KS" -alias pavo \
     -storepass "$KS_PASS" -keypass "$KEY_PASS" -keyalg RSA -keysize 2048 \
-    -validity 10000 -dname "CN=Aurora, O=Aurora, C=US" >/dev/null 2>&1
+    -validity 10000 -dname "CN=Pavo, O=Pavo, C=US" >/dev/null 2>&1
 fi
 
 "$BT/apksigner" sign \
   --ks "$KS" --ks-pass "pass:$KS_PASS" --key-pass "pass:$KEY_PASS" \
-  --out Aurora.apk build/apk/aligned.apk
+  --out Pavo.apk build/apk/aligned.apk
 
-"$BT/apksigner" verify Aurora.apk
-ls -lh Aurora.apk
+"$BT/apksigner" verify Pavo.apk
+ls -lh Pavo.apk
