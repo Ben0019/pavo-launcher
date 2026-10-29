@@ -394,6 +394,30 @@ final class AppPickerStripView extends FrameLayout {
         return false;
     }
 
+    private long lastStickNavAt;
+    private boolean stickLatched;
+
+    /**
+     * Analogue navigation for controllers whose D-pad arrives as HAT/stick
+     * axes. One step per deflection, and the stick must recentre first.
+     */
+    boolean handleStick(float x, float y) {
+        float ax = Math.abs(x);
+        float ay = Math.abs(y);
+        if (ax < 0.45f && ay < 0.45f) {
+            stickLatched = false;
+            return true;
+        }
+        if (ax < 0.62f && ay < 0.62f) return true;
+        long now = SystemClock.uptimeMillis();
+        if (stickLatched && now - lastStickNavAt < 260L) return true;
+        stickLatched = true;
+        lastStickNavAt = now;
+        if (ay >= ax) move(y > 0f ? 1 : -1);
+        else move(x > 0f ? 1 : -1);
+        return true;
+    }
+
     private void move(int delta) {
         if (items.isEmpty()) return;
         int index = 0;

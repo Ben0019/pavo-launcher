@@ -168,7 +168,16 @@ public final class TouchMapperActivity extends AuroraGlassActivity {
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
-        if (appPicker != null) return true;
+        if (appPicker != null) {
+            float hx = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+            float hy = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+            float x = Math.abs(hx) > Math.abs(event.getAxisValue(MotionEvent.AXIS_X))
+                    ? hx : event.getAxisValue(MotionEvent.AXIS_X);
+            float y = Math.abs(hy) > Math.abs(event.getAxisValue(MotionEvent.AXIS_Y))
+                    ? hy : event.getAxisValue(MotionEvent.AXIS_Y);
+            appPicker.handleStick(x, y);
+            return true;
+        }
         if (event.getAction() == MotionEvent.ACTION_MOVE
                 && (event.getSource() & (InputDevice.SOURCE_JOYSTICK
                 | InputDevice.SOURCE_GAMEPAD)) != 0) {

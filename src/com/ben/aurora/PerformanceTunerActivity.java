@@ -2010,7 +2010,16 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        if (appPicker != null) return true;
+        if (appPicker != null) {
+            float hx = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+            float hy = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+            float x = Math.abs(hx) > Math.abs(event.getAxisValue(MotionEvent.AXIS_X))
+                    ? hx : event.getAxisValue(MotionEvent.AXIS_X);
+            float y = Math.abs(hy) > Math.abs(event.getAxisValue(MotionEvent.AXIS_Y))
+                    ? hy : event.getAxisValue(MotionEvent.AXIS_Y);
+            appPicker.handleStick(x, y);
+            return true;
+        }
         if (SliderStick.isGamepad(event)
                 && event.getActionMasked() == MotionEvent.ACTION_MOVE) {
             View focus = getCurrentFocus();
