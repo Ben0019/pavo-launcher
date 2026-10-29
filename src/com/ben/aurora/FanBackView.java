@@ -384,8 +384,16 @@ final class FanBackView extends View {
         c.drawLine(91, 89, 146, 89, detail);
         c.drawLine(91, 101, 164, 101, detail);
         c.drawLine(91, 113, 130, 113, detail);
-        c.drawText("8000mAh", 94, 66, text);
-        c.drawText(DeviceProfile.get(getContext()).name.toUpperCase(), 94, 126, text);
+        int mah = batteryMah();
+        if (mah > 0) c.drawText(mah + "mAh", 94, 66, text);
+        String name = DeviceProfile.get(getContext()).name.toUpperCase();
+        float size = text.getTextSize();
+        float width = text.measureText(name);
+        if (width > 96f) {
+            text.setTextSize(size * 96f / width);
+        }
+        c.drawText(name, 94, 126, text);
+        text.setTextSize(size);
         Paint wire = new Paint(Paint.ANTI_ALIAS_FLAG);
         wire.setStyle(Paint.Style.STROKE);
         wire.setStrokeWidth(1.2f);
@@ -401,32 +409,33 @@ final class FanBackView extends View {
         for (int x = 231; x < 317; x += 4) {
             c.drawLine(x, 33, x, 44, detail);
         }
-        c.drawText("EXHAUST", 242, 57, text);
+        c.drawText("EXHAUST", 226, 25, text);
     }
 
     private void drawFan(Canvas c) {
         float cx = FAN_CX, cy = FAN_CY, r = FAN_R;
-        float rotorX = clamp(gyroRoll * 0.28f + gyroRollVelocity * 0.018f, 3.2f);
-        float rotorY = clamp(-gyroPitch * 0.18f, 2.4f);
+        float rotorX = clamp(gyroRoll * 0.20f + gyroRollVelocity * 0.012f, 2.4f);
+        float rotorY = clamp(-gyroPitch * 0.14f, 1.8f);
         c.drawCircle(cx, cy, r + 7, innerFill);
         c.drawCircle(cx, cy, r + 7, inner);
         c.drawCircle(cx, cy, r, inner);
+
         c.save();
         Path clip = new Path();
-        clip.addCircle(cx, cy, r - 2, Path.Direction.CW);
+        clip.addCircle(cx, cy, r - 1, Path.Direction.CW);
         c.clipPath(clip);
         c.translate(cx + rotorX, cy + rotorY);
         c.rotate(angle);
-        blade.setColor(HeatColor.mixColor(0xFF2E3844, heatColor, 0.70f));
-        float hubR = r * 0.46f;
-        int blades = 30;
+        blade.setColor(HeatColor.mixColor(0xFF3B4653, heatColor, 0.16f));
+        float hubR = r * 0.34f;
+        int blades = 13;
         for (int i = 0; i < blades; i++) {
             c.save();
             c.rotate(i * 360f / blades);
             Path p = new Path();
-            p.moveTo(hubR - 1f, -1.1f);
-            p.cubicTo(hubR + 3f, -3.4f, r - 10f, -4.3f, r - 2f, -1.2f);
-            p.cubicTo(r - 10f, 2.8f, hubR + 4f, 2.5f, hubR - 1f, 1.1f);
+            p.moveTo(hubR + 1f, 0f);
+            p.cubicTo(hubR + 5f, -1.8f, r - 9f, -5.4f, r - 1.5f, -2.4f);
+            p.cubicTo(r - 9f, 0.2f, hubR + 6f, 2.2f, hubR + 1f, 1.2f);
             p.close();
             c.drawPath(p, blade);
             c.restore();
@@ -435,26 +444,39 @@ final class FanBackView extends View {
 
         float hubX = cx + rotorX;
         float hubY = cy + rotorY;
-        hub.setColor(HeatColor.mixColor(0xFFE8EDF2, heatColor, 0.28f));
+        hub.setColor(HeatColor.mixColor(0xFF1B222B, heatColor, 0.10f));
         c.drawCircle(hubX, hubY, hubR, hub);
-        for (int i = 0; i < 8; i++) {
-            double a = Math.toRadians(i * 45f + 22.5f);
-            float sx = hubX + (float) Math.cos(a) * hubR * 0.72f;
-            float sy = hubY + (float) Math.sin(a) * hubR * 0.72f;
-            c.drawCircle(sx, sy, 1.1f, detail);
-        }
-        c.drawCircle(hubX, hubY, 3.2f, detail);
-        c.drawCircle(hubX, hubY, 1.1f, inner);
+        hub.setColor(HeatColor.mixColor(0xFF39434F, heatColor, 0.12f));
+        c.drawCircle(hubX, hubY, hubR * 0.74f, hub);
+        c.drawCircle(hubX, hubY, hubR * 0.26f, inner);
 
         float speed = speedNorm();
         if (speed > 0.05f) {
-            glow.setColor(heatColor);
-            glow.setAlpha((int) (70 + 150 * speed));
-            c.drawArc(new RectF(cx - r, cy - r, cx + r, cy + r),
-                    angle, 300, false, glow);
+            glow.setColor(HeatColor.withAlpha(heatColor, (int) (50 + 110 * speed)));
+            glow.setStyle(Paint.Style.STROKE);
+            glow.setStrokeWidth(1.8f);
+            c.drawCircle(cx, cy, r + 3f, glow);
         }
         text.setColor(HeatColor.withAlpha(heatColor, 0xB0));
         c.drawText("FAN", cx - 8, cy + r + 14, text);
+    }
+
+    private int batteryMah = -1;
+
+    private int batteryMah() {
+        if (batteryMah >= 0) return batteryMah;
+        batteryMah = 0;
+        try (java.io.FileInputStream in = new java.io.FileInputStream(
+                "/sys/class/power_supply/battery/charge_full_design")) {
+            byte[] data = new byte[32];
+            int n = in.read(data);
+            if (n > 0) {
+                long uah = Long.parseLong(new String(data, 0, n).trim());
+                batteryMah = (int) Math.round(uah / 1000.0);
+            }
+        } catch (Throwable ignored) {
+        }
+        return batteryMah;
     }
 
     private void drawAirflow(Canvas c) {
