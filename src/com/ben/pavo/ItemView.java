@@ -151,8 +151,9 @@ final class ItemView extends LinearLayout {
             int labelWidth = Math.max(1, cellWidth - Ui.dp(getContext(), 4));
             if (label.getMaxWidth() != labelWidth) label.setMaxWidth(labelWidth);
             label.setSingleLine(true);
-            label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            if (label.getVisibility() == View.VISIBLE && label.getText() != null) {
+            label.setEllipsize(marquee ? android.text.TextUtils.TruncateAt.MARQUEE
+                    : android.text.TextUtils.TruncateAt.END);
+            if (!marquee && label.getVisibility() == View.VISIBLE && label.getText() != null) {
                 // Long translated app names should shrink a little before they
                 // are ellipsized, so the home grid stays readable.
                 label.setTextSize(TypedValue.COMPLEX_UNIT_SP, labelSp);
@@ -301,12 +302,9 @@ final class ItemView extends LinearLayout {
             hideFocusRing();
             animate().scaleX(1f).scaleY(1f).setDuration(110).start();
         }
-        // Only the focused label scrolls. Every other label stays at its start
-        // with an ellipsis, so resting grids never look clipped mid-marquee.
-        if (marquee) {
-            label.setSelected(focused && !marqueePaused);
-            if (!focused) label.scrollTo(0, 0);
-        }
+        // Focus changes used to re-apply a focused-only marquee rule here,
+        // which silently cancelled the scroll for every resting icon.
+        if (marquee) updateMarqueeSelection();
     }
 
     /**
