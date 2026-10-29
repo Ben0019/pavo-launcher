@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
   <img alt="Android 12+" src="https://img.shields.io/badge/Android-12%2B-3ddc84?logo=android&logoColor=white">
-  <img alt="AYN Odin 3" src="https://img.shields.io/badge/AYN-Odin%203-c8102e">
+  <img alt="Pavo 1.0.0" src="https://img.shields.io/badge/Pavo-1.0.0-14b8a6">
 </p>
 
 <p align="center">
@@ -22,13 +22,16 @@
 </p>
 <p align="center"><sub>Home · Fan Control · Performance Tuner · Stress Test · Performance Log</sub></p>
 
+**Download:** [latest release](https://github.com/Ben0019/pavo-launcher/releases/latest) ·
+package `com.ben.pavo` · Android 12+
+
 Pavo replaces the stock launcher with a console-style home: a large clock, a paged desktop,
 a clear Liquid Glass dock and matching app drawers. It is built directly against the Android
 platform (`Activity`, `View`, `Canvas`, `RenderEffect`) with `aapt2` → `javac` → `d8`.
 
 ## Features
 
-- Landscape-first console home for the AYN Odin 3; pure platform, no AndroidX or Gradle.
+- Landscape-first console home for Android handhelds; pure platform, no AndroidX or Gradle.
 - Clock, date, weather and live status (CPU, network, battery, Bluetooth, sound).
 - Paged icon grid with folders, drag and drop, resizable widgets and a grid-snapped clock.
 - Liquid Glass dock with full and popup app drawers, built for controller-first navigation.
@@ -51,8 +54,8 @@ The default toolchain lives under `$HOME/.local/opt`; no system packages are req
 Override with `ANDROID_SDK_ROOT`, `ANDROID_NDK_ROOT` and `JAVA_HOME`.
 
 ```bash
-cd aurora
-./build.sh          # -> Aurora.apk
+cd pavo
+./build.sh          # -> Pavo.apk
 ```
 
 `build.sh` runs `aapt2 compile/link` → `javac` → `d8` → `zipalign` → `apksigner`.
@@ -60,9 +63,9 @@ cd aurora
 Release signing uses a local keystore that is **never committed**:
 
 ```bash
-AURORA_KEYSTORE=/path/to/release.jks \
-AURORA_KEYSTORE_PASS=... \
-AURORA_KEY_PASS=... \
+PAVO_KEYSTORE=/path/to/release.jks \
+PAVO_KEYSTORE_PASS=... \
+PAVO_KEY_PASS=... \
 ./build.sh
 ```
 
@@ -70,14 +73,14 @@ Without those variables it falls back to `keystore.jks` (created on first use).
 
 ## Install
 
-Install `Aurora.apk` on the device (or run `adb install -r Aurora.apk`), then set it as the
+Install `Pavo.apk` on the device (or run `adb install -r Pavo.apk`), then set it as the
 home app:
 
 1. Open **Settings**.
 2. Go to **Apps**.
 3. Open **Default apps**.
 4. Tap **Home screen**.
-5. Choose **Aurora**.
+5. Choose **Pavo**.
 
 To return to the stock launcher, repeat the steps and choose the stock launcher.
 
@@ -90,10 +93,11 @@ To return to the stock launcher, repeat the steps and choose the stock launcher.
 | Build | `Odin3_V1.0.0.187_20260616_193307_user` |
 | SoC | Snapdragon 8 Elite / Adreno 830 |
 | Display | 1920×1080 landscape, 60/120 Hz, HDR10/HLG |
+| Also tested | 1280×960 (4:3) and 1920×1080 (16:9) display modes |
 
 ## Licence
 
-Aurora is released under the **Apache License 2.0** — see [LICENSE](LICENSE).
+Pavo is released under the **Apache License 2.0** — see [LICENSE](LICENSE).
 
 Part of the liquid-glass shader is adapted from
 [Kyant0/backdrop](https://github.com/Kyant0/backdrop) (Apache-2.0); see [NOTICE](NOTICE) for
