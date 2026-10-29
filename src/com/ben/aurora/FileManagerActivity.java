@@ -972,7 +972,36 @@ public final class FileManagerActivity extends AuroraGlassActivity {
         if (leftPane != null) leftPane.card.setBackground(paneBackground(leftPane == p));
         if (rightPane != null) rightPane.card.setBackground(paneBackground(rightPane == p));
         updateFooter();
+        refreshRowRings();
         if (haptic) Haptics.tick(p.card);
+    }
+
+    /**
+     * Rows are created per bind, so the row that just lost focus keeps the ring
+     * it was built with. Repaint every visible row from the real state instead:
+     * only the controller row in the active pane, plus multi-selected rows.
+     */
+    private void refreshRowRings() {
+        if (leftPane != null) refreshRowRings(leftPane);
+        if (rightPane != null) refreshRowRings(rightPane);
+    }
+
+    private void refreshRowRings(Pane pane) {
+        if (pane == null || pane.list == null) return;
+        ListView list = pane.list;
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View row = list.getChildAt(i);
+            Object tag = row == null ? null : row.getTag();
+            if (!(tag instanceof File)) continue;
+            File file = (File) tag;
+            boolean controller = pane == navPane
+                    && !pane.files.isEmpty()
+                    && pane.files.indexOf(file) == navIndex;
+            boolean selected = pane.selected.contains(file);
+            row.setBackground(controller || selected
+                    ? Ui.focusRing(FileManagerActivity.this, dp(10))
+                    : Ui.ripple(FileManagerActivity.this, dp(10)));
+        }
     }
 
     private void setActive(Pane p) {
@@ -2204,9 +2233,11 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                         navPane = pane;
                         navIndex = pane.files.indexOf(file);
                         v.setBackground(Ui.focusRing(FileManagerActivity.this, dp(10)));
+                        v.post(new Runnable() {
+                            @Override public void run() { refreshRowRings(); }
+                        });
                     } else {
                         v.setBackground(pane.selected.contains(file)
-                                || (pane == navPane && pane.files.indexOf(file) == navIndex)
                                 ? Ui.focusRing(FileManagerActivity.this, dp(10))
                                 : Ui.ripple(FileManagerActivity.this, dp(10)));
                     }
