@@ -73,6 +73,10 @@ final class FtpServer {
         return running;
     }
 
+    int port() {
+        return port;
+    }
+
     int clientCount() {
         return clients.get();
     }
@@ -199,6 +203,7 @@ final class FtpServer {
         private Writer out;
         private String cwd = "/";
         private ServerSocket passive;
+        private java.net.InetSocketAddress active;
         private File renameFrom;
         private boolean loggedIn;
 
@@ -287,6 +292,11 @@ final class FtpServer {
                 return true;
             }
             if (cmd.equals("CWD") || cmd.equals("XCWD")) {
+                if (arg.isEmpty() || arg.equals("/")) {
+                    cwd = "/";
+                    reply("250 Directory changed to /");
+                    return true;
+                }
                 File target = resolve(cwd, arg);
                 if (target != null && target.isDirectory()) {
                     cwd = virtualPath(target);
@@ -302,6 +312,32 @@ final class FtpServer {
                 reply("250 Directory changed to " + cwd);
                 return true;
             }
+            if (cmd.equals("PORT")) {
+                try {
+                    String[] p = arg.split(",");
+                    if (p.length != 6) throw new NumberFormatException();
+                    String host = p[0] + "." + p[1] + "." + p[2] + "." + p[3];
+                    int port = (Integer.parseInt(p[4]) << 8) + Integer.parseInt(p[5]);
+                    active = new java.net.InetSocketAddress(host, port);
+                    closePassive();
+                    reply("200 Active mode");
+                } catch (Throwable t) {
+                    reply("501 Bad PORT");
+                }
+                return true;
+            }
+            if (cmd.equals("EPRT")) {
+                try {
+                    String[] p = arg.split("\\|");
+                    if (p.length < 4) throw new NumberFormatException();
+                    active = new java.net.InetSocketAddress(p[2], Integer.parseInt(p[3]));
+                    closePassive();
+                    reply("200 Active mode");
+                } catch (Throwable t) {
+                    reply("501 Bad EPRT");
+                }
+                return true;
+            }
             if (cmd.equals("PASV")) {
                 openPassive(false);
                 return true;
@@ -310,8 +346,17 @@ final class FtpServer {
                 openPassive(true);
                 return true;
             }
-            if (cmd.equals("LIST") || cmd.equals("NLST") || cmd.equals("MLSD")) {
-                list(cmd.equals("NLST"), arg);
+            if (cmd.equals("LIST") || cmd.equals("NLST")) {
+                String path = arg;
+                while (path.startsWith("-")) {
+                    int flagEnd = path.indexOf(' ');
+                    path = flagEnd < 0 ? "" : path.substring(flagEnd + 1).trim();
+                }
+                list(cmd.equals("NLST"), path);
+                return true;
+            }
+            if (cmd.equals("MLSD")) {
+                listMlsd(arg);
                 return true;
             }
             if (cmd.equals("RETR")) {
@@ -399,10 +444,58 @@ final class FtpServer {
         }
 
         private Socket acceptPassive() throws IOException {
+            if (active != null) {
+                java.net.InetSocketAddress target = active;
+                active = null;
+                Socket data = new Socket();
+                data.connect(target, 10_000);
+                return data;
+            }
             if (passive == null) throw new IOException("No passive socket");
             Socket data = passive.accept();
             closePassive();
             return data;
+        }
+
+        /** Machine-readable listing used by FileZilla, WinSCP and friends. */
+        private void listMlsd(String arg) throws IOException {
+            boolean atRoot = cwd.equals("/") && (arg.isEmpty() || arg.equals("/"));
+            File dir = atRoot ? null : resolve(cwd, arg);
+            if (!atRoot && (dir == null || !dir.isDirectory())) {
+                reply("550 No such directory");
+                return;
+            }
+            reply("150 Opening data connection");
+            try (Socket data = acceptPassive(); Writer w = new OutputStreamWriter(
+                    data.getOutputStream(), "UTF-8")) {
+                if (atRoot) {
+                    for (Root root : roots) {
+                        w.write("type=dir;modify=" + timestamp(root.dir.lastModified())
+                                + "; " + root.name + "\r\n");
+                    }
+                } else {
+                    File[] children = dir.listFiles();
+                    if (children != null) {
+                        List<File> sorted = new ArrayList<>();
+                        Collections.addAll(sorted, children);
+                        Collections.sort(sorted, (a, b) -> {
+                            if (a.isDirectory() != b.isDirectory()) return a.isDirectory() ? -1 : 1;
+                            return a.getName().compareToIgnoreCase(b.getName());
+                        });
+                        for (File child : sorted) {
+                            w.write("type=" + (child.isDirectory() ? "dir" : "file")
+                                    + ";size=" + child.length()
+                                    + ";modify=" + timestamp(child.lastModified())
+                                    + "; " + child.getName() + "\r\n");
+                        }
+                    }
+                }
+                w.flush();
+            } catch (Throwable t) {
+                reply("425 Data connection failed");
+                return;
+            }
+            reply("226 Transfer complete");
         }
 
         private void closePassive() {

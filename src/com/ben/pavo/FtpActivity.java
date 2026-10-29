@@ -40,7 +40,6 @@ public final class FtpActivity extends PavoGlassActivity {
     private final List<View> nav = new ArrayList<>();
 
     private Prefs prefs;
-    private FtpServer server;
     private FtpClient client;
     private String clientPath = "/";
 
@@ -83,7 +82,29 @@ public final class FtpActivity extends PavoGlassActivity {
         super.onResume();
         hideBars();
         hidePerformanceOverlay();
+        main.removeCallbacks(statusTick);
+        main.post(statusTick);
     }
+
+    @Override
+    protected void onPause() {
+        main.removeCallbacks(statusTick);
+        super.onPause();
+    }
+
+    /** The server lives in a foreground service, so read its state instead of ours. */
+    private final Runnable statusTick = new Runnable() {
+        @Override
+        public void run() {
+            if (isFinishing() || isDestroyed()) return;
+            updateServerStatus();
+            if (startButton != null) {
+                startButton.setText(FtpService.isRunning() ? "Stop server" : "Start server");
+            }
+            if (logView != null) logView.setText(FtpService.logText());
+            main.postDelayed(this, 1000L);
+        }
+    };
 
     @Override
     public void onBackPressed() {
@@ -92,10 +113,6 @@ public final class FtpActivity extends PavoGlassActivity {
 
     @Override
     protected void onDestroy() {
-        if (server != null) {
-            server.stop();
-            server = null;
-        }
         if (client != null) {
             client.close();
             client = null;
@@ -348,7 +365,7 @@ public final class FtpActivity extends PavoGlassActivity {
         startButton = chip("Start server", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (server != null && server.isRunning()) stopServer();
+                if (FtpService.isRunning()) stopServer();
                 else startServer();
             }
         });
@@ -424,59 +441,20 @@ public final class FtpActivity extends PavoGlassActivity {
         prefs.setFtpUser(userField.getText().toString().trim());
         prefs.setFtpPassword(passField.getText().toString());
 
-        List<FtpServer.Root> roots = new ArrayList<>();
-        File internal = Environment.getExternalStorageDirectory();
-        File sd = removableRoot();
-        int mode = prefs.ftpRoot();
-        if ((mode == 0 || mode == 2) && internal != null) {
-            roots.add(new FtpServer.Root("Internal", internal));
-        }
-        if ((mode == 1 || mode == 2) && sd != null) {
-            roots.add(new FtpServer.Root("SD card", sd));
-        }
-        if (roots.isEmpty()) {
+        boolean hasInternal = prefs.ftpRoot() == 0 || prefs.ftpRoot() == 2;
+        if (!hasInternal && removableRoot() == null) {
             serverStatus.setText("No folder available to share");
             serverStatus.setTextColor(BAD);
             return;
         }
-        server = new FtpServer(port, roots, anonymous(),
-                prefs.ftpUser(), prefs.ftpPassword(), new FtpServer.Listener() {
-            @Override
-            public void onLog(final String line) {
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        appendLog(line);
-                    }
-                });
-            }
-
-            @Override
-            public void onClients(final int count) {
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateServerStatus();
-                    }
-                });
-            }
-        });
-        boolean ok = server.start();
-        if (ok) {
-            startButton.setText("Stop server");
-            updateServerStatus();
-        } else {
-            server = null;
-            serverStatus.setText("Could not start the server on port " + port);
-            serverStatus.setTextColor(BAD);
-        }
+        FtpService.start(this);
+        startButton.setText("Stop server");
+        main.removeCallbacks(statusTick);
+        main.postDelayed(statusTick, 250L);
     }
 
     private void stopServer() {
-        if (server != null) {
-            server.stop();
-            server = null;
-        }
+        FtpService.stop(this);
         startButton.setText("Start server");
         serverStatus.setText("Stopped");
         serverStatus.setTextColor(MUTED);
@@ -484,14 +462,18 @@ public final class FtpActivity extends PavoGlassActivity {
     }
 
     private void updateServerStatus() {
-        if (server == null || !server.isRunning()) return;
-        int clients = server.clientCount();
+        if (!FtpService.isRunning()) {
+            if (startButton != null && !"Start server".contentEquals(startButton.getText())) {
+                startButton.setText("Start server");
+            }
+            return;
+        }
+        int clients = FtpService.clientCount();
         serverStatus.setText(clients == 0 ? "Sharing · waiting for clients"
                 : "Sharing · " + clients + (clients == 1 ? " client" : " clients"));
         serverStatus.setTextColor(OK);
-        String ip = FtpServer.localAddress();
-        serverUrl.setText(ip == null ? "No network address"
-                : "ftp://" + ip + ":" + prefs.ftpPort());
+        String address = FtpService.address();
+        serverUrl.setText(address == null ? "No network address" : address);
     }
 
     private void appendLog(String line) {
@@ -512,7 +494,7 @@ public final class FtpActivity extends PavoGlassActivity {
         // The floating performance card is a separate window above the activity
         // and would cover part of the code, so put it away while scanning.
         hidePerformanceOverlay();
-        if (server == null || !server.isRunning()) {
+        if (!FtpService.isRunning()) {
             LToast.makeText(this, "Start the server first", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
