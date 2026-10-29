@@ -873,15 +873,20 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
             }
         });
         addFocusable(demoChip, true);
-        FrameLayout.LayoutParams demoLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.END);
-        demoLp.topMargin = dp(2);
-        demoLp.rightMargin = dp(2);
-        holder.addView(demoChip, demoLp);
+        // Keep the chip off the artwork: it shares the temperature row instead
+        // of sitting on the board.
+        LinearLayout statsRow = new LinearLayout(this);
+        statsRow.setOrientation(LinearLayout.HORIZONTAL);
+        statsRow.setGravity(Gravity.CENTER_VERTICAL);
         tempLine = text("CPU —  ·  GPU —", 10f, MUTED, false);
         tempLine.setPadding(0, dp(4), 0, 0);
-        card.addView(tempLine);
+        statsRow.addView(tempLine, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams demoLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        demoLp.topMargin = dp(4);
+        statsRow.addView(demoChip, demoLp);
+        card.addView(statsRow);
     }
 
     private void fanCard(LinearLayout parent) {
@@ -995,19 +1000,22 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         LinearLayout footer = new LinearLayout(this);
         footer.setOrientation(LinearLayout.HORIZONTAL);
         footer.setGravity(Gravity.CENTER_VERTICAL);
-        TextView hints = text("D-PAD/L-STICK move  ·  R-STICK adjust (hold = fast)  ·  L1/R1 card  ·  A select  ·  B close",
-                9f, 0x66FFFFFF, false);
+        boolean tightFooter = Ui.widthDp(this) < 700;
+        TextView hints = text(tightFooter
+                        ? "Move  ·  R-Stick adjust  ·  L1/R1 card  ·  A select  ·  B close"
+                        : "D-PAD/L-STICK move  ·  R-STICK adjust (hold = fast)  ·  L1/R1 card  ·  A select  ·  B close",
+                tightFooter ? 8f : 9f, 0x66FFFFFF, false);
         footer.addView(hints, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        modeStatus = text("MODE —", 8.5f, 0x88FFFFFF, false);
+        modeStatus = text("MODE —", tightFooter ? 8f : 8.5f, 0x88FFFFFF, false);
         modeStatus.setLetterSpacing(0.06f);
         LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        mlp.rightMargin = dp(12);
+        mlp.rightMargin = dp(tightFooter ? 8 : 12);
         footer.addView(modeStatus, mlp);
 
-        rootStatus = text("CHECKING ROOT", 9f, AMBER, true);
+        rootStatus = text("CHECKING ROOT", tightFooter ? 8.5f : 9f, AMBER, true);
         rootStatus.setLetterSpacing(0.08f);
         rootStatus.setPadding(dp(8), dp(4), dp(8), dp(4));
         rootStatus.setOnClickListener(new View.OnClickListener() {
