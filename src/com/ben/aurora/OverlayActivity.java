@@ -209,10 +209,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
         return header;
     }
 
-    private LinearLayout section(LinearLayout parent, String title, String hint) {
+    private LinearLayout sectionBox(String title, String hint) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(CARD_PADDING), dp(9), dp(CARD_PADDING), dp(9));
+        box.setPadding(dp(CARD_PADDING), dp(8), dp(CARD_PADDING), dp(8));
         box.setBackground(Ui.rounded(CARD_FILL, dp(CARD_RADIUS), CARD_BORDER, dp(1)));
 
         TextView t = text(title, 10.5f, accent, true);
@@ -224,8 +224,23 @@ public final class OverlayActivity extends AuroraGlassActivity {
             h.setPadding(dp(2), dp(2), dp(2), 0);
             box.addView(h);
         }
+        return box;
+    }
+
+    private LinearLayout section(LinearLayout parent, String title, String hint) {
+        LinearLayout box = sectionBox(title, hint);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(9);
+        parent.addView(box, lp);
+        return box;
+    }
+
+    /** Card that owns an equal share of its column, so every card lines up. */
+    private LinearLayout sectionWeighted(LinearLayout parent, String title, String hint) {
+        LinearLayout box = sectionBox(title, hint);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
         lp.topMargin = dp(9);
         parent.addView(box, lp);
         return box;
@@ -234,7 +249,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
     // ------------------------------------------------------------- overlay UI
 
     private void buildOverlaySection(LinearLayout parent) {
-        LinearLayout box = section(parent, "PERFORMANCE OVERLAY",
+        LinearLayout box = sectionWeighted(parent, "PERFORMANCE OVERLAY",
                 "Pinch to resize, long-press for the menu.");
         overlayChip = toggle(box, "SHOW OVERLAY", prefs.perfOverlay(),
                 new Toggle() {
@@ -281,6 +296,8 @@ public final class OverlayActivity extends AuroraGlassActivity {
             refreshRow.addView(chip, lp);
         }
 
+        LinearLayout shortcuts = sectionWeighted(parent, "SHORTCUTS", null);
+
         perfShortcutRow = text("", 10f, TEXT, false);
         perfShortcutRow.setPadding(dp(10), dp(8), dp(10), dp(8));
         perfShortcutRow.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
@@ -309,7 +326,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         LinearLayout.LayoutParams pslp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         pslp.topMargin = dp(7);
-        box.addView(perfShortcutRow, pslp);
+        shortcuts.addView(perfShortcutRow, pslp);
 
         TextView clearPerfShortcut = text("CLEAR SHORTCUT", 8.5f, 0x99FFFFFF, true);
         clearPerfShortcut.setPadding(dp(2), dp(6), 0, 0);
@@ -320,14 +337,14 @@ public final class OverlayActivity extends AuroraGlassActivity {
                 refreshState();
             }
         });
-        box.addView(clearPerfShortcut);
+        shortcuts.addView(clearPerfShortcut);
 
-        perfComboRow = comboRow(box, true);
-        clearCombo(box, true);
+        perfComboRow = comboRow(shortcuts, true);
+        clearCombo(shortcuts, true);
     }
 
     private void buildMetricsSection(LinearLayout parent) {
-        LinearLayout box = section(parent, "METRICS", null);
+        LinearLayout box = sectionWeighted(parent, "METRICS", null);
         LinearLayout row = null;
         for (int i = 0; i < METRICS.length; i++) {
             if (i % 3 == 0) {
@@ -359,7 +376,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
             row.addView(chip, lp);
         }
 
-        LinearLayout actions = section(parent, "OVERLAY ACTIONS", null);
+        LinearLayout actions = sectionWeighted(parent, "OVERLAY ACTIONS", null);
         lockChip = toggle(actions, "LOCK POSITION", prefs.perfOverlayLocked(),
                 new Toggle() {
                     @Override
@@ -387,7 +404,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
     // -------------------------------------------------------------- drawer UI
 
     private void buildDrawerSection(LinearLayout parent) {
-        LinearLayout box = section(parent, "SIDEVIEW DRAWER",
+        LinearLayout box = sectionWeighted(parent, "SIDEVIEW DRAWER",
                 "Floating app drawer above any app.");
 
         action(box, "OPEN DRAWER", new Runnable() {
@@ -430,14 +447,16 @@ public final class OverlayActivity extends AuroraGlassActivity {
         });
         box.addView(clear);
 
+        LinearLayout style = sectionWeighted(parent, "DRAWER STYLE", null);
+
         TextView colLabel = text("COLUMNS", 8.5f, MUTED, true);
         colLabel.setLetterSpacing(0.08f);
-        colLabel.setPadding(dp(2), dp(8), 0, 0);
-        box.addView(colLabel);
+        colLabel.setPadding(dp(2), dp(5), 0, 0);
+        style.addView(colLabel);
         LinearLayout colRow = new LinearLayout(this);
         colRow.setOrientation(LinearLayout.HORIZONTAL);
         colRow.setPadding(0, dp(4), 0, 0);
-        box.addView(colRow);
+        style.addView(colRow);
         for (int i = 0; i < 2; i++) {
             final int columns = i + 1;
             TextView chip = modeChip(columns == 1 ? "1 COLUMN" : "2 COLUMNS");
@@ -459,14 +478,14 @@ public final class OverlayActivity extends AuroraGlassActivity {
         drawerComboRow = comboRow(box, false);
         clearCombo(box, false);
 
-        slider(box, "Drawer opacity", 20, 100, prefs.drawerOverlayAlpha(), "%",
+        slider(style, "Drawer opacity", 20, 100, prefs.drawerOverlayAlpha(), "%",
                 new IntValue() {
                     @Override
                     public void onValue(int value) {
                         prefs.setDrawerOverlayAlpha(value);
                     }
                 });
-        slider(box, "Icon size", 34, 76, prefs.drawerOverlayIconDp(), " dp",
+        slider(style, "Icon size", 34, 76, prefs.drawerOverlayIconDp(), " dp",
                 new IntValue() {
                     @Override
                     public void onValue(int value) {
@@ -676,7 +695,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
     private TextView modeChip(String label) {
         TextView chip = text(label, 8.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(6), dp(6), dp(6), dp(6));
+        chip.setPadding(dp(6), dp(5), dp(6), dp(5));
         chip.setFocusable(true);
         chip.setDefaultFocusHighlightEnabled(false);
         chip.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
@@ -710,7 +729,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         header.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        hlp.topMargin = dp(6);
+        hlp.topMargin = dp(4);
         parent.addView(header, hlp);
 
         TextView name = text(label, 9f, MUTED, false);
@@ -731,7 +750,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         bar.setThumbOffset(0);
         bar.setSplitTrack(false);
         bar.setDefaultFocusHighlightEnabled(false);
-        bar.setPadding(dp(10), dp(4), dp(10), dp(4));
+        bar.setPadding(dp(10), dp(2), dp(10), dp(2));
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
