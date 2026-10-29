@@ -197,7 +197,6 @@ final class ItemView extends LinearLayout {
         if (enabled) {
             label.setSingleLine(true);
             label.setMaxLines(1);
-            label.setHorizontallyScrolling(true);
             label.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
             label.setMarqueeRepeatLimit(-1);
         } else {
@@ -216,8 +215,10 @@ final class ItemView extends LinearLayout {
     }
 
     private void updateMarqueeSelection() {
-        label.setSelected(marquee && !marqueePaused
+        boolean focused = isFocused();
+        label.setSelected(marquee && !marqueePaused && focused
                 && label.getVisibility() == View.VISIBLE);
+        if (!focused) label.scrollTo(0, 0);
     }
 
     /** The dock uses 1.0 so its outer cells cannot clip the ring at the pill edge. */
@@ -299,6 +300,12 @@ final class ItemView extends LinearLayout {
         } else {
             hideFocusRing();
             animate().scaleX(1f).scaleY(1f).setDuration(110).start();
+        }
+        // Only the focused label scrolls. Every other label stays at its start
+        // with an ellipsis, so resting grids never look clipped mid-marquee.
+        if (marquee) {
+            label.setSelected(focused && !marqueePaused);
+            if (!focused) label.scrollTo(0, 0);
         }
     }
 

@@ -3562,9 +3562,49 @@ public final class MainActivity extends Activity {
     private void showGlassDialog(final Dialog dialog, final GlassPanel card,
                                  Backdrop backdrop, int cardWidthDp,
                                  float heightFraction) {
+        showGlassDialog(dialog, card, backdrop, cardWidthDp, heightFraction, false);
+    }
+
+    /**
+     * @param liftForKeyboard keeps an input dialog in the upper half so a
+     *        landscape keyboard cannot cover its field or buttons.
+     */
+    private void showGlassDialog(final Dialog dialog, final GlassPanel card,
+                                 Backdrop backdrop, int cardWidthDp,
+                                 float heightFraction, boolean liftForKeyboard) {
         FrameLayout root = new FrameLayout(this);
         root.setClipChildren(false);
         root.setClipToPadding(false);
+        // Keep the card above the keyboard: the dialog draws edge to edge, so
+        // pad by the IME inset instead of letting the keyboard cover the input
+        // or the Save row.
+        root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override
+            public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                int ime = insets.getInsets(WindowInsets.Type.ime()).bottom;
+                if (v.getPaddingBottom() != ime) {
+                    v.setPadding(v.getPaddingLeft(), v.getPaddingTop(),
+                            v.getPaddingRight(), ime);
+                }
+                return insets;
+            }
+        });
+        // Fallback for windows that are not resized by the IME: watch the
+        // visible frame and pad the bottom by whatever the keyboard covers.
+        root.getViewTreeObserver().addOnGlobalLayoutListener(
+                new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                android.graphics.Rect visible = new android.graphics.Rect();
+                root.getWindowVisibleDisplayFrame(visible);
+                int covered = Math.max(0, root.getRootView().getHeight() - visible.bottom);
+                if (covered > root.getPaddingBottom() + 40
+                        || covered + 40 < root.getPaddingBottom()) {
+                    root.setPadding(root.getPaddingLeft(), root.getPaddingTop(),
+                            root.getPaddingRight(), covered);
+                }
+            }
+        });
 
         View dim = new View(this);
         dim.setBackgroundColor(0x33000000);
@@ -3574,8 +3614,11 @@ public final class MainActivity extends Activity {
         int cardHeight = heightFraction > 0f
                 ? Math.round(getResources().getDisplayMetrics().heightPixels * heightFraction)
                 : ViewGroup.LayoutParams.WRAP_CONTENT;
+        boolean lifted = liftForKeyboard && Ui.layoutHeightDp(this) < 600;
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
-                cardWidth, cardHeight, Gravity.CENTER);
+                cardWidth, cardHeight, lifted ? (Gravity.TOP | Gravity.CENTER_HORIZONTAL)
+                        : Gravity.CENTER);
+        if (lifted) cardLp.topMargin = Ui.dp(this, 18);
         card.setClickable(true);
         card.setElevation(Ui.dpf(this, 18));
         root.addView(card, cardLp);
@@ -3626,6 +3669,7 @@ public final class MainActivity extends Activity {
             w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             w.setAttributes(lp);
             w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
             w.setStatusBarColor(Color.TRANSPARENT);
             w.setNavigationBarColor(Color.TRANSPARENT);
             w.setDecorFitsSystemWindows(false);
@@ -8917,7 +8961,7 @@ public final class MainActivity extends Activity {
         buttons.addView(ok);
         panel.addView(buttons);
 
-        showGlassDialog(dialog, panel, backdrop, 430, 0f);
+        showGlassDialog(dialog, panel, backdrop, 430, 0f, true);
         dialog.show();
         input.requestFocus();
         input.setSelection(input.getText().length());
@@ -9013,7 +9057,7 @@ public final class MainActivity extends Activity {
         });
         panel.addView(add, alp);
 
-        showGlassDialog(dialog, panel, backdrop, 460, 0f);
+        showGlassDialog(dialog, panel, backdrop, 460, 0f, true);
         dialog.show();
         name.requestFocus();
     }

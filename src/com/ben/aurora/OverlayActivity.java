@@ -258,6 +258,11 @@ public final class OverlayActivity extends AuroraGlassActivity {
         }
         content.removeAllViews();
         int perColumn = Math.max(1, (cards.size() + cols - 1) / cols);
+        // Stretching every card to an equal share only works when the panel is
+        // tall enough; on 4:3 panels it clips the card contents, so let the
+        // cards keep their natural height and scroll the column instead.
+        boolean stretch = cols == 3 && Ui.layoutHeightDp(this) >= 560;
+        boolean shortPanel = Ui.layoutHeightDp(this) < 560;
         for (int i = 0; i < cols; i++) {
             LinearLayout column = new LinearLayout(this);
             column.setOrientation(LinearLayout.VERTICAL);
@@ -266,10 +271,16 @@ public final class OverlayActivity extends AuroraGlassActivity {
             for (int k = from; k < to; k++) {
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        cols == 1 ? ViewGroup.LayoutParams.WRAP_CONTENT : 0,
-                        cols == 1 ? 0f : 1f);
+                        stretch ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT,
+                        stretch ? 1f : 0f);
                 lp.topMargin = dp(9);
                 column.addView(cards.get(k), lp);
+            }
+            if (shortPanel) {
+                // Room to scroll the last card clear of the floating overlay.
+                View tail = new View(this);
+                column.addView(tail, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, dp(72)));
             }
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
@@ -333,7 +344,8 @@ public final class OverlayActivity extends AuroraGlassActivity {
     private LinearLayout sectionBox(String title, String hint) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(CARD_PADDING), dp(8), dp(CARD_PADDING), dp(8));
+        int cp = Ui.widthDp(this) < 700 ? 11 : CARD_PADDING;
+        box.setPadding(dp(cp), dp(8), dp(cp), dp(8));
         box.setBackground(Ui.rounded(CARD_FILL, dp(CARD_RADIUS), CARD_BORDER, dp(1)));
 
         TextView t = text(title, 10.5f, accent, true);
