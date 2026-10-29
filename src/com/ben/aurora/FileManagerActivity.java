@@ -358,8 +358,10 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                     || (source & android.view.InputDevice.SOURCE_JOYSTICK) != 0;
             if (pad) {
                 View focus = getCurrentFocus();
-                if (focus != null && (focus.getTag() instanceof File
-                        || isDescendant(actionRow, focus))) {
+                if (focus == null || focus.getTag() instanceof File
+                        || isDescendant(actionRow, focus)
+                        || focus == (activePane == null ? null : activePane.list)
+                        || focus == (activePane == null ? null : activePane.title)) {
                     float y = event.getAxisValue(MotionEvent.AXIS_Y);
                     float hat = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
                     if (Math.abs(hat) > Math.abs(y)) y = hat;
@@ -1066,6 +1068,18 @@ public final class FileManagerActivity extends AuroraGlassActivity {
                         if (!initialFocusDone && pane == leftPane) {
                             initialFocusDone = true;
                             focusFirstFile(true);
+                        } else if (pane == navPane || navPane == null) {
+                            // Entering or leaving a folder rebuilds the rows; put
+                            // the ring back so the controller always has a cursor.
+                            final int restore = Math.max(0,
+                                    Math.min(pane.files.size() - 1, navIndex));
+                            if (!pane.files.isEmpty()) {
+                                pane.list.postDelayed(new Runnable() {
+                                    @Override public void run() {
+                                        focusRow(pane, restore);
+                                    }
+                                }, 30L);
+                            }
                         }
                     }
                 });
