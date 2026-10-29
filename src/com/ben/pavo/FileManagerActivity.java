@@ -71,6 +71,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -1441,6 +1443,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
             Intent intent = new Intent(this, FileEditorActivity.class);
             intent.putExtra(FileEditorActivity.EXTRA_PATH, file.getAbsolutePath());
             startActivity(intent);
+        } else if (isZipFile(file)) {
+            showZipDialog(file, pane);
         } else {
             openFile(file);
         }
@@ -1508,6 +1512,196 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 String mime = mimeOf(file);
                 return mime != null && mime.startsWith("text/");
         }
+    }
+
+    private boolean isZipFile(File file) {
+        return file != null && file.isFile()
+                && file.getName().toLowerCase(Locale.ROOT).endsWith(".zip");
+    }
+
+    /** Browse a ZIP and extract it next to the archive. */
+    private void showZipDialog(final File zip, final Pane pane) {
+        final List<ZipEntry> entries = new ArrayList<>();
+        long total = 0;
+        try (ZipFile zf = new ZipFile(zip)) {
+            java.util.Enumeration<? extends ZipEntry> it = zf.entries();
+            while (it.hasMoreElements()) {
+                ZipEntry e = it.nextElement();
+                entries.add(e);
+                if (!e.isDirectory() && e.getSize() > 0) total += e.getSize();
+            }
+        } catch (Throwable t) {
+            LToast.makeText(this, "Could not read this ZIP", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (entries.isEmpty()) {
+            LToast.makeText(this, "This ZIP is empty", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Collections.sort(entries, new Comparator<ZipEntry>() {
+            @Override
+            public int compare(ZipEntry a, ZipEntry b) {
+                if (a.isDirectory() != b.isDirectory()) return a.isDirectory() ? -1 : 1;
+                return a.getName().compareToIgnoreCase(b.getName());
+            }
+        });
+
+        final Dialog dialog = baseDialog();
+        final GlassPanel panel = dialogPanel();
+        panel.setPadding(dp(18), dp(14), dp(18), dp(12));
+
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        panel.addView(column, matchWrap());
+
+        column.addView(text(zip.getName(), 14f, 0xFFF5F7FA, false), matchWrap());
+        TextView subtitle = text(entries.size() + " " + Loc.s(this, "entries")
+                + " \u00b7 " + formatSize(total), 10f, 0x80FFFFFF, false);
+        subtitle.setPadding(0, dp(1), 0, 0);
+        column.addView(subtitle, matchWrap());
+        TextView hint = text("Extracts to a new folder next to the archive",
+                9.5f, 0x66FFFFFF, false);
+        hint.setPadding(0, dp(1), 0, dp(6));
+        column.addView(hint, matchWrap());
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setClipToPadding(false);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(0, 0, 0, dp(6));
+        for (final ZipEntry entry : entries) {
+            String name = entry.getName();
+            boolean dir = entry.isDirectory();
+            String label = dir ? name : name + "   " + formatSize(Math.max(0, entry.getSize()));
+            TextView row = text(label, 10.5f, dir ? 0xB3FFFFFF : 0xF2FFFFFF, false);
+            row.setSingleLine(true);
+            row.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+            row.setPadding(dp(10), dp(7), dp(10), dp(7));
+            final android.graphics.drawable.Drawable normal = Ui.rounded(0x00FFFFFF, dp(8));
+            row.setBackground(normal);
+            row.setFocusable(true);
+            row.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                @Override public void onFocusChange(View v, boolean focused) {
+                    v.setBackground(focused
+                            ? Ui.focusRing(FileManagerActivity.this, dp(8)) : normal);
+                }
+            });
+            list.addView(row, matchWrap());
+        }
+        scroll.addView(list);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(300));
+        slp.topMargin = dp(2);
+        column.addView(scroll, slp);
+
+        addDialogOption(column, "Extract all",
+                new Runnable() {
+            @Override
+            public void run() {
+                extractZip(zip, pane);
+            }
+        });
+        addDialogOption(column, "Close", new Runnable() {
+            @Override
+            public void run() {
+                // dismiss handled by the dialog helper
+            }
+        });
+        showPanel(dialog, panel, 560);
+    }
+
+    private String folderNameFor(File zip) {
+        String name = zip.getName();
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) name = name.substring(0, dot);
+        if (name.trim().isEmpty()) name = "Archive";
+        File parent = zip.getParentFile();
+        File target = new File(parent, name);
+        int n = 2;
+        while (target.exists()) {
+            target = new File(parent, name + " (" + n + ")");
+            n++;
+        }
+        return target.getName();
+    }
+
+    private void extractZip(final File zip, final Pane pane) {
+        final File parent = zip.getParentFile();
+        final File target = new File(parent, folderNameFor(zip));
+        LToast.makeText(this, Loc.s(this, "Extracting\u2026"),
+                android.widget.Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                int files = 0;
+                String error = null;
+                try {
+                    String base = target.getCanonicalPath() + File.separator;
+                    if (!target.exists() && !target.mkdirs()) {
+                        throw new IOException("Could not create folder");
+                    }
+                    try (ZipFile zf = new ZipFile(zip)) {
+                        java.util.Enumeration<? extends ZipEntry> it = zf.entries();
+                        while (it.hasMoreElements()) {
+                            ZipEntry e = it.nextElement();
+                            String name = e.getName();
+                            if (name.contains("..")) continue;
+                            File out = new File(target, name);
+                            String canonical = out.getCanonicalPath();
+                            if (!canonical.startsWith(base)) continue;
+                            if (e.isDirectory()) {
+                                out.mkdirs();
+                                continue;
+                            }
+                            File dir = out.getParentFile();
+                            if (dir != null) dir.mkdirs();
+                            try (InputStream in = zf.getInputStream(e);
+                                 OutputStream os = new FileOutputStream(out)) {
+                                byte[] buffer = new byte[32 * 1024];
+                                int read;
+                                while ((read = in.read(buffer)) > 0) {
+                                    os.write(buffer, 0, read);
+                                }
+                            }
+                            files++;
+                        }
+                    }
+                } catch (Throwable t) {
+                    error = t.getMessage();
+                }
+                final int done = files;
+                final String failure = error;
+                main.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (failure != null) {
+                            LToast.makeText(FileManagerActivity.this,
+                                    Loc.s(FileManagerActivity.this, "Extract failed")
+                                            + ": " + failure,
+                                    android.widget.Toast.LENGTH_LONG).show();
+                        } else {
+                            LToast.makeText(FileManagerActivity.this,
+                                    Loc.s(FileManagerActivity.this, "Extracted to") + " "
+                                            + target.getName() + " \u00b7 " + done + " "
+                                            + Loc.s(FileManagerActivity.this, "files"),
+                                    android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                        if (leftPane != null) reload(leftPane);
+                        if (rightPane != null) reload(rightPane);
+                    }
+                });
+            }
+        }, "zip-extract").start();
+    }
+
+    private String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.0f KB", bytes / 1024f);
+        if (bytes < 1024L * 1024L * 1024L) {
+            return String.format(Locale.ROOT, "%.1f MB", bytes / (1024f * 1024f));
+        }
+        return String.format(Locale.ROOT, "%.2f GB", bytes / (1024f * 1024f * 1024f));
     }
 
     private void openFile(File file) {
