@@ -54,7 +54,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:resizeableActivity="true"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -187,7 +187,7 @@
             android:exported="false"
             android:label="Controller Remapper"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.controllermap"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -199,7 +199,7 @@
             android:exported="false"
             android:label="Performance Logs"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.perflogs"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -211,7 +211,7 @@
             android:exported="false"
             android:label="Display"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.display"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -223,7 +223,7 @@
             android:exported="false"
             android:label="RGB Lighting"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.rgb"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -235,7 +235,7 @@
             android:exported="false"
             android:label="Overlay &amp; Drawer"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.overlay"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -247,7 +247,7 @@
             android:exported="false"
             android:label="Fan Control"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.fan"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -259,7 +259,7 @@
             android:exported="false"
             android:label="Touch Mapper"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.touchmapper"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -271,7 +271,7 @@
             android:exported="false"
             android:label="Performance Tuner"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.tuner"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -293,7 +293,7 @@
             android:exported="false"
             android:label="Device Health"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.devicehealth"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -306,7 +306,7 @@
             android:exported="false"
             android:label="Stress Test"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.benchmark"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -317,7 +317,7 @@
             android:exported="false"
             android:label="Image Viewer"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.files"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -329,7 +329,7 @@
             android:exported="false"
             android:label="Video Player"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.files"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -341,7 +341,7 @@
             android:exported="false"
             android:label="Audio Player"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.files"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -353,7 +353,7 @@
             android:exported="false"
             android:label="Text Editor"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.files"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -365,7 +365,7 @@
             android:exported="false"
             android:label="Screen Recorder"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.screenrecorder"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -383,7 +383,7 @@
             android:exported="false"
             android:label="File Manager"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.files"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -395,7 +395,7 @@
             android:exported="false"
             android:label="Stress Test Result"
             android:launchMode="singleTask"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.aurora.benchmark"
             android:theme="@style/Theme.Aurora.Transparent" />
@@ -404,7 +404,7 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="user"
             android:taskAffinity="com.ben.aurora.controls"
             android:theme="@style/Theme.Aurora.Transparent" />
         <provider
