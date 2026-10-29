@@ -414,7 +414,7 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         gpuCard = new GpuCard(bottomRow);
 
         boolean narrow = Ui.columns(this, 3) == 1;
-        boolean shortScreen = Ui.heightDp(this) < 430;
+        boolean shortScreen = Ui.layoutHeightDp(this) < 440;
         if (narrow || shortScreen) {
             // Scroll instead of squeezing the cards on short or narrow panels.
             if (narrow) {

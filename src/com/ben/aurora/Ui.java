@@ -38,10 +38,34 @@ final class Ui {
         return 1;
     }
 
+    /**
+     * Narrowest aspect the launcher is designed for: the Retroid Pocket Nova's
+     * 1280x960 4:3 panel. Anything narrower is laid out as 4:3 instead of being
+     * squeezed further.
+     */
+    static final float MIN_ASPECT = 4f / 3f;
+
     static int heightDp(Context c) {
         if (c == null) return 0;
         android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
         return dm.density > 0 ? Math.round(dm.heightPixels / dm.density) : 0;
+    }
+
+    /** Height available to the layout, clamped to the 4:3 design floor. */
+    static int layoutHeightDp(Context c) {
+        int w = widthDp(c);
+        int h = heightDp(c);
+        if (w > 0) {
+            int floor = Math.round(w / MIN_ASPECT);
+            if (h > floor) h = floor;
+        }
+        return h;
+    }
+
+    static int widthDp(Context c) {
+        if (c == null) return 0;
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        return dm.density > 0 ? Math.round(dm.widthPixels / dm.density) : 0;
     }
 
     /** Spacing/text scale for compact or very wide screens. */
