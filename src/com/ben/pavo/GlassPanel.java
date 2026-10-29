@@ -166,6 +166,10 @@ final class GlassPanel extends LinearLayout {
         }
         backdrop = b;
         liquidEffect = sample && b != null && b.bitmap != null;
+        // The scrim is derived from the backdrop itself. Recompute it whenever
+        // the capture arrives, otherwise the panel keeps the no-backdrop default
+        // (78% black) and the sampled screen is crushed to black.
+        scrimAlpha = computeScrimAlpha(b);
         invalidate();
     }
 
@@ -279,7 +283,9 @@ final class GlassPanel extends LinearLayout {
     }
 
     private void drawReadabilityScrim(Canvas canvas, float w, float h, float radius) {
-        if (scrimAlpha <= 0) return;
+        // Clear glass is meant to show the live content; its tint is applied by
+        // the overlay pass instead of an opaque readability scrim.
+        if (scrimAlpha <= 0 || clearGlass) return;
         scrimPaint.setColor((scrimAlpha << 24) | 0x0B0E14);
         canvas.drawRoundRect(rect, radius, radius, scrimPaint);
     }
