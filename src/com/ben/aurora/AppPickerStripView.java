@@ -64,7 +64,7 @@ final class AppPickerStripView extends FrameLayout {
         this.showLabels = prefs.drawerLabels();
 
         View scrim = new View(context);
-        scrim.setBackgroundColor(0x1A000000);
+        scrim.setBackgroundColor(0x4D000000);
         scrim.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -83,7 +83,6 @@ final class AppPickerStripView extends FrameLayout {
         Backdrop fallback = liveSource instanceof GlassPanel
                 ? ((GlassPanel) liveSource).getBackdrop() : null;
         FrameLayout strip = new FrameLayout(context);
-        strip.setBackgroundColor(0x440B0E14);
         strip.setClipToOutline(true);
         strip.setOutlineProvider(new ViewOutlineProvider() {
             @Override public void getOutline(View view, android.graphics.Outline outline) {
@@ -93,28 +92,20 @@ final class AppPickerStripView extends FrameLayout {
         strip.setClickable(true);
         strip.setFocusable(false);
 
-        if (liveSource != null) {
-            LiveBackdropView live = new LiveBackdropView(context);
-            live.setSource(liveSource);
-            live.setRadiusDp(24f);
-            live.setBackdropEnabled(true);
-            strip.addView(live, new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT));
-        }
-
-        GlassPanel material = new GlassPanel(context, null, ACCENT,
-                liveSource != null ? 0x2A0B0E14 : 0x800B0E14, 24, true);
+        // Same material as every other Aurora surface: the captured backdrop
+        // behind the app, tinted and bordered, instead of a flat dark slab.
+        Backdrop backdrop = fallback != null && fallback.bitmap != null
+                ? fallback : BuiltInBackdrop.take();
+        GlassPanel material = new GlassPanel(context, backdrop, ACCENT,
+                0x8C0B0E14, 24, true);
         material.setClearGlass(true);
         material.setClearBodyAlpha(0);
-        if (liveSource == null) {
-            if (fallback != null && fallback.bitmap != null) {
-                material.setBackdrop(fallback);
-                material.setBackdropScreenAnchored(true);
-                material.setLiquidEffect(true);
-            } else {
-                material.setFrosted(true);
-            }
+        if (backdrop != null && backdrop.bitmap != null) {
+            material.setBackdrop(backdrop);
+            material.setBackdropScreenAnchored(true);
+            material.setLiquidEffect(true);
+        } else {
+            material.setFrosted(true);
         }
         material.setSurfaceAlpha(prefs.drawerOverlayAlpha() / 100f);
         material.setClickable(false);
