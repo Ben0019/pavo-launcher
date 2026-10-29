@@ -1,4 +1,23 @@
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <string name="layout">{&quot;pages&quot;:[[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]],&quot;dock&quot;:[{&quot;t&quot;:0,&quot;p&quot;:&quot;com.android.calendar&quot;,&quot;c&quot;:&quot;com.android.calendar.AllInOneActivity&quot;},{&quot;t&quot;:0,&quot;p&quot;:&quot;com.epicgames.fortnite&quot;,&quot;c&quot;:&quot;com.epicgames.unreal.SplashActivity&quot;},{&quot;t&quot;:0,&quot;p&quot;:&quot;com.android.gallery3d&quot;,&quot;c&quot;:&quot;com.android.gallery3d.app.GalleryActivity&quot;},{&quot;t&quot;:0,&quot;p&quot;:&quot;com.android.documentsui&quot;,&quot;c&quot;:&quot;com.android.documentsui.LauncherActivity&quot;},{&quot;t&quot;:0,&quot;p&quot;:&quot;com.android.vending&quot;,&quot;c&quot;:&quot;com.android.vending.AssetBrowserActivity&quot;},{&quot;t&quot;:0,&quot;p&quot;:&quot;com.android.music&quot;,&quot;c&quot;:&quot;com.android.music.MusicBrowserActivity&quot;},{&quot;t&quot;:0,&quot;p&quot;:&quot;com.android.settings&quot;,&quot;c&quot;:&quot;com.android.settings.Settings&quot;}],&quot;widgets&quot;:[]}</string>
+    <int name="dock_sheen" value="33" />
+    <int name="glass" value="21" />
+    <int name="dock_transparency" value="57" />
+    <int name="dock_saturation" value="125" />
+    <int name="dock_darkness" value="50" />
+    <int name="menu_transparency" value="52" />
+    <int name="menu_saturation" value="150" />
+    <int name="menu_darkness" value="50" />
+    <int name="app_drawer_transparency" value="53" />
+    <int name="popup_drawer_transparency" value="53" />
+    <int name="drawer_saturation" value="150" />
+    <int name="drawer_darkness" value="50" />
+    <int name="settings_transparency" value="56" />
+    <int name="builtin_transparency" value="100" />
+    <int name="builtin_saturation" value="150" />
+    <int name="builtin_darkness" value="50" />
+    <int name="folder_transparency" value="56" />
+    <int name="folder_saturation" value="150" />
+    <int name="folder_darkness" value="50" />
 </map>

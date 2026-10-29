@@ -52,8 +52,8 @@ final class Prefs {
 
     // --- glass / dock style ---
     int blur() { return sp.getInt("blur", 12); }
-    int glassPercent() { return sp.getInt("glass", 10); }
-    int dockSheen() { return clamp(sp.getInt("dock_sheen", 26), 0, 100); }
+    int glassPercent() { return sp.getInt("glass", 21); }
+    int dockSheen() { return clamp(sp.getInt("dock_sheen", 33), 0, 100); }
     int cornerDp() { return sp.getInt("corner", 28); }
     boolean lightGlass() { return sp.getBoolean("light_glass", false); }
     int wallpaperMode() { return sp.getInt("wallpaper_mode", MODE_DEVICE); }
@@ -270,21 +270,17 @@ final class Prefs {
     }
 
 
-    int dockTransparency() { return clamp(sp.getInt("dock_transparency", 53), 20, 100); }
-    int menuTransparency() { return clamp(sp.getInt("menu_transparency", 95), 20, 100); }
-    int appDrawerTransparency() { return clamp(sp.getInt("app_drawer_transparency", 95), 20, 100); }
-    int popupDrawerTransparency() { return clamp(sp.getInt("popup_drawer_transparency", 95), 20, 100); }
-    int settingsTransparency() { return clamp(sp.getInt("settings_transparency", 52), 20, 100); }
+    int dockTransparency() { return clamp(sp.getInt("dock_transparency", 57), 20, 100); }
+    int menuTransparency() { return clamp(sp.getInt("menu_transparency", 52), 20, 100); }
+    int appDrawerTransparency() { return clamp(sp.getInt("app_drawer_transparency", 53), 20, 100); }
+    int popupDrawerTransparency() { return clamp(sp.getInt("popup_drawer_transparency", 53), 20, 100); }
+    int settingsTransparency() { return clamp(sp.getInt("settings_transparency", 56), 20, 100); }
 
-    /**
-     * One surface value for every built-in app (Fan Control, File Manager, the
-     * tuner, players ...). Defaults to the launcher settings value so existing
-     * setups keep their look.
-     */
+    /** One surface value for every built-in app (Fan Control, File Manager ...). */
     int builtinTransparency() {
-        return clamp(sp.getInt("builtin_transparency", settingsTransparency()), 20, 100);
+        return clamp(sp.getInt("builtin_transparency", 100), 20, 100);
     }
-    int folderTransparency() { return clamp(sp.getInt("folder_transparency", 95), 20, 100); }
+    int folderTransparency() { return clamp(sp.getInt("folder_transparency", 56), 20, 100); }
 
     void setDockTransparency(int v) { sp.edit().putInt("dock_transparency", clamp(v, 20, 100)).apply(); }
     void setMenuTransparency(int v) { sp.edit().putInt("menu_transparency", clamp(v, 20, 100)).apply(); }
@@ -304,7 +300,7 @@ final class Prefs {
 
     /** 0 = untouched capture, 100 = black. Applies inside built-in app cards. */
     int builtinBackdropDarkness() {
-        return clamp(sp.getInt("builtin_darkness", 0), 0, 100);
+        return clamp(sp.getInt("builtin_darkness", 50), 0, 100);
     }
 
     void setBuiltinBackdropDarkness(int v) {
@@ -312,24 +308,24 @@ final class Prefs {
     }
 
     // Backdrop colour tuning for the launcher's own glass surfaces.
-    int dockSaturation() { return clamp(sp.getInt("dock_saturation", 150), 0, 200); }
+    int dockSaturation() { return clamp(sp.getInt("dock_saturation", 125), 0, 200); }
     void setDockSaturation(int v) { sp.edit().putInt("dock_saturation", clamp(v, 0, 200)).apply(); }
-    int dockBackdropDarkness() { return clamp(sp.getInt("dock_darkness", 0), 0, 100); }
+    int dockBackdropDarkness() { return clamp(sp.getInt("dock_darkness", 50), 0, 100); }
     void setDockBackdropDarkness(int v) { sp.edit().putInt("dock_darkness", clamp(v, 0, 100)).apply(); }
 
     int drawerSaturation() { return clamp(sp.getInt("drawer_saturation", 150), 0, 200); }
     void setDrawerSaturation(int v) { sp.edit().putInt("drawer_saturation", clamp(v, 0, 200)).apply(); }
-    int drawerBackdropDarkness() { return clamp(sp.getInt("drawer_darkness", 0), 0, 100); }
+    int drawerBackdropDarkness() { return clamp(sp.getInt("drawer_darkness", 50), 0, 100); }
     void setDrawerBackdropDarkness(int v) { sp.edit().putInt("drawer_darkness", clamp(v, 0, 100)).apply(); }
 
     int folderSaturation() { return clamp(sp.getInt("folder_saturation", 150), 0, 200); }
     void setFolderSaturation(int v) { sp.edit().putInt("folder_saturation", clamp(v, 0, 200)).apply(); }
-    int folderBackdropDarkness() { return clamp(sp.getInt("folder_darkness", 0), 0, 100); }
+    int folderBackdropDarkness() { return clamp(sp.getInt("folder_darkness", 50), 0, 100); }
     void setFolderBackdropDarkness(int v) { sp.edit().putInt("folder_darkness", clamp(v, 0, 100)).apply(); }
 
     int menuSaturation() { return clamp(sp.getInt("menu_saturation", 150), 0, 200); }
     void setMenuSaturation(int v) { sp.edit().putInt("menu_saturation", clamp(v, 0, 200)).apply(); }
-    int menuBackdropDarkness() { return clamp(sp.getInt("menu_darkness", 0), 0, 100); }
+    int menuBackdropDarkness() { return clamp(sp.getInt("menu_darkness", 50), 0, 100); }
     void setMenuBackdropDarkness(int v) { sp.edit().putInt("menu_darkness", clamp(v, 0, 100)).apply(); }
     void setFolderTransparency(int v) { sp.edit().putInt("folder_transparency", clamp(v, 20, 100)).apply(); }
 
