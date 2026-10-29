@@ -2002,6 +2002,9 @@ public final class MainActivity extends Activity {
         if (displayEntry != null) {
             displayEntry.icon = Apps.displayIcon(px, accent);
         }
+        if (overlayEntry != null) {
+            overlayEntry.icon = Apps.overlayIcon(px, accent);
+        }
         if (rgbEntry != null) {
             rgbEntry.icon = Apps.rgbIcon(px, accent);
         }
@@ -9600,6 +9603,12 @@ public final class MainActivity extends Activity {
                 || perfLogEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
             drawerApps.add(perfLogEntry);
         }
+        Apps.Entry overlay = overlayEntry();
+        if (q.isEmpty()
+                || overlay.label.toLowerCase(Locale.getDefault()).contains(q)
+                || overlay.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
+            drawerApps.add(overlay);
+        }
         if (displayEntry != null && (q.isEmpty()
                 || displayEntry.label.toLowerCase(Locale.getDefault()).contains(q)
                 || displayEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
@@ -9610,17 +9619,22 @@ public final class MainActivity extends Activity {
                 || controllerMapEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
             drawerApps.add(controllerMapEntry);
         }
-        Apps.Entry rgb = rgbEntry();
-        if (q.isEmpty()
-                || rgb.label.toLowerCase(Locale.getDefault()).contains(q)
-                || rgb.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
-            drawerApps.add(rgb);
+        DeviceProfile profile = DeviceProfile.get(this);
+        if (profile.rgb) {
+            Apps.Entry rgb = rgbEntry();
+            if (q.isEmpty()
+                    || rgb.label.toLowerCase(Locale.getDefault()).contains(q)
+                    || rgb.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
+                drawerApps.add(rgb);
+            }
         }
-        Apps.Entry fan = fanEntry();
-        if (q.isEmpty()
-                || fan.label.toLowerCase(Locale.getDefault()).contains(q)
-                || fan.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
-            drawerApps.add(fan);
+        if (profile.fanControl) {
+            Apps.Entry fan = fanEntry();
+            if (q.isEmpty()
+                    || fan.label.toLowerCase(Locale.getDefault()).contains(q)
+                    || fan.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
+                drawerApps.add(fan);
+            }
         }
         Apps.Entry touchMap = touchMapEntry();
         if (q.isEmpty()
