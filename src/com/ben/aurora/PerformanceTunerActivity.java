@@ -511,6 +511,29 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
                 openAppPicker();
             }
         });
+        // Mirror FanActivity: explicit clickable state plus a touch handler so a
+        // tap and the controller A button both reach openAppPicker().
+        appSelector.setClickable(true);
+        appSelector.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        v.setPressed(true);
+                        v.requestFocus();
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        v.setPressed(false);
+                        v.performClick();
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        v.setPressed(false);
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        });
         appSelectorIcon = new ImageView(this);
         appSelectorIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         appSelector.addView(appSelectorIcon, new LinearLayout.LayoutParams(dp(28), dp(28)));
@@ -659,6 +682,14 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
                     @Override
                     public void onClose() {
                         appPicker = null;
+                        if (appSelector != null) {
+                            appSelector.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (!destroyed) appSelector.requestFocus();
+                                }
+                            });
+                        }
                     }
                 });
         rootView.addView(appPicker, new FrameLayout.LayoutParams(
@@ -1979,6 +2010,7 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (appPicker != null) return true;
         if (SliderStick.isGamepad(event)
                 && event.getActionMasked() == MotionEvent.ACTION_MOVE) {
             View focus = getCurrentFocus();
@@ -2424,6 +2456,10 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
     }
 
     private void focusInitial() {
+        if (appSelector != null && appSelector.getVisibility() == View.VISIBLE
+                && appSelector.isEnabled() && appSelector.requestFocus()) {
+            return;
+        }
         for (int i = 0; i < profileChips.length; i++) {
             if (profileNames[i].equals(selectedProfile)) {
                 profileChips[i].requestFocus();

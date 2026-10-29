@@ -168,6 +168,7 @@ public final class TouchMapperActivity extends AuroraGlassActivity {
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
+        if (appPicker != null) return true;
         if (event.getAction() == MotionEvent.ACTION_MOVE
                 && (event.getSource() & (InputDevice.SOURCE_JOYSTICK
                 | InputDevice.SOURCE_GAMEPAD)) != 0) {
@@ -830,8 +831,9 @@ public final class TouchMapperActivity extends AuroraGlassActivity {
     }
 
     private void focusInitialControl() {
-        View v = target.isEmpty() ? chooseChip : toggle;
-        if (v == null) v = chooseChip;
+        // Match FanActivity: the app picker is the entry point, so the
+        // controller starts there instead of on the enable switch.
+        View v = chooseChip != null ? chooseChip : toggle;
         if (v != null) v.requestFocus();
     }
 
