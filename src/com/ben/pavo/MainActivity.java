@@ -7982,7 +7982,10 @@ public final class MainActivity extends Activity {
     }
 
     private boolean isCentreDrop() {
-        return dropFraction >= 0.32f && dropFraction <= 0.68f;
+        // Dropping on another icon should make a folder. Only the extreme edges
+        // of the target cell swap positions, so the common "drop on the icon"
+        // gesture always does the obvious thing.
+        return dropFraction >= 0.12f && dropFraction <= 0.88f;
     }
 
     /** Remove the item at a cell, leaving the cell empty. */
@@ -8708,6 +8711,15 @@ public final class MainActivity extends Activity {
             final boolean onHome = menuPage >= 0 && menuCell >= 0;
             final boolean dockRoom = store.dock.size() < prefs.dockCount();
 
+            if (onHome) {
+                entries.add(new Menu.Entry("New folder with…", new Runnable() {
+                    @Override
+                    public void run() {
+                        showNewFolderPicker(item, menuPage, menuCell);
+                    }
+                }));
+            }
+
             if (onDock) {
                 if (dockRoom) {
                     entries.add(new Menu.Entry("Add another to dock", new Runnable() {
@@ -8974,6 +8986,183 @@ public final class MainActivity extends Activity {
         } catch (Throwable t) {
             LToast.makeText(this, "Can't uninstall", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * Deterministic folder creation: long-press an app, choose the second app
+     * from a list, and the folder appears in place. No dragging onto another
+     * icon, no drop-zone guessing.
+     */
+    private void showNewFolderPicker(final Item source, final int page, final int cell) {
+        final List<Item> choices = new ArrayList<>();
+        final java.util.HashSet<String> seen = new java.util.HashSet<>();
+        seen.add(source.key());
+        for (List<Item> pageItems : store.pages) {
+            for (Item it : pageItems) {
+                if (it == null || it.type != Item.TYPE_APP) continue;
+                if (!seen.add(it.key())) continue;
+                choices.add(it);
+            }
+        }
+        for (Item it : store.dock) {
+            if (it == null || it.type != Item.TYPE_APP) continue;
+            if (!seen.add(it.key())) continue;
+            choices.add(it);
+        }
+        if (choices.isEmpty()) {
+            LToast.makeText(this, "Add another app to the home screen first",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        GlassPanel panel = new GlassPanel(this, captureBackdrop(false, 0),
+                wallpaper.accent(), 0x330B0E14, 22, true);
+        panel.setClearGlass(true);
+        panel.setClearBodyAlpha(0);
+        panel.setBackdropSaturation(prefs.folderSaturation() / 100f);
+        panel.setBackdropDarkness(prefs.folderBackdropDarkness() / 100f);
+        panel.setPadding(Ui.dp(this, 18), Ui.dp(this, 16), Ui.dp(this, 18), Ui.dp(this, 12));
+
+        TextView title = new LTextView(this);
+        title.setText("New folder with\u2026");
+        title.setTextColor(0xFFF2F4F8);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        panel.addView(title);
+
+        TextView hint = new LTextView(this);
+        hint.setText("Pick the app that joins " + appLabel(source) + " in the new folder.");
+        hint.setTextColor(0x80FFFFFF);
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        hint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 10));
+        panel.addView(hint);
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        for (final Item other : choices) {
+            TextView row = new LTextView(this);
+            String label = appLabel(other);
+            boolean onDock = store.dock.contains(other);
+            row.setText(onDock ? label + "  ·  Dock" : label);
+            row.setTextColor(0xF2FFFFFF);
+            row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            row.setSingleLine(true);
+            row.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.setPadding(Ui.dp(this, 12), Ui.dp(this, 11),
+                    Ui.dp(this, 12), Ui.dp(this, 11));
+            row.setBackground(Ui.ripple(this, Ui.dpf(this, 10)));
+            row.setFocusable(true);
+            row.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Haptics.click(v);
+                    dialog.dismiss();
+                    createFolderWith(source, other, page, cell);
+                }
+            });
+            list.addView(row, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.addView(list, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                Ui.dp(this, 380), Math.min(Ui.dp(this, 340),
+                        Ui.dp(this, 44) * Math.min(choices.size(), 6)));
+        slp.topMargin = Ui.dp(this, 2);
+        panel.addView(scroll, slp);
+
+        TextView cancel = new LTextView(this);
+        cancel.setText("Cancel");
+        styleTextButton(cancel, false);
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.END);
+        buttons.setPadding(0, Ui.dp(this, 10), 0, 0);
+        buttons.addView(cancel);
+        panel.addView(buttons, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        dialog.setContentView(panel, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        dialog.setCanceledOnTouchOutside(true);
+        dialog.show();
+    }
+
+    private void createFolderWith(Item source, Item other, int page, int cell) {
+        if (source == null || other == null || page < 0 || cell < 0) return;
+        List<Item> items = store.page(page);
+        Item at = cell < items.size() ? items.get(cell) : null;
+        if (at != source) {
+            LToast.makeText(this, "That app moved; try again", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        removeItemEverywhere(other);
+        List<Item> kids = new ArrayList<>();
+        kids.add(source.copy());
+        kids.add(other.copy());
+        justCreatedFolder = true;
+        Item folder = Item.folder("Folder", kids);
+        lastFolderKey = folder.key();
+        while (items.size() <= cell) items.add(null);
+        items.set(cell, folder);
+        store.trim();
+        store.save();
+        refreshVisible();
+        root.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!isFinishing() && !isDestroyed()) {
+                    openFolder(folder, null);
+                }
+            }
+        }, 260L);
+    }
+
+    /** Friendly name for a home/dock item, with any custom rename applied. */
+    private String appLabel(Item item) {
+        if (item == null) return "";
+        if (item.type == Item.TYPE_WEB) {
+            return store.labelFor(item, item.title != null && !item.title.isEmpty()
+                    ? item.title : "Shortcut");
+        }
+        if (item.type == Item.TYPE_FOLDER) {
+            return store.labelFor(item, item.title != null && !item.title.isEmpty()
+                    ? item.title : "Folder");
+        }
+        Apps.Entry e = findEntry(item.pkg, item.cls);
+        if (e == null) e = Apps.entryFor(this, item.pkg, item.cls);
+        String fallback = e != null && e.label != null && !e.label.isEmpty()
+                ? e.label : item.pkg;
+        return store.labelFor(item, fallback);
+    }
+
+    private boolean removeItemEverywhere(Item target) {
+        for (List<Item> pageItems : store.pages) {
+            for (int i = 0; i < pageItems.size(); i++) {
+                if (pageItems.get(i) == target) {
+                    pageItems.set(i, null);
+                    return true;
+                }
+            }
+        }
+        for (int i = 0; i < store.dock.size(); i++) {
+            if (store.dock.get(i) == target) {
+                store.dock.remove(i);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void renameDialog(final Item item, String current) {
