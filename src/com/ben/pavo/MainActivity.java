@@ -364,6 +364,7 @@ public final class MainActivity extends Activity {
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
 
     private boolean controllerActive;
+    private String controllerReturnKey;
     private View controllerReturnFocus;
     private boolean controllerAHeld;
     private boolean controllerALongFired;
@@ -1393,6 +1394,12 @@ public final class MainActivity extends Activity {
                 content.animate().scaleX(1f).scaleY(1f).setDuration(140).start();
             }
         }
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!isFinishing() && !isDestroyed()) restoreLaunchFocus();
+            }
+        }, 160L);
     }
 
     /** Staggered fade/rise of the visible home icons. */
@@ -6329,6 +6336,11 @@ public final class MainActivity extends Activity {
 
     private void launch(final Item item, final ItemView source) {
         Haptics.launch(source != null ? source : root);
+        if (source != null && source.item != null && source.getParent() != drawerGrid) {
+            // Come back to the icon you left from, not to a status glyph.
+            controllerReturnFocus = source;
+            controllerReturnKey = source.item.key();
+        }
         animateOnResume = true;
         launchSource = source;
         hasLaunchReturnRect = false;
@@ -16042,6 +16054,8 @@ public final class MainActivity extends Activity {
                 || (f instanceof ItemView && f.getParent() != drawerGrid
                 && f.getParent() != folderGrid)) {
             controllerReturnFocus = f;
+            controllerReturnKey = f instanceof ItemView && ((ItemView) f).item != null
+                    ? ((ItemView) f).item.key() : null;
         }
     }
 
@@ -16054,6 +16068,68 @@ public final class MainActivity extends Activity {
             return;
         }
         ensureControllerFocus();
+    }
+
+    private boolean isHomeItemView(View v) {
+        return v instanceof ItemView && v.getParent() != drawerGrid
+                && v.getParent() != folderGrid;
+    }
+
+    private ItemView findHomeItemView(String key) {
+        if (key == null) return null;
+        if (pager != null && pager.getChildCount() > 0) {
+            View page = pager.getChildAt(pager.currentPage());
+            if (page instanceof GridPage) {
+                for (ItemView v : ((GridPage) page).cellViews()) {
+                    if (v != null && v.item != null && key.equals(v.item.key())) return v;
+                }
+            }
+        }
+        if (dock != null) {
+            for (int i = 0; i < dock.getChildCount(); i++) {
+                View c = dock.getChildAt(i);
+                if (c instanceof ItemView) {
+                    ItemView iv = (ItemView) c;
+                    if (iv.item != null && key.equals(iv.item.key())) return iv;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returning from an app: put the ring back on the icon that was launched.
+     * Android's default focus lands on the first focusable view in the window,
+     * which is the status row (next to Bluetooth) rather than the grid.
+     */
+    private void restoreLaunchFocus() {
+        if (isDrawerVisible() || isFolderVisible()) return;
+        View current = getCurrentFocus();
+        // Android's default focus after a resume is the first focusable view in
+        // the window, which is the status row next to Bluetooth. Treat that as
+        // worth fixing even when the launcher has not seen a controller yet.
+        boolean strayHeader = current == null || isHeaderControl(current);
+        if (!controllerActive && !strayHeader) return;
+        View remembered = controllerReturnFocus;
+        controllerReturnFocus = null;
+        ItemView target = null;
+        if (isHomeItemView(remembered) && remembered.isAttachedToWindow()
+                && remembered.getVisibility() == View.VISIBLE) {
+            target = (ItemView) remembered;
+        } else {
+            target = findHomeItemView(controllerReturnKey);
+        }
+        if (target != null && target.isAttachedToWindow() && target.requestFocus()) {
+            controllerReturnKey = null;
+            return;
+        }
+        if (isHomeItemView(getCurrentFocus())) return;
+        for (View candidate : controllerCandidates()) {
+            if (candidate instanceof ItemView) {
+                candidate.requestFocus();
+                return;
+            }
+        }
     }
 
     private void ensureControllerFocus() {
@@ -16092,7 +16168,30 @@ public final class MainActivity extends Activity {
         });
     }
 
+    /**
+     * Android leaves the home without focus after a resume, so the first stick
+     * or D-pad press would start from the status row (the screen-recorder glyph
+     * next to Bluetooth). Put the ring back on the icon that was launched.
+     */
+    private boolean restoreStrayHeaderFocus() {
+        if (controllerReturnKey == null) return false;
+        View current = getCurrentFocus();
+        if (current != null && !isHeaderControl(current)) {
+            controllerReturnKey = null;
+            return false;
+        }
+        ItemView target = findHomeItemView(controllerReturnKey);
+        if (target == null) {
+            controllerReturnKey = null;
+            return false;
+        }
+        boolean focused = target.requestFocus();
+        if (focused) controllerReturnKey = null;
+        return focused;
+    }
+
     private boolean moveControllerFocus(int dir) {
+        restoreStrayHeaderFocus();
         ArrayList<View> candidates = controllerCandidates();
         if (candidates.isEmpty()) return false;
         View current = getCurrentFocus();
@@ -16232,6 +16331,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean selectControllerView() {
+        restoreStrayHeaderFocus();
         View focused = getCurrentFocus();
         if (isHeaderControl(focused)) {
             if (focused.isClickable()) focused.performClick();
