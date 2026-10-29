@@ -15,14 +15,14 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Reads the device's performance counters directly from sysfs/procfs, and uses root
- * to read the foreground layer's SurfaceFlinger frame timestamps for the FPS meter.
+ * Reads the device's performance counters directly from sysfs/procfs, and asks the
+ * PServer daemon to dump the foreground layer's SurfaceFlinger frame timestamps for
+ * the FPS meter. No root shell is needed on AYN/Retroid firmware.
  */
 final class PerfSampler {
     private static final long FPS_WINDOW_NS = 1_000_000_000L;
-    private static final long FPS_STALE_NS = 450_000_000L;
-    private static final long FPS_LAYER_CACHE_NS = 2_000_000_000L;
-    private static final long PSERVER_WAIT_NS = 900_000_000L;
+    /** Frames older than this mean the resolved surface is no longer drawing. */
+    private static final long FPS_STALE_NS = 3_500_000_000L;
     private static final long PSERVER_OFF_NS = 30_000_000_000L;
     /**
      * Runs on the device's PServer daemon (the same service ClusterTune and
@@ -32,7 +32,7 @@ final class PerfSampler {
      */
     private static final String PSERVER_SCRIPT =
             "out=\"$1\"; tok=\"$2\"; cached=\"$3\"\n"
-            + "tmp=\"$out.tmp\"\n"
+            + "tmp=\"$out.$tok.tmp\"\n"
             + "top=$(dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity)\n"
             + "comp=$(printf '%s\\n' \"$top\" | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -n1)\n"
             + "pkg=${comp%%/*}; cls=${comp#*/}\n"
@@ -51,7 +51,7 @@ final class PerfSampler {
             + "if [ -z \"$best\" ] || [ \"$bestn\" -eq 0 ]; then\n"
             + "  cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$full\" "
             + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Aurora performance overlay|ClusterTune|Cluster Tune' "
-            + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 6)\n"
+            + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 4)\n"
             + "  bestn=0; bestNewest=0; best=; bestout=\n"
             + "  while IFS= read -r cand; do\n"
             + "    [ -z \"$cand\" ] && continue\n"
@@ -68,6 +68,9 @@ final class PerfSampler {
 
     private static File pserverScript;
     private static long pserverOffUntil;
+    private static String pserverToken;
+    private static long pserverStartedNs;
+    private static int pserverFailures;
 
     private final int coreCount;
     private final long[] prevTotal = new long[PerfStats.MAX_CORES];
@@ -77,7 +80,6 @@ final class PerfSampler {
     private long prevGpuBusy;
     private long prevGpuTotal;
     private String cachedLayer;
-    private long cachedLayerAt;
     private long noLayerUntil;
     private String cachedTargetPkg;
     private String cachedTargetCls;
@@ -330,78 +332,23 @@ final class PerfSampler {
 
     private void readFps(PerfStats s, Context context) {
         long now = System.nanoTime();
-        if (readFpsViaPServer(s, context, now)) return;
         if (cachedLayer == null && now < noLayerUntil) return;
-        boolean resolveLayer = cachedLayer == null
-                || now - cachedLayerAt > FPS_LAYER_CACHE_NS;
-        if (!resolveLayer) {
-            String out = runRoot("dumpsys SurfaceFlinger --latency "
-                    + shellQuote(cachedLayer));
-            if (out == null || out.trim().isEmpty()) {
-                cachedLayer = null;
-                noLayerUntil = now + 1_000_000_000L;
-                return;
-            }
-            parseFpsLatency(s, out, false, now);
-            return;
-        }
+        readFpsViaPServer(s, context, now);
+    }
 
-        String script =
-                "top=$(dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity); "
-                + "comp=$(printf '%s\\n' \"$top\" | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -n1); "
-                + "pkg=${comp%%/*}; cls=${comp#*/}; "
-                + "case \"$cls\" in .*) cls=\"$pkg$cls\";; esac; "
-                + "full=\"$pkg/$cls\"; "
-                + "echo \"APP:$full\"; "
-                + "pid=$(pidof \"$pkg\" 2>/dev/null | awk '{print $1}'); "
-                + "if [ -n \"$pid\" ]; then rss=$(grep VmRSS /proc/$pid/status 2>/dev/null | awk '{print $2}'); "
-                + "[ -n \"$rss\" ] && echo \"RSS:$rss\"; fi; "
-                + "found=; "
-                + "cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$full\" "
-                + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Aurora performance overlay' "
-                + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 6); "
-                + "bestn=0; bestNewest=0; best=; bestout=; "
-                + "while IFS= read -r cand; do "
-                + "[ -z \"$cand\" ] && continue; "
-                + "out=$(dumpsys SurfaceFlinger --latency \"$cand\" 2>/dev/null); "
-                + "n=$(printf '%s\\n' \"$out\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}'); "
-                + "newest=$(printf '%s\\n' \"$out\" | awk 'NR>1 && $2+0>0 {if ($2+0>m) m=$2+0; c++} END {printf \"%.0f\\n\", m}'); "
-                + "if [ -z \"$best\" ] || awk -v a=\"${newest:-0}\" -v b=\"$bestNewest\" 'BEGIN{exit !(a>b)}'; then bestNewest=$newest; bestn=$n; best=$cand; bestout=$out; fi; "
-                + "done <<EOF\n$cands\nEOF\n"
-                + "if [ \"$bestn\" -gt 0 ]; then echo \"LAYER:$best\"; printf '%s\\n' \"$bestout\"; found=1; fi; "
-                + "if [ -z \"$found\" ]; then "
-                + "cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$pkg\" "
-                + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Aurora performance overlay' "
-                + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 6); "
-                + "bestn=0; bestNewest=0; best=; bestout=; "
-                + "while IFS= read -r cand; do "
-                + "[ -z \"$cand\" ] && continue; "
-                + "out=$(dumpsys SurfaceFlinger --latency \"$cand\" 2>/dev/null); "
-                + "n=$(printf '%s\\n' \"$out\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}'); "
-                + "newest=$(printf '%s\\n' \"$out\" | awk 'NR>1 && $2+0>0 {if ($2+0>m) m=$2+0; c++} END {printf \"%.0f\\n\", m}'); "
-                + "if [ -z \"$best\" ] || awk -v a=\"${newest:-0}\" -v b=\"$bestNewest\" 'BEGIN{exit !(a>b)}'; then bestNewest=$newest; bestn=$n; best=$cand; bestout=$out; fi; "
-                + "done <<EOF2\n$cands\nEOF2\n"
-                + "if [ \"$bestn\" -gt 0 ]; then echo \"LAYER:$best\"; printf '%s\\n' \"$bestout\"; found=1; fi; "
-                + "fi; "
-                + "[ -z \"$found\" ] && echo \"LAYER:\"";
-        String out = runRoot(script);
-        if (out == null) return;
-        parseFpsLatency(s, out, true, now);
+    private static boolean pserverActive(Context context, long now) {
+        if (context == null || now < pserverOffUntil) return false;
+        return PServer.available();
     }
 
     /**
-     * Resolve the full script output rarely; subsequent samples only ask SurfaceFlinger
-     * for the cached layer, which keeps fast refresh modes lightweight and accurate.
+     * PServer is fire-and-forget: each sample kicks off a script run and the
+     * next sample picks the file up. Nothing blocks the sampler thread, and a
+     * slow layer scan on a SurfaceView app still resolves within a tick or two.
      */
-    /** @return true when PServer produced a usable sample. */
-    private boolean readFpsViaPServer(PerfStats s, Context context, long now) {
-        if (context == null || now < pserverOffUntil) return false;
-        if (!PServer.available()) {
-            pserverOffUntil = now + PSERVER_OFF_NS;
-            return false;
-        }
+    private void readFpsViaPServer(PerfStats s, Context context, long now) {
         File cache = context.getCacheDir();
-        if (cache == null) return false;
+        if (cache == null) return;
         if (pserverScript == null || !pserverScript.exists()) {
             File script = new File(cache, "aurora-fps.sh");
             try {
@@ -411,50 +358,50 @@ final class PerfSampler {
                 pserverScript = script;
             } catch (Throwable t) {
                 pserverOffUntil = now + PSERVER_OFF_NS;
-                return false;
+                return;
             }
         }
         File out = new File(cache, "aurora-fps.txt");
-        String token = Long.toString(now);
-        String layerArg = cachedLayer == null ? "" : "'" + cachedLayer.replace("'", "'\\''") + "'";
-        try {
-            out.delete();
-        } catch (Throwable ignored) {
-        }
-        if (!PServer.run("sh " + pserverScript.getAbsolutePath() + " "
-                + out.getAbsolutePath() + " " + token + " " + layerArg)) {
-            pserverOffUntil = now + PSERVER_OFF_NS;
-            return false;
-        }
-        String text = null;
-        long deadline = now + PSERVER_WAIT_NS;
-        while (System.nanoTime() < deadline) {
-            String read = readText(out);
-            if (read != null && read.contains("TOKEN:" + token)) {
-                text = read;
-                break;
+        boolean consumed = false;
+        if (pserverToken != null) {
+            String text = readText(out);
+            if (text != null && text.contains("TOKEN:" + pserverToken)) {
+                pserverToken = null;
+                pserverFailures = 0;
+                try {
+                    out.delete();
+                } catch (Throwable ignored) {
+                }
+                parseFpsLatency(s, text, true, now, FPS_STALE_NS);
+                consumed = true;
+            } else if (now - pserverStartedNs > 4_000_000_000L) {
+                pserverToken = null;
+                pserverFailures++;
+                if (pserverFailures >= 3) {
+                    pserverOffUntil = now + 60_000_000_000L;
+                    pserverFailures = 0;
+                }
             }
+        }
+        // Keep the pipeline full: a run started right after a sample is read
+        // on the next tick, so the overlay still refreshes once per sample.
+        if (pserverToken == null) {
+            String token = Long.toString(now);
+            String layerArg = cachedLayer == null ? ""
+                    : "'" + cachedLayer.replace("'", "'\\''") + "'";
             try {
-                Thread.sleep(20L);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
+                out.delete();
+            } catch (Throwable ignored) {
             }
+            if (!PServer.run("sh " + pserverScript.getAbsolutePath() + " "
+                    + out.getAbsolutePath() + " " + token + " " + layerArg)) {
+                pserverOffUntil = now + PSERVER_OFF_NS;
+                return;
+            }
+            pserverToken = token;
+            pserverStartedNs = now;
         }
-        try {
-            out.delete();
-        } catch (Throwable ignored) {
-        }
-        if (text == null) return false;
-        // PServer writes the dump to a file, so the newest frame can be a
-        // second old by the time we read it. The FPS window itself still ends
-        // at that frame, so a wider staleness limit keeps the number valid.
-        parseFpsLatency(s, text, true, System.nanoTime(), 2_200_000_000L);
-        return true;
-    }
-
-    private void parseFpsLatency(PerfStats s, String out, boolean resolved, long now) {
-        parseFpsLatency(s, out, resolved, now, FPS_STALE_NS);
+        if (consumed) return;
     }
 
     private void parseFpsLatency(PerfStats s, String out, boolean resolved, long now,
@@ -503,7 +450,6 @@ final class PerfSampler {
         }
         if (resolved) {
             cachedLayer = layerFound ? layer : null;
-            cachedLayerAt = now;
             if (!layerFound) noLayerUntil = now + 500_000_000L;
         }
         if (!layerFound || times.isEmpty() || newest <= 0) {
@@ -542,32 +488,6 @@ final class PerfSampler {
             s.fps = Math.max(0, Math.min(240, count));
         }
         s.fpsValid = true;
-    }
-
-    private static String shellQuote(String value) {
-        return "'" + value.replace("'", "'\\''") + "'";
-    }
-
-    private static String runRoot(String command) {
-        Process p = null;
-        try {
-            p = new ProcessBuilder("su", "-c", command)
-                    .redirectErrorStream(true).start();
-            StringBuilder sb = new StringBuilder();
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    sb.append(line).append('\n');
-                    if (sb.length() > 512 * 1024) break;
-                }
-            }
-            p.waitFor(4, TimeUnit.SECONDS);
-            return sb.toString();
-        } catch (Throwable ignored) {
-            return null;
-        } finally {
-            if (p != null) p.destroy();
-        }
     }
 
     private static long readLong(File f) {
