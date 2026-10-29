@@ -40,6 +40,7 @@ final class PerfOverlayView extends LinearLayout {
     private final int corner;
     private int panelAlphaPct = 88;
     private Backdrop backdrop;
+    private GlassCardRenderer cardRenderer;
     private final int[] location = new int[2];
 
     private TextView battery;
@@ -375,7 +376,14 @@ final class PerfOverlayView extends LinearLayout {
         if (w <= 0 || h <= 0) return;
         rect.set(0, 0, w, h);
         boolean hasBackdrop = backdrop != null && backdrop.bitmap != null;
+        // Same live-glass pipeline as the app drawer: the capture is the body,
+        // blurred and lensed at the card edges instead of a flat frozen slab.
+        boolean lensed = false;
         if (hasBackdrop) {
+            if (cardRenderer == null) cardRenderer = new GlassCardRenderer(this);
+            lensed = cardRenderer.draw(canvas, (int) w, (int) h, corner, backdrop);
+        }
+        if (hasBackdrop && !lensed) {
             Bitmap bmp = backdrop.bitmap;
             getLocationOnScreen(location);
             float sx = bmp.getWidth() / (float) backdrop.screenWidth;
@@ -404,8 +412,10 @@ final class PerfOverlayView extends LinearLayout {
             canvas.restore();
         }
 
+        // Clear-glass tint, like the drawer: only a light veil over the live
+        // capture so the game or app behind stays readable.
         int alpha = hasBackdrop
-                ? Math.round(20f + 70f * panelAlphaPct / 100f)
+                ? Math.round(0x4D * panelAlphaPct / 100f)
                 : Math.round(200f * panelAlphaPct / 100f);
         bgPaint.setColor((alpha << 24) | 0x000B0E14);
         canvas.drawRoundRect(rect, corner, corner, bgPaint);
@@ -414,7 +424,8 @@ final class PerfOverlayView extends LinearLayout {
                 0x12FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(rect, corner, corner, tintPaint);
         tintPaint.setShader(new LinearGradient(0, h * 0.72f, 0, h,
-                0x00000000, 0x28000000, Shader.TileMode.CLAMP));
+                0x00000000, hasBackdrop ? 0x1C000000 : 0x28000000,
+                Shader.TileMode.CLAMP));
         canvas.drawRoundRect(rect, corner, corner, tintPaint);
         tintPaint.setShader(null);
 

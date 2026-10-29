@@ -138,10 +138,14 @@ final class PerfOverlayMenuView extends FrameLayout {
         int cardW = Math.min(dp(205), screenW - dp(24));
         // Leave room above/below so the card can actually be dragged around.
         int cardH = Math.min(dp(540), Math.max(dp(280), screenH - dp(200)));
+        // Clear Liquid Glass, same body as the app drawer: the capture is the
+        // card, the glass only tints and lenses it.
         card = new GlassPanel(c, backdrop, accent, 0x4D0B0E14, 26, true);
-        card.setFrosted(true);
         card.setBackdropScreenAnchored(true);
+        card.setClearGlass(true);
+        card.setClearBodyAlpha(0);
         card.setSurfaceAlpha(prefs.perfOverlayAlpha() / 100f);
+        card.setFrosted(backdrop == null);
         card.setClickable(true);
         card.setPadding(dp(16), dp(12), dp(10), dp(12));
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
@@ -734,7 +738,7 @@ final class PerfOverlayMenuView extends FrameLayout {
         card.setBackdrop(b);
         card.setBackdropScreenAnchored(true);
         card.setLiquidEffect(true);
-        card.setFrosted(true);
+        card.setFrosted(false);
         card.invalidate();
     }
 
