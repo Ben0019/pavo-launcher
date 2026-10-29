@@ -472,8 +472,8 @@ public final class FtpActivity extends PavoGlassActivity {
         serverStatus.setText(clients == 0 ? "Sharing · waiting for clients"
                 : "Sharing · " + clients + (clients == 1 ? " client" : " clients"));
         serverStatus.setTextColor(OK);
-        String address = FtpService.address();
-        serverUrl.setText(address == null ? "No network address" : address);
+        String host = FtpServer.localAddress();
+        serverUrl.setText(host == null ? "No network address" : host);
     }
 
     private void appendLog(String line) {

@@ -24,6 +24,7 @@ final class LiveBuiltinIcons {
     static final String FILE_MANAGER = "com.ben.pavo.files";
     static final String SCREEN_RECORDER = "com.ben.pavo.screenrecorder";
     static final String OVERLAY = "com.ben.pavo.overlay";
+    static final String FTP = "com.ben.pavo.ftp";
 
     private LiveBuiltinIcons() {}
 
@@ -33,7 +34,8 @@ final class LiveBuiltinIcons {
                 || RGB.equals(pkg) || FAN.equals(pkg)
                 || TOUCH.equals(pkg) || HEALTH.equals(pkg)
                 || BENCHMARK.equals(pkg) || FILE_MANAGER.equals(pkg)
-                || SCREEN_RECORDER.equals(pkg) || OVERLAY.equals(pkg);
+                || SCREEN_RECORDER.equals(pkg) || OVERLAY.equals(pkg)
+                || FTP.equals(pkg);
     }
 
     static long duration(String pkg) {
@@ -48,6 +50,7 @@ final class LiveBuiltinIcons {
         if (SCREEN_RECORDER.equals(pkg)) return 2600L;
         if (HEALTH.equals(pkg)) return 3000L;
         if (OVERLAY.equals(pkg)) return 4200L;
+        if (FTP.equals(pkg)) return 3000L;
         return 2400L;
     }
 
@@ -78,6 +81,8 @@ final class LiveBuiltinIcons {
             drawRecorder(c, size, accent, phase);
         } else if (OVERLAY.equals(pkg)) {
             drawOverlay(c, size, accent, phase);
+        } else if (FTP.equals(pkg)) {
+            drawFtp(c, size, accent, phase);
         }
     }
 
@@ -471,6 +476,61 @@ final class LiveBuiltinIcons {
         apex.setColor(0xAAFFFFFF);
         c.drawRoundRect(new RectF(size * 0.43f, size * 0.79f,
                 size * 0.57f, size * 0.81f), size * 0.01f, size * 0.01f, apex);
+    }
+
+    /**
+     * FTP: the share hub pulses while data packets run along both links, in
+     * opposite directions, so the icon reads as a live transfer.
+     */
+    private static void drawFtp(Canvas c, int size, int accent, float phase) {
+        float s = size;
+        float cx = s * 0.50f;
+        float cy = s * 0.62f;
+        float lx = s * 0.27f;
+        float ly = s * 0.31f;
+        float rx = s * 0.73f;
+        float ry = s * 0.31f;
+
+        Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        line.setStyle(Paint.Style.STROKE);
+        line.setStrokeWidth(Math.max(1.6f, s * 0.045f));
+        line.setStrokeCap(Paint.Cap.ROUND);
+        line.setColor(alpha(accent, 0x80));
+        c.drawLine(cx, cy, lx, ly, line);
+        c.drawLine(cx, cy, rx, ry, line);
+
+        float beat = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 4.0);
+        Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG);
+        halo.setColor(alpha(accent, Math.round(0x10 + 0x30 * beat)));
+        c.drawCircle(cx, cy, s * 0.20f, halo);
+
+        float cycle = phase * 2f;
+        packet(c, cx, cy, lx, ly, cycle % 1f, s, accent);
+        packet(c, rx, ry, cx, cy, (cycle + 0.5f) % 1f, s, accent);
+
+        Paint node = new Paint(Paint.ANTI_ALIAS_FLAG);
+        node.setStyle(Paint.Style.STROKE);
+        node.setStrokeWidth(Math.max(1.6f, s * 0.045f));
+        node.setColor(alpha(accent, 0xE6));
+        c.drawCircle(lx, ly, s * 0.062f, node);
+        c.drawCircle(rx, ry, s * 0.062f, node);
+        c.drawCircle(cx, cy, s * 0.072f, node);
+
+        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dot.setColor(alpha(accent, 0xE6));
+        c.drawCircle(cx, cy, s * 0.020f, dot);
+    }
+
+    private static void packet(Canvas c, float x0, float y0, float x1, float y1,
+                               float t, float s, int accent) {
+        float x = x0 + (x1 - x0) * t;
+        float y = y0 + (y1 - y0) * t;
+        Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
+        glow.setColor(alpha(accent, 0x44));
+        c.drawCircle(x, y, s * 0.040f, glow);
+        Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
+        core.setColor(0xFFFFFFFF);
+        c.drawCircle(x, y, s * 0.020f, core);
     }
 
     private static void drawFileManager(Canvas c, int size, int accent, float phase) {

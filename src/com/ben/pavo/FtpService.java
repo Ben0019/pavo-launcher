@@ -37,10 +37,12 @@ public final class FtpService extends Service {
         return server == null ? 0 : server.clientCount();
     }
 
-    static String address() {
-        String ip = FtpServer.localAddress();
-        if (ip == null || server == null) return null;
-        return "ftp://" + ip + ":" + server.port() + "/";
+    static String host() {
+        return FtpServer.localAddress();
+    }
+
+    static int port() {
+        return server == null ? 0 : server.port();
     }
 
     static String logText() {
@@ -93,7 +95,7 @@ public final class FtpService extends Service {
             channel.setShowBadge(false);
             manager.createNotificationChannel(channel);
         }
-        Notification notification = buildNotification(null);
+        Notification notification = buildNotification();
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification,
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
@@ -164,10 +166,10 @@ public final class FtpService extends Service {
     private void updateNotification() {
         NotificationManager manager =
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (manager != null) manager.notify(NOTIFICATION_ID, buildNotification(address()));
+        if (manager != null) manager.notify(NOTIFICATION_ID, buildNotification());
     }
 
-    private Notification buildNotification(String address) {
+    private Notification buildNotification() {
         Intent open = new Intent(this, FtpActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent content = PendingIntent.getActivity(this, 0, open,
@@ -179,9 +181,11 @@ public final class FtpService extends Service {
                 ? new Notification.Builder(this, CHANNEL)
                 : new Notification.Builder(this);
         int clients = clientCount();
-        builder.setContentTitle(address == null ? "FTP sharing" : address)
-                .setContentText(clients == 0 ? "Waiting for connections"
-                        : clients + (clients == 1 ? " client connected" : " clients connected"))
+        String host = host();
+        String portText = port() == 0 ? "" : "port " + port() + " \u00b7 ";
+        builder.setContentTitle(host == null ? "FTP sharing" : host)
+                .setContentText(portText + (clients == 0 ? "waiting for connections"
+                        : clients + (clients == 1 ? " client connected" : " clients connected")))
                 .setSmallIcon(android.R.drawable.stat_sys_upload)
                 .setOngoing(true)
                 .setContentIntent(content)
