@@ -3,6 +3,8 @@ package com.ben.aurora;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.StateListDrawable;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -13,6 +15,9 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.InputDevice;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -62,6 +67,39 @@ public final class OverlayActivity extends AuroraGlassActivity {
     private SharedPreferences.OnSharedPreferenceChangeListener prefListener;
     private final android.os.Handler handler = new android.os.Handler(
             android.os.Looper.getMainLooper());
+    private final long[] lastScrollAt = {0L};
+    private final long[] lastSliderAt = {0L};
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (SliderStick.isGamepad(event)
+                && event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            View focus = getCurrentFocus();
+            float rx = SliderStick.rightX(event);
+            if (focus instanceof SeekBar && SliderStick.active(rx)) {
+                SliderStick.adjust((SeekBar) focus, rx, lastSliderAt, focus);
+                return true;
+            }
+            float ry = StickScroll.rightY(event);
+            if (StickScroll.active(ry)) {
+                StickScroll.scroll(StickScroll.scrollParent(focus), ry, lastScrollAt);
+                return true;
+            }
+        }
+        return super.dispatchGenericMotionEvent(event);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0
+                && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B) {
+            finishAnimated();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     private final Runnable visibilityPoll = new Runnable() {
         @Override
         public void run() {
@@ -114,6 +152,14 @@ public final class OverlayActivity extends AuroraGlassActivity {
         prefs.shared().registerOnSharedPreferenceChangeListener(prefListener);
         handler.removeCallbacks(visibilityPoll);
         handler.post(visibilityPoll);
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (getCurrentFocus() == null && overlayChip != null) {
+                    overlayChip.requestFocus();
+                }
+            }
+        }, 160L);
         if (pendingOverlay && Settings.canDrawOverlays(this)) {
             pendingOverlay = false;
             prefs.setPerfOverlay(true);
@@ -238,6 +284,8 @@ public final class OverlayActivity extends AuroraGlassActivity {
         TextView close = text("×", 24f, 0xCCFFFFFF, false);
         close.setGravity(Gravity.CENTER);
         close.setIncludeFontPadding(false);
+        close.setFocusable(false);
+        close.setDefaultFocusHighlightEnabled(false);
         close.setPadding(dp(10), 0, dp(2), 0);
         close.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -341,8 +389,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         perfShortcutRow = text("", 10f, TEXT, false);
         perfShortcutRow.setPadding(dp(10), dp(8), dp(10), dp(8));
         perfShortcutRow.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
-        perfShortcutRow.setFocusable(true);
-        perfShortcutRow.setDefaultFocusHighlightEnabled(false);
+        attachFocus(perfShortcutRow);
         perfShortcutRow.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -446,6 +493,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         shortcutRow = text("", 10f, TEXT, false);
         shortcutRow.setPadding(dp(10), dp(8), dp(10), dp(8));
         shortcutRow.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
+        attachFocus(shortcutRow);
         shortcutRow.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -623,8 +671,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         row.setEllipsize(TextUtils.TruncateAt.END);
         row.setPadding(dp(10), dp(7), dp(10), dp(7));
         row.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
-        row.setFocusable(true);
-        row.setDefaultFocusHighlightEnabled(false);
+        attachFocus(row);
         row.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -707,8 +754,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         final TextView chip = text(label, 9.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
         chip.setPadding(dp(10), dp(6), dp(10), dp(6));
-        chip.setFocusable(true);
-        chip.setDefaultFocusHighlightEnabled(false);
+        attachFocus(chip);
         setChipSelected(chip, on);
         chip.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -738,8 +784,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         TextView chip = text(label, 8.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
         chip.setPadding(dp(6), dp(5), dp(6), dp(5));
-        chip.setFocusable(true);
-        chip.setDefaultFocusHighlightEnabled(false);
+        attachFocus(chip);
         chip.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
         return chip;
     }
@@ -748,13 +793,13 @@ public final class OverlayActivity extends AuroraGlassActivity {
         TextView row = text(label, 9.5f, TEXT, true);
         row.setGravity(Gravity.CENTER);
         row.setPadding(dp(10), dp(6), dp(10), dp(6));
-        row.setFocusable(true);
-        row.setDefaultFocusHighlightEnabled(false);
-        row.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+        attachFocus(row);
+        row.setBackground(actionBackground());
         row.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 haptic(v);
+                flash(v);
                 run.run();
             }
         });
@@ -791,7 +836,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         bar.setThumb(thumb);
         bar.setThumbOffset(0);
         bar.setSplitTrack(false);
-        bar.setDefaultFocusHighlightEnabled(false);
+        attachFocus(bar);
         bar.setPadding(dp(10), dp(2), dp(10), dp(2));
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -814,6 +859,41 @@ public final class OverlayActivity extends AuroraGlassActivity {
         });
         parent.addView(bar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    /** Controller focus ring drawn as a foreground so states stay intact. */
+    private void attachFocus(View v) {
+        v.setFocusable(true);
+        v.setDefaultFocusHighlightEnabled(false);
+        v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean focused) {
+                view.setForeground(focused
+                        ? Ui.focusRing(OverlayActivity.this, dp(10)) : null);
+            }
+        });
+    }
+
+    /** Accent flash on press, used by the action rows. */
+    private Drawable actionBackground() {
+        StateListDrawable states = new StateListDrawable();
+        int pressed = (0x66 << 24) | (accent & 0x00FFFFFF);
+        states.addState(new int[]{android.R.attr.state_pressed},
+                Ui.rounded(pressed, dp(10), accent, dp(1)));
+        states.addState(new int[]{},
+                Ui.rounded(0x1AFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+        return states;
+    }
+
+    private void flash(final View v) {
+        int pressed = (0x66 << 24) | (accent & 0x00FFFFFF);
+        v.setBackground(Ui.rounded(pressed, dp(10), accent, dp(1)));
+        v.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                v.setBackground(actionBackground());
+            }
+        }, 350L);
     }
 
     private void haptic(View v) {
