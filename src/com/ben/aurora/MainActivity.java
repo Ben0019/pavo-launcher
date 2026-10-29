@@ -11987,9 +11987,7 @@ public final class MainActivity extends Activity {
             name += ".mp4";
         }
 
-        File dir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_MOVIES), "Aurora Wallpapers");
-        if (!dir.exists()) dir.mkdirs();
+        File dir = wallpaperDir();
         final File dest = uniqueVideoFile(dir, name);
         new Thread(() -> {
             File target = dest;
@@ -12342,10 +12340,44 @@ public final class MainActivity extends Activity {
         Bitmap thumbnail;
     }
 
+    /** Videos moved here from the pre-rename "Aurora Wallpapers" folder. */
+    private static File wallpaperDir() {
+        File base = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+        File dir = new File(base, "Pavo Wallpapers");
+        File legacy = new File(base, "Aurora Wallpapers");
+        try {
+            if (legacy.isDirectory()) {
+                if (!dir.exists()) dir.mkdirs();
+                File[] old = legacy.listFiles();
+                if (old != null) {
+                    for (File f : old) {
+                        if (f == null || !f.isFile()) continue;
+                        File target = new File(dir, f.getName());
+                        if (!target.exists()) {
+                            if (!f.renameTo(target)) {
+                                java.io.FileInputStream in = new java.io.FileInputStream(f);
+                                java.io.FileOutputStream out = new java.io.FileOutputStream(target);
+                                byte[] buf = new byte[64 * 1024];
+                                int n;
+                                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                                in.close();
+                                out.close();
+                                f.delete();
+                            }
+                        }
+                    }
+                }
+                if (legacy.list() != null && legacy.list().length == 0) legacy.delete();
+            }
+        } catch (Throwable ignored) {
+        }
+        if (!dir.exists()) dir.mkdirs();
+        return dir;
+    }
+
     private List<VideoWallpaper> videoWallpapers() {
         List<VideoWallpaper> out = new ArrayList<>();
-        File dir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_MOVIES), "Aurora Wallpapers");
+        File dir = wallpaperDir();
         File[] files = dir.listFiles();
         if (files == null) return out;
         java.util.Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));

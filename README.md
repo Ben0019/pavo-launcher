@@ -1,7 +1,7 @@
-<h1 align="center">Aurora</h1>
+<h1 align="center">Pavo</h1>
 
 <p align="center">
-  <b>A landscape-first Android launcher for the AYN Odin 3</b><br>
+  <b>A landscape-first Android launcher for handhelds</b><br>
   Pure platform · no AndroidX · no Gradle
 </p>
 
@@ -22,7 +22,7 @@
 </p>
 <p align="center"><sub>Home · Fan Control · Performance Tuner · Stress Test · Performance Log</sub></p>
 
-Aurora replaces the stock launcher with a console-style home: a large clock, a paged desktop,
+Pavo replaces the stock launcher with a console-style home: a large clock, a paged desktop,
 a clear Liquid Glass dock and matching app drawers. It is built directly against the Android
 platform (`Activity`, `View`, `Canvas`, `RenderEffect`) with `aapt2` → `javac` → `d8`.
 
