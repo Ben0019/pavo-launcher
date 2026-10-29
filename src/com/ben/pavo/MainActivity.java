@@ -10466,6 +10466,12 @@ public final class MainActivity extends Activity {
                 || recorder.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
             drawerApps.add(recorder);
         }
+        Apps.Entry ftp = ftpEntry();
+        if (q.isEmpty()
+                || ftp.label.toLowerCase(Locale.getDefault()).contains(q)
+                || ftp.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
+            drawerApps.add(ftp);
+        }
         if (q.isEmpty()) {
             drawerApps.addAll(allApps);
         } else {
