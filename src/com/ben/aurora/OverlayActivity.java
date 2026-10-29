@@ -408,7 +408,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         refreshRow.setOrientation(LinearLayout.HORIZONTAL);
         refreshRow.setPadding(0, dp(4), 0, 0);
         box.addView(refreshRow);
-        int[] rates = {500, 1000, 2000, 5000};
+        int[] rates = {250, 500, 1000, 2000, 5000};
         for (int i = 0; i < rates.length; i++) {
             final int ms = rates[i];
             TextView chip = modeChip(rates[i] < 1000 ? rates[i] / 1000f + "s"
@@ -620,7 +620,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
         }
         int refresh = prefs.perfRefreshMs();
         for (int i = 0; i < refreshChips.size(); i++) {
-            int[] rates = {500, 1000, 2000, 5000};
+            int[] rates = {250, 500, 1000, 2000, 5000};
             setChipSelected(refreshChips.get(i), rates[i] == refresh);
         }
         int columns = prefs.drawerOverlayColumns();

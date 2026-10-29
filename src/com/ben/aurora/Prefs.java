@@ -220,9 +220,9 @@ final class Prefs {
         return Math.max(0.55f, Math.min(1.8f, v));
     }
     int perfOverlayAlpha() { return clamp(sp.getInt("perf_overlay_alpha", 88), 25, 100); }
-    int perfRefreshMs() { return clamp(sp.getInt("perf_refresh_ms", 1000), 500, 10000); }
+    int perfRefreshMs() { return clamp(sp.getInt("perf_refresh_ms", 1000), 250, 10000); }
     void setPerfRefreshMs(int ms) {
-        sp.edit().putInt("perf_refresh_ms", clamp(ms, 500, 10000)).apply();
+        sp.edit().putInt("perf_refresh_ms", clamp(ms, 250, 10000)).apply();
     }
     boolean perfOverlayLocked() { return sp.getBoolean("perf_overlay_locked", false); }
     void setPerfOverlayLocked(boolean value) {

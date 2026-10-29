@@ -298,7 +298,7 @@ final class PerfOverlayMenuView extends FrameLayout {
         navItems.add(refreshPlus);
         content.addView(refreshRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView refreshHint = text("500 ms (0.5 s) to 10,000 ms. Faster updates use more CPU and root calls.",
+        TextView refreshHint = text("250 ms (0.25 s) to 10,000 ms. Faster updates use more CPU and PServer calls.",
                 9.5f, 0x66FFFFFF, false);
         refreshHint.setPadding(0, dp(4), 0, 0);
         content.addView(refreshHint);
@@ -807,7 +807,7 @@ final class PerfOverlayMenuView extends FrameLayout {
     }
 
     private void adjustRefresh(int delta) {
-        refreshMs = Math.max(500, Math.min(10000, refreshMs + delta));
+        refreshMs = Math.max(250, Math.min(10000, refreshMs + delta));
         listener.onRefreshChanged(refreshMs);
     }
 

@@ -1530,7 +1530,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     /** Keep roughly two minutes of FPS history, independent of the refresh interval. */
     private int historyCapacity() {
-        int ms = Math.max(500, Math.min(10000, prefs.perfRefreshMs()));
+        int ms = Math.max(250, Math.min(10000, prefs.perfRefreshMs()));
         return Math.max(12, Math.min(480, Math.round(120_000f / ms)));
     }
 
