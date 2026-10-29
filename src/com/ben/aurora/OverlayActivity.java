@@ -1,6 +1,7 @@
 package com.ben.aurora;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
@@ -58,6 +59,16 @@ public final class OverlayActivity extends AuroraGlassActivity {
     private boolean suppress;
     private boolean pendingOverlay;
     private long lastHaptic;
+    private SharedPreferences.OnSharedPreferenceChangeListener prefListener;
+    private final android.os.Handler handler = new android.os.Handler(
+            android.os.Looper.getMainLooper());
+    private final Runnable visibilityPoll = new Runnable() {
+        @Override
+        public void run() {
+            refreshState();
+            handler.postDelayed(this, 350L);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,9 +82,38 @@ public final class OverlayActivity extends AuroraGlassActivity {
     }
 
     @Override
+    protected void onPause() {
+        if (prefListener != null) {
+            prefs.shared().unregisterOnSharedPreferenceChangeListener(prefListener);
+            prefListener = null;
+        }
+        handler.removeCallbacks(visibilityPoll);
+        super.onPause();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         hideBars();
+        // The overlay and drawer can also be toggled from the controller
+        // shortcuts while this screen is open; follow the stored state.
+        prefListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
+            @Override
+            public void onSharedPreferenceChanged(SharedPreferences sp, String key) {
+                if (key != null && !key.startsWith("perf_") && !key.startsWith("drawer_")) {
+                    return;
+                }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        refreshState();
+                    }
+                });
+            }
+        };
+        prefs.shared().registerOnSharedPreferenceChangeListener(prefListener);
+        handler.removeCallbacks(visibilityPoll);
+        handler.post(visibilityPoll);
         if (pendingOverlay && Settings.canDrawOverlays(this)) {
             pendingOverlay = false;
             prefs.setPerfOverlay(true);
@@ -475,8 +515,9 @@ public final class OverlayActivity extends AuroraGlassActivity {
     // ------------------------------------------------------------------ state
 
     private void refreshState() {
+        boolean panelShown = prefs.perfOverlay() && PerfOverlayService.showsPanel();
         if (overlayChip != null) {
-            setChipSelected(overlayChip, prefs.perfOverlay());
+            setChipSelected(overlayChip, panelShown);
         }
         if (lockChip != null) {
             setChipSelected(lockChip, prefs.perfOverlayLocked());
@@ -508,7 +549,7 @@ public final class OverlayActivity extends AuroraGlassActivity {
             drawerComboRow.setText(comboLabel(prefs.drawerCombo(), "Drawer combo"));
         }
         if (status != null) {
-            boolean on = prefs.perfOverlay();
+            boolean on = panelShown;
             status.setText(on ? "LIVE" : "OFF");
             status.setTextColor(on ? GREEN : MUTED);
             status.setBackground(Ui.rounded(on ? 0x1816C784 : 0x18FFFFFF, dp(12),
@@ -520,6 +561,9 @@ public final class OverlayActivity extends AuroraGlassActivity {
         if (!on) {
             prefs.setPerfOverlay(false);
             PerfOverlayService.stop(this);
+        } else if (prefs.perfOverlay() && !PerfOverlayService.isPanelVisible()) {
+            // Service is alive but the shortcut hid the panel: bring it back.
+            PerfOverlayService.toggleOverlayFromShortcut(this);
         } else {
             if (!Settings.canDrawOverlays(this)) {
                 pendingOverlay = true;

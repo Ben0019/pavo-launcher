@@ -23,6 +23,11 @@ final class Prefs {
 
     private final SharedPreferences sp;
 
+    /** Raw store, for screens that need to observe changes made elsewhere. */
+    SharedPreferences shared() {
+        return sp;
+    }
+
     Prefs(Context c) {
         SharedPreferences prefs;
         try {

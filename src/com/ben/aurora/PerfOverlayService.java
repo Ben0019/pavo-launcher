@@ -307,6 +307,20 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         });
     }
 
+    /** True while the floating panel is actually on screen. */
+    static boolean isPanelVisible() {
+        PerfOverlayService s = instance;
+        return s != null && s.container != null
+                && s.container.getVisibility() == View.VISIBLE;
+    }
+
+    /** True when the service is not running yet, or its panel is visible. */
+    static boolean showsPanel() {
+        PerfOverlayService s = instance;
+        return s == null || (s.container != null
+                && s.container.getVisibility() == View.VISIBLE);
+    }
+
     static void toggleOverlayFromShortcut(Context c) {
         PerfOverlayService s = instance;
         if (s == null) {
