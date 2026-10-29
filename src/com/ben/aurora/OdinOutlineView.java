@@ -495,6 +495,20 @@ final class OdinOutlineView extends View implements SensorEventListener {
         return value;
     }
 
+    /**
+     * Vertical stretch that turns the 176x108 reference screen into the real
+     * panel aspect. Everything else in the artwork stretches with it so the
+     * chassis keeps the proportions of the device it represents.
+     */
+    private float artScale() {
+        android.util.DisplayMetrics m = getResources().getDisplayMetrics();
+        float shortSide = Math.min(m.widthPixels, m.heightPixels);
+        if (shortSide <= 0) return 1f;
+        float aspect = Math.max(m.widthPixels, m.heightPixels) / shortSide;
+        float scale = (176f / Math.max(1.05f, aspect)) / 108f;
+        return Math.max(0.70f, Math.min(1.30f, scale));
+    }
+
     private static float clamp(float value, float limit) {
         return Math.max(-limit, Math.min(limit, value));
     }
@@ -509,10 +523,16 @@ final class OdinOutlineView extends View implements SensorEventListener {
                 : Math.min(0.05f, (now - lastFrameMs) / 1000f);
         lastFrameMs = now;
         advanceGame(dt);
-        float s = Math.min(w / 360f, h / 150f) * 0.94f;
+        // Match the drawing to the real panel: the screen is drawn 176x108, so
+        // stretch the whole device vertically until that rect matches the
+        // device's aspect (4:3 handhelds get a taller body, 21:9 a shorter one).
+        float artScale = artScale();
+        float artH = 17f + (150f - 17f) * artScale;
+        float s = Math.min(w / 360f, h / artH) * 0.94f;
         c.save();
-        c.translate((w - 360f * s) / 2f, (h - 150f * s) / 2f);
+        c.translate((w - 360f * s) / 2f, (h - artH * s) / 2f);
         c.scale(s, s);
+        c.scale(1f, artScale, 0f, 17f);
         boolean back = Math.abs(displayYaw) > 90f;
         if (back) {
             // The back artwork is pre-mirrored; the View's Y rotation mirrors it
