@@ -85,8 +85,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private String sessionPkg;
     private String sessionCls;
     private String sessionLabel;
-    private String backdropPkg;
-    private int backdropToken;
     private long sessionStartMs;
     private int sessionStartBattery = -1;
     private long sessionStartChargeUah = -1;
@@ -151,33 +149,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             main.postDelayed(this, 16);
         }
     };
-
-    /**
-     * The panel floats over whatever app is in front, and that content changes
-     * (scrolling, tab switches) without the foreground package changing. Keep the
-     * capture fresh while the panel is visible instead of only refreshing when a
-     * different app comes forward.
-     */
-    private final Runnable backdropPulse = new Runnable() {
-        @Override
-        public void run() {
-            backdropPulsePosted = false;
-            if (!running || container == null) return;
-            if (container.getVisibility() == View.VISIBLE && menu == null && detail == null
-                    && (powerManager == null || powerManager.isInteractive())) {
-                capturePanelBackdrop(false);
-            }
-            scheduleBackdropPulse();
-        }
-    };
-
-    private void scheduleBackdropPulse() {
-        if (backdropPulsePosted || !running) return;
-        backdropPulsePosted = true;
-        // Track moving content closely; once the app behind is static, back off
-        // so an idle overlay costs almost nothing.
-        main.postDelayed(backdropPulse, staticBackdropCount >= 3 ? 1200L : 100L);
-    }
 
     /**
      * Mapper-mode polling is deliberately independent of the metric refresh and
@@ -464,8 +435,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         Haptics.key(container);
         container.setVisibility(View.VISIBLE);
         applyCardTouchability();
-        capturePanelBackdrop();
-        scheduleBackdropPulse();
     }
 
     private void hideOverlayPanel() {
@@ -563,24 +532,10 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         mapperCheckInFlight = false;
                         if (!running) return;
                         applyMapperMode(now);
-                        maybeRefreshBackdrop(pkg);
                     }
                 });
             }
         });
-    }
-
-    private void maybeRefreshBackdrop(String pkg) {
-        if (pkg == null || pkg.isEmpty() || isOwnPackage(pkg)) return;
-        if (backdropPkgEquals(pkg)) return;
-        backdropPkg = pkg;
-        final int token = ++backdropToken;
-        main.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (running && token == backdropToken) capturePanelBackdrop();
-            }
-        }, 80L);
     }
 
     private void applyMapperMode(boolean now) {
@@ -699,10 +654,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     }
 
     private Backdrop lastPanelBackdrop;
-    private boolean backdropPulsePosted;
-    private boolean panelCaptureInFlight;
-    private long lastBackdropSignature;
-    private int staticBackdropCount;
     private int burnInIndex;
     private final java.util.Random burnInRandom = new java.util.Random();
     private final Runnable burnInTick = new Runnable() {
@@ -772,7 +723,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         ensureScreenshotAccessibility();
         addOverlay();
         running = true;
-        scheduleBackdropPulse();
         main.removeCallbacks(mapperTick);
         main.post(sampleTick);
         main.post(mapperTick);
@@ -822,7 +772,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         if (container == null && Settings.canDrawOverlays(this)) {
             addOverlay();
             running = true;
-            scheduleBackdropPulse();
             main.removeCallbacks(sampleTick);
             main.removeCallbacks(mapperTick);
             main.post(sampleTick);
@@ -845,7 +794,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         main.removeCallbacks(mapperTick);
         main.removeCallbacks(burnInTick);
         main.removeCallbacks(dimTick);
-        main.removeCallbacks(backdropPulse);
         dimOverlay = null;
         finalizeCurrentLog();
         closeMenu();
@@ -1013,94 +961,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             }
         });
         applyCardTouchability();
-    }
-
-    private void capturePanelBackdrop() {
-        capturePanelBackdrop(true);
-    }
-
-    private void capturePanelBackdrop(final boolean allowLegacyFallback) {
-        if (container == null || panel == null || menu != null || detail != null) return;
-        if (panelCaptureInFlight) return;
-        panelCaptureInFlight = true;
-        final PerfOverlayView view = panel;
-        // Preferred path: capture only the app window through accessibility, so
-        // the overlay never has to disappear (no blink).
-        boolean requested = PavoA11yService.captureApplicationWindow(
-                new PavoA11yService.WindowCaptureCallback() {
-                    @Override
-                    public void onCaptured(final Bitmap bitmap, final Rect bounds) {
-                        composePanelBackdrop(bitmap, bounds, view);
-                    }
-
-                    @Override
-                    public void onFailed() {
-                        main.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                panelCaptureInFlight = false;
-                                scheduleBackdropPulse();
-                                if (panel == view && running && allowLegacyFallback) {
-                                    capturePanelBackdropLegacy();
-                                }
-                            }
-                        });
-                    }
-                });
-        if (!requested) {
-            panelCaptureInFlight = false;
-            scheduleBackdropPulse();
-            if (allowLegacyFallback) capturePanelBackdropLegacy();
-        }
-    }
-
-    private void capturePanelBackdropLegacy() {
-        if (container == null || panel == null || menu != null || detail != null) return;
-        final FrameLayout target = container;
-        final PerfOverlayView view = panel;
-        final boolean wasVisible = target.getVisibility() == View.VISIBLE;
-        final float oldAlpha = target.getAlpha();
-        // Keep a trace of the overlay in the captured frame instead of hiding it
-        // completely. The screenshot only sees a faint ghost, while the user sees
-        // a quick fade rather than a hard blink.
-        if (wasVisible) {
-            target.setAlpha(0.08f);
-        } else {
-            target.setVisibility(View.INVISIBLE);
-        }
-        main.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                worker.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        Backdrop backdrop = ScreenCaptureBackdrop.capture(PerfOverlayService.this);
-                        if (backdrop == null) {
-                            backdrop = WallpaperBackdrop.capture(PerfOverlayService.this);
-                        }
-                        final Backdrop captured = backdrop;
-                        main.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (panel == view) {
-                                    if (captured != null) lastPanelBackdrop = captured;
-                                    view.setBackdrop(captured);
-                                    target.setVisibility(wasVisible ? View.VISIBLE : View.INVISIBLE);
-                                    if (wasVisible) {
-                                        target.setAlpha(0.08f);
-                                        target.animate().alpha(oldAlpha)
-                                                .setDuration(140L).start();
-                                    } else {
-                                        target.setAlpha(oldAlpha);
-                                    }
-                                    applyCardTouchability();
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-        }, 90L);
     }
 
     private void measurePanel() {
@@ -1502,62 +1362,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         });
     }
 
-    /**
-     * Downscale + blur a window capture off the main thread (~25 ms of CPU), then
-     * hand the card a fresh frame. Consecutive identical frames let the pulse back
-     * off when the app behind is not moving.
-     */
-    private void composePanelBackdrop(final Bitmap bitmap, final Rect bounds,
-            final PerfOverlayView view) {
-        try {
-            worker.execute(new Runnable() {
-                @Override
-                public void run() {
-                    final Backdrop backdrop = ScreenCaptureBackdrop.fromWindow(
-                            PerfOverlayService.this, bitmap, bounds);
-                    final long signature = backdrop == null ? 0L : signature(backdrop.bitmap);
-                    main.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (signature != 0L && signature == lastBackdropSignature) {
-                                staticBackdropCount++;
-                            } else {
-                                staticBackdropCount = 0;
-                                lastBackdropSignature = signature;
-                            }
-                            panelCaptureInFlight = false;
-                            scheduleBackdropPulse();
-                            if (panel == view && running) {
-                                lastPanelBackdrop = backdrop;
-                                view.setBackdrop(backdrop);
-                                applyCardTouchability();
-                            }
-                        }
-                    });
-                }
-            });
-        } catch (Throwable ignored) {
-            panelCaptureInFlight = false;
-        }
-    }
-
-    /** Cheap 16x16 sample of a frame, used to tell moving content from a static app. */
-    private static long signature(Bitmap bitmap) {
-        if (bitmap == null || bitmap.isRecycled()) return 0L;
-        int w = bitmap.getWidth();
-        int h = bitmap.getHeight();
-        if (w <= 0 || h <= 0) return 0L;
-        long hash = 1125899906842597L;
-        for (int gy = 0; gy < 16; gy++) {
-            int y = Math.min(h - 1, gy * h / 16);
-            for (int gx = 0; gx < 16; gx++) {
-                int x = Math.min(w - 1, gx * w / 16);
-                hash = hash * 31 + bitmap.getPixel(x, y);
-            }
-        }
-        return hash;
-    }
-
     private Backdrop copyBackdrop(Backdrop source) {
         if (source == null || source.bitmap == null || source.bitmap.isRecycled()) {
             return null;
@@ -1680,7 +1484,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             fpsHistory.clear();
             // The overlay is persistent; refresh the frozen card sample when the
             // app underneath changes instead of keeping the home snapshot forever.
-            maybeRefreshBackdrop(s.targetPkg);
         }
         lastStats = s;
         if (s.fpsValid && s.fps > 0) {
@@ -1705,9 +1508,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         return pkg != null && pkg.equals(getPackageName());
     }
 
-    private boolean backdropPkgEquals(String pkg) {
-        return pkg == null ? backdropPkg == null : pkg.equals(backdropPkg);
-    }
 
     private void startLog(PerfStats s) {
         currentLog = new PerfLogEntry();

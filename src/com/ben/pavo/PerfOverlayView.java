@@ -12,6 +12,7 @@ import android.graphics.Rect;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RadialGradient;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
@@ -34,14 +35,10 @@ final class PerfOverlayView extends LinearLayout {
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint noisePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final ColorMatrixColorFilter frostFilter;
     private static Bitmap frostNoise;
     private final RectF rect = new RectF();
     private final int corner;
     private int panelAlphaPct = 88;
-    private Backdrop backdrop;
-    private GlassCardRenderer cardRenderer;
-    private final int[] location = new int[2];
 
     private TextView battery;
     private TextView lockIcon;
@@ -67,9 +64,6 @@ final class PerfOverlayView extends LinearLayout {
         setClipChildren(false);
         setPadding(dp(14), dp(10), dp(14), dp(11));
         corner = dp(22);
-        ColorMatrix frostMatrix = new ColorMatrix();
-        frostMatrix.setSaturation(0.72f);
-        frostFilter = new ColorMatrixColorFilter(frostMatrix);
         if (frostNoise == null) frostNoise = makeFrostNoise();
         noisePaint.setAlpha(13);
 
@@ -346,11 +340,6 @@ final class PerfOverlayView extends LinearLayout {
         invalidate();
     }
 
-    void setBackdrop(Backdrop b) {
-        backdrop = b;
-        invalidate();
-    }
-
     private int dp(float v) {
         return Ui.dp(getContext(), v);
     }
@@ -375,57 +364,23 @@ final class PerfOverlayView extends LinearLayout {
         float h = getHeight();
         if (w <= 0 || h <= 0) return;
         rect.set(0, 0, w, h);
-        boolean hasBackdrop = backdrop != null && backdrop.bitmap != null;
-        // Same live-glass pipeline as the app drawer: the capture is the body,
-        // blurred and lensed at the card edges instead of a flat frozen slab.
-        boolean lensed = false;
-        if (hasBackdrop) {
-            if (cardRenderer == null) cardRenderer = new GlassCardRenderer(this);
-            lensed = cardRenderer.draw(canvas, (int) w, (int) h, corner, backdrop);
-        }
-        if (hasBackdrop && !lensed) {
-            Bitmap bmp = backdrop.bitmap;
-            getLocationOnScreen(location);
-            float sx = bmp.getWidth() / (float) backdrop.screenWidth;
-            float sy = bmp.getHeight() / (float) backdrop.screenHeight;
-            int left = Math.round(location[0] * sx);
-            int top = Math.round(location[1] * sy);
-            int right = Math.round((location[0] + getWidth() * getScaleX()) * sx);
-            int bottom = Math.round((location[1] + getHeight() * getScaleY()) * sy);
-            left = Math.max(0, Math.min(bmp.getWidth() - 1, left));
-            top = Math.max(0, Math.min(bmp.getHeight() - 1, top));
-            right = Math.max(left + 1, Math.min(bmp.getWidth(), right));
-            bottom = Math.max(top + 1, Math.min(bmp.getHeight(), bottom));
-            Path clip = new Path();
-            clip.addRoundRect(rect, corner, corner, Path.Direction.CW);
-            canvas.save();
-            canvas.clipPath(clip);
-            bgPaint.setColor(0xFFFFFFFF);
-            // Let the live screen show through the frosted sample. At the
-            // default opacity this keeps the overlay clear rather than turning
-            // the captured frame into an opaque slab.
-            bgPaint.setAlpha(Math.round(55f + 200f * panelAlphaPct / 100f));
-            bgPaint.setColorFilter(frostFilter);
-            canvas.drawBitmap(bmp, new Rect(left, top, right, bottom),
-                    rect, bgPaint);
-            bgPaint.setColorFilter(null);
-            canvas.restore();
-        }
-
-        // Clear-glass tint, like the drawer: only a light veil over the live
-        // capture so the game or app behind stays readable.
-        int alpha = hasBackdrop
-                ? Math.round(0x4D * panelAlphaPct / 100f)
-                : Math.round(200f * panelAlphaPct / 100f);
-        bgPaint.setColor((alpha << 24) | 0x000B0E14);
+        // Frosted glass only: a translucent body with a soft sheen, a light rim
+        // and film grain. Nothing is captured or blurred at run time, so the
+        // panel costs the same as any other view.
+        int alpha = Math.round(240f * panelAlphaPct / 100f);
+        bgPaint.setColor((alpha << 24) | 0x0C1016);
         canvas.drawRoundRect(rect, corner, corner, bgPaint);
+
+        // Accent halo in the top corner gives the surface a lit, glassy depth.
+        tintPaint.setShader(new RadialGradient(w * 0.26f, h * 0.02f, w * 0.85f,
+                ThemeColors.withAlpha(0x1A), 0x00000000, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(rect, corner, corner, tintPaint);
 
         tintPaint.setShader(new LinearGradient(0, 0, 0, h * 0.30f,
                 0x12FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(rect, corner, corner, tintPaint);
         tintPaint.setShader(new LinearGradient(0, h * 0.72f, 0, h,
-                0x00000000, hasBackdrop ? 0x1C000000 : 0x28000000,
-                Shader.TileMode.CLAMP));
+                0x00000000, 0x30000000, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(rect, corner, corner, tintPaint);
         tintPaint.setShader(null);
 
@@ -435,6 +390,7 @@ final class PerfOverlayView extends LinearLayout {
             Matrix nm = new Matrix();
             nm.setScale(2f, 2f);
             noise.setLocalMatrix(nm);
+            noisePaint.setAlpha(20);
             noisePaint.setShader(noise);
             canvas.drawRoundRect(rect, corner, corner, noisePaint);
             noisePaint.setShader(null);
