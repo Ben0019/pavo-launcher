@@ -84,21 +84,6 @@ home app:
 
 To return to the stock launcher, repeat the steps and choose the stock launcher.
 
-## Testing
-
-`tools/smoke.sh` launches the home screen and every built-in activity on a connected
-device, fails on a crash or ANR, and validates the preference store (seeded, every
-glass value inside its slider range).
-
-```bash
-tools/smoke.sh                              # installed build, single device
-tools/smoke.sh --serial 192.168.1.2:5555    # pick a device
-tools/smoke.sh --apk Pavo.apk               # install first, then test
-```
-
-Built-in activities are not exported, so the script uses `su` when the device is
-rooted and reports a skip for them otherwise.
-
 ## Tested on
 
 | | |

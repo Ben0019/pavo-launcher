@@ -21,3 +21,6 @@ local.properties
 # internal agent notes and demo capture
 AGENTS.md
 health_demo.mp4
+
+# local-only device checks (keep on this machine, not in the repo)
+tools/smoke.sh
