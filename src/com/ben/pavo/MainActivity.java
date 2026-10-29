@@ -1619,6 +1619,8 @@ public final class MainActivity extends Activity {
         content.addView(dots, dlp);
 
         dock = new DockView(this, wallpaper, prefs);
+        dock.setGlassTuning(prefs.dockSaturation() / 100f,
+                prefs.dockBackdropDarkness() / 100f);
         LinearLayout.LayoutParams dockLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(this, 94));
         dockLp.gravity = Gravity.CENTER_HORIZONTAL;
@@ -9298,6 +9300,10 @@ public final class MainActivity extends Activity {
         drawerBackdrop = new LiveBackdropView(this);
         drawerBackdrop.setRadiusDp(26);
         drawerBackdrop.setAlpha(1f);
+        drawerBackdrop.setGlassTuning(prefs.drawerSaturation() / 100f,
+                prefs.drawerBackdropDarkness() / 100f);
+        drawerGlass.setBackdropSaturation(prefs.drawerSaturation() / 100f);
+        drawerGlass.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
         drawerCard.addView(drawerBackdrop, match());
 
         drawerCard.addView(drawerGlass, match());
@@ -9459,6 +9465,43 @@ public final class MainActivity extends Activity {
             drawerGlass.setClearBodyAlpha(0);
             }
         applyDrawerSurfaceTransparency();
+    }
+
+    private void applyDockGlassTuning() {
+        if (dock != null) {
+            dock.setGlassTuning(prefs.dockSaturation() / 100f,
+                    prefs.dockBackdropDarkness() / 100f);
+        }
+    }
+
+    private void applyDrawerGlassTuning() {
+        float saturation = prefs.drawerSaturation() / 100f;
+        float darkness = prefs.drawerBackdropDarkness() / 100f;
+        if (drawerBackdrop != null) drawerBackdrop.setGlassTuning(saturation, darkness);
+        if (drawerGlass != null) {
+            drawerGlass.setBackdropSaturation(saturation);
+            drawerGlass.setBackdropDarkness(darkness);
+        }
+    }
+
+    private void applyFolderGlassTuning() {
+        if (folderGlass != null) {
+            folderGlass.setBackdropSaturation(prefs.folderSaturation() / 100f);
+            folderGlass.setBackdropDarkness(prefs.folderBackdropDarkness() / 100f);
+        }
+    }
+
+    private void applyMenuGlassTuning() {
+        float saturation = prefs.menuSaturation() / 100f;
+        float darkness = prefs.menuBackdropDarkness() / 100f;
+        if (settingsGlass != null) {
+            settingsGlass.setBackdropSaturation(saturation);
+            settingsGlass.setBackdropDarkness(darkness);
+        }
+        if (settingsSubmenuGlass != null) {
+            settingsSubmenuGlass.setBackdropSaturation(saturation);
+            settingsSubmenuGlass.setBackdropDarkness(darkness);
+        }
     }
 
     private void applySurfaceTransparency() {
@@ -10346,6 +10389,8 @@ public final class MainActivity extends Activity {
         folderGlass = new GlassPanel(this, backdrop, wallpaper.accent(),
                 0x660B0E14, 26, true);
         folderGlass.setSurfaceAlpha(prefs.folderTransparency() / 100f);
+        folderGlass.setBackdropSaturation(prefs.folderSaturation() / 100f);
+        folderGlass.setBackdropDarkness(prefs.folderBackdropDarkness() / 100f);
         folderCard.addView(folderGlass, 0, match());
 
         int[] rl = new int[2];
@@ -13072,6 +13117,8 @@ public final class MainActivity extends Activity {
 
         settingsSubmenuGlass = new GlassPanel(this, settingsBackdrop,
                 wallpaper.accent(), 0x330B0E14, 22, true);
+        settingsSubmenuGlass.setBackdropSaturation(prefs.menuSaturation() / 100f);
+        settingsSubmenuGlass.setBackdropDarkness(prefs.menuBackdropDarkness() / 100f);
         settingsSubmenuGlass.setClearGlass(true);
         settingsSubmenuGlass.setClearBodyAlpha(0x40);
         settingsSubmenuGlass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
@@ -13689,6 +13736,22 @@ public final class MainActivity extends Activity {
                 if (dock != null) dock.setSurfaceAlpha(value / 100f);
             }
         });
+        addSlider(panel, "Saturation", 0, 200, prefs.dockSaturation(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setDockSaturation(value);
+                applyDockGlassTuning();
+            }
+        });
+        addSlider(panel, "Darkening", 0, 100, prefs.dockBackdropDarkness(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setDockBackdropDarkness(value);
+                applyDockGlassTuning();
+            }
+        });
         addSlider(panel, "Corner radius", 8, 40, prefs.cornerDp(), new IntCallback() {
             @Override
             public void onValue(int value) {
@@ -13808,6 +13871,22 @@ public final class MainActivity extends Activity {
                 }
             }
         });
+        addSlider(panel, "Saturation", 0, 200, prefs.menuSaturation(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setMenuSaturation(value);
+                applyMenuGlassTuning();
+            }
+        });
+        addSlider(panel, "Darkening", 0, 100, prefs.menuBackdropDarkness(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setMenuBackdropDarkness(value);
+                applyMenuGlassTuning();
+            }
+        });
 
         panel.use("Home");
         addSection(panel, "Home screen");
@@ -13857,6 +13936,22 @@ public final class MainActivity extends Activity {
                 prefs.setFolderTransparency(value);
                 if (folderGlass != null) folderGlass.setSurfaceAlpha(value / 100f);
                 renderHome();
+            }
+        });
+        addSlider(panel, "Folder saturation", 0, 200, prefs.folderSaturation(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setFolderSaturation(value);
+                applyFolderGlassTuning();
+            }
+        });
+        addSlider(panel, "Folder darkening", 0, 100, prefs.folderBackdropDarkness(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setFolderBackdropDarkness(value);
+                applyFolderGlassTuning();
             }
         });
 
@@ -14051,6 +14146,22 @@ public final class MainActivity extends Activity {
             public void onValue(int value) {
                 prefs.setPopupDrawerTransparency(value);
                 applyDrawerSurfaceTransparency();
+            }
+        });
+        addSlider(panel, "Saturation", 0, 200, prefs.drawerSaturation(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setDrawerSaturation(value);
+                applyDrawerGlassTuning();
+            }
+        });
+        addSlider(panel, "Darkening", 0, 100, prefs.drawerBackdropDarkness(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setDrawerBackdropDarkness(value);
+                applyDrawerGlassTuning();
             }
         });
 
@@ -14668,6 +14779,8 @@ public final class MainActivity extends Activity {
         GlassPanel glass = new GlassPanel(this, settingsBackdrop,
                 wallpaper.accent(), 0x330B0E14, 26, true);
         settingsGlass = glass;
+        glass.setBackdropSaturation(prefs.menuSaturation() / 100f);
+        glass.setBackdropDarkness(prefs.menuBackdropDarkness() / 100f);
         glass.setClearGlass(true);
         glass.setClearBodyAlpha(0x40);
         glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);

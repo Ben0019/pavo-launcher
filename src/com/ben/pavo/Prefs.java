@@ -310,6 +310,27 @@ final class Prefs {
     void setBuiltinBackdropDarkness(int v) {
         sp.edit().putInt("builtin_darkness", clamp(v, 0, 100)).apply();
     }
+
+    // Backdrop colour tuning for the launcher's own glass surfaces.
+    int dockSaturation() { return clamp(sp.getInt("dock_saturation", 150), 0, 200); }
+    void setDockSaturation(int v) { sp.edit().putInt("dock_saturation", clamp(v, 0, 200)).apply(); }
+    int dockBackdropDarkness() { return clamp(sp.getInt("dock_darkness", 0), 0, 100); }
+    void setDockBackdropDarkness(int v) { sp.edit().putInt("dock_darkness", clamp(v, 0, 100)).apply(); }
+
+    int drawerSaturation() { return clamp(sp.getInt("drawer_saturation", 150), 0, 200); }
+    void setDrawerSaturation(int v) { sp.edit().putInt("drawer_saturation", clamp(v, 0, 200)).apply(); }
+    int drawerBackdropDarkness() { return clamp(sp.getInt("drawer_darkness", 0), 0, 100); }
+    void setDrawerBackdropDarkness(int v) { sp.edit().putInt("drawer_darkness", clamp(v, 0, 100)).apply(); }
+
+    int folderSaturation() { return clamp(sp.getInt("folder_saturation", 150), 0, 200); }
+    void setFolderSaturation(int v) { sp.edit().putInt("folder_saturation", clamp(v, 0, 200)).apply(); }
+    int folderBackdropDarkness() { return clamp(sp.getInt("folder_darkness", 0), 0, 100); }
+    void setFolderBackdropDarkness(int v) { sp.edit().putInt("folder_darkness", clamp(v, 0, 100)).apply(); }
+
+    int menuSaturation() { return clamp(sp.getInt("menu_saturation", 150), 0, 200); }
+    void setMenuSaturation(int v) { sp.edit().putInt("menu_saturation", clamp(v, 0, 200)).apply(); }
+    int menuBackdropDarkness() { return clamp(sp.getInt("menu_darkness", 0), 0, 100); }
+    void setMenuBackdropDarkness(int v) { sp.edit().putInt("menu_darkness", clamp(v, 0, 100)).apply(); }
     void setFolderTransparency(int v) { sp.edit().putInt("folder_transparency", clamp(v, 20, 100)).apply(); }
 
     // --- joystick RGB ---

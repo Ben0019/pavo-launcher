@@ -121,7 +121,10 @@ final class Menu {
         final GlassPanel card = new GlassPanel(c, backdrop, accent, 0x330B0E14, 18, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0x4D);
-        card.setSurfaceAlpha(new Prefs(c).menuTransparency() / 100f);
+        Prefs prefs = new Prefs(c);
+        card.setSurfaceAlpha(prefs.menuTransparency() / 100f);
+        card.setBackdropSaturation(prefs.menuSaturation() / 100f);
+        card.setBackdropDarkness(prefs.menuBackdropDarkness() / 100f);
         card.setPadding(Ui.dp(c, 8), Ui.dp(c, 8), Ui.dp(c, 8), Ui.dp(c, 8));
         card.setMinimumWidth(Ui.dp(c, 210));
         card.setElevation(Ui.dpf(c, 20));

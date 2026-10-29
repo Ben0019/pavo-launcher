@@ -36,6 +36,8 @@ final class LiveBackdropView extends View {
     private float effectRadius;
     private static final float RENDER_SCALE = 0.5f;
     private boolean refreshPosted;
+    private float glassSaturation = 1.5f;
+    private float glassDarkness;
 
     private final Runnable refresh = new Runnable() {
         @Override
@@ -74,6 +76,29 @@ final class LiveBackdropView extends View {
     void setSource(View source) {
         this.source = source;
         updateEffect();
+        invalidate();
+    }
+
+    void setGlassTuning(float saturation, float darkness) {
+        float sat = Math.max(0f, saturation);
+        float dark = Math.max(0f, Math.min(1f, darkness));
+        if (sat == glassSaturation && dark == glassDarkness) return;
+        glassSaturation = sat;
+        glassDarkness = dark;
+        ColorMatrix matrix = new ColorMatrix();
+        matrix.setSaturation(sat);
+        if (dark > 0f) {
+            float k = 1f - dark;
+            ColorMatrix dim = new ColorMatrix(new float[]{
+                    k, 0f, 0f, 0f, 0f,
+                    0f, k, 0f, 0f, 0f,
+                    0f, 0f, k, 0f, 0f,
+                    0f, 0f, 0f, 1f, 0f});
+            matrix.postConcat(dim);
+        }
+        snapshotPaint.setColorFilter(new ColorMatrixColorFilter(matrix));
+        effect = null;
+        node = null;
         invalidate();
     }
 
@@ -121,7 +146,8 @@ final class LiveBackdropView extends View {
         }
         effect = LiveGlassEffect.build(
                 getResources().getDisplayMetrics().density,
-                0, 0, width, height, radiusPx * scale, scale);
+                0, 0, width, height, radiusPx * scale, scale, 8f, false,
+                glassSaturation, glassDarkness);
         effectWidth = width;
         effectHeight = height;
         effectRadius = radiusPx;

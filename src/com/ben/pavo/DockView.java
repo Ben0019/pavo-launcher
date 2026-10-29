@@ -44,6 +44,8 @@ final class DockView extends LinearLayout {
     private LiquidGlassShader liquidShader;
     private RenderNode glassNode;
     private RenderEffect glassEffect;
+    private float glassSaturation = 1.5f;
+    private float glassDarkness;
     private final Path glassClip = new Path();
     private int glassNodeWidth;
     private int glassNodeHeight;
@@ -269,6 +271,16 @@ final class DockView extends LinearLayout {
         drawDropIndicator(canvas, w, h, radius);
     }
 
+    void setGlassTuning(float saturation, float darkness) {
+        float sat = Math.max(0f, saturation);
+        float dark = Math.max(0f, Math.min(1f, darkness));
+        if (sat == glassSaturation && dark == glassDarkness) return;
+        glassSaturation = sat;
+        glassDarkness = dark;
+        glassEffect = null;
+        invalidate();
+    }
+
     private boolean drawLiveGlassBody(Canvas canvas, float w, float h, float radius) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
                 || !canvas.isHardwareAccelerated() || wallpaper == null
@@ -286,7 +298,8 @@ final class DockView extends LinearLayout {
                     || glassNodeRadius != radius) {
                 glassEffect = LiveGlassEffect.build(
                         getResources().getDisplayMetrics().density,
-                        0, 0, sw, sh, radius * scale, scale);
+                        0, 0, sw, sh, radius * scale, scale, 8f, false,
+                        glassSaturation, glassDarkness);
                 glassNode.setRenderEffect(glassEffect);
                 glassNodeWidth = sw;
                 glassNodeHeight = sh;
