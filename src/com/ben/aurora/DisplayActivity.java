@@ -83,6 +83,7 @@ public final class DisplayActivity extends AuroraGlassActivity {
     private volatile boolean hdrSynced;
     private int selectedHeight;
     private int selectedAspect;
+    private boolean tight;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,6 +92,7 @@ public final class DisplayActivity extends AuroraGlassActivity {
         accent = ThemeColors.accent();
         io = Executors.newSingleThreadExecutor();
         prefs = new Prefs(this);
+        tight = Ui.widthDp(this) < 700;
         buildUi();
         hideBars();
     }
@@ -147,7 +149,8 @@ public final class DisplayActivity extends AuroraGlassActivity {
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
         card.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
-        card.setPadding(dp(22), dp(12), dp(22), dp(10));
+        card.setPadding(dp(tight ? 16 : 22), dp(tight ? 8 : 12),
+                dp(tight ? 16 : 22), dp(tight ? 7 : 10));
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         cardLp.setMargins(dp(14), dp(12), dp(14), dp(12));
@@ -535,7 +538,8 @@ public final class DisplayActivity extends AuroraGlassActivity {
     private LinearLayout section(LinearLayout parent, String title, String subtitle) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(12), dp(7), dp(12), dp(7));
+        card.setPadding(dp(tight ? 10 : 12), dp(tight ? 5 : 7),
+                dp(tight ? 10 : 12), dp(tight ? 5 : 7));
         card.setBackground(Ui.rounded(0x300B0E14, dp(16), 0x2EFFFFFF, dp(1)));
         LinearLayout titleRow = new LinearLayout(this);
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -636,7 +640,7 @@ public final class DisplayActivity extends AuroraGlassActivity {
                 final int index = i;
                 TextView chip = text(options[i], 9f, 0xCCFFFFFF, true);
                 chip.setGravity(Gravity.CENTER);
-                chip.setPadding(dp(7), dp(5), dp(7), dp(5));
+                chip.setPadding(dp(7), dp(tight ? 3 : 5), dp(7), dp(tight ? 3 : 5));
                 chip.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -918,10 +922,10 @@ public final class DisplayActivity extends AuroraGlassActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(8), dp(4), dp(8), dp(4));
-        row.setMinimumHeight(dp(42));
-        TextView name = text(label, 11f, 0xE6FFFFFF, false);
-        row.addView(name, new LinearLayout.LayoutParams(dp(126),
+        row.setPadding(dp(8), dp(tight ? 2 : 4), dp(8), dp(tight ? 2 : 4));
+        row.setMinimumHeight(dp(tight ? 34 : 42));
+        TextView name = text(label, tight ? 10.5f : 11f, 0xE6FFFFFF, false);
+        row.addView(name, new LinearLayout.LayoutParams(dp(tight ? 112 : 126),
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
