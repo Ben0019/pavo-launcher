@@ -328,19 +328,8 @@ public final class OverlayActivity extends AuroraGlassActivity {
         pslp.topMargin = dp(7);
         shortcuts.addView(perfShortcutRow, pslp);
 
-        TextView clearPerfShortcut = text("CLEAR SHORTCUT", 8.5f, 0x99FFFFFF, true);
-        clearPerfShortcut.setPadding(dp(2), dp(6), 0, 0);
-        clearPerfShortcut.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                prefs.setPerfControllerRaw("");
-                refreshState();
-            }
-        });
-        shortcuts.addView(clearPerfShortcut);
-
         perfComboRow = comboRow(shortcuts, true);
-        clearCombo(shortcuts, true);
+        clearRow(shortcuts, true);
     }
 
     private void buildMetricsSection(LinearLayout parent) {
@@ -436,16 +425,8 @@ public final class OverlayActivity extends AuroraGlassActivity {
         slp.topMargin = dp(7);
         box.addView(shortcutRow, slp);
 
-        TextView clear = text("CLEAR SHORTCUT", 8.5f, 0x99FFFFFF, true);
-        clear.setPadding(dp(2), dp(6), 0, 0);
-        clear.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                prefs.setDrawerControllerRaw("");
-                refreshState();
-            }
-        });
-        box.addView(clear);
+        drawerComboRow = comboRow(box, false);
+        clearRow(box, false);
 
         LinearLayout style = sectionWeighted(parent, "DRAWER STYLE", null);
 
@@ -474,9 +455,6 @@ public final class OverlayActivity extends AuroraGlassActivity {
             lp.rightMargin = i == 0 ? dp(5) : 0;
             colRow.addView(chip, lp);
         }
-
-        drawerComboRow = comboRow(box, false);
-        clearCombo(box, false);
 
         slider(style, "Drawer opacity", 20, 100, prefs.drawerOverlayAlpha(), "%",
                 new IntValue() {
@@ -597,7 +575,9 @@ public final class OverlayActivity extends AuroraGlassActivity {
 
     private TextView comboRow(LinearLayout parent, final boolean overlay) {
         TextView row = text("", 10f, TEXT, false);
-        row.setPadding(dp(10), dp(8), dp(10), dp(8));
+        row.setSingleLine(true);
+        row.setEllipsize(TextUtils.TruncateAt.END);
+        row.setPadding(dp(10), dp(7), dp(10), dp(7));
         row.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
         row.setFocusable(true);
         row.setDefaultFocusHighlightEnabled(false);
@@ -628,10 +608,27 @@ public final class OverlayActivity extends AuroraGlassActivity {
         return row;
     }
 
-    private void clearCombo(LinearLayout parent, final boolean overlay) {
-        TextView clear = text("CLEAR COMBO", 8.5f, 0x99FFFFFF, true);
-        clear.setPadding(dp(2), dp(6), 0, 0);
-        clear.setOnClickListener(new View.OnClickListener() {
+    /** Both clear actions on one line so the card stays inside its row. */
+    private void clearRow(LinearLayout parent, final boolean overlay) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(2), dp(7), 0, 0);
+
+        TextView shortcut = text("CLEAR SHORTCUT", 8.5f, 0x99FFFFFF, true);
+        shortcut.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (overlay) prefs.setPerfControllerRaw("");
+                else prefs.setDrawerControllerRaw("");
+                refreshState();
+            }
+        });
+        row.addView(shortcut, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView combo = text("CLEAR COMBO", 8.5f, 0x99FFFFFF, true);
+        combo.setGravity(Gravity.END);
+        combo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (overlay) prefs.setPerfCombo("");
@@ -639,15 +636,16 @@ public final class OverlayActivity extends AuroraGlassActivity {
                 refreshState();
             }
         });
-        parent.addView(clear);
+        row.addView(combo);
+        parent.addView(row);
     }
 
     private static String comboLabel(String combo, String name) {
-        if (combo == null || combo.isEmpty()) return name + ": not set  ·  tap to set";
+        if (combo == null || combo.isEmpty()) return "Combo: not set  ·  tap to set";
         String pretty = combo.replace("+", " + ")
                 .replace("BTN_", "")
                 .replace("KEY_", "");
-        return name + ": " + pretty + "  ·  tap to change";
+        return "Combo: " + pretty + "  ·  tap to change";
     }
 
     // --------------------------------------------------------------- widgets
