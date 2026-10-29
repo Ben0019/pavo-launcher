@@ -1671,26 +1671,21 @@ final class AppDrawerOverlayView extends FrameLayout {
                 @Override
                 public void run() {
                     int first = list.getFirstVisiblePosition();
-                    int last = list.getLastVisiblePosition();
-                    if (row < first || row > last) {
-                        // smoothScrollToPosition is unreliable in this overlay
-                        // window (it can leave the selected row off-screen).
-                        // Place the selected row against the nearest edge so
-                        // navigation always keeps the ring visible.
-                        int top;
-                        if (row > last) {
-                            int rowHeight = 0;
-                            if (list.getChildCount() > 0) {
-                                rowHeight = list.getChildAt(
-                                        list.getChildCount() - 1).getHeight();
-                            }
-                            if (rowHeight <= 0) rowHeight = Ui.dp(context, 72);
-                            top = Math.max(0, list.getHeight() - rowHeight
-                                    - list.getPaddingBottom());
-                        } else {
-                            top = list.getPaddingTop();
-                        }
-                        list.setSelectionFromTop(row, top);
+                    View child = list.getChildAt(row - first);
+                    if (child == null) {
+                        list.setSelectionFromTop(row, list.getPaddingTop());
+                        return;
+                    }
+                    int safeTop = list.getPaddingTop();
+                    int safeBottom = list.getHeight() - list.getPaddingBottom();
+                    // Keep the whole row inside the list. Scrolling only when the
+                    // row left the viewport left half a row clipped under the
+                    // drawer's search/favourite header, so the ring looked cut.
+                    if (child.getTop() < safeTop) {
+                        list.setSelectionFromTop(row, safeTop);
+                    } else if (child.getBottom() > safeBottom) {
+                        list.setSelectionFromTop(row,
+                                safeBottom - child.getHeight());
                     }
                 }
             });
