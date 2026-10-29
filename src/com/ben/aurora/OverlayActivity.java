@@ -281,30 +281,6 @@ public final class OverlayActivity extends AuroraGlassActivity {
             refreshRow.addView(chip, lp);
         }
 
-        lockChip = toggle(box, "LOCK POSITION", prefs.perfOverlayLocked(),
-                new Toggle() {
-                    @Override
-                    public void onChanged(boolean value) {
-                        prefs.setPerfOverlayLocked(value);
-                        PerfOverlayService.refreshIfRunning();
-                        refreshState();
-                    }
-                });
-
-        action(box, "RESET POSITION", new Runnable() {
-            @Override
-            public void run() {
-                prefs.setPerfOverlayPosition(-1, -1);
-                PerfOverlayService.refreshIfRunning();
-            }
-        });
-        action(box, "OPEN DETAILS", new Runnable() {
-            @Override
-            public void run() {
-                PerfOverlayService.showDetailFromShortcut(OverlayActivity.this);
-            }
-        });
-
         perfShortcutRow = text("", 10f, TEXT, false);
         perfShortcutRow.setPadding(dp(10), dp(8), dp(10), dp(8));
         perfShortcutRow.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
@@ -382,6 +358,30 @@ public final class OverlayActivity extends AuroraGlassActivity {
             lp.rightMargin = (i % 3 != 2) ? dp(4) : 0;
             row.addView(chip, lp);
         }
+
+        LinearLayout actions = section(parent, "OVERLAY ACTIONS", null);
+        lockChip = toggle(actions, "LOCK POSITION", prefs.perfOverlayLocked(),
+                new Toggle() {
+                    @Override
+                    public void onChanged(boolean value) {
+                        prefs.setPerfOverlayLocked(value);
+                        PerfOverlayService.refreshIfRunning();
+                        refreshState();
+                    }
+                });
+        action(actions, "RESET POSITION", new Runnable() {
+            @Override
+            public void run() {
+                prefs.setPerfOverlayPosition(-1, -1);
+                PerfOverlayService.refreshIfRunning();
+            }
+        });
+        action(actions, "OPEN DETAILS", new Runnable() {
+            @Override
+            public void run() {
+                PerfOverlayService.showDetailFromShortcut(OverlayActivity.this);
+            }
+        });
     }
 
     // -------------------------------------------------------------- drawer UI
