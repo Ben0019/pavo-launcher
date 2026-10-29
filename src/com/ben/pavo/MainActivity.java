@@ -13679,6 +13679,14 @@ public final class MainActivity extends Activity {
                 dock.refreshStyle();
             }
         });
+        addSlider(panel, "Dock transparency", 20, 100, prefs.dockTransparency(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setDockTransparency(value);
+                if (dock != null) dock.setSurfaceAlpha(value / 100f);
+            }
+        });
         addSlider(panel, "Corner radius", 8, 40, prefs.cornerDp(), new IntCallback() {
             @Override
             public void onValue(int value) {
@@ -13777,34 +13785,11 @@ public final class MainActivity extends Activity {
         darkHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         darkHint.setPadding(0, 0, 0, Ui.dp(this, 10));
         panel.addView(darkHint);
-        addSlider(panel, "Dock", 20, 100, prefs.dockTransparency(), new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setDockTransparency(value);
-                if (dock != null) dock.setSurfaceAlpha(value / 100f);
-            }
-        });
         addSlider(panel, "Popup menus", 20, 100, prefs.menuTransparency(),
                 new IntCallback() {
             @Override
             public void onValue(int value) {
                 prefs.setMenuTransparency(value);
-            }
-        });
-        addSlider(panel, "App drawer", 20, 100, prefs.appDrawerTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setAppDrawerTransparency(value);
-                applyDrawerSurfaceTransparency();
-            }
-        });
-        addSlider(panel, "Popup app drawer", 20, 100, prefs.popupDrawerTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setPopupDrawerTransparency(value);
-                applyDrawerSurfaceTransparency();
             }
         });
         addSlider(panel, "Launcher settings", 20, 100, prefs.settingsTransparency(),
@@ -13816,15 +13801,6 @@ public final class MainActivity extends Activity {
                 if (settingsSubmenuGlass != null) {
                     settingsSubmenuGlass.setSurfaceAlpha(value / 100f);
                 }
-            }
-        });
-        addSlider(panel, "Folders", 20, 100, prefs.folderTransparency(),
-                new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                prefs.setFolderTransparency(value);
-                if (folderGlass != null) folderGlass.setSurfaceAlpha(value / 100f);
-                renderHome();
             }
         });
 
@@ -13868,6 +13844,16 @@ public final class MainActivity extends Activity {
         dotsHint.setPadding(0, 0, 0, Ui.dp(this, 4));
         panel.addView(dotsHint);
         addPageAnimationChooser(panel);
+
+        addSlider(panel, "Folder transparency", 20, 100, prefs.folderTransparency(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setFolderTransparency(value);
+                if (folderGlass != null) folderGlass.setSurfaceAlpha(value / 100f);
+                renderHome();
+            }
+        });
 
         panel.use("Gestures");
         addSection(panel, "Gestures");
@@ -14046,6 +14032,23 @@ public final class MainActivity extends Activity {
                         }
                     }
                 });
+        addSlider(panel, "App drawer transparency", 20, 100, prefs.appDrawerTransparency(),
+                new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setAppDrawerTransparency(value);
+                applyDrawerSurfaceTransparency();
+            }
+        });
+        addSlider(panel, "Popup app drawer transparency", 20, 100,
+                prefs.popupDrawerTransparency(), new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                prefs.setPopupDrawerTransparency(value);
+                applyDrawerSurfaceTransparency();
+            }
+        });
+
         panel.use("Widgets");
         addSection(panel, "Clock & status");
         addSwitch(panel, "Show clock & date", prefs.clockVisible(), new BoolCallback() {
