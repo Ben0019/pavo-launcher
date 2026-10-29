@@ -1135,6 +1135,7 @@ public final class AuroraInputService extends Service {
             @Override
             public void run() {
                 Backdrop backdrop = ScreenCaptureBackdrop.captureSharp(AuroraInputService.this);
+                if (backdrop == null) backdrop = BuiltInBackdrop.copy();
                 if (backdrop == null) backdrop = WallpaperBackdrop.captureSharp(AuroraInputService.this);
                 final Backdrop sampled = backdrop;
                 new Handler(Looper.getMainLooper()).post(new Runnable() {

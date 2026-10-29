@@ -450,8 +450,11 @@ final class AppDrawerOverlayView extends FrameLayout {
         panel.addView(list, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        glass = new GlassPanel(c, null, accent(), 0x4D0B0E14, 26, true);
+        // Same captured-backdrop material as the app cards and the app picker.
+        glass = new GlassPanel(c, null, accent(), 0x8C0B0E14, 26, true);
         glass.setBackdropScreenAnchored(true);
+        glass.setClearGlass(true);
+        glass.setClearBodyAlpha(0);
         glass.setFrosted(true);
         glass.setSurfaceAlpha(prefs.drawerOverlayAlpha() / 100f);
         glass.addView(panel, new FrameLayout.LayoutParams(
@@ -502,6 +505,10 @@ final class AppDrawerOverlayView extends FrameLayout {
     void setScreenBackdrop(Backdrop backdrop) {
         if (glass == null) return;
         glass.setBackdrop(backdrop);
+        if (backdrop != null && backdrop.bitmap != null) {
+            glass.setFrosted(false);
+            glass.setLiquidEffect(true);
+        }
         if (stylePanel instanceof GlassPanel) {
             ((GlassPanel) stylePanel).setBackdrop(backdrop);
         }

@@ -18,6 +18,17 @@ final class BuiltInBackdrop {
         pending = backdrop;
     }
 
+    /** A private copy so a second surface can sample the same capture safely. */
+    static Backdrop copy() {
+        if (pending == null || pending.bitmap == null || pending.bitmap.isRecycled()) {
+            return null;
+        }
+        android.graphics.Bitmap bmp = pending.bitmap.copy(
+                android.graphics.Bitmap.Config.ARGB_8888, false);
+        if (bmp == null) return null;
+        return new Backdrop(bmp, pending.screenWidth, pending.screenHeight);
+    }
+
     static Backdrop take() {
         Backdrop backdrop = pending;
         pending = null;

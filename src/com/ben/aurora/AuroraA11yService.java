@@ -509,6 +509,7 @@ public final class AuroraA11yService extends AccessibilityService {
             @Override
             public void run() {
                 Backdrop backdrop = ScreenCaptureBackdrop.captureSharp(AuroraA11yService.this);
+                if (backdrop == null) backdrop = BuiltInBackdrop.copy();
                 if (backdrop == null) backdrop = WallpaperBackdrop.captureSharp(AuroraA11yService.this);
                 final Backdrop sampled = backdrop;
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
