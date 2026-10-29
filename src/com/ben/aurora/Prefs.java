@@ -484,6 +484,14 @@ final class Prefs {
     void setPerfBattery(boolean v) { sp.edit().putBoolean("perf_battery", v).apply(); }
     void setPerfRam(boolean v) { sp.edit().putBoolean("perf_ram", v).apply(); }
     void setPerfCores(boolean v) { sp.edit().putBoolean("perf_cores", v).apply(); }
+    String perfCombo() { return sp.getString("perf_combo", ""); }
+    void setPerfCombo(String value) {
+        sp.edit().putString("perf_combo", value == null ? "" : value).apply();
+    }
+    String drawerCombo() { return sp.getString("drawer_combo", ""); }
+    void setDrawerCombo(String value) {
+        sp.edit().putString("drawer_combo", value == null ? "" : value).apply();
+    }
     void setPerfControllerRaw(String key) {
         sp.edit().putString("perf_controller_raw", key == null ? "" : key).apply();
     }

@@ -152,6 +152,7 @@ public final class MainActivity extends Activity {
     private static final String DISPLAY_PKG = "com.ben.aurora.display";
     private static final String RGB_PKG = "com.ben.aurora.rgb";
     private static final String FAN_PKG = "com.ben.aurora.fan";
+    private static final String OVERLAY_PKG = "com.ben.aurora.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.aurora.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.aurora.devicehealth";
     private static final String BENCHMARK_PKG = "com.ben.aurora.benchmark";
@@ -341,6 +342,7 @@ public final class MainActivity extends Activity {
     private Apps.Entry displayEntry;
     private Apps.Entry rgbEntry;
     private Apps.Entry fanEntry;
+    private Apps.Entry overlayEntry;
     private Apps.Entry touchMapEntry;
     private Apps.Entry deviceHealthEntry;
     private Apps.Entry benchmarkEntry;
@@ -1847,6 +1849,7 @@ public final class MainActivity extends Activity {
         if (DISPLAY_PKG.equals(pkg)) return displayEntry();
         if (RGB_PKG.equals(pkg)) return rgbEntry();
         if (FAN_PKG.equals(pkg)) return fanEntry();
+        if (OVERLAY_PKG.equals(pkg)) return overlayEntry();
         if (TOUCH_MAP_PKG.equals(pkg)) return touchMapEntry();
         if (DEVICE_HEALTH_PKG.equals(pkg)) return deviceHealthEntry();
         if (BENCHMARK_PKG.equals(pkg)) return benchmarkEntry();
@@ -1866,6 +1869,7 @@ public final class MainActivity extends Activity {
         return PERF_LOG_PKG.equals(pkg) || CONTROLLER_MAP_PKG.equals(pkg)
                 || PERF_TUNER_PKG.equals(pkg) || DISPLAY_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
+                || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
                 || SCREEN_RECORDER_PKG.equals(pkg);
@@ -1923,6 +1927,16 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return fanEntry;
+    }
+
+    private Apps.Entry overlayEntry() {
+        if (overlayEntry == null) {
+            overlayEntry = new Apps.Entry(Loc.s(MainActivity.this, "Overlay & Drawer"),
+                    OVERLAY_PKG, "");
+            overlayEntry.icon = Apps.overlayIcon(Ui.dp(this, 72),
+                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
+        }
+        return overlayEntry;
     }
 
     private Apps.Entry touchMapEntry() {
@@ -5972,6 +5986,10 @@ public final class MainActivity extends Activity {
         }
         if (FAN_PKG.equals(item.pkg)) {
             startBuiltIn(new Intent(this, FanActivity.class), source);
+            return;
+        }
+        if (OVERLAY_PKG.equals(item.pkg)) {
+            startBuiltIn(new Intent(this, OverlayActivity.class), source);
             return;
         }
         if (TOUCH_MAP_PKG.equals(item.pkg)) {

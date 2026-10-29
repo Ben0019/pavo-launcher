@@ -657,6 +657,49 @@ final class Apps {
         return b;
     }
 
+    /** Floating overlay window plus a drawer grid, for the overlay & drawer app. */
+    static Bitmap overlayIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+
+        RectF panel = new RectF(size * 0.18f, size * 0.22f,
+                size * 0.82f, size * 0.66f);
+        Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fill.setColor(alpha(accent, 0x33));
+        c.drawRoundRect(panel, size * 0.10f, size * 0.10f, fill);
+        Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
+        outline.setStyle(Paint.Style.STROKE);
+        outline.setStrokeWidth(Math.max(1f, size * 0.022f));
+        outline.setColor(alpha(accent, 0xDD));
+        c.drawRoundRect(panel, size * 0.10f, size * 0.10f, outline);
+
+        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dot.setColor(alpha(accent, 0xEE));
+        float dotR = size * 0.045f;
+        for (int row = 0; row < 2; row++) {
+            for (int col = 0; col < 3; col++) {
+                float dx = size * (0.40f + col * 0.13f);
+                float dy = size * (0.38f + row * 0.15f);
+                c.drawCircle(dx, dy, dotR, dot);
+            }
+        }
+        Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bar.setColor(alpha(accent, 0xAA));
+        c.drawRoundRect(new RectF(size * 0.24f, size * 0.74f,
+                size * 0.76f, size * 0.78f), size * 0.02f, size * 0.02f, bar);
+        return b;
+    }
+
     /** Touch target over a game screen for the built-in Touch Mapper. */
     static Bitmap touchMapperIcon(int px, int accent) {
         int size = Math.max(24, px);

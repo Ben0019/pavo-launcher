@@ -216,6 +216,18 @@
             android:theme="@style/Theme.Aurora.Transparent" />
 
         <activity
+            android:name=".OverlayActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Overlay &amp; Drawer"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.aurora.overlay"
+            android:theme="@style/Theme.Aurora.Transparent" />
+
+        <activity
             android:name=".FanActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
             android:excludeFromRecents="true"

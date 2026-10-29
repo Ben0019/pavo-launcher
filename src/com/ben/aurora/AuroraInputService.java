@@ -57,9 +57,16 @@ public final class AuroraInputService extends Service {
     private static final int CAPTURE_PERF = 0;
     private static final int CAPTURE_DRAWER = 1;
     private static final int CAPTURE_PERFLOG = 2;
+    private static final int CAPTURE_PERF_COMBO = 3;
+    private static final int CAPTURE_DRAWER_COMBO = 4;
     private static volatile boolean capturing;
     private static volatile int captureTarget = CAPTURE_PERF;
     private static volatile long captureDeadline;
+    private static volatile String comboCaptureFirst;
+
+    private final java.util.Set<String> comboDown = new java.util.LinkedHashSet<>();
+    private final java.util.Set<String> comboConsumed = new java.util.LinkedHashSet<>();
+    private long comboLastAt;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private volatile boolean running;
@@ -286,6 +293,14 @@ public final class AuroraInputService extends Service {
         return beginCapture(c, CAPTURE_PERFLOG);
     }
 
+    static boolean beginOverlayComboCapture(Context c) {
+        return beginCapture(c, CAPTURE_PERF_COMBO);
+    }
+
+    static boolean beginDrawerComboCapture(Context c) {
+        return beginCapture(c, CAPTURE_DRAWER_COMBO);
+    }
+
     private static boolean beginCapture(final Context context, final int target) {
         if (context == null) return false;
         if (new Prefs(context).rootlessRemap()) {
@@ -300,7 +315,12 @@ public final class AuroraInputService extends Service {
             s.main.removeCallbacks(s.captureTimeout);
             s.main.postDelayed(s.captureTimeout, 5200L);
         }
-        LToast.makeText(context, target == CAPTURE_DRAWER
+        comboCaptureFirst = null;
+        LToast.makeText(context, target == CAPTURE_PERF_COMBO
+                ? "Press two controller buttons for the overlay"
+                : target == CAPTURE_DRAWER_COMBO
+                ? "Press two controller buttons for the app drawer"
+                : target == CAPTURE_DRAWER
                 ? "Press a controller button for the app drawer"
                 : target == CAPTURE_PERFLOG
                 ? "Press a controller button to open Perf Log options"
@@ -522,6 +542,43 @@ public final class AuroraInputService extends Service {
             final int target = captureTarget;
             String key = RootlessUinput.linuxLabel(raw);
             if (key == null) return;
+            if (target == CAPTURE_PERF_COMBO || target == CAPTURE_DRAWER_COMBO) {
+                if (comboCaptureFirst == null) {
+                    comboCaptureFirst = key;
+                    captureDeadline = SystemClock.uptimeMillis() + 5000L;
+                    main.removeCallbacks(captureTimeout);
+                    main.postDelayed(captureTimeout, 5200L);
+                    final String firstLabel = friendlyKey(key);
+                    main.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            LToast.makeText(AuroraInputService.this,
+                                    firstLabel + "  ·  press the second button",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    return;
+                }
+                if (key.equals(comboCaptureFirst)) return;
+                String combo = comboCaptureFirst + "+" + key;
+                if (target == CAPTURE_PERF_COMBO) prefs.setPerfCombo(combo);
+                else prefs.setDrawerCombo(combo);
+                capturing = false;
+                comboCaptureFirst = null;
+                swallowCaptureUp = key;
+                main.removeCallbacks(captureTimeout);
+                final String label = friendlyKey(target == CAPTURE_PERF_COMBO
+                        ? combo.substring(0, combo.indexOf('+')) : combo)
+                        + " + " + friendlyKey(key);
+                main.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        LToast.makeText(AuroraInputService.this, "Combo: " + label,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+                return;
+            }
             if (target == CAPTURE_DRAWER) prefs.setDrawerControllerRaw(key);
             else if (target == CAPTURE_PERFLOG) prefs.setPerfLogControllerRaw(key);
             else prefs.setPerfControllerRaw(key);
@@ -552,6 +609,11 @@ public final class AuroraInputService extends Service {
             return;
         }
 
+        if (comboConsumed.contains(key)) {
+            if (up) comboConsumed.remove(key);
+            return;
+        }
+        if (handleComboShortcut(key, down, up)) return;
         if (drawerOverlayVisible && handleDrawerControllerKey(raw, down, up, repeat)) {
             return;
         }
@@ -621,6 +683,62 @@ public final class AuroraInputService extends Service {
             default:
                 return raw.replace('_', ' ');
         }
+    }
+
+    /** Two-button combos, checked before the single-button shortcuts. */
+    private boolean handleComboShortcut(String key, boolean down, boolean up) {
+        Prefs prefs = new Prefs(this);
+        String perf = prefs.perfCombo();
+        String drawer = prefs.drawerCombo();
+        boolean inPerf = containsKey(perf, key);
+        boolean inDrawer = containsKey(drawer, key);
+        if (!inPerf && !inDrawer) return false;
+        if (down) {
+            long now = SystemClock.uptimeMillis();
+            if (now - comboLastAt > 1500L) comboDown.clear();
+            comboDown.add(key);
+            if (inPerf && comboDown.containsAll(comboKeys(perf))) {
+                comboConsumed.addAll(comboKeys(perf));
+                comboDown.clear();
+                comboLastAt = now;
+                PerfOverlayService.toggleOverlayFromShortcut(this);
+                return true;
+            }
+            if (inDrawer && comboDown.containsAll(comboKeys(drawer))) {
+                // Let both keys finish before the drawer takes focus; otherwise
+                // the remaining key event lands on the drawer and opens an app.
+                comboConsumed.addAll(comboKeys(drawer));
+                comboDown.clear();
+                comboLastAt = now;
+                main.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        toggleDrawerOverlay();
+                    }
+                }, 260L);
+                return true;
+            }
+            return true;
+        }
+        if (up) comboDown.remove(key);
+        return true;
+    }
+
+    private static boolean containsKey(String combo, String key) {
+        if (combo == null || combo.isEmpty()) return false;
+        for (String part : combo.split("\\+")) {
+            if (part.trim().equals(key)) return true;
+        }
+        return false;
+    }
+
+    private static java.util.List<String> comboKeys(String combo) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (combo == null) return out;
+        for (String part : combo.split("\\+")) {
+            if (!part.trim().isEmpty()) out.add(part.trim());
+        }
+        return out;
     }
 
     private void handleShortcut(final String key, boolean down, boolean up, boolean repeat) {

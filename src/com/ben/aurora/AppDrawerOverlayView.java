@@ -62,6 +62,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static final String CONTROLLER_PKG = "com.ben.aurora.controllermap";
     private static final String RGB_PKG = "com.ben.aurora.rgb";
     private static final String FAN_PKG = "com.ben.aurora.fan";
+    private static final String OVERLAY_PKG = "com.ben.aurora.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.aurora.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.aurora.devicehealth";
     private static final String BENCHMARK_PKG = "com.ben.aurora.benchmark";
@@ -607,6 +608,10 @@ final class AppDrawerOverlayView extends FrameLayout {
         Apps.Entry logs = new Apps.Entry(Loc.s(context, "Perf Logs"), PERF_LOG_PKG, "");
         logs.icon = Apps.performanceLogsIcon(px, accent);
         out.add(logs);
+        Apps.Entry overlay = new Apps.Entry(Loc.s(context, "Overlay & Drawer"),
+                OVERLAY_PKG, "");
+        overlay.icon = Apps.overlayIcon(px, accent);
+        out.add(overlay);
         Apps.Entry display = new Apps.Entry(Loc.s(context, "Display"), DISPLAY_PKG, "");
         display.icon = Apps.displayIcon(px, accent);
         out.add(display);
@@ -646,6 +651,7 @@ final class AppDrawerOverlayView extends FrameLayout {
         return PERF_TUNER_PKG.equals(pkg) || PERF_LOG_PKG.equals(pkg)
                 || DISPLAY_PKG.equals(pkg) || CONTROLLER_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
+                || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
                 || SCREEN_RECORDER_PKG.equals(pkg);
@@ -665,6 +671,8 @@ final class AppDrawerOverlayView extends FrameLayout {
             intent = new Intent(context, ControllerMapActivity.class);
         } else if (RGB_PKG.equals(e.pkg)) {
             intent = new Intent(context, RgbActivity.class);
+        } else if (OVERLAY_PKG.equals(e.pkg)) {
+            intent = new Intent(context, OverlayActivity.class);
         } else if (FAN_PKG.equals(e.pkg)) {
             intent = new Intent(context, FanActivity.class);
         } else if (TOUCH_MAP_PKG.equals(e.pkg)) {
