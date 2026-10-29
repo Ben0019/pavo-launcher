@@ -443,9 +443,9 @@ final class AppDrawerOverlayView extends FrameLayout {
         list.setDividerHeight(0);
         list.setSelector(new ColorDrawable(Color.TRANSPARENT));
         list.setVerticalScrollBarEnabled(false);
-        list.setClipToPadding(true);
+        list.setClipToPadding(false);
         list.setClipChildren(true);
-        list.setPadding(0, Ui.dp(c, 2), 0, Ui.dp(c, 12));
+        list.setPadding(0, Ui.dp(c, 2), 0, Ui.dp(c, 26));
         list.setAdapter(adapter);
         panel.addView(list, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -1699,7 +1699,14 @@ final class AppDrawerOverlayView extends FrameLayout {
                         return;
                     }
                     int safeTop = list.getPaddingTop();
-                    int safeBottom = list.getHeight() - list.getPaddingBottom();
+                    int safeBottom = list.getHeight();
+                    // The last row must end above the card's rounded bottom edge,
+                    // not flush with it: scroll all the way to the end instead of
+                    // positioning the row, which ListView clamps short.
+                    if (row >= list.getCount() - 1) {
+                        list.setSelection(list.getCount() - 1);
+                        return;
+                    }
                     // Keep the whole row inside the list. Scrolling only when the
                     // row left the viewport left half a row clipped under the
                     // drawer's search/favourite header, so the ring looked cut.

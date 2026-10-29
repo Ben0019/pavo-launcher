@@ -9573,8 +9573,8 @@ public final class MainActivity extends Activity {
         drawerGrid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
         drawerGrid.setSelector(new ColorDrawable(Color.TRANSPARENT));
         drawerGrid.setPadding(Ui.dp(this, 10), Ui.dp(this, 8),
-                Ui.dp(this, 10), Ui.dp(this, 20));
-        drawerGrid.setClipToPadding(true);
+                Ui.dp(this, 10), Ui.dp(this, 26));
+        drawerGrid.setClipToPadding(false);
         drawerGrid.setClipChildren(true);
         drawerGrid.setAdapter(drawerAdapter);
         drawerGrid.setVerticalScrollBarEnabled(false);
@@ -16231,7 +16231,35 @@ public final class MainActivity extends Activity {
             return true;
         }
         best.requestFocus();
+        revealFocusedItem(best);
         return true;
+    }
+
+    /**
+     * Keep the focused icon fully inside the grid, with a little margin, so the
+     * last row is never left half under the drawer's bottom edge.
+     */
+    private void revealFocusedItem(View focused) {
+        if (!(focused instanceof ItemView)) return;
+        android.view.ViewParent parent = focused.getParent();
+        if (!(parent instanceof GridView)) return;
+        final GridView grid = (GridView) parent;
+        final View item = focused;
+        grid.post(new Runnable() {
+            @Override
+            public void run() {
+                if (!item.isAttachedToWindow() || grid.getHeight() <= 0) return;
+                int margin = Ui.dp(MainActivity.this, 10);
+                int areaBottom = grid.getHeight() - grid.getPaddingBottom();
+                int top = item.getTop();
+                int bottom = item.getBottom();
+                if (bottom > areaBottom - margin) {
+                    grid.smoothScrollBy(bottom - areaBottom + margin, 180);
+                } else if (top < grid.getPaddingTop() + margin) {
+                    grid.smoothScrollBy(top - grid.getPaddingTop() - margin, 180);
+                }
+            }
+        });
     }
 
     private void focusPageFirst(int page) {
@@ -16385,6 +16413,7 @@ public final class MainActivity extends Activity {
         View next = FocusFinder.getInstance().findNextFocus(grid, focused, focusDir);
         if (next != null && next != focused) {
             next.requestFocus();
+            revealFocusedItem(next);
             return true;
         }
         // At the visible edge of a scrolling grid, scroll one row and keep the
