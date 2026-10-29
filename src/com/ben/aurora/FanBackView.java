@@ -62,10 +62,29 @@ final class FanBackView extends View {
     private float airflowLift = 1f;
     private final GyroTiltController gyro;
 
+    private final Runnable resumeFrame = new Runnable() {
+        @Override
+        public void run() {
+            if (attached && !framePosted) {
+                framePosted = true;
+                Choreographer.getInstance().postFrameCallback(frame);
+            }
+        }
+    };
+    private boolean framePosted;
+
     private final Choreographer.FrameCallback frame = new Choreographer.FrameCallback() {
         @Override
         public void doFrame(long frameTimeNanos) {
+            framePosted = false;
             if (!attached) return;
+            if (!Ui.onScreen(FanBackView.this)) {
+                // Off-screen pages must not keep the launcher at 120 fps.
+                lastFrame = 0L;
+                removeCallbacks(resumeFrame);
+                postDelayed(resumeFrame, 500L);
+                return;
+            }
             if (lastFrame == 0L) lastFrame = frameTimeNanos;
             float dt = Math.min(0.05f, (frameTimeNanos - lastFrame) / 1_000_000_000f);
             lastFrame = frameTimeNanos;
@@ -127,7 +146,10 @@ final class FanBackView extends View {
                 }
             }
             invalidate();
-            Choreographer.getInstance().postFrameCallback(this);
+            if (attached && !framePosted) {
+                framePosted = true;
+                Choreographer.getInstance().postFrameCallback(this);
+            }
         }
     };
 

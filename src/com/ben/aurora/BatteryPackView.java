@@ -272,7 +272,7 @@ final class BatteryPackView extends View {
         if (geometry != null && charging && !separated) {
             drawPour(canvas, phase, surfaceY, portX, geometry[2], levelColor);
         }
-        if (isShown() && animating) postInvalidateOnAnimation();
+        if (animating && Ui.onScreen(this)) postInvalidateOnAnimation();
     }
 
     private void drawFloor(Canvas canvas, float w, float h) {

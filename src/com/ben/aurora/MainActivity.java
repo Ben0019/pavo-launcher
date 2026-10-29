@@ -560,13 +560,49 @@ public final class MainActivity extends Activity {
                 && activeMenu == null && settingsDialog == null && !dragging;
     }
 
+    private boolean homeVisualsIdle;
+
     /** Any real input resets the pixel-shift offset immediately. */
     private void noteUserActivity() {
         lastUserActivityAt = SystemClock.uptimeMillis();
         resetHomeOffset();
         hideBurnInDim();
         scheduleBurnInDim();
+        if (homeVisualsIdle) {
+            homeVisualsIdle = false;
+            setHomeMarqueePaused(false);
+            setHomeLiquidPaused(false);
+            setHomeIconsPaused(false);
+        }
+        handler.removeCallbacks(homeIdleTick);
+        handler.postDelayed(homeIdleTick, HOME_IDLE_MS);
     }
+
+    private static final long HOME_IDLE_MS = 20000L;
+
+    /**
+     * The live icons, dock sheen and label marquees redraw every frame. That is
+     * what keeps the launcher at ~120 fps and warms the SoC while the user is
+     * just looking at the home screen, so they stop after a short idle.
+     */
+    private final Runnable homeIdleTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!activityResumed || homeVisualsIdle) return;
+            if (!homeIdleEligible()) {
+                handler.postDelayed(this, 4000L);
+                return;
+            }
+            if (SystemClock.uptimeMillis() - lastUserActivityAt < HOME_IDLE_MS) {
+                handler.postDelayed(this, 2000L);
+                return;
+            }
+            homeVisualsIdle = true;
+            setHomeMarqueePaused(true);
+            setHomeLiquidPaused(true);
+            setHomeIconsPaused(true);
+        }
+    };
 
     private void setHomeMarqueePaused(boolean paused) {
         if (pager != null) {
@@ -1272,6 +1308,9 @@ public final class MainActivity extends Activity {
         setHomeMarqueePaused(false);
         setHomeLiquidPaused(false);
         setHomeIconsPaused(false);
+        homeVisualsIdle = false;
+        handler.removeCallbacks(homeIdleTick);
+        handler.postDelayed(homeIdleTick, HOME_IDLE_MS);
         hideBurnInDim();
         startBurnInProtection();
         scheduleBurnInDim();
@@ -1370,6 +1409,7 @@ public final class MainActivity extends Activity {
         setHomeMarqueePaused(true);
         setHomeLiquidPaused(true);
         setHomeIconsPaused(true);
+        handler.removeCallbacks(homeIdleTick);
         resetHomeOffset();
         hideBurnInDim();
         handler.removeCallbacks(burnInDimCheck);

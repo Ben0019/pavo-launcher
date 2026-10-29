@@ -128,6 +128,13 @@ final class Ui {
         return base;
     }
 
+    /** True only when this view is actually drawn on screen, not just attached. */
+    static boolean onScreen(android.view.View v) {
+        if (v == null || !v.isShown()) return false;
+        android.graphics.Rect r = new android.graphics.Rect();
+        return v.getGlobalVisibleRect(r) && r.width() > 0 && r.height() > 0;
+    }
+
     static int dp(Context c, float value) {
         return Math.round(TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, value, c.getResources().getDisplayMetrics()));
