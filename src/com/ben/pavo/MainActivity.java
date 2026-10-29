@@ -9032,7 +9032,7 @@ public final class MainActivity extends Activity {
         panel.addView(title);
 
         TextView hint = new LTextView(this);
-        hint.setText("Pick the app that joins " + appLabel(source) + " in the new folder.");
+        hint.setText("Pick the app to join the new folder.");
         hint.setTextColor(0x80FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 10));
