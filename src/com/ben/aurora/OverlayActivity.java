@@ -275,7 +275,10 @@ public final class OverlayActivity extends AuroraGlassActivity {
                 lp.topMargin = dp(9);
                 View cardView = cards.get(k);
                 if (stretch && cardView instanceof LinearLayout) {
-                    ((LinearLayout) cardView).setGravity(Gravity.CENTER_VERTICAL);
+                    // Spread the rows over the full card height so a stretched
+                    // card never ends in a dead block of empty space.
+                    stripSpacers((LinearLayout) cardView);
+                    distributeVertically((LinearLayout) cardView);
                 }
                 column.addView(cardView, lp);
             }
@@ -283,6 +286,30 @@ public final class OverlayActivity extends AuroraGlassActivity {
                     0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
             if (i > 0) clp.leftMargin = dp(6);
             content.addView(wrapScroll(column), clp);
+        }
+    }
+
+    private void stripSpacers(LinearLayout card) {
+        for (int i = card.getChildCount() - 1; i >= 0; i--) {
+            View child = card.getChildAt(i);
+            if (child != null && child.getTag() == DISTRIBUTE_SPACER) {
+                card.removeViewAt(i);
+            }
+        }
+    }
+
+    private static final Object DISTRIBUTE_SPACER = new Object();
+
+    /** Space-between inside a card: children keep their size, gaps share the rest. */
+    private void distributeVertically(LinearLayout card) {
+        int count = card.getChildCount();
+        if (count < 2) return;
+        for (int i = count - 1; i >= 1; i--) {
+            View spacer = new View(this);
+            spacer.setTag(DISTRIBUTE_SPACER);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+            card.addView(spacer, i, lp);
         }
     }
 
