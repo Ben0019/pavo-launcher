@@ -14447,15 +14447,15 @@ public final class MainActivity extends Activity {
 
         panel.use(null);
         String[][] settingsSections = {
-                {"Dock", "Dock"},
-                {"Transparency", "Transparency"},
                 {"Home", "Home screen"},
-                {"Gestures", "Gestures"},
-                {"Feedback", "Feedback & haptics"},
                 {"Drawer", "App drawer"},
+                {"Dock", "Dock"},
+                {"Gestures", "Gestures"},
+                {"Transparency", "Transparency"},
+                {"Feedback", "Feedback & haptics"},
                 {"Widgets", "Clock, weather & status"},
-                {"Language", "Language"},
-                {"Backup", "Backup & restore"}
+                {"Backup", "Backup & restore"},
+                {"Language", "Language"}
         };
         for (String[] category : settingsSections) {
             panel.addView(makeSettingsCategoryRow(category[1], category[0]),
