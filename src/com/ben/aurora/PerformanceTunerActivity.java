@@ -626,6 +626,26 @@ public final class PerformanceTunerActivity extends AuroraGlassActivity {
         addFocusable(close, true);
         headerFocus.add(close);
 
+        // On narrow panels (4:3 included) the title and the chips do not fit on
+        // one line, so the header becomes two rows.
+        if (Ui.columns(this, 3) == 1 || Ui.widthDp(this) < 640) {
+            header.removeAllViews();
+            header.setOrientation(LinearLayout.VERTICAL);
+            header.setGravity(Gravity.START);
+            header.addView(titles, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            rowLp.topMargin = dp(4);
+            header.addView(row, rowLp);
+            row.addView(leftControls, new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            row.addView(controls);
+        }
+
         return header;
     }
 
