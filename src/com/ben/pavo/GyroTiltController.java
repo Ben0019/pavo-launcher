@@ -29,6 +29,7 @@ final class GyroTiltController implements SensorEventListener {
     private final float[] orientation = new float[3];
 
     private boolean registered;
+    private boolean applyToView = true;
     private boolean baseSet;
     private boolean geometrySet;
     private float smoothPitch;
@@ -66,6 +67,16 @@ final class GyroTiltController implements SensorEventListener {
         resetTransform();
         registered = sensorManager.registerListener(this, sensor,
                 SensorManager.SENSOR_DELAY_GAME);
+    }
+
+    /**
+     * Keep the sensor running for the model's own physics (liquid slosh, cable
+     * sway) without rotating the view. Rotating a software-layer view resamples
+     * its pre-rasterised bitmap, which softens every edge of the artwork.
+     */
+    void setApplyToView(boolean enabled) {
+        applyToView = Boolean.TRUE.equals(enabled);
+        if (!applyToView) resetTransform();
     }
 
     void stop() {
@@ -146,6 +157,7 @@ final class GyroTiltController implements SensorEventListener {
     }
 
     private void applyTransform() {
+        if (!applyToView) return;
         if (!geometrySet) configureGeometry();
         int w = target.getWidth();
         int h = target.getHeight();

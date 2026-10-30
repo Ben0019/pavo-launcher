@@ -105,6 +105,13 @@ final class BatteryPackView extends View {
         gyro = allowTilt ? new GyroTiltController(c, this) : null;
     }
 
+    /** 3D tilt of the whole pack. Off keeps the model pixel-sharp: the artwork
+     *  is rendered into a software layer that the compositor would otherwise
+     *  resample on every frame. */
+    void setModelTilt(boolean enabled) {
+        if (gyro != null) gyro.setApplyToView(enabled);
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
