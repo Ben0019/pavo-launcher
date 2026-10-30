@@ -213,6 +213,17 @@ final class Prefs {
 
     // --- performance overlay ---
     boolean perfOverlay() { return sp.getBoolean("perf_overlay", false); }
+    boolean setupDone() { return sp.getBoolean("setup_done", false); }
+    void setSetupDone(boolean done) { sp.edit().putBoolean("setup_done", done).apply(); }
+    boolean setupSkipped(String key) {
+        return sp.getStringSet("setup_skipped", java.util.Collections.emptySet()).contains(key);
+    }
+    void skipSetup(String key) {
+        java.util.Set<String> set = new java.util.HashSet<>(
+                sp.getStringSet("setup_skipped", java.util.Collections.emptySet()));
+        set.add(key);
+        sp.edit().putStringSet("setup_skipped", set).apply();
+    }
     boolean benchUseTunerClocks() { return sp.getBoolean("bench_use_tuner_clocks", false); }
     void setBenchUseTunerClocks(boolean value) {
         sp.edit().putBoolean("bench_use_tuner_clocks", value).apply();

@@ -917,6 +917,8 @@ public final class MainActivity extends Activity {
         }
     };
 
+    private boolean setupShown;
+
     private final BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -1325,6 +1327,13 @@ public final class MainActivity extends Activity {
         // Auto charge separation lives in a service as well; re-arm it here so a
         // fresh install or a reboot does not silently disable it.
         if (new DeviceHealthStore(this).autoSeparation()) BatteryGuardService.start(this);
+        if (!prefs.setupDone() && !setupShown) {
+            setupShown = true;
+            try {
+                startActivity(new Intent(this, SetupActivity.class));
+            } catch (Throwable ignored) {
+            }
+        }
         applySurfaceTransparency();
         // Repairs a fan/performance pairing the firmware's fan tile cannot draw;
         // off the main thread because the fix goes through PServer.
