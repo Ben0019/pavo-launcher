@@ -43,6 +43,11 @@ public final class ControllerMapActivity extends PavoGlassActivity {
     private final ControllerMapConfig config = new ControllerMapConfig();
     private final List<View> focusRows = new ArrayList<>();
     private File configFile;
+    private ControllerProfileStore profileStore;
+    private String selectedAppPkg = "";
+    private TextView profileChip;
+    private TextView profileReset;
+    private AppPickerStripView appPicker;
     private Prefs prefs;
     private FrameLayout rootView;
     private LinearLayout listContent;
@@ -122,16 +127,19 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         accent = ThemeColors.accent();
         prefs = new Prefs(this);
         configFile = ControllerRemapManager.configFile(this);
-        config.load(configFile);
+        profileStore = new ControllerProfileStore(this);
+        rootView = findViewById(android.R.id.content);
+        loadProfileSilently("");
         buildUi();
         hideBars();
-        rebuildList();
+        loadProfile("");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         hideBars();
+        ControllerProfiles.activityOpen = true;
         PavoA11yService.setRemapUiActive(true);
         PavoInputService.setRemapUiActive(true);
         PavoA11yService.setVisualListener(visualListener);
@@ -146,6 +154,8 @@ public final class ControllerMapActivity extends PavoGlassActivity {
 
     @Override
     protected void onPause() {
+        ControllerProfiles.activityOpen = false;
+        ControllerProfiles.markDirty();
         PavoA11yService.setRemapUiActive(false);
         PavoInputService.setRemapUiActive(false);
         PavoA11yService.setVisualListener(null);
@@ -336,6 +346,52 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         card.addView(header, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        LinearLayout profileRow = new LinearLayout(this);
+        profileRow.setOrientation(LinearLayout.HORIZONTAL);
+        profileRow.setGravity(Gravity.CENTER_VERTICAL);
+        profileRow.setPadding(0, dp(8), 0, dp(2));
+
+        profileChip = text("ALL APPS  \u25be", 10f, TEXT, false);
+        profileChip.setGravity(Gravity.CENTER);
+        profileChip.setPadding(dp(12), dp(6), dp(12), dp(6));
+        profileChip.setFocusable(true);
+        profileChip.setClickable(true);
+        profileChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                openAppPicker();
+            }
+        });
+        profileRow.addView(profileChip);
+
+        profileReset = text("USE GLOBAL", 9f, 0xCCFFFFFF, false);
+        profileReset.setGravity(Gravity.CENTER);
+        profileReset.setPadding(dp(10), dp(6), dp(10), dp(6));
+        profileReset.setFocusable(true);
+        profileReset.setClickable(true);
+        profileReset.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (selectedAppPkg.isEmpty()) return;
+                profileStore.removeApp(selectedAppPkg);
+                ControllerProfiles.markDirty();
+                loadProfile("");
+                LToast.makeText(ControllerMapActivity.this,
+                        "Using the global mapping", Toast.LENGTH_SHORT).show();
+            }
+        });
+        LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        resetLp.leftMargin = dp(6);
+        profileRow.addView(profileReset, resetLp);
+
+        TextView profileHint = text("Per-app profiles apply while that app is in front",
+                8.5f, MUTED, false);
+        profileHint.setPadding(dp(8), 0, 0, 0);
+        profileRow.addView(profileHint, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        card.addView(profileRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         LinearLayout hero = new LinearLayout(this);
         hero.setOrientation(LinearLayout.HORIZONTAL);
         hero.setGravity(Gravity.CENTER_VERTICAL);
@@ -523,7 +579,101 @@ public final class ControllerMapActivity extends PavoGlassActivity {
     }
 
     private void persist(boolean capture) {
-        config.save(configFile, prefs.controllerRemapEnabled(), capture);
+        boolean enabled = prefs.controllerRemapEnabled();
+        String text = config.encode(enabled, capture);
+        if (selectedAppPkg.isEmpty()) {
+            config.save(configFile, enabled, capture);
+            profileStore.setGlobal(text);
+        } else {
+            String global = profileStore.global();
+            ControllerMapConfig base = new ControllerMapConfig();
+            base.loadText(global);
+            // Identical to the global mapping: no override needed.
+            if (global != null && base.sameRules(config)) {
+                profileStore.removeApp(selectedAppPkg);
+            } else {
+                profileStore.setApp(selectedAppPkg, text);
+            }
+        }
+        ControllerProfiles.markDirty();
+    }
+
+    private void loadProfileSilently(String pkg) {
+        selectedAppPkg = pkg == null ? "" : pkg;
+        if (selectedAppPkg.isEmpty()) {
+            String saved = profileStore.global();
+            if (saved == null) {
+                // First run with profiles: the existing file is the global profile.
+                config.load(configFile);
+                profileStore.setGlobal(config.encode(config.enabled, config.capture));
+            } else {
+                config.loadText(saved);
+            }
+        } else {
+            String saved = profileStore.app(selectedAppPkg);
+            String base = profileStore.global();
+            if (saved == null) {
+                // Start a new profile from the global mapping, not from nothing.
+                if (base == null) {
+                    config.load(configFile);
+                    base = config.encode(config.enabled, config.capture);
+                    profileStore.setGlobal(base);
+                } else {
+                    config.loadText(base);
+                }
+            } else {
+                config.loadText(saved);
+            }
+            // Enable remapping is device-wide; a profile only carries mappings.
+            config.enabled = prefs.controllerRemapEnabled();
+        }
+    }
+
+    private void loadProfile(String pkg) {
+        loadProfileSilently(pkg);
+        rebuildList();
+        if (outlineView != null) outlineView.setMappings(config.mappings);
+        updateProfileChip();
+        refreshHeader();
+    }
+
+    private void updateProfileChip() {
+        if (profileChip == null) return;
+        String label = "ALL APPS";
+        if (!selectedAppPkg.isEmpty()) {
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                label = String.valueOf(pm.getApplicationLabel(
+                        pm.getApplicationInfo(selectedAppPkg, 0)));
+            } catch (Throwable ignored) {
+                label = selectedAppPkg;
+            }
+        }
+        profileChip.setText(label + "  \u25be");
+        boolean perApp = !selectedAppPkg.isEmpty();
+        profileChip.setTextColor(perApp ? 0xFF06110B : 0xF2FFFFFF);
+        profileChip.setBackground(Ui.rounded(perApp ? accent : 0x1AFFFFFF, dp(10),
+                perApp ? 0x00000000 : 0x44FFFFFF, dp(1)));
+        if (profileReset != null) profileReset.setVisibility(perApp ? View.VISIBLE : View.GONE);
+    }
+
+    private void openAppPicker() {
+        if (appPicker != null || rootView == null) return;
+        GlassPanel base = PavoGlassActivity.largestGlassPanel(rootView);
+        appPicker = new AppPickerStripView(this, prefs, selectedAppPkg, base,
+                new AppPickerStripView.Listener() {
+                    @Override public void onPick(String pkg, Apps.Entry entry) {
+                        appPicker = null;
+                        ControllerProfiles.markDirty();
+                        loadProfile(pkg == null ? "" : pkg);
+                    }
+                    @Override public void onClose() {
+                        appPicker = null;
+                    }
+                });
+        rootView.addView(appPicker, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        appPicker.bringToFront();
     }
 
     private void rebuildList() {

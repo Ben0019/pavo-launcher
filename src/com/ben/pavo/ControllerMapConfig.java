@@ -94,6 +94,57 @@ final class ControllerMapConfig {
         return true;
     }
 
+    /** True when both profiles carry the same buttons, turbos and combos. */
+    boolean sameRules(ControllerMapConfig other) {
+        if (other == null || !mappings.equals(other.mappings)) return false;
+        if (!turbo.equals(other.turbo) || combos.size() != other.combos.size()) return false;
+        for (int i = 0; i < combos.size(); i++) {
+            Combo a = combos.get(i);
+            Combo b = other.combos.get(i);
+            if (a.target != b.target || a.keys.length != b.keys.length) return false;
+            for (int k = 0; k < a.keys.length; k++) if (a.keys[k] != b.keys[k]) return false;
+        }
+        return true;
+    }
+
+    void loadText(String text) {
+        mappings.clear();
+        turbo.clear();
+        combos.clear();
+        enabled = false;
+        capture = false;
+        if (text == null) return;
+        for (String raw : text.split("\n")) {
+            String line = raw.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            int eq = line.indexOf('=');
+            if (eq <= 0) continue;
+            parseLine(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
+        }
+    }
+
+    String encode(boolean enabled, boolean capture) {
+        StringBuilder b = new StringBuilder();
+        b.append("# Pavo controller remapping\n");
+        b.append("enabled=").append(enabled ? "1" : "0").append('\n');
+        b.append("capture=").append(capture ? "1" : "0").append('\n');
+        for (Map.Entry<Integer, Integer> e : mappings.entrySet()) {
+            b.append("map=").append(e.getKey()).append(':').append(e.getValue()).append('\n');
+        }
+        for (Integer source : turbo) {
+            b.append("turbo=").append(source).append('\n');
+        }
+        for (Combo combo : combos) {
+            b.append("combo=");
+            for (int i = 0; i < combo.keys.length; i++) {
+                if (i > 0) b.append(',');
+                b.append(combo.keys[i]);
+            }
+            b.append(':').append(combo.target).append('\n');
+        }
+        return b.toString();
+    }
+
     void load(File file) {
         mappings.clear();
         turbo.clear();
@@ -101,50 +152,50 @@ final class ControllerMapConfig {
         enabled = false;
         capture = false;
         if (file == null || !file.isFile()) return;
+        StringBuilder text = new StringBuilder();
         try (BufferedReader r = new BufferedReader(new java.io.FileReader(file))) {
             String line;
             while ((line = r.readLine()) != null) {
-                line = line.trim();
-                if (line.isEmpty() || line.startsWith("#")) continue;
-                int eq = line.indexOf('=');
-                if (eq <= 0) continue;
-                String key = line.substring(0, eq).trim();
-                String value = line.substring(eq + 1).trim();
-                if ("enabled".equals(key)) {
-                    enabled = "1".equals(value) || "true".equalsIgnoreCase(value);
-                } else if ("capture".equals(key)) {
-                    capture = "1".equals(value) || "true".equalsIgnoreCase(value);
-                } else if ("map".equals(key)) {
-                    int colon = value.indexOf(':');
-                    if (colon < 0) continue;
-                    int source = parseInt(value.substring(0, colon));
-                    int target = parseInt(value.substring(colon + 1));
-                    if (source > 0 && target > 0) mappings.put(source, target);
-                } else if ("turbo".equals(key)) {
-                    int source = parseInt(value);
-                    if (source > 0) turbo.add(source);
-                } else if ("combo".equals(key)) {
-                    int colon = value.indexOf(':');
-                    if (colon < 0) continue;
-                    String[] parts = value.substring(0, colon).split(",");
-                    int target = parseInt(value.substring(colon + 1));
-                    int[] keys = new int[parts.length];
-                    int count = 0;
-                    for (String part : parts) {
-                        int source = parseInt(part);
-                        if (source <= 0) continue;
-                        boolean exists = false;
-                        for (int i = 0; i < count; i++) if (keys[i] == source) exists = true;
-                        if (!exists && count < keys.length) keys[count++] = source;
-                    }
-                    if (count >= 2 && target > 0) {
-                        int[] trimmed = new int[count];
-                        System.arraycopy(keys, 0, trimmed, 0, count);
-                        combos.add(new Combo(trimmed, target));
-                    }
-                }
+                text.append(line).append('\n');
             }
         } catch (Throwable ignored) {
+        }
+        loadText(text.toString());
+    }
+
+    private void parseLine(String key, String value) {
+        if ("enabled".equals(key)) {
+            enabled = "1".equals(value) || "true".equalsIgnoreCase(value);
+        } else if ("capture".equals(key)) {
+            capture = "1".equals(value) || "true".equalsIgnoreCase(value);
+        } else if ("map".equals(key)) {
+            int colon = value.indexOf(':');
+            if (colon < 0) return;
+            int source = parseInt(value.substring(0, colon));
+            int target = parseInt(value.substring(colon + 1));
+            if (source > 0 && target > 0) mappings.put(source, target);
+        } else if ("turbo".equals(key)) {
+            int source = parseInt(value);
+            if (source > 0) turbo.add(source);
+        } else if ("combo".equals(key)) {
+            int colon = value.indexOf(':');
+            if (colon < 0) return;
+            String[] parts = value.substring(0, colon).split(",");
+            int target = parseInt(value.substring(colon + 1));
+            int[] keys = new int[parts.length];
+            int count = 0;
+            for (String part : parts) {
+                int source = parseInt(part);
+                if (source <= 0) continue;
+                boolean exists = false;
+                for (int i = 0; i < count; i++) if (keys[i] == source) exists = true;
+                if (!exists && count < keys.length) keys[count++] = source;
+            }
+            if (count >= 2 && target > 0) {
+                int[] trimmed = new int[count];
+                System.arraycopy(keys, 0, trimmed, 0, count);
+                combos.add(new Combo(trimmed, target));
+            }
         }
     }
 

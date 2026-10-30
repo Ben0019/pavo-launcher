@@ -676,11 +676,22 @@ public final class PavoA11yService extends AccessibilityService {
         }
     }
 
+    private final Runnable profileSync = new Runnable() {
+        @Override
+        public void run() {
+            if (instance == null) return;
+            ControllerProfiles.sync(PavoA11yService.this);
+            main.postDelayed(this, 1200L);
+        }
+    };
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
         uiContext = Ui.adaptiveContext(this);
+        main.removeCallbacks(profileSync);
+        main.postDelayed(profileSync, 1200L);
         if (!new Prefs(this).rootlessRemap()) PavoInputService.ensureStarted(this);
         if (new Prefs(this).controllerRemapEnabled()
                 && !TouchMapManager.isRunning(this)
@@ -956,6 +967,7 @@ public final class PavoA11yService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        main.removeCallbacks(profileSync);
         stopControllerListener();
         hideDrawerOverlay();
         keyHandler.removeCallbacksAndMessages(null);

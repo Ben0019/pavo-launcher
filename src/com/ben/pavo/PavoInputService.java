@@ -69,6 +69,13 @@ public final class PavoInputService extends Service {
     private long comboLastAt;
 
     private final Handler main = new Handler(Looper.getMainLooper());
+    private final Runnable profileTick = new Runnable() {
+        @Override
+        public void run() {
+            ControllerProfiles.sync(PavoInputService.this);
+            if (running) main.postDelayed(this, 1200L);
+        }
+    };
     private volatile boolean running;
     private LocalSocket socket;
     private BufferedWriter writer;
@@ -342,6 +349,7 @@ public final class PavoInputService extends Service {
                 && !TouchMapService.isMapperEnabledForForeground(this)) {
             ControllerRemapManager.ensureInputDaemon(this);
         }
+        main.postDelayed(profileTick, 1200L);
         main.postDelayed(new Runnable() {
             @Override
             public void run() {
