@@ -53,7 +53,7 @@ final class WallpaperView extends View {
 
     WallpaperView(Context context) {
         super(context);
-        setLayerType(LAYER_TYPE_HARDWARE, null);
+        setLayerType(LAYER_TYPE_NONE, null);
     }
 
     void setListener(Listener l) {
