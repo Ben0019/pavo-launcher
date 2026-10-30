@@ -82,6 +82,7 @@ public final class FanActivity extends PavoGlassActivity {
     private TextView rpmValue;
     private TextView dutyValue;
     private TextView tempValue;
+    private TextView gpuValue;
     private TextView status;
     private TextView curveHint;
     private TextView srcCpu, srcGpu, srcMax, srcInfo;
@@ -181,6 +182,7 @@ public final class FanActivity extends PavoGlassActivity {
                 rpmValue.setText(String.format(Locale.US, "%,d", rpm));
                 dutyValue.setText(duty + "%");
                 tempValue.setText(Math.round(cpu) + "°");
+                if (gpuValue != null) gpuValue.setText(Math.round(gpu) + "°");
                 dutyValue.setTextColor(HeatColor.ramp(
                         HeatColor.fanSeverity(duty, rpm, Math.max(cpu, gpu))));
                 tempValue.setTextColor(HeatColor.ramp(
@@ -489,7 +491,7 @@ public final class FanActivity extends PavoGlassActivity {
         sourceRow.addView(srcLabel);
         srcCpu = sourceChip(sourceRow, "CPU", 0);
         srcGpu = sourceChip(sourceRow, "GPU", 1);
-        srcMax = sourceChip(sourceRow, "MAX", 2);
+        srcMax = sourceChip(sourceRow, "BOTH", 2);
         srcInfo = text("", 8.2f, MUTED, false);
         srcInfo.setPadding(dp(7), 0, 0, 0);
         sourceRow.addView(srcInfo);
@@ -555,7 +557,8 @@ public final class FanActivity extends PavoGlassActivity {
         stats.setPadding(0, dp(4), 0, 0);
         rpmValue = stat(stats, "RPM", "—", 1f);
         dutyValue = stat(stats, "DUTY", "—", 1f);
-        tempValue = stat(stats, "TEMP", "—", 1.2f);
+        tempValue = stat(stats, "CPU", "—", 1.0f);
+        gpuValue = stat(stats, "GPU", "—", 1.0f);
         LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         statsLp.gravity = Gravity.END;
@@ -1431,7 +1434,12 @@ public final class FanActivity extends PavoGlassActivity {
             rpmValue.setContentDescription(fanRunning ? "Fan stopped" : "Fan speed unavailable");
         }
         dutyValue.setText(actualDuty + "%");
-        tempValue.setText(temp > 0 ? Math.round(temp) + "°" : "—");
+        tempValue.setText(state.cpuTemp > 0 ? Math.round(state.cpuTemp) + "°" : "—");
+        if (gpuValue != null) {
+            gpuValue.setText(state.gpuTemp > 0 ? Math.round(state.gpuTemp) + "°" : "—");
+            gpuValue.setTextColor(state.gpuTemp > 0
+                    ? HeatColor.ramp(HeatColor.severity(0, state.gpuTemp)) : 0x55FFFFFF);
+        }
         if (srcInfo != null) {
             String cpu = state.cpuTemp > 0 ? Math.round(state.cpuTemp) + "°" : "—";
             String gpu = state.gpuTemp > 0 ? Math.round(state.gpuTemp) + "°" : "—";
