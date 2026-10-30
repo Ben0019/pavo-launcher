@@ -364,7 +364,7 @@ public final class FtpActivity extends PavoGlassActivity {
         body.addView(roots, wrap());
         styleRoots();
 
-        body.addView(label("Permissions"), wrap());
+        body.addView(label(Loc.s(this, "Permissions")), wrap());
         LinearLayout perms = new LinearLayout(this);
         perms.setOrientation(LinearLayout.VERTICAL);
         perms.addView(permissionChip("Internal", "internal"), wrap());
@@ -443,7 +443,7 @@ public final class FtpActivity extends PavoGlassActivity {
     }
 
     private void refreshPermissionChip(TextView chip, String label, String key) {
-        chip.setText(label + "  \u00b7  " + (prefs.ftpShareWritable(key)
+        chip.setText(label + "  \u00b7  " + Loc.s(this, prefs.ftpShareWritable(key)
                 ? "READ + WRITE" : "READ ONLY"));
     }
 
