@@ -101,7 +101,6 @@ final class BatteryPackView extends View {
         super(c, attrs);
         textPaint.setTypeface(android.graphics.Typeface.create(
                 "sans-serif-medium", android.graphics.Typeface.NORMAL));
-        setLayerType(LAYER_TYPE_SOFTWARE, null);
         gyro = allowTilt ? new GyroTiltController(c, this) : null;
     }
 

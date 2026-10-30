@@ -509,10 +509,6 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         batteryView = new BatteryPackView(this);
-        // The pack is software-drawn so its curved clips stay smooth; a 3D view
-        // rotation would make the compositor rescale that bitmap and soften the
-        // model. The liquid still sloshes from the same sensor.
-        batteryView.setModelTilt(false);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
         blp.topMargin = dp(2);
