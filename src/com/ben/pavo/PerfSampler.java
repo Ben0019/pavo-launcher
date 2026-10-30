@@ -398,17 +398,18 @@ final class PerfSampler {
                         if (v >= 0) busy = (int) Math.round(clamp(v, 0f, 100f));
                     }
                 }
-                if (busy < 0) {
-                    String raw = section(rootText, "GPUBUSY");
-                    if (raw != null) {
-                        String[] p = raw.trim().split("\\s+");
-                        if (p.length >= 2) {
-                            long busyCount = parseLong(p[0]);
-                            long totalCount = parseLong(p[1]);
-                            if (totalCount > 0 && busyCount >= 0 && busyCount <= totalCount) {
-                                busy = (int) Math.round(
-                                        clamp(busyCount * 100f / totalCount, 0f, 100f));
-                            }
+                // Even when the percentage reads 0, the busy/total ratio can
+                // still show work, so take the larger of the two here as well.
+                String raw = section(rootText, "GPUBUSY");
+                if (raw != null) {
+                    String[] p = raw.trim().split("\\s+");
+                    if (p.length >= 2) {
+                        long busyCount = parseLong(p[0]);
+                        long totalCount = parseLong(p[1]);
+                        if (totalCount > 0 && busyCount >= 0 && busyCount <= totalCount) {
+                            int ratio = (int) Math.round(
+                                    clamp(busyCount * 100f / totalCount, 0f, 100f));
+                            if (ratio > busy) busy = ratio;
                         }
                     }
                 }
