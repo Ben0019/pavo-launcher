@@ -212,7 +212,7 @@ public final class FanActivity extends PavoGlassActivity {
         } else {
             stopLocalCurve();
             if (PerAppFanService.isRunning()) PerAppFanService.stop(this);
-            if (mode == MODE_CURVE) FanCurveService.start(this);
+            if (managedFanMode()) FanCurveService.start(this);
             else FanCurveService.stop(this);
         }
         main.postDelayed(new Runnable() {
@@ -239,7 +239,7 @@ public final class FanActivity extends PavoGlassActivity {
         PerAppFanService.setTunerVisible(false);
         if (profileStore != null && profileStore.hasOverrides()) {
             PerAppFanService.refresh(this);
-        } else if (mode == MODE_CURVE) {
+        } else if (managedFanMode()) {
             FanCurveService.start(this);
         }
         super.onPause();
@@ -730,11 +730,16 @@ public final class FanActivity extends PavoGlassActivity {
         syncBackgroundServices();
     }
 
+    /** Curve and Smart are both driven by the temperature controller. */
+    private boolean managedFanMode() {
+        return mode == MODE_CURVE || mode == PerfTuner.FAN_SMART;
+    }
+
     private void applyProfileFanMode() {
         stopLocalCurve();
-        if (mode == MODE_CURVE) {
+        if (managedFanMode()) {
             if (profileStore.hasOverrides()) {
-                if (resumed) startLocalCurve();
+                if (resumed && mode == MODE_CURVE) startLocalCurve();
             } else {
                 FanCurveService.start(this);
             }
@@ -765,7 +770,7 @@ public final class FanActivity extends PavoGlassActivity {
         } else {
             if (PerAppFanService.isRunning()) PerAppFanService.stop(this);
             stopLocalCurve();
-            if (mode == MODE_CURVE) FanCurveService.start(this);
+            if (managedFanMode()) FanCurveService.start(this);
             else FanCurveService.stop(this);
         }
     }

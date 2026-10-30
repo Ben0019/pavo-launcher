@@ -82,7 +82,8 @@ public final class FanCurveService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (prefs.fanAppMode() != FanActivity.MODE_CURVE) {
+        int appMode = prefs.fanAppMode();
+        if (appMode != FanActivity.MODE_CURVE && appMode != PerfTuner.FAN_SMART) {
             stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
@@ -104,14 +105,19 @@ public final class FanCurveService extends Service {
         public void run() {
             if (!running) return;
             Prefs prefs = new Prefs(FanCurveService.this);
-            if (prefs.fanAppMode() != FanActivity.MODE_CURVE) {
+            int appMode = prefs.fanAppMode();
+            boolean smart = appMode == PerfTuner.FAN_SMART;
+            if (appMode != FanActivity.MODE_CURVE && !smart) {
                 stopSelf();
                 return;
             }
             float[] temps = PerfTuner.readTemperatures();
             float temp = Math.max(temps[0], temps[1]);
             if (temp <= 0f) temp = 40f;
-            String curve = prefs.fanCurve();
+            // Smart used to be the firmware's own curve, which reacts slowly.
+            // Driving the built-in smart curve here makes it as responsive as
+            // the user's curve mode.
+            String curve = smart ? FanCurve.SMART : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
                 controller.reset();
