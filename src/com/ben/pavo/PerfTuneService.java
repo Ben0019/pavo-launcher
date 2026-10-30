@@ -162,9 +162,9 @@ public final class PerfTuneService extends Service {
         }
         PerfTuner.Root.ensure();
         PerfTuner.State state = PerfTuner.readStateForHold(this);
-        if (PerfTuner.readPerformanceMode(this) != cfg.performanceMode) {
-            PerfTuner.setPerformanceMode(cfg.performanceMode);
-        }
+        // performance_mode is the firmware's fan policy switch: writing a
+        // non-zero value makes its daemon set fan_mode=0 (fan off). The tuner
+        // owns clocks directly, so leave that setting alone.
         PerfTuner.setCpu(state.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
         PerfTuner.setCpu(state.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
         PerfTuner.setGpu(state.gpu, cfg.gpuMax, cfg.gpuMin);

@@ -43,25 +43,81 @@ final class PerfProfiles {
     private PerfProfiles() {
     }
 
-    static Spec get(String name) {
+    /**
+     * Presets are fractions of whatever this device actually offers, snapped to
+     * a supported step, so the same profile means "quiet" or "max" on any CPU
+     * rather than a fixed Odin clock.
+     */
+    static Spec get(String name, PerfTuner.State state) {
+        PerfTuner.Cpu efficiency = state == null ? null : state.efficiency;
+        PerfTuner.Cpu performance = state == null ? null : state.performance;
+        PerfTuner.Gpu gpu = state == null ? null : state.gpu;
         if (QUIET.equals(name)) {
-            return new Spec(QUIET, 2227200, 1996800, 1958400, 1017600, 525000000,
+            return new Spec(QUIET,
+                    maxFrac(efficiency, 0.63f), minFrac(efficiency, 0.56f),
+                    maxFrac(performance, 0.45f), minFrac(performance, 0.24f),
+                    maxFrac(gpu, 0.48f),
                     PerfTuner.FAN_LOW, 0, 10, "schedutil", 4);
         }
         if (PERFORMANCE.equals(name)) {
-            return new Spec(PERFORMANCE, 3532800, 2227200, 4320000, 3283200, 1100000000,
+            return new Spec(PERFORMANCE,
+                    maxFrac(efficiency, 1f), minFrac(efficiency, 0.63f),
+                    maxFrac(performance, 1f), minFrac(performance, 0.76f),
+                    maxFrac(gpu, 1f),
                     PerfTuner.FAN_HIGH, 0, 50, "walt", 1);
         }
         if (EXTREME.equals(name)) {
-            return new Spec(EXTREME, 3532800, 3532800, 4320000, 4320000, 1100000000,
+            int eMax = maxFrac(efficiency, 1f);
+            int pMax = maxFrac(performance, 1f);
+            return new Spec(EXTREME, eMax, eMax, pMax, pMax, maxFrac(gpu, 1f),
                     PerfTuner.FAN_MANUAL, 0, 100, "performance", 3);
         }
         if (STOCK.equals(name)) {
-            return new Spec(STOCK, 3532800, 1996800, 4320000, 2246400, 1100000000,
+            return new Spec(STOCK,
+                    maxFrac(efficiency, 1f), minFrac(efficiency, 0.56f),
+                    maxFrac(performance, 1f), minFrac(performance, 0.52f),
+                    maxFrac(gpu, 1f),
                     PerfTuner.FAN_SMART, 25000, 50, "walt", 0);
         }
-        return new Spec(BALANCED, 2745600, 1996800, 3283200, 2246400, 832000000,
+        return new Spec(BALANCED,
+                maxFrac(efficiency, 0.78f), minFrac(efficiency, 0.56f),
+                maxFrac(performance, 0.76f), minFrac(performance, 0.52f),
+                maxFrac(gpu, 0.76f),
                 PerfTuner.FAN_SMART, 0, 50, "walt", 0);
+    }
+
+    /** Highest supported frequency at or below the fraction of the top step. */
+    private static int maxFrac(PerfTuner.Cpu cpu, float fraction) {
+        if (cpu == null || cpu.freqs == null || cpu.freqs.length == 0) return 0;
+        int top = cpu.freqs[cpu.freqs.length - 1];
+        int target = Math.round(top * Math.max(0.05f, Math.min(1f, fraction)));
+        int best = cpu.freqs[0];
+        for (int freq : cpu.freqs) {
+            if (freq <= target) best = freq;
+        }
+        return best;
+    }
+
+    /** Lowest supported frequency at or above the fraction of the top step. */
+    private static int minFrac(PerfTuner.Cpu cpu, float fraction) {
+        if (cpu == null || cpu.freqs == null || cpu.freqs.length == 0) return 0;
+        int top = cpu.freqs[cpu.freqs.length - 1];
+        int target = Math.round(top * Math.max(0.05f, Math.min(1f, fraction)));
+        for (int freq : cpu.freqs) {
+            if (freq >= target) return freq;
+        }
+        return top;
+    }
+
+    private static int maxFrac(PerfTuner.Gpu gpu, float fraction) {
+        if (gpu == null || gpu.freqs == null || gpu.freqs.length == 0) return 0;
+        int top = gpu.freqs[gpu.freqs.length - 1];
+        int target = Math.round(top * Math.max(0.05f, Math.min(1f, fraction)));
+        int best = gpu.freqs[0];
+        for (int freq : gpu.freqs) {
+            if (freq <= target) best = freq;
+        }
+        return best;
     }
 
     static boolean isProfile(String name) {

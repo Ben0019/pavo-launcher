@@ -851,15 +851,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         wrap.addView(row);
 
-        String[] subs = {
-                "2.23 / 1.96 GHz",
-                "2.75 / 3.28 GHz",
-                "3.53 / 4.32 GHz",
-                "MAX / CPU"
-        };
         for (int i = 0; i < profileNames.length; i++) {
             final String name = profileNames[i];
-            TextView chip = text(profileNames[i] + "\n" + subs[i], 10f, TEXT, true);
+            TextView chip = text(profileNames[i] + "\n\u2014", 10f, TEXT, true);
             chip.setGravity(Gravity.CENTER);
             chip.setLineSpacing(dp(2), 1f);
             chip.setPadding(dp(4), dp(7), dp(4), dp(7));
@@ -1794,7 +1788,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         markProfileChips();
         profileStatus.setText(name + " APPLIED");
         styleProfileStatus(name);
-        final PerfProfiles.Spec spec = PerfProfiles.get(name);
+        final PerfProfiles.Spec spec = PerfProfiles.get(name, state);
         if (state != null) {
             applySliderTargets(state.efficiency, spec.p0Max);
             applySliderTargets(state.performance, spec.p6Max);
@@ -1839,12 +1833,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         profileStatus.setText("STOCK");
         styleProfileStatus("STOCK");
         stopHold();
+        final PerfProfiles.Spec spec = PerfProfiles.get(PerfProfiles.STOCK, state);
         if (state != null) {
-            state.efficiency.min = 1996800;
-            state.performance.min = 2246400;
-            state.efficiency.max = 3532800;
-            state.performance.max = 4320000;
-            state.gpu.max = 1100000000;
+            applySliderTargets(state.efficiency, spec.p0Max);
+            applySliderTargets(state.performance, spec.p6Max);
+            applySliderTargets(state.gpu, spec.gpuMax);
+            state.efficiency.min = spec.p0Min;
+            state.performance.min = spec.p6Min;
+            state.efficiency.governor = spec.governor;
+            state.performance.governor = spec.governor;
             state.performanceMode = 0;
             if (contextConfig != null) {
                 contextConfig.performanceMode = 0;
@@ -1856,9 +1853,10 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             public void run() {
                 PerfTuner.State s = state != null ? state : PerfTuner.readState(
                         PerformanceTunerActivity.this);
-                PerfTuner.setCpu(s.efficiency, 3532800, 1996800, "walt");
-                PerfTuner.setCpu(s.performance, 4320000, 2246400, "walt");
-                PerfTuner.setGpu(s.gpu, 1100000000,
+                PerfProfiles.Spec stock = PerfProfiles.get(PerfProfiles.STOCK, s);
+                PerfTuner.setCpu(s.efficiency, stock.p0Max, stock.p0Min, stock.governor);
+                PerfTuner.setCpu(s.performance, stock.p6Max, stock.p6Min, stock.governor);
+                PerfTuner.setGpu(s.gpu, stock.gpuMax,
                         s.gpu.freqs.length > 0 ? s.gpu.freqs[0] : 160000000);
                 runOnUiThread(new Runnable() {
                     @Override
@@ -1868,6 +1866,26 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 });
             }
         });
+    }
+
+    /** Preset subtitles follow this device's own clock steps. */
+    private void updateProfileLabels() {
+        if (profileChips == null) return;
+        for (int i = 0; i < profileNames.length && i < profileChips.length; i++) {
+            TextView chip = profileChips[i];
+            if (chip == null) continue;
+            PerfProfiles.Spec spec = PerfProfiles.get(profileNames[i], state);
+            String sub;
+            if (spec.p0Max <= 0 && spec.p6Max <= 0) {
+                sub = "\u2014";
+            } else if (PerfProfiles.EXTREME.equals(profileNames[i])) {
+                sub = "MAX / MAX";
+            } else {
+                sub = String.format(Locale.US, "%.2f / %.2f GHz",
+                        spec.p0Max / 1000000f, spec.p6Max / 1000000f);
+            }
+            chip.setText(profileNames[i] + "\n" + sub);
+        }
     }
 
     private void applySliderTargets(PerfTuner.Cpu cpu, int target) {
@@ -1954,6 +1972,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                         if (destroyed) return;
                         state = snapshot;
                         applyState(snapshot);
+                        updateProfileLabels();
                         scheduleRefresh(1000L);
                     }
                 });

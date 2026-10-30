@@ -88,8 +88,8 @@ final class TuneConfig {
 
     void apply(Context context, PerfTuner.State state) {
         if (state == null) return;
-        PerfTuner.setPerformanceMode(performanceMode);
-        sleepBriefly();
+        // Never write performance_mode here: the firmware answers any non-zero
+        // value by switching the fan off (fan_mode=0).
         if (state.efficiency != null) {
             PerfTuner.setCpu(state.efficiency, p0Max, p0Min, p0Gov);
         }
