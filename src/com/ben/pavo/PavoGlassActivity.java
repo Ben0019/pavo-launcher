@@ -58,6 +58,14 @@ abstract class PavoGlassActivity extends Activity {
     /** Built-ins can opt out when their typography has already been tuned. */
     protected boolean readableTextPass() { return true; }
 
+    /**
+     * Whether the card samples a capture of the launcher behind it. A full-bleed
+     * information sheet gains nothing from a copy of the home it covers, and that
+     * copy made the window read as transparent whenever the launcher behind it was
+     * bright (waking after a charge, or reopening from Home).
+     */
+    protected boolean samplesBackdrop() { return true; }
+
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
         super.attachBaseContext(Ui.adaptiveContext(newBase));
@@ -136,21 +144,30 @@ abstract class PavoGlassActivity extends Activity {
                         }
                         applyBuiltinSaturation(decor);
                         Backdrop appliedBackdrop = null;
-                        if (!usesLiveBackdrop()) {
+                        if (!usesLiveBackdrop() && samplesBackdrop()) {
                             appliedBackdrop = BuiltInBackdrop.take();
-                            if (appliedBackdrop != null) {
-                                card.setBackdrop(appliedBackdrop);
-                                card.setBackdropScreenAnchored(true);
-                                card.setLiquidEffect(true);
-                                liquidCard = true;
-                            } else {
-                                // Started without the launcher's hand-off (am start,
-                                // automation, recovery): a clear card with no capture
-                                // would be see-through, so fall back to a readable
-                                // frost instead of an invisible pane.
-                                card.setClearGlass(false);
-                                card.setClearBodyAlpha(0xF0);
+                            // A capture taken while the home layer was not drawn
+                            // (screen just woke, charging overlay in front) is
+                            // fully transparent. Sampling it would leave the sheet
+                            // invisible, so fall through to the readable frost.
+                            if (appliedBackdrop != null && blankBackdrop(appliedBackdrop)) {
+                                appliedBackdrop = null;
                             }
+                        }
+                        if (appliedBackdrop != null) {
+                            card.setBackdrop(appliedBackdrop);
+                            card.setBackdropScreenAnchored(true);
+                            card.setLiquidEffect(true);
+                            liquidCard = true;
+                        } else {
+                            // No capture (am start, automation, recovery, or an app
+                            // that opts out): a clear card would be see-through, so
+                            // fall back to a readable frost instead of an invisible
+                            // pane.
+                            card.setClearGlass(false);
+                            card.setClearBodyAlpha(0xF0);
+                        }
+                        if (!usesLiveBackdrop()) {
                             // Static-backdrop apps get a quiet textured frost.
                             card.setFrosted(true);
                         }
@@ -168,6 +185,36 @@ abstract class PavoGlassActivity extends Activity {
                         }, 140L);
                     }
                 });
+    }
+
+    /** True when a capture has no visible pixels, so it would render as nothing. */
+    private static boolean blankBackdrop(Backdrop backdrop) {
+        if (backdrop == null || backdrop.bitmap == null || backdrop.bitmap.isRecycled()) {
+            return true;
+        }
+        try {
+            int w = backdrop.bitmap.getWidth();
+            int h = backdrop.bitmap.getHeight();
+            if (w <= 0 || h <= 0) return true;
+            for (int y = 1; y <= 4; y++) {
+                for (int x = 1; x <= 4; x++) {
+                    int px = backdrop.bitmap.getPixel(
+                            Math.min(w - 1, w * x / 5), Math.min(h - 1, h * y / 5));
+                    if (android.graphics.Color.alpha(px) > 8) return false;
+                }
+            }
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** Re-assert the window alpha after an overlay or a wake-up cleared it. */
+    private void ensureDecorVisible() {
+        View decor = getWindow() == null ? null : getWindow().getDecorView();
+        if (decor != null && !isFinishing() && !isDestroyed() && decor.getAlpha() < 1f) {
+            decor.setAlpha(1f);
+        }
     }
 
     /** One saturation/darkness pair for every glass card in a built-in app. */
@@ -317,6 +364,13 @@ abstract class PavoGlassActivity extends Activity {
             returnFinished = false;
             resetReturnVisuals();
         }
+        ensureDecorVisible();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) ensureDecorVisible();
     }
 
     /**
@@ -330,6 +384,25 @@ abstract class PavoGlassActivity extends Activity {
         if (!hasReturnTarget || closing || returning) return;
         returning = true;
         if (!animateCardToIcon(250L, false)) returning = false;
+        // The leave hint also fires for system transitions that never take the
+        // window away (the wired charging overlay is one). If this window still
+        // owns the focus afterwards, the shrink-to-icon must be undone or the
+        // card stays faded out over a still-running app.
+        View decor = getWindow() == null ? null : getWindow().getDecorView();
+        if (decor != null) {
+            decor.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (isFinishing() || isDestroyed() || !hasWindowFocus()) return;
+                    if (returning || returnFinished) {
+                        returning = false;
+                        returnFinished = false;
+                        resetReturnVisuals();
+                    }
+                    ensureDecorVisible();
+                }
+            }, 420L);
+        }
     }
 
     private void resetReturnVisuals() {

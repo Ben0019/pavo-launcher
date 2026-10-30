@@ -49,6 +49,13 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         return ThemeColors.accent();
     }
 
+    /** The health sheet is its own surface; showing a copy of the home behind it
+     *  made the window look fully transparent after a wake-up or a reopen. */
+    @Override
+    protected boolean samplesBackdrop() {
+        return false;
+    }
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
