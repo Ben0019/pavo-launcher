@@ -364,6 +364,15 @@ public final class FtpActivity extends PavoGlassActivity {
         body.addView(roots, wrap());
         styleRoots();
 
+        body.addView(label("Permissions"), wrap());
+        LinearLayout perms = new LinearLayout(this);
+        perms.setOrientation(LinearLayout.VERTICAL);
+        perms.addView(permissionChip("Internal", "internal"), wrap());
+        if (removableRoot() != null) {
+            perms.addView(permissionChip("SD card", "external"), wrap());
+        }
+        body.addView(perms, wrap());
+
         startButton = chip("Start server", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -416,6 +425,26 @@ public final class FtpActivity extends PavoGlassActivity {
         anonChip.setText(on ? "Anonymous: on" : "Anonymous: off");
         userField.setVisibility(on ? View.GONE : View.VISIBLE);
         passField.setVisibility(on ? View.GONE : View.VISIBLE);
+    }
+
+    /** Read/write access clients get on one shared folder. */
+    private TextView permissionChip(final String label, final String key) {
+        final TextView chip = chip(label, null);
+        chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
+        refreshPermissionChip(chip, label, key);
+        chip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                prefs.setFtpShareWritable(key, !prefs.ftpShareWritable(key));
+                refreshPermissionChip(chip, label, key);
+            }
+        });
+        return chip;
+    }
+
+    private void refreshPermissionChip(TextView chip, String label, String key) {
+        chip.setText(label + "  \u00b7  " + (prefs.ftpShareWritable(key)
+                ? "READ + WRITE" : "READ ONLY"));
     }
 
     private void styleRoots() {

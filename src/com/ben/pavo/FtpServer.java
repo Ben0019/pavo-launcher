@@ -40,10 +40,19 @@ final class FtpServer {
     static final class Root {
         final String name;
         final File dir;
+        final Prefs prefs;
+        final String permKey;
 
-        Root(String name, File dir) {
+        Root(String name, File dir, Prefs prefs, String permKey) {
             this.name = name;
             this.dir = dir;
+            this.prefs = prefs;
+            this.permKey = permKey;
+        }
+
+        /** Live read: flipping the toggle applies without restarting the server. */
+        boolean writable() {
+            return prefs == null || permKey == null || prefs.ftpShareWritable(permKey);
         }
     }
 
@@ -364,7 +373,12 @@ final class FtpServer {
                 return true;
             }
             if (cmd.equals("STOR")) {
-                transfer(resolve(cwd, arg), false);
+                File target = resolve(cwd, arg);
+                if (!writable(target)) {
+                    reply("550 Read-only storage");
+                    return true;
+                }
+                transfer(target, false);
                 return true;
             }
             if (cmd.equals("SIZE")) {
@@ -383,11 +397,19 @@ final class FtpServer {
             }
             if (cmd.equals("DELE")) {
                 File f = resolve(cwd, arg);
+                if (!writable(f)) {
+                    reply("550 Read-only storage");
+                    return true;
+                }
                 reply(f != null && f.isFile() && f.delete() ? "250 Deleted" : "550 Delete failed");
                 return true;
             }
             if (cmd.equals("MKD") || cmd.equals("XMKD")) {
                 File f = resolve(cwd, arg);
+                if (!writable(f)) {
+                    reply("550 Read-only storage");
+                    return true;
+                }
                 if (f != null && f.mkdirs()) {
                     reply("257 \"" + virtualPath(f) + "\" created");
                 } else {
@@ -397,12 +419,20 @@ final class FtpServer {
             }
             if (cmd.equals("RMD") || cmd.equals("XRMD")) {
                 File f = resolve(cwd, arg);
+                if (!writable(f)) {
+                    reply("550 Read-only storage");
+                    return true;
+                }
                 reply(f != null && f.isDirectory() && f.delete()
                         ? "250 Removed" : "550 Could not remove");
                 return true;
             }
             if (cmd.equals("RNFR")) {
                 File f = resolve(cwd, arg);
+                if (!writable(f)) {
+                    reply("550 Read-only storage");
+                    return true;
+                }
                 if (f != null && f.exists()) {
                     renameFrom = f;
                     reply("350 Ready for destination name");
@@ -413,6 +443,11 @@ final class FtpServer {
             }
             if (cmd.equals("RNTO")) {
                 File to = resolve(cwd, arg);
+                if (!writable(to)) {
+                    reply("550 Read-only storage");
+                    renameFrom = null;
+                    return true;
+                }
                 if (renameFrom != null && to != null && renameFrom.renameTo(to)) {
                     reply("250 Renamed");
                 } else {
@@ -586,6 +621,19 @@ final class FtpServer {
                 return;
             }
             reply("226 Transfer complete");
+        }
+
+        private boolean writable(File file) {
+            if (file == null) return false;
+            try {
+                String path = file.getCanonicalPath();
+                for (Root r : roots) {
+                    String base = r.dir.getCanonicalPath();
+                    if (path.equals(base) || path.startsWith(base + "/")) return r.writable();
+                }
+            } catch (Throwable ignored) {
+            }
+            return false;
         }
 
         private String virtualPath(File file) {

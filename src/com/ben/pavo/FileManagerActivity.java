@@ -443,7 +443,19 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 }
                 if (ftpActive && (code == KeyEvent.KEYCODE_DPAD_UP
                         || code == KeyEvent.KEYCODE_DPAD_DOWN)) {
-                    if (down && !repeat) ftpPane.move(code == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
+                    if (down && !repeat) {
+                        if (code == KeyEvent.KEYCODE_DPAD_UP && ftpPane.sel == 0) {
+                            cursorMode = false;
+                            ftpPane.title.requestFocus();
+                        } else {
+                            ftpPane.move(code == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
+                        }
+                    }
+                    return true;
+                }
+                if (!ftpActive && code == KeyEvent.KEYCODE_DPAD_DOWN
+                        && !cursorMode && ftpPane.title.hasFocus()) {
+                    if (down && !repeat) setFtpActive();
                     return true;
                 }
             }
@@ -668,6 +680,13 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private final Runnable cursorLongPress = new Runnable() {
         @Override public void run() {
+            if (ftpMode && ftpActive && ftpPane != null
+                    && ftpPane.sel >= 0 && ftpPane.sel < ftpPane.entries.size()) {
+                controllerALongFired = true;
+                ftpPane.toggleSelected(ftpPane.entries.get(ftpPane.sel));
+                Haptics.longPress(ftpPane.list);
+                return;
+            }
             Pane pane = navPane != null ? navPane : activePane;
             if (pane == null || pane.files.isEmpty()) return;
             controllerALongFired = true;
@@ -793,7 +812,17 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void switchControllerPane(boolean left) {
         stopHoldScroll();
-        if (ftpMode) return;
+        if (ftpMode && ftpPane != null) {
+            boolean ftpIsLeft = !localLeft;
+            if (left == ftpIsLeft) {
+                setFtpActive();
+                ftpPane.list.requestFocus();
+            } else {
+                setActive(leftPane, false);
+                focusRow(leftPane, leftPane.cursor);
+            }
+            return;
+        }
         Pane target = left ? leftPane : rightPane;
         if (target == null || target == navPane) return;
         focusRow(target, target.cursor);
@@ -935,9 +964,12 @@ public final class FileManagerActivity extends PavoGlassActivity {
         Pane p = activePane;
         if (p == null) return;
         if (!p.selected.isEmpty()) {
+            boolean writable = localWritable(p);
             clipboardLabel.setText(p.selected.size() + " "
                     + Loc.s(this, p.selected.size() == 1 ? "ITEM SELECTED" : "ITEMS SELECTED")
-                    + "  ·  " + p.titleText());
+                    + "  ·  " + p.titleText()
+                    + (writable ? "" : "  ·  " + Loc.s(this, "READ ONLY")));
+            if (writable) {
             actionRow.addView(actionButton("COPY", new Runnable() {
                 @Override public void run() { copySelection(false); }
             }), actionLp(0));
@@ -959,6 +991,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 actionRow.addView(actionButton("INFO", new Runnable() {
                     @Override public void run() { showInfo(p.selected.iterator().next()); }
                 }), actionLp(5));
+            }
             }
             actionRow.addView(actionButton("CANCEL", new Runnable() {
                 @Override public void run() { clearSelection(); }
@@ -1013,11 +1046,14 @@ public final class FileManagerActivity extends PavoGlassActivity {
     private void updateFtpFooter() {
         String local = leftPane != null && leftPane.root != null
                 && leftPane.root.equals(removableRoot) ? "SD CARD" : "INTERNAL";
+        boolean writable = ftpPane.writable();
         if (!ftpPane.selected.isEmpty()) {
             int n = ftpPane.selected.size();
             clipboardLabel.setText(n + " "
                     + Loc.s(this, n == 1 ? "ITEM SELECTED" : "ITEMS SELECTED")
-                    + "  \u00b7  " + ftpPane.dir);
+                    + "  \u00b7  " + ftpPane.dir
+                    + (writable ? "" : "  \u00b7  " + Loc.s(this, "READ ONLY")));
+            if (writable) {
             actionRow.addView(actionButton("COPY", new Runnable() {
                 @Override public void run() { ftpPane.copySelected(false); }
             }), actionLp(0));
@@ -1037,6 +1073,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
                     @Override public void run() { ftpPane.infoSelected(); }
                 }), actionLp(5));
             }
+            }
             actionRow.addView(actionButton("CANCEL", new Runnable() {
                 @Override public void run() { ftpPane.clearSelection(); }
             }), actionLp(5));
@@ -1049,10 +1086,14 @@ public final class FileManagerActivity extends PavoGlassActivity {
             clipboardLabel.setText(n + " "
                     + Loc.s(this, n == 1 ? "ITEM" : "ITEMS")
                     + "  \u00b7  " + Loc.s(this, clipboardCut ? "MOVE" : "COPY")
-                    + "  \u00b7  " + Loc.s(this, "PASTE INTO") + " FTP");
+                    + "  \u00b7  " + (writable
+                    ? Loc.s(this, "PASTE INTO") + " FTP"
+                    : Loc.s(this, "READ ONLY")));
+            if (writable) {
             actionRow.addView(actionButton("PASTE", true, new Runnable() {
                 @Override public void run() { ftpPane.paste(); }
             }), actionLp(0));
+            }
             actionRow.addView(actionButton("CLEAR", new Runnable() {
                 @Override public void run() {
                     remoteClipboard.clear();
@@ -1063,16 +1104,19 @@ public final class FileManagerActivity extends PavoGlassActivity {
             }), actionLp(5));
             return;
         }
-        clipboardLabel.setText("FTP  \u00b7  " + ftpHost + "  \u00b7  " + local);
+        clipboardLabel.setText("FTP  \u00b7  " + ftpHost + "  \u00b7  " + local
+                + (writable ? "" : "  \u00b7  " + Loc.s(this, "READ ONLY")));
         actionRow.addView(actionButton("SWAP", new Runnable() {
             @Override public void run() { swapPanes(); }
         }), actionLp(0));
         actionRow.addView(actionButton(local, new Runnable() {
             @Override public void run() { toggleLocalRoot(); }
         }), actionLp(5));
-        actionRow.addView(actionButton("NEW FOLDER", new Runnable() {
-            @Override public void run() { ftpPane.newFolder(); }
-        }), actionLp(5));
+        if (writable) {
+            actionRow.addView(actionButton("NEW FOLDER", new Runnable() {
+                @Override public void run() { ftpPane.newFolder(); }
+            }), actionLp(5));
+        }
         actionRow.addView(actionButton("REFRESH", new Runnable() {
             @Override public void run() {
                 reload(leftPane);
@@ -1148,13 +1192,14 @@ public final class FileManagerActivity extends PavoGlassActivity {
             title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
             title.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x3DFFFFFF, dp(1)));
             title.setPadding(dp(9), dp(4), dp(9), dp(4));
-            title.setFocusable(false);
+            title.setFocusable(true);
             title.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     setFtpActive();
                     showRemoteStorageMenu(title);
                 }
             });
+            pressable(title);
             head.addView(title, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             View headSpacer = new View(FileManagerActivity.this);
@@ -1461,8 +1506,17 @@ public final class FileManagerActivity extends PavoGlassActivity {
             return base + "/" + name;
         }
 
+        boolean writable() {
+            return remoteWritable(dir);
+        }
+
         void deleteSelected() {
             if (selected.isEmpty()) return;
+            if (!writable()) {
+                LToast.makeText(FileManagerActivity.this, Loc.s(FileManagerActivity.this, "READ ONLY"),
+                        android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
             showConfirm(Loc.s(FileManagerActivity.this, "DELETE ITEM(S)?"),
                     Loc.s(FileManagerActivity.this, "This cannot be undone."),
                     Loc.s(FileManagerActivity.this, "DELETE"), new Runnable() {
@@ -1499,6 +1553,11 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
         void renameSelected() {
             if (selected.size() != 1) return;
+            if (!writable()) {
+                LToast.makeText(FileManagerActivity.this, Loc.s(FileManagerActivity.this, "READ ONLY"),
+                        android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
             final FtpClient.Entry entry = selected.iterator().next();
             showTextDialog(Loc.s(FileManagerActivity.this, "RENAME"), entry.name,
                     Loc.s(FileManagerActivity.this, "RENAME"), false,
@@ -1531,6 +1590,11 @@ public final class FileManagerActivity extends PavoGlassActivity {
         }
 
         void newFolder() {
+            if (!writable()) {
+                LToast.makeText(FileManagerActivity.this, Loc.s(FileManagerActivity.this, "READ ONLY"),
+                        android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
             showTextDialog(Loc.s(FileManagerActivity.this, "NEW FOLDER"), "",
                     Loc.s(FileManagerActivity.this, "CREATE"), true, new TextCallback() {
                         @Override public void onText(String value) {
@@ -1572,6 +1636,11 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
         void copySelected(boolean cut) {
             if (selected.isEmpty()) return;
+            if (cut && !writable()) {
+                LToast.makeText(FileManagerActivity.this, Loc.s(FileManagerActivity.this, "READ ONLY"),
+                        android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
             remoteClipboard.clear();
             remoteClipboard.addAll(selected);
             remoteClipSrc = true;
@@ -1584,6 +1653,11 @@ public final class FileManagerActivity extends PavoGlassActivity {
         }
 
         void paste() {
+            if (!writable()) {
+                LToast.makeText(FileManagerActivity.this, Loc.s(FileManagerActivity.this, "READ ONLY"),
+                        android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
             final String base = dir;
             final boolean cut = clipboardCut;
             status.setText(Loc.s(FileManagerActivity.this, "Working") + "\u2026");
@@ -2821,6 +2895,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void copySelection(boolean cut) {
         if (activePane == null || activePane.selected.isEmpty()) return;
+        if (cut && !localWritable(activePane)) {
+            LToast.makeText(this, Loc.s(this, "READ ONLY"), android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         remoteClipSrc = false;
         remoteClipboard.clear();
         clipboard.clear();
@@ -2834,6 +2912,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void pasteClipboard() {
         if (activePane == null) return;
+        if (!localWritable(activePane)) {
+            LToast.makeText(this, Loc.s(this, "READ ONLY"), android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (remoteClipSrc && !remoteClipboard.isEmpty() && ftpPane != null) {
             final Pane target = activePane;
             final File dest = target.dir;
@@ -2887,6 +2969,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void confirmDeleteSelection() {
         if (activePane == null || activePane.selected.isEmpty()) return;
+        if (!localWritable(activePane)) {
+            LToast.makeText(this, Loc.s(this, "READ ONLY"), android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         final ArrayList<File> targets = new ArrayList<>(activePane.selected);
         showConfirm(Loc.s(this, "DELETE ITEM(S)?"),
                 Loc.s(this, "This cannot be undone."),
@@ -2942,6 +3028,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void showNewFolderDialog() {
         if (activePane == null) return;
+        if (!localWritable(activePane)) {
+            LToast.makeText(this, Loc.s(this, "READ ONLY"), android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         showTextDialog(Loc.s(this, "NEW FOLDER"), "", Loc.s(this, "CREATE"), true,
                 new TextCallback() {
                     @Override public void onText(String value) {
@@ -2967,6 +3057,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void showNewFileDialog() {
         if (activePane == null) return;
+        if (!localWritable(activePane)) {
+            LToast.makeText(this, Loc.s(this, "READ ONLY"), android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         showTextDialog(Loc.s(this, "NEW FILE"), "", Loc.s(this, "CREATE"), true,
                 new TextCallback() {
                     @Override public void onText(String value) {
@@ -2994,6 +3088,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void showRenameDialog(final File file) {
         if (file == null) return;
+        if (!localWritable(activePane)) {
+            LToast.makeText(this, Loc.s(this, "READ ONLY"), android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         showTextDialog(Loc.s(this, "RENAME"), file.getName(), Loc.s(this, "RENAME"), false,
                 new TextCallback() {
                     @Override public void onText(String value) {
@@ -3905,6 +4003,30 @@ public final class FileManagerActivity extends PavoGlassActivity {
             lp.leftMargin = dp(5);
             panes.addView(second, lp);
         }
+    }
+
+    private String localPermKey(Pane pane) {
+        if (pane == null) return "local:internal";
+        return pane.root != null && pane.root.equals(removableRoot)
+                ? "local:external" : "local:internal";
+    }
+
+    private boolean localWritable(Pane pane) {
+        return pane == null || prefs.storageWritable(localPermKey(pane));
+    }
+
+    private String remoteRootOf(String dir) {
+        if (dir == null || dir.isEmpty() || "/".equals(dir)) return "/";
+        int cut = dir.indexOf('/', 1);
+        return cut < 0 ? dir : dir.substring(0, cut);
+    }
+
+    private String remotePermKey(String dir) {
+        return "ftp:" + ftpHost + ":" + remoteRootOf(dir);
+    }
+
+    private boolean remoteWritable(String dir) {
+        return prefs.storageWritable(remotePermKey(dir));
     }
 
     private boolean stackedPanes() {

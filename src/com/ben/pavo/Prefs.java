@@ -348,6 +348,24 @@ final class Prefs {
     String ftpPassword() { return sp.getString("ftp_password", "pavo"); }
     void setFtpPassword(String v) { sp.edit().putString("ftp_password", v == null ? "pavo" : v).apply(); }
 
+    /** Whether clients may write to a shared FTP folder ("internal"/"external"). */
+    boolean ftpShareWritable(String key) {
+        return sp.getBoolean("ftp_share_" + key + "_write", true);
+    }
+
+    void setFtpShareWritable(String key, boolean writable) {
+        sp.edit().putBoolean("ftp_share_" + key + "_write", writable).apply();
+    }
+
+    /** Read/write permission for a storage medium (local or remote). */
+    boolean storageWritable(String key) {
+        return sp.getBoolean("perm_" + (key == null ? "" : key), true);
+    }
+
+    void setStorageWritable(String key, boolean writable) {
+        sp.edit().putBoolean("perm_" + (key == null ? "" : key), writable).apply();
+    }
+
     String ftpRemoteHost() { return sp.getString("ftp_remote_host", ""); }
     int ftpRemotePort() { return clamp(sp.getInt("ftp_remote_port", 21), 1, 65535); }
     String ftpRemoteUser() { return sp.getString("ftp_remote_user", "anonymous"); }

@@ -111,10 +111,10 @@ public final class FtpService extends Service {
         File sd = removableRoot();
         int mode = prefs.ftpRoot();
         if ((mode == 0 || mode == 2) && internal != null) {
-            roots.add(new FtpServer.Root("Internal", internal));
+            roots.add(new FtpServer.Root("Internal", internal, prefs, "internal"));
         }
         if ((mode == 1 || mode == 2) && sd != null) {
-            roots.add(new FtpServer.Root("SD card", sd));
+            roots.add(new FtpServer.Root("SD card", sd, prefs, "external"));
         }
         if (roots.isEmpty()) {
             push("No folder available to share");
