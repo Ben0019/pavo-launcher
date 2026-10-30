@@ -46,6 +46,19 @@ final class ThermalSensors {
         return best;
     }
 
+    /**
+     * Hottest core junction sensor, including the raw second sensor per core.
+     * The HAL-filtered sensor used by cpuTemp() trails a load step by seconds,
+     * which is the lag Smart was blamed for.
+     */
+    static float cpuTempRaw() {
+        ensureScanned();
+        float best = 0f;
+        for (File f : cpuFiles) best = Math.max(best, readTemp(f));
+        for (File f : fallbackCpuFiles) best = Math.max(best, readTemp(f));
+        return best;
+    }
+
     static float gpuTemp() {
         ensureScanned();
         float best = readTemp(kgslTemp());

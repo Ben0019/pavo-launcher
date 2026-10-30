@@ -15,6 +15,8 @@ final class FanCurveController {
 
     /** Rise time constant. A sustained heat step is ~95 % applied in four seconds. */
     static final float ATTACK_SEC = 1.2f;
+    /** Rise constant for Smart, which is expected to answer within a second. */
+    static final float FAST_ATTACK_SEC = 0.6f;
     /** Fall time constant. Holds the blower up while the heatsink is still hot. */
     static final float RELEASE_SEC = 8f;
     /** Target changes below this many percentage points are not worth a write. */
@@ -49,11 +51,20 @@ final class FanCurveController {
      * @return duty percentage to write, or -1 when the current duty still fits.
      */
     synchronized int next(String curve, float rawMaxTemp, long nowMs) {
+        return next(curve, rawMaxTemp, nowMs, false);
+    }
+
+    /**
+     * @param responsive true for Smart: act on the newest sample and ramp in
+     *                   about half a second instead of waiting for a median.
+     */
+    synchronized int next(String curve, float rawMaxTemp, long nowMs, boolean responsive) {
         float raw = rawMaxTemp > 0f ? rawMaxTemp : 40f;
         window[samples % 3] = raw;
         samples++;
         // A single hot sample from one core is a burst, not heat in the heatsink.
-        float sample = samples >= 3 ? median(window[0], window[1], window[2]) : raw;
+        float sample = responsive || samples >= 3
+                ? raw : median(window[0], window[1], window[2]);
         if (!primed) {
             primed = true;
             filtered = sample;
@@ -64,7 +75,8 @@ final class FanCurveController {
         float dt = Math.max(0.2f, Math.min(5f, (nowMs - lastMs) / 1000f));
         lastMs = nowMs;
 
-        float tau = sample > filtered ? ATTACK_SEC : RELEASE_SEC;
+        float tau = sample > filtered
+                ? (responsive ? FAST_ATTACK_SEC : ATTACK_SEC) : RELEASE_SEC;
         float alpha = 1f - (float) Math.exp(-dt / tau);
         filtered += (sample - filtered) * alpha;
 
@@ -74,7 +86,7 @@ final class FanCurveController {
             return applied;
         }
         int delta = target - applied;
-        if (Math.abs(delta) < DEADBAND) return -1;
+        if (Math.abs(delta) < DEADBAND && !(responsive && delta > 0)) return -1;
         if (delta > 0) {
             applied = target;
         } else {

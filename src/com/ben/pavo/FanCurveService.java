@@ -115,6 +115,11 @@ public final class FanCurveService extends Service {
             }
             float[] temps = PerfTuner.readTemperatures();
             float temp = Math.max(temps[0], temps[1]);
+            if (smart) {
+                // Follow the junction sensors for Smart: they answer a load step
+                // immediately instead of waiting for the thermal HAL average.
+                temp = Math.max(ThermalSensors.cpuTempRaw(), temps[1]);
+            }
             if (temp <= 0f) temp = 40f;
             // Smart used to be the firmware's own curve, which reacts slowly.
             // Driving the built-in smart curve here makes it as responsive as
@@ -124,7 +129,7 @@ public final class FanCurveService extends Service {
                 lastCurve = curve;
                 controller.reset();
             }
-            int duty = controller.next(curve, temp, SystemClock.uptimeMillis());
+            int duty = controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
             if (duty >= 0) {
                 lastDuty = duty;
                 // Take manual control once, then move only the duty. Rewriting
@@ -147,7 +152,7 @@ public final class FanCurveService extends Service {
                     manualHeld = true;
                 }
             }
-            handler.postDelayed(this, 1500L);
+            handler.postDelayed(this, smart ? 500L : 1500L);
         }
     };
 

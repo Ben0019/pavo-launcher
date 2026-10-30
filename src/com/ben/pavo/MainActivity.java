@@ -1316,9 +1316,15 @@ public final class MainActivity extends Activity {
         // is opened by hand.
         if (new FanProfileStore(this).hasOverrides()) {
             PerAppFanService.start(this);
-        } else if (prefs.fanAppMode() == FanActivity.MODE_CURVE) {
+        } else if (prefs.fanAppMode() == FanActivity.MODE_CURVE
+                || prefs.fanAppMode() == PerfTuner.FAN_SMART) {
+            // Smart is driven by our own controller too, so it needs the service
+            // running from the first launch, not only after Fan Control is opened.
             FanCurveService.start(this);
         }
+        // Auto charge separation lives in a service as well; re-arm it here so a
+        // fresh install or a reboot does not silently disable it.
+        if (new DeviceHealthStore(this).autoSeparation()) BatteryGuardService.start(this);
         applySurfaceTransparency();
         // Repairs a fan/performance pairing the firmware's fan tile cannot draw;
         // off the main thread because the fix goes through PServer.
