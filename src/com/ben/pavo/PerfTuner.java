@@ -165,6 +165,11 @@ final class PerfTuner {
         if (c.freqs.length == 0) {
             c.freqs = readInts(base + "/scaling_freq_table");
         }
+        if (c.freqs.length == 0) {
+            int lo = readInt(base + "/cpuinfo_min_freq");
+            int hi = readInt(base + "/cpuinfo_max_freq");
+            if (lo > 0 && hi > lo) c.freqs = new int[]{lo, hi};
+        }
         c.governors = readWords(base + "/scaling_available_governors");
         c.governor = readWord(base + "/scaling_governor");
         c.min = readInt(base + "/scaling_min_freq");
@@ -183,6 +188,14 @@ final class PerfTuner {
         if (p.kgsl) {
             g.freqs = readInts(base + "/devfreq/available_frequencies");
             if (g.freqs.length == 0) g.freqs = readInts(base + "/gpu_available_frequencies");
+            if (g.freqs.length == 0) {
+                // Vendor interface on some Odin kernels lists MHz, not Hz.
+                int[] mhz = readInts("/sys/kernel/gpu/gpu_freq_table");
+                if (mhz.length > 0) {
+                    g.freqs = new int[mhz.length];
+                    for (int i = 0; i < mhz.length; i++) g.freqs[i] = mhz[i] * 1_000_000;
+                }
+            }
             Arrays.sort(g.freqs);
             g.governors = readWords(base + "/devfreq/available_governors");
             g.governor = readWord(base + "/devfreq/governor");
@@ -272,7 +285,9 @@ final class PerfTuner {
         if (p.kgsl) {
             return "chmod 666 " + p.gpuPath + "/max_gpuclk " + p.gpuPath
                     + "/devfreq/max_freq " + p.gpuPath + "/devfreq/min_freq "
-                    + p.gpuPath + "/devfreq/governor";
+                    + p.gpuPath + "/devfreq/governor"
+                    + "; chmod 666 /sys/kernel/gpu/gpu_max_clock"
+                    + " /sys/kernel/gpu/gpu_min_clock 2>/dev/null";
         }
         return "chmod 666 " + p.gpuPath + "/max_freq " + p.gpuPath
                 + "/min_freq " + p.gpuPath + "/governor";
@@ -324,6 +339,9 @@ final class PerfTuner {
                 + (p.kgsl ? "devfreq/max_freq" : "max_freq"));
         PServer.run("echo " + min + " > " + d + "/"
                 + (p.kgsl ? "devfreq/min_freq" : "min_freq"));
+        if (p.kgsl && new java.io.File("/sys/kernel/gpu/gpu_max_clock").exists()) {
+            PServer.run("echo " + (max / 1_000_000) + " > /sys/kernel/gpu/gpu_max_clock");
+        }
     }
 
     static void setFanModePServer(int mode) {
@@ -374,10 +392,16 @@ final class PerfTuner {
         min = Math.max(lowest, min);
         max = Math.max(min, max);
         if (p.kgsl) {
-            Root.write("d=" + d + "; echo " + max + " >$d/max_gpuclk; "
+            String cmd = "d=" + d + "; echo " + max + " >$d/max_gpuclk; "
                     + "echo " + lowest + " >$d/devfreq/min_freq; "
                     + "echo " + max + " >$d/devfreq/max_freq; "
-                    + "echo " + min + " >$d/devfreq/min_freq");
+                    + "echo " + min + " >$d/devfreq/min_freq";
+            // Some Odin kernels route the GPU cap through the vendor interface
+            // instead of kgsl's devfreq nodes.
+            if (new java.io.File("/sys/kernel/gpu/gpu_max_clock").exists()) {
+                cmd += "; echo " + (max / 1_000_000) + " > /sys/kernel/gpu/gpu_max_clock";
+            }
+            Root.write(cmd);
         } else {
             Root.write("d=" + d + "; echo " + max + " >$d/max_freq; "
                     + "echo " + lowest + " >$d/min_freq; "
@@ -553,7 +577,11 @@ final class PerfTuner {
             String line = r.readLine();
             return line == null ? "" : line;
         } catch (Throwable ignored) {
-            return null;
+            // Locked-down firmwares hide cpufreq/kgsl nodes from apps but let the
+            // privileged channel read them; without this the tuner sees empty
+            // clock tables and its sliders go dead.
+            String out = Root.run("cat " + path);
+            return out == null || out.isEmpty() ? null : out.trim();
         }
     }
 

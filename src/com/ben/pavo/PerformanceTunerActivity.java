@@ -1185,6 +1185,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                     if (!fromUser || updating) return;
+                    if (data == null || data.freqs.length == 0) return;
                     sliderHaptic(card);
                     int max = data.freqs[progress];
                     int min = minFreqs.length == 0 ? data.floorMin
@@ -1271,7 +1272,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
 
         void bind(PerfTuner.Cpu cpu, int targetMax, int targetMin, String governor) {
             data = cpu;
-            if (cpu == null || cpu.freqs.length == 0) return;
+            boolean usable = cpu != null && cpu.freqs.length > 0;
+            maxSeek.setEnabled(usable);
+            minSeek.setEnabled(usable);
+            if (!usable) {
+                maxValue.setText("--");
+                minValue.setText("--");
+                current.setText("clock table unavailable");
+                return;
+            }
             minFreqs = new int[cpu.freqs.length];
             int count = 0;
             for (int f : cpu.freqs) {
@@ -1417,6 +1426,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                     if (!fromUser || updating) return;
+                    if (data == null || data.freqs.length == 0) return;
                     sliderHaptic(maxSeek);
                     int max = data.freqs[progress];
                     int min = data.freqs[Math.min(minSeek.getProgress(),
@@ -1456,6 +1466,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                     if (!fromUser || updating) return;
+                    if (data == null || data.freqs.length == 0) return;
                     sliderHaptic(minSeek);
                     int min = data.freqs[progress];
                     int max = data.freqs[Math.min(maxSeek.getProgress(),
@@ -1495,7 +1506,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
 
         void bind(PerfTuner.Gpu gpu, int targetMax, int targetMin) {
             data = gpu;
-            if (gpu == null || gpu.freqs.length == 0) return;
+            boolean usable = gpu != null && gpu.freqs.length > 0;
+            maxSeek.setEnabled(usable);
+            minSeek.setEnabled(usable);
+            if (!usable) {
+                maxValue.setText("--");
+                minValue.setText("--");
+                current.setText("clock table unavailable");
+                return;
+            }
             updating = true;
             maxSeek.setMax(Math.max(0, gpu.freqs.length - 1));
             minSeek.setMax(Math.max(0, gpu.freqs.length - 1));

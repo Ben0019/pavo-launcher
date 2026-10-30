@@ -362,25 +362,25 @@ final class PerfSampler {
                 ? new File(profile.gpuPath) : new File("/sys/class/kgsl/kgsl-3d0");
         long hz = readLong(new File(kgsl, "gpuclk"));
         long max = readLong(new File(kgsl, "max_gpuclk"));
-        int busy = -1;
-        String counters = readText(new File(kgsl, "gpubusy"));
-        if (counters != null) {
-            String[] p = counters.trim().split("\\s+");
-            if (p.length >= 2) {
-                long busyCount = parseLong(p[0]);
-                long totalCount = parseLong(p[1]);
-                if (totalCount > 0 && prevGpuTotal > 0 && totalCount > prevGpuTotal) {
-                    long dt = totalCount - prevGpuTotal;
-                    long db = busyCount - prevGpuBusy;
-                    busy = (int) Math.round(clamp(db * 100f / dt, 0f, 100f));
-                }
-                if (totalCount > 0) {
-                    prevGpuBusy = busyCount;
-                    prevGpuTotal = totalCount;
+        int busy = readPercentValue(new File(kgsl, "gpu_busy_percentage"));
+        // Some Odin kernels expose only the vendor interface; it reports a plain
+        // percentage.
+        if (busy < 0) busy = readPercentValue(new File("/sys/kernel/gpu/gpu_busy"));
+        if (busy < 0) {
+            // kgsl's gpubusy holds per-window busy/total cycles, not counters
+            // that grow forever, so a ratio is correct where deltas are not.
+            String counters = readText(new File(kgsl, "gpubusy"));
+            if (counters != null) {
+                String[] p = counters.trim().split("\\s+");
+                if (p.length >= 2) {
+                    long busyCount = parseLong(p[0]);
+                    long totalCount = parseLong(p[1]);
+                    if (totalCount > 0 && busyCount >= 0 && busyCount <= totalCount) {
+                        busy = (int) Math.round(clamp(busyCount * 100f / totalCount, 0f, 100f));
+                    }
                 }
             }
         }
-        if (busy < 0) busy = readPercent(new File(kgsl, "gpu_busy_percentage"));
 
         if (busy < 0 || hz <= 0 || max <= 0) {
             if (rootText == null) rootText = rootSnapshot(context, System.nanoTime());
@@ -745,6 +745,13 @@ final class PerfSampler {
     private static int readPercent(File f) {
         long v = readLong(f);
         return (int) Math.max(0, Math.min(100, v));
+    }
+
+    /** Like readPercent, but keeps "no such node" distinct from a real 0%. */
+    private static int readPercentValue(File f) {
+        String s = readText(f);
+        if (s == null || s.trim().isEmpty()) return -1;
+        return readPercent(f);
     }
 
     /** Full read for the latency dump; readText() only samples sysfs-sized files. */
