@@ -11,8 +11,8 @@ final class FanCurve {
             + "65:70,70:80,75:90,80:100,85:100,90:100,95:100,100:100";
 
     /** Representative automatic curve shown while the SMART system preset is active. */
-    static final String SMART = "30:10,35:10,40:15,45:20,50:30,55:40,60:55,"
-            + "65:70,70:85,75:95,80:100,85:100,90:100,95:100,100:100";
+    static final String SMART = "30:10,35:10,40:12,45:15,50:20,55:26,60:34,"
+            + "65:45,70:58,75:72,80:86,85:95,90:100,95:100,100:100";
 
     private FanCurve() {}
 

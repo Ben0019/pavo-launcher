@@ -117,15 +117,6 @@ public final class FanCurveService extends Service {
             float hal = Math.max(temps[0], temps[1]);
             float temp = hal;
             boolean warmup = SystemClock.uptimeMillis() - startedAt < 3000L;
-            if (smart) {
-                // Junction sensors answer a load step immediately, but the first
-                // samples after the service starts spike while the launcher is
-                // still starting up. Follow the stable HAL value for the first
-                // seconds, then switch to the raw sensors.
-                if (!warmup && controller.primed()) {
-                    temp = Math.max(hal, ThermalSensors.cpuTempRaw());
-                }
-            }
             if (temp <= 0f) temp = 40f;
             // Smart used to be the firmware's own curve, which reacts slowly.
             // Driving the built-in smart curve here makes it as responsive as
@@ -134,9 +125,12 @@ public final class FanCurveService extends Service {
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
                 controller.reset();
+                // A reset would forget the seed and jump to the curve value on
+                // the next tick; keep the fan where it is and ease from there.
+                controller.seed(PerfTuner.fanPercent(FanCurveService.this));
             }
             int duty = controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
-            if (warmup && duty > 45) duty = 45;
+            if (warmup) duty = -1;  // start silently, keep the current speed
             if (duty >= 0) {
                 lastDuty = duty;
                 // Take manual control once, then move only the duty. Rewriting
@@ -148,7 +142,7 @@ public final class FanCurveService extends Service {
                     PerfTuner.setFanManual(duty);
                     manualHeld = true;
                 }
-            } else if (PerfTuner.fanManualDrifted(FanCurveService.this,
+            } else if (!warmup && PerfTuner.fanManualDrifted(FanCurveService.this,
                     controller.applied())) {
                 // The game panel or a preset switched the fan away from the
                 // curve; re-assert it instead of waiting for the temperature.

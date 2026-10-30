@@ -410,6 +410,26 @@ final class PerfTuner {
         }
     }
 
+    /** Current fan duty as a percentage, or -1 when it cannot be read. */
+    static int fanPercent(android.content.Context context) {
+        // The PWM node is what the fan is actually doing; the settings value is
+        // only the last requested duty and can disagree after the firmware has
+        // taken over.
+        DeviceProfile p = profile();
+        if (p.fanDir != null && !p.fanDir.isEmpty()) {
+            int duty = readInt(p.fanDir + "/duty");
+            int period = readInt(p.fanDir + "/period");
+            if (period <= 0) period = p.fanPeriod > 0 ? p.fanPeriod : 50000;
+            if (duty >= 0 && period > 0) {
+                return Math.max(0, Math.min(100, Math.round(duty * 100f / period)));
+            }
+        }
+        int raw = fanSpeed(context);
+        int period = p.fanPeriod > 0 ? p.fanPeriod : 50000;
+        if (raw < 0) return -1;
+        return Math.max(0, Math.min(100, Math.round(raw * 100f / period)));
+    }
+
     /** Duty value for a percentage on this device's fan controller. */
     private static int fanValue(int percent) {
         int period = profile().fanPeriod;

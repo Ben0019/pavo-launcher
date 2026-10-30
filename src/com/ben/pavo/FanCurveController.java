@@ -27,6 +27,7 @@ final class FanCurveController {
     static final float RISE_LIMIT = 60f;
 
     private boolean primed;
+    private boolean seeded;
     private float filtered;
     private int applied = -1;
     private long lastMs;
@@ -47,6 +48,20 @@ final class FanCurveController {
 
     boolean primed() {
         return primed;
+    }
+
+    /**
+     * Start from the duty the fan is already running at. The first control tick
+     * then keeps it and only later ticks ease towards the curve, so enabling the
+     * service is inaudible instead of a jump.
+     */
+    void seed(int dutyPercent) {
+        applied = dutyPercent >= 0 ? Math.max(0, Math.min(100, dutyPercent)) : -1;
+        primed = false;
+        samples = 0;
+        filtered = 0f;
+        lastMs = 0L;
+        seeded = applied >= 0;
     }
 
     float filteredTemp() {
@@ -75,6 +90,11 @@ final class FanCurveController {
             primed = true;
             filtered = sample;
             lastMs = nowMs;
+            if (seeded) {
+                // Keep the existing speed for this first tick.
+                seeded = false;
+                return -1;
+            }
             applied = FanCurve.dutyAt(curve, filtered);
             return applied;
         }
