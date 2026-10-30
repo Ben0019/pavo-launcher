@@ -29,6 +29,7 @@ public final class FanCurveService extends Service {
     private int lastDuty = -1;
     private String lastCurve = "";
     private final FanCurveController controller = new FanCurveController();
+    private boolean manualHeld;
     private long startedAt;
 
     static void start(Context c) {
@@ -90,6 +91,7 @@ public final class FanCurveService extends Service {
         }
         startedAt = SystemClock.uptimeMillis();
         lastDuty = -1;
+        manualHeld = false;
         lastCurve = "";
         controller.reset();
         startForeground(NOTIFICATION_ID, notification(prefs));
@@ -125,12 +127,25 @@ public final class FanCurveService extends Service {
             int duty = controller.next(curve, temp, SystemClock.uptimeMillis());
             if (duty >= 0) {
                 lastDuty = duty;
-                PerfTuner.setFanManual(duty);
+                // Take manual control once, then move only the duty. Rewriting
+                // fan_mode every 1.5 s made the firmware's fan daemon re-notify
+                // its quick-settings tile constantly, and a bad transient mode
+                // in that stream crashes SystemUI.
+                if (manualHeld) PerfTuner.setFanDuty(duty);
+                else {
+                    PerfTuner.setFanManual(duty);
+                    manualHeld = true;
+                }
             } else if (PerfTuner.fanManualDrifted(FanCurveService.this,
                     controller.applied())) {
                 // The game panel or a preset switched the fan away from the
                 // curve; re-assert it instead of waiting for the temperature.
-                PerfTuner.setFanManual(controller.applied());
+                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_MANUAL) {
+                    PerfTuner.setFanDuty(controller.applied());
+                } else {
+                    PerfTuner.setFanManual(controller.applied());
+                    manualHeld = true;
+                }
             }
             handler.postDelayed(this, 1500L);
         }

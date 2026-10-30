@@ -490,6 +490,14 @@ final class PerfTuner {
                 + "; settings put global fan_speed " + value);
     }
 
+    /** Duty only: leaves the fan mode alone, so the firmware's fan daemon and
+     *  its quick-settings tile are not re-notified on every curve tick. */
+    static void setFanDuty(int percent) {
+        int value = fanValue(percent);
+        Root.write("settings put system fan_speed " + value
+                + "; settings put global fan_speed " + value);
+    }
+
     static int closestIndex(int[] values, int target) {
         if (values == null || values.length == 0) return 0;
         int best = 0;

@@ -73,6 +73,7 @@ public final class FanActivity extends PavoGlassActivity {
     private String selectedAppPkg = "";
     private boolean resumed;
     private boolean localCurve;
+    private boolean curveManualHeld;
     private FanCurveView curveView;
     private FanBackView backView;
     private TextView demoChip;
@@ -130,10 +131,19 @@ public final class FanActivity extends PavoGlassActivity {
                     int duty = curveController.next(currentCurve, temp,
                             SystemClock.uptimeMillis());
                     if (duty >= 0) {
-                        PerfTuner.setFanManual(duty);
+                        if (curveManualHeld) PerfTuner.setFanDuty(duty);
+                        else {
+                            PerfTuner.setFanManual(duty);
+                            curveManualHeld = true;
+                        }
                     } else if (PerfTuner.fanManualDrifted(
                             FanActivity.this, curveController.applied())) {
-                        PerfTuner.setFanManual(curveController.applied());
+                        if (PerfTuner.fanMode(FanActivity.this) == PerfTuner.FAN_MANUAL) {
+                            PerfTuner.setFanDuty(curveController.applied());
+                        } else {
+                            PerfTuner.setFanManual(curveController.applied());
+                            curveManualHeld = true;
+                        }
                     }
                 }
             });
