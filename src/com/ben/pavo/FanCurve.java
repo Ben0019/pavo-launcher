@@ -16,6 +16,13 @@ final class FanCurve {
 
     private FanCurve() {}
 
+    /** Pick the temperature that drives the curve: CPU, GPU, or the hotter one. */
+    static float sourceTemp(float cpu, float gpu, int source) {
+        if (source == 0) return cpu > 0f ? cpu : gpu;
+        if (source == 1) return gpu > 0f ? gpu : cpu;
+        return Math.max(cpu, gpu);
+    }
+
     /** 15 control points at 5 °C intervals at one duty level. */
     static String flat(int duty) {
         int d = clamp(duty, 0, 100);

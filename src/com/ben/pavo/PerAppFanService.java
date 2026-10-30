@@ -186,7 +186,7 @@ public final class PerAppFanService extends Service {
                 curveController.reset();
             }
             float[] temps = PerfTuner.temperatures();
-            float temp = Math.max(temps[0], temps[1]);
+            float temp = FanCurve.sourceTemp(temps[0], temps[1], prefs.fanTempSource());
             if (temp <= 0f) temp = 40f;
             int duty = curveController.next(profile.curve, temp,
                     SystemClock.uptimeMillis());

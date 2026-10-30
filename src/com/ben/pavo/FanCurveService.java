@@ -114,8 +114,8 @@ public final class FanCurveService extends Service {
                 return;
             }
             float[] temps = PerfTuner.readTemperatures();
-            float hal = Math.max(temps[0], temps[1]);
-            float temp = hal;
+            float hal = FanCurve.sourceTemp(temps[0], temps[1], prefs.fanTempSource());
+            float temp = Math.max(hal, 0f);
             boolean warmup = SystemClock.uptimeMillis() - startedAt < 3000L;
             if (temp <= 0f) temp = 40f;
             // Smart used to be the firmware's own curve, which reacts slowly.

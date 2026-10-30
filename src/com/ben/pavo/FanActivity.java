@@ -84,6 +84,8 @@ public final class FanActivity extends PavoGlassActivity {
     private TextView tempValue;
     private TextView status;
     private TextView curveHint;
+    private TextView srcCpu, srcGpu, srcMax, srcInfo;
+    private int fanSource;
     private SeekBar manualBar;
     private TextView manualValue;
     private GradientDrawable manualThumb;
@@ -126,7 +128,8 @@ public final class FanActivity extends PavoGlassActivity {
                 @Override
                 public void run() {
                     float[] temps = PerfTuner.readTemperatures();
-                    float temp = Math.max(temps[0], temps[1]);
+                    float temp = FanCurve.sourceTemp(temps[0], temps[1],
+                            new Prefs(FanActivity.this).fanTempSource());
                     if (temp <= 0f) temp = 40f;
                     int duty = curveController.next(currentCurve, temp,
                             SystemClock.uptimeMillis());
@@ -199,7 +202,9 @@ public final class FanActivity extends PavoGlassActivity {
         mode = global.mode;
         manualPct = global.manualPct;
         curve = global.curve;
+        fanSource = prefs.fanTempSource();
         buildUi();
+        styleSourceChips();
         hideBars();
         updateAppSelector();
         syncModeUi();
@@ -474,6 +479,22 @@ public final class FanActivity extends PavoGlassActivity {
         });
         curveCard.addView(curveView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        LinearLayout sourceRow = new LinearLayout(this);
+        sourceRow.setOrientation(LinearLayout.HORIZONTAL);
+        sourceRow.setGravity(Gravity.CENTER_VERTICAL);
+        sourceRow.setPadding(0, dp(4), 0, 0);
+        TextView srcLabel = text("TEMP", 8.5f, MUTED, false);
+        srcLabel.setLetterSpacing(0.08f);
+        srcLabel.setPadding(0, 0, dp(6), 0);
+        sourceRow.addView(srcLabel);
+        srcCpu = sourceChip(sourceRow, "CPU", 0);
+        srcGpu = sourceChip(sourceRow, "GPU", 1);
+        srcMax = sourceChip(sourceRow, "MAX", 2);
+        srcInfo = text("", 8.2f, MUTED, false);
+        srcInfo.setPadding(dp(7), 0, 0, 0);
+        sourceRow.addView(srcInfo);
+        curveCard.addView(sourceRow);
+
         curveHint = text("", 9f, MUTED, false);
         curveHint.setPadding(dp(2), dp(4), dp(2), 0);
         curveCard.addView(curveHint);
@@ -985,6 +1006,59 @@ public final class FanActivity extends PavoGlassActivity {
         return box;
     }
 
+    private TextView sourceChip(LinearLayout row, String label, int value) {
+        TextView chip = text(label, 9f, TEXT, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setSingleLine(true);
+        chip.setPadding(dp(10), dp(4), dp(10), dp(4));
+        chip.setFocusable(true);
+        chip.setClickable(true);
+        chip.setOnTouchListener(new View.OnTouchListener() {
+            @Override public boolean onTouch(View v, android.view.MotionEvent event) {
+                switch (event.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        v.setPressed(true);
+                        v.requestFocus();
+                        return true;
+                    case android.view.MotionEvent.ACTION_UP:
+                        v.setPressed(false);
+                        v.performClick();
+                        return true;
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        v.setPressed(false);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        });
+        chip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                new Prefs(FanActivity.this).setFanTempSource(value);
+                fanSource = value;
+                styleSourceChips();
+                curveController.reset();
+                FanCurveService.update(FanActivity.this);
+            }
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = dp(5);
+        row.addView(chip, lp);
+        return chip;
+    }
+
+    private void styleSourceChips() {
+        TextView[] chips = {srcCpu, srcGpu, srcMax};
+        for (int i = 0; i < chips.length; i++) {
+            if (chips[i] == null) continue;
+            boolean on = fanSource == i;
+            chips[i].setTextColor(on ? 0xFF071018 : 0xD9FFFFFF);
+            chips[i].setBackground(Ui.rounded(on ? accent : 0x1AFFFFFF, dp(9),
+                    on ? 0x00000000 : 0x33FFFFFF, dp(1)));
+        }
+    }
+
     private void addModeChip(LinearLayout row, String label, int value, boolean selected) {
         final TextView chip = text(label, 9.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
@@ -1081,6 +1155,7 @@ public final class FanActivity extends PavoGlassActivity {
     private void syncModeUi() {
         suppress = true;
         styleChips();
+        styleSourceChips();
         if (curveView != null) {
             curveView.setEditable(true);
             refreshCurveDisplay();
@@ -1102,6 +1177,7 @@ public final class FanActivity extends PavoGlassActivity {
     private void selectMode(int value) {
         mode = normalizeMode(value);
         styleChips();
+        styleSourceChips();
         if (curveView != null) {
             curveView.setEditable(true);
             refreshCurveDisplay();
@@ -1353,12 +1429,18 @@ public final class FanActivity extends PavoGlassActivity {
         }
         dutyValue.setText(actualDuty + "%");
         tempValue.setText(temp > 0 ? Math.round(temp) + "°" : "—");
+        if (srcInfo != null) {
+            String cpu = state.cpuTemp > 0 ? Math.round(state.cpuTemp) + "°" : "—";
+            String gpu = state.gpuTemp > 0 ? Math.round(state.gpuTemp) + "°" : "—";
+            srcInfo.setText("CPU " + cpu + "  ·  GPU " + gpu);
+        }
         int dutyColor = HeatColor.ramp(HeatColor.fanSeverity(actualDuty, displayRpm, currentTemp));
         int heatColor = HeatColor.ramp(HeatColor.severity(0, currentTemp));
         dutyValue.setTextColor(dutyColor);
         tempValue.setTextColor(heatColor);
         updateManualAppearance();
         styleChips();
+        styleSourceChips();
         curveView.setLive(temp, actualDuty, displayRpm);
         if (state.root) {
             String ex = PerfTuner.Root.executionName();

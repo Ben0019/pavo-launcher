@@ -406,6 +406,11 @@ final class Prefs {
     void setFolderTransparency(int v) { sp.edit().putInt("folder_transparency", clamp(v, 20, 100)).apply(); }
 
     // --- joystick RGB ---
+    /** 0 = CPU, 1 = GPU, 2 = higher of the two. */
+    int fanTempSource() { return clamp(sp.getInt("fan_temp_source", 2), 0, 2); }
+    void setFanTempSource(int value) {
+        sp.edit().putInt("fan_temp_source", Math.max(0, Math.min(2, value))).apply();
+    }
     int fanAppMode() {
         return clamp(sp.getInt("fan_app_mode", PerfTuner.FAN_SMART), 0, 7);
     }
