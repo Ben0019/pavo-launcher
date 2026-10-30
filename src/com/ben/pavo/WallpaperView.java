@@ -185,8 +185,47 @@ final class WallpaperView extends View {
             if (themePrefs.themeAccent() != accent) themePrefs.setThemeAccent(accent);
         }
         rebuildBlur();
+        syncSystemWallpaper(next, w, h);
         if (listener != null) listener.onWallpaperChanged();
         invalidate();
+    }
+
+    private String syncedKey = "";
+
+    /**
+     * Mirror Pavo's own wallpaper into the system wallpaper. The launcher draws its
+     * wallpaper inside its window, so Recents and other system surfaces would keep
+     * showing whatever wallpaper was set before Pavo's. A static frame stands in for
+     * a video wallpaper, which cannot be handed to the system as a live one.
+     */
+    private void syncSystemWallpaper(Bitmap frame, int w, int h) {
+        if (frame == null) return;
+        int mode = this.mode;
+        if (mode == Prefs.MODE_DEVICE) return;
+        Prefs prefs = new Prefs(getContext());
+        String source = mode == Prefs.MODE_VIDEO ? prefs.videoWallpaper()
+                : mode == Prefs.MODE_CUSTOM ? "custom" : "aurora";
+        String key = mode + "|" + source + "|" + w + "x" + h;
+        if (key.equals(syncedKey)) return;
+        syncedKey = key;
+        final Bitmap copy;
+        try {
+            copy = frame.copy(Bitmap.Config.ARGB_8888, false);
+        } catch (Throwable t) {
+            return;
+        }
+        if (copy == null) return;
+        final WallpaperManager manager = WallpaperManager.getInstance(getContext());
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    manager.setBitmap(copy);
+                } catch (Throwable ignored) {
+                } finally {
+                    copy.recycle();
+                }
+            }
+        }, "pavo-system-wallpaper").start();
     }
 
     private Bitmap obtainSource() {
