@@ -1320,6 +1320,14 @@ public final class MainActivity extends Activity {
             FanCurveService.start(this);
         }
         applySurfaceTransparency();
+        // Repairs a fan/performance pairing the firmware's fan tile cannot draw;
+        // off the main thread because the fix goes through PServer.
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                PerfTuner.repairFanMode(MainActivity.this);
+            }
+        }, "fan-mode-repair").start();
         IntentFilter f = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         lastBatteryIntent = registerReceiver(batteryReceiver, f);
 

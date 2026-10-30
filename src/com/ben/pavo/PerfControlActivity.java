@@ -105,6 +105,10 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
                     fanSpeed = Settings.System.getInt(getContentResolver(), "fan_speed", 7000);
                 } catch (Throwable ignored) {
                 }
+                // The restored fan mode must be one the firmware's fan tile can
+                // render in the new performance state, or the tile throws on its
+                // next refresh and takes SystemUI with it.
+                fanMode = PerfTuner.safeFanMode(fanMode, mode);
                 // All privileged writes go through the vendor PServer service;
                 // there is no su fallback. The fan is restored after the
                 // firmware's daemon has seen the new performance mode.

@@ -79,6 +79,10 @@ public final class BatteryGuardService extends Service {
             worker.execute(new Runnable() {
                 @Override
                 public void run() {
+                    // Heal a fan/performance pairing left by the charger or an
+                    // older build: the firmware's fan tile crashes SystemUI on
+                    // the next refresh when the two disagree.
+                    PerfTuner.repairFanMode(BatteryGuardService.this);
                     final DeviceHealthReader.Snapshot snap = DeviceHealthReader.read(BatteryGuardService.this);
                     final boolean auto = store.autoSeparation();
                     final int threshold = store.autoLevel();

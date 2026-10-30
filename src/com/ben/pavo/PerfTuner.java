@@ -398,6 +398,39 @@ final class PerfTuner {
                 + "; settings put global performance_mode " + mode);
     }
 
+    /**
+     * The firmware's fan quick-settings tile builds its list from the current
+     * performance mode: Quiet is only offered outside High performance and Custom
+     * only inside it. Leaving the fan on Quiet while switching to High (or on
+     * Custom while leaving High) makes that tile throw on its next refresh, which
+     * kills SystemUI - a refresh the charger always triggers.
+     */
+    static boolean fanModeFitsPerformance(int fan, int performance) {
+        if (fan == 2) return false;             // legacy BALANCE: never in the list
+        if (performance == 2) return fan != 1;  // High: Quiet is replaced by Custom
+        return fan != 6;                        // otherwise Custom is not offered
+    }
+
+    static int safeFanMode(int fan, int performance) {
+        return fanModeFitsPerformance(fan, performance) ? fan : FAN_SMART;
+    }
+
+    /** Fix a fan/performance pairing the firmware tile cannot render. */
+    static void repairFanMode(android.content.Context context) {
+        if (context == null) return;
+        try {
+            android.content.ContentResolver cr = context.getContentResolver();
+            int performance = android.provider.Settings.System.getInt(
+                    cr, "performance_mode", 0);
+            int fan = android.provider.Settings.System.getInt(
+                    cr, "fan_mode", FAN_SMART);
+            if (fanModeFitsPerformance(fan, performance)) return;
+            Root.write("settings put system fan_mode " + FAN_SMART
+                    + "; settings put global fan_mode " + FAN_SMART);
+        } catch (Throwable ignored) {
+        }
+    }
+
     /** Live Odin performance mode, or -1 when it cannot be read. */
     static int readPerformanceMode(Context context) {
         if (context == null) return -1;
