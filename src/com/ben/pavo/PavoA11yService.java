@@ -56,10 +56,13 @@ public final class PavoA11yService extends AccessibilityService {
     private static volatile String foregroundPackage;
     private static volatile long foregroundAt;
 
-    /** Last foreground package seen by the accessibility service, or null. */
+    /**
+     * Last foreground package seen by the accessibility service, or null. The
+     * value only changes when a window opens, so it must not expire: a game that
+     * stays in front sends no new events and the old 10 s cutoff made per-app
+     * profiles drop back to the global one mid-session.
+     */
     static String foregroundPackage() {
-        if (foregroundPackage == null) return null;
-        if (SystemClock.uptimeMillis() - foregroundAt > 10_000L) return null;
         return foregroundPackage;
     }
 
@@ -1600,12 +1603,10 @@ public final class PavoA11yService extends AccessibilityService {
                 String name = pkg.toString();
                 // Overlays and the IME fire their own window changes while a game
                 // is in front; they must not overwrite the real foreground app.
+                // Only true overlays are skipped; the launcher must be recorded
+                // so that going Home clears the app that was in front.
                 if (!name.equals("com.android.systemui")
                         && !name.equals("com.odin.gameassistant")
-                        && !name.equals("com.ben.pavo")
-                        && !name.equals("com.android.launcher3")
-                        && !name.equals("com.odin.odinlauncher")
-                        && !name.equals("android")
                         && !name.contains("inputmethod")) {
                     foregroundPackage = name;
                     foregroundAt = SystemClock.uptimeMillis();
