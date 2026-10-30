@@ -494,14 +494,20 @@ final class PerfSampler {
             if (currentUa == 0 || currentUa == Integer.MIN_VALUE) {
                 currentUa = readLong(new File("/sys/class/power_supply/battery/current_now"));
             }
+            Intent battery = context.registerReceiver(null,
+                    new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
             long voltageUv = readLong(new File("/sys/class/power_supply/battery/voltage_now"));
             if (voltageUv <= 0) {
-                Intent battery = context.registerReceiver(null,
-                        new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
                 int mv = battery == null ? -1
                         : battery.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
                 voltageUv = mv * 1000L;
             }
+            // Battery temperature: sysfs reports tenths of a degree.
+            long tenths = readLong(new File("/sys/class/power_supply/battery/temp"));
+            if (tenths <= 0 && battery != null) {
+                tenths = battery.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+            }
+            if (tenths > 0) s.batteryTempC = tenths / 10f;
             if (voltageUv > 0 && currentUa != 0 && currentUa != Integer.MIN_VALUE) {
                 s.powerW = Math.abs(currentUa) / 1_000_000f * (voltageUv / 1_000_000f);
             }

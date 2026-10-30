@@ -24,6 +24,7 @@ final class PerfStats {
     String targetCls;
     long appRamKb;
     float powerW;
+    float batteryTempC;
     long chargeCounterUah;
     boolean cpuCapped;
     boolean gpuCapped;

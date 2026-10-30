@@ -46,9 +46,11 @@ final class PerfOverlayView extends LinearLayout {
     private Runnable editDoneAction;
     private LinearLayout cpuRow, gpuRow, fpsBlock, coresBox;
     private LinearLayout ramRow;
+    private LinearLayout battRow;
     private TextView cpuTemp, cpuClock, cpuUsage;
     private TextView gpuTemp, gpuClock, gpuUsage;
     private TextView ramUsage, ramAmount;
+    private TextView battTemp, battPower;
     private TextView fpsValue;
     private LinearLayout fpsRow;
     private FpsGraphView graph;
@@ -117,6 +119,14 @@ final class PerfOverlayView extends LinearLayout {
         ramRow.addView(ramUsage, weight(1.0f));
         ramRow.addView(ramAmount, weight(1.4f));
         addView(ramRow, rowParams(3));
+
+        battRow = metricRow();
+        addMetricLabel(battRow, "BATT");
+        battTemp = metricValue(Gravity.START);
+        battPower = metricValue(Gravity.END);
+        battRow.addView(battTemp, weight(1.0f));
+        battRow.addView(battPower, weight(1.4f));
+        addView(battRow, rowParams(3));
 
         fpsBlock = new LinearLayout(c);
         fpsBlock.setOrientation(VERTICAL);
@@ -212,6 +222,7 @@ final class PerfOverlayView extends LinearLayout {
                 ? VISIBLE : GONE);
 
         ramRow.setVisibility(p.perfRam() ? VISIBLE : GONE);
+        battRow.setVisibility(p.perfBattery() ? VISIBLE : GONE);
         fpsValue.setVisibility(p.perfFps() ? VISIBLE : GONE);
         fpsRow.setVisibility(p.perfFps() ? VISIBLE : GONE);
         graph.setVisibility(p.perfFpsGraph() ? VISIBLE : GONE);
@@ -254,6 +265,14 @@ final class PerfOverlayView extends LinearLayout {
             setValue(ramUsage, "\u2014", 0x55FFFFFF);
             setValue(ramAmount, "\u2014", 0x55FFFFFF);
         }
+
+        boolean battTempKnown = s.batteryTempC > 0f;
+        setValue(battTemp, battTempKnown ? Math.round(s.batteryTempC) + "\u00b0" : "\u2014",
+                battTempKnown ? heat((s.batteryTempC - 30f) / 40f) : 0x55FFFFFF);
+        boolean powerKnown = s.powerW > 0f;
+        setValue(battPower, powerKnown
+                ? String.format(Locale.US, "%.1fW", s.powerW) : "\u2014",
+                powerKnown ? heat(s.powerW / 25f) : 0x55FFFFFF);
 
         if (s.battery >= 0) {
             battery.setText(s.battery + "%");
