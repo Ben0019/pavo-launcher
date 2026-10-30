@@ -77,7 +77,7 @@ final class FanCurveView extends View {
         setFocusable(true);
         setFocusableInTouchMode(true);
         setDefaultFocusHighlightEnabled(false);
-        setContentDescription("Fan curve. Right stick adjusts duty; D-pad or left stick selects points.");
+        setContentDescription("Fan curve. Right stick adjusts speed; D-pad or left stick selects points.");
         setCurve(curve);
     }
 

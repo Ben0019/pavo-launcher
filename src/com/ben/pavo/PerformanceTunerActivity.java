@@ -915,7 +915,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     }
 
     private void fanCard(LinearLayout parent) {
-        LinearLayout card = section("FAN", "Mode and precise manual duty");
+        LinearLayout card = section("FAN", "Mode and precise manual speed");
         fanCardView = card;
         parent.addView(card);
 
@@ -948,7 +948,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         drlp.topMargin = dp(7);
         card.addView(dutyRow, drlp);
-        TextView dutyLabel = text("DUTY", 10f, MUTED, true);
+        TextView dutyLabel = text("SPEED", 10f, MUTED, true);
         dutyLabel.setLetterSpacing(0.10f);
         dutyRow.addView(dutyLabel);
 
@@ -1635,7 +1635,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             } else {
                 rpm = "—";
             }
-            fanDetail.setText("DUTY " + duty + "  ·  " + rpm + "  ·  "
+            fanDetail.setText("SPEED " + duty + "  ·  " + rpm + "  ·  "
                     + modeLabel(fan.mode));
         }
     }

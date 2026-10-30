@@ -556,7 +556,7 @@ public final class FanActivity extends PavoGlassActivity {
         stats.setGravity(Gravity.END);
         stats.setPadding(0, dp(4), 0, 0);
         rpmValue = stat(stats, "RPM", "—", 1f);
-        dutyValue = stat(stats, "DUTY", "—", 1f);
+        dutyValue = stat(stats, "SPEED", "—", 1f);
         tempValue = stat(stats, "CPU", "—", 1.0f);
         gpuValue = stat(stats, "GPU", "—", 1.0f);
         LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(
@@ -591,7 +591,7 @@ public final class FanActivity extends PavoGlassActivity {
             addModeChip(row, MODE_LABELS[i], MODE_VALUES[i], i == 2);
         }
 
-        LinearLayout manual = card(left, "MANUAL DUTY", "");
+        LinearLayout manual = card(left, "MANUAL SPEED", "");
         LinearLayout.LayoutParams manualLp = (LinearLayout.LayoutParams) manual.getLayoutParams();
         manualLp.topMargin = dp(4);
         manual.setPadding(dp(12), dp(6), dp(12), dp(6));
@@ -1326,14 +1326,14 @@ public final class FanActivity extends PavoGlassActivity {
     private void updateLiveHint() {
         if (curveHint == null) return;
         if (mode == MODE_CURVE) {
-            curveHint.setText("CURVE · right stick duty · D-pad/left stick point · L1/R1 cards");
+            curveHint.setText("CURVE · right stick speed · D-pad/left stick point · L1/R1 cards");
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (mode == PerfTuner.FAN_MANUAL) {
-            curveHint.setText("MANUAL " + manualPct + "% · right stick duty · D-pad/left stick point · L1/R1");
+            curveHint.setText("MANUAL " + manualPct + "% · right stick speed · D-pad/left stick point · L1/R1");
             curveHint.setTextColor(MUTED);
         } else {
             curveHint.setText("SYSTEM " + modeLabel(mode)
-                    + " · right stick duty · D-pad/left stick point · L1/R1");
+                    + " · right stick speed · D-pad/left stick point · L1/R1");
             curveHint.setTextColor(MUTED);
         }
     }
@@ -1428,7 +1428,7 @@ public final class FanActivity extends PavoGlassActivity {
         if (displayRpm > 0) {
             rpmValue.setText((estimated ? "~" : "") + String.format(Locale.US, "%,d", displayRpm));
             rpmValue.setContentDescription(estimated
-                    ? "Estimated fan speed from PWM duty" : "Measured fan speed");
+                    ? "Estimated from the fan drive level" : "Measured fan speed");
         } else {
             rpmValue.setText(fanRunning ? "0" : "—");
             rpmValue.setContentDescription(fanRunning ? "Fan stopped" : "Fan speed unavailable");
