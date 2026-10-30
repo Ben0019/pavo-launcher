@@ -2,6 +2,7 @@ package com.ben.pavo;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -98,6 +99,49 @@ final class FtpClient {
         }
         closeQuietly(data);
         readReply();
+    }
+
+    void upload(File local, String remote) throws IOException {
+        Socket data = passive();
+        send("STOR " + remote);
+        int code = readReply();
+        if (code / 100 != 1) {
+            closeQuietly(data);
+            throw new IOException("STOR failed (" + code + ")");
+        }
+        try (InputStream input = new FileInputStream(local);
+             OutputStream output = data.getOutputStream()) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = input.read(buffer)) > 0) output.write(buffer, 0, read);
+        } catch (Throwable t) {
+            closeQuietly(data);
+            throw t;
+        }
+        closeQuietly(data);
+        readReply();
+    }
+
+    void deleteFile(String path) throws IOException {
+        command("DELE " + path);
+        if (lastCode / 100 != 2) throw new IOException("DELE failed (" + lastCode + ")");
+    }
+
+    void deleteDir(String path) throws IOException {
+        command("RMD " + path);
+        if (lastCode / 100 != 2) throw new IOException("RMD failed (" + lastCode + ")");
+    }
+
+    void makeDir(String path) throws IOException {
+        command("MKD " + path);
+        if (lastCode / 100 != 2) throw new IOException("MKD failed (" + lastCode + ")");
+    }
+
+    void rename(String from, String to) throws IOException {
+        command("RNFR " + from);
+        if (lastCode / 100 != 3) throw new IOException("RNFR failed (" + lastCode + ")");
+        command("RNTO " + to);
+        if (lastCode / 100 != 2) throw new IOException("RNTO failed (" + lastCode + ")");
     }
 
     void close() {

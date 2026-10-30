@@ -1,5 +1,7 @@
 package com.ben.pavo;
 
+import android.content.Intent;
+
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Environment;
@@ -685,6 +687,16 @@ public final class FtpActivity extends PavoGlassActivity {
         return scroll;
     }
 
+    /** The remote host opens in the file manager as a second pane. */
+    private void openInFileManager(String host, int port, String user, String pass) {
+        Intent intent = new Intent(this, FileManagerActivity.class);
+        intent.putExtra(FileManagerActivity.EXTRA_FTP_HOST, host);
+        intent.putExtra(FileManagerActivity.EXTRA_FTP_PORT, port);
+        intent.putExtra(FileManagerActivity.EXTRA_FTP_USER, user);
+        intent.putExtra(FileManagerActivity.EXTRA_FTP_PASS, pass);
+        startActivity(intent);
+    }
+
     private void connectClient() {
         final String host = hostField.getText().toString().trim();
         int port;
@@ -715,6 +727,7 @@ public final class FtpActivity extends PavoGlassActivity {
                             clientStatus.setText("Connected to " + host);
                             clientStatus.setTextColor(OK);
                             showEntries(entries);
+                            openInFileManager(host, finalPort, user, pass);
                         }
                     });
                 } catch (Throwable t) {

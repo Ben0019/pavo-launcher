@@ -88,6 +88,9 @@ public final class FileManagerActivity extends PavoGlassActivity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final List<File> clipboard = new ArrayList<>();
+    private final List<FtpClient.Entry> remoteClipboard = new ArrayList<>();
+    private boolean remoteClipSrc;
+    private String remoteClipDir = "/";
 
     private Prefs prefs;
     private GlassPanel sheet;
@@ -99,8 +102,21 @@ public final class FileManagerActivity extends PavoGlassActivity {
     private Pane leftPane;
     private Pane rightPane;
     private Pane activePane;
+    private FtpPane ftpPane;
+    private boolean ftpMode;
+    private boolean ftpActive;
+    private boolean localLeft = true;
+    private String ftpHost = "";
+    private int ftpPort = 21;
+    private String ftpUser = "";
+    private String ftpPass = "";
     private Dialog openDialog;
     private View permissionBanner;
+
+    static final String EXTRA_FTP_HOST = "ftp_host";
+    static final String EXTRA_FTP_PORT = "ftp_port";
+    static final String EXTRA_FTP_USER = "ftp_user";
+    static final String EXTRA_FTP_PASS = "ftp_pass";
 
     private File internalRoot;
     private File removableRoot;
@@ -160,6 +176,12 @@ public final class FileManagerActivity extends PavoGlassActivity {
         removableRoot = findRemovableRoot();
         hasRemovable = removableRoot != null && !removableRoot.equals(internalRoot);
         if (!hasRemovable) removableRoot = internalRoot;
+        Intent launch = getIntent();
+        ftpHost = launch == null ? "" : value(launch.getStringExtra(EXTRA_FTP_HOST));
+        ftpPort = launch == null ? 21 : launch.getIntExtra(EXTRA_FTP_PORT, 21);
+        ftpUser = launch == null ? "" : value(launch.getStringExtra(EXTRA_FTP_USER));
+        ftpPass = launch == null ? "" : value(launch.getStringExtra(EXTRA_FTP_PASS));
+        ftpMode = !ftpHost.isEmpty();
         if (savedInstanceState != null) {
             pendingLeftPath = savedInstanceState.getString("fm_left");
             pendingRightPath = savedInstanceState.getString("fm_right");
@@ -174,6 +196,25 @@ public final class FileManagerActivity extends PavoGlassActivity {
         main.postDelayed(new Runnable() {
             @Override public void run() { focusFirstFile(false); }
         }, 420L);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String host = intent == null ? null : intent.getStringExtra(EXTRA_FTP_HOST);
+        if (host == null || host.isEmpty()) return;
+        if (ftpPane != null && ftpPane.client != null) ftpPane.client.close();
+        ftpHost = host;
+        ftpPort = intent.getIntExtra(EXTRA_FTP_PORT, 21);
+        ftpUser = value(intent.getStringExtra(EXTRA_FTP_USER));
+        ftpPass = value(intent.getStringExtra(EXTRA_FTP_PASS));
+        ftpMode = true;
+        localLeft = true;
+        ftpPane = new FtpPane(ftpHost, ftpPort, ftpUser, ftpPass);
+        attachPaneViews(stackedPanes());
+        ftpActive = true;
+        updateFooter();
     }
 
     @Override
@@ -230,6 +271,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     @Override
     protected void onDestroy() {
+        if (ftpPane != null && ftpPane.client != null) {
+            ftpPane.client.close();
+            ftpPane.client = null;
+        }
         io.shutdownNow();
         if (controllerNav != null) controllerNav.release();
         dismissDialog();
@@ -330,12 +375,27 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 boolean longFired = controllerALongFired;
                 controllerALongFired = false;
                 if (!longFired) {
-                    if (cursorMode) activateCursor();
-                    else if (controllerAFocus != null) controllerAFocus.performClick();
+                    if (ftpMode && ftpActive && ftpPane != null) {
+                        ftpPane.activate();
+                    } else if (cursorMode) {
+                        activateCursor();
+                    } else if (controllerAFocus != null) {
+                        controllerAFocus.performClick();
+                    }
                 }
                 controllerAFocus = null;
                 return true;
             }
+            return true;
+        }
+        if ((event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_X
+                || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y)
+                && event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0
+                && openDialog == null
+                && ftpMode && ftpActive && ftpPane != null
+                && ftpPane.sel >= 0 && ftpPane.sel < ftpPane.entries.size()) {
+            ftpPane.toggleSelected(ftpPane.entries.get(ftpPane.sel));
             return true;
         }
         if ((event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_X
@@ -368,6 +428,24 @@ public final class FileManagerActivity extends PavoGlassActivity {
             if (!cursorMode) {
                 // Chrome has focus: the shared navigator moves between buttons.
                 return false;
+            }
+            if (ftpMode && ftpPane != null) {
+                if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    if (down && !repeat) {
+                        if (ftpActive) {
+                            ftpActive = false;
+                            setActive(leftPane);
+                        } else {
+                            setFtpActive();
+                        }
+                    }
+                    return true;
+                }
+                if (ftpActive && (code == KeyEvent.KEYCODE_DPAD_UP
+                        || code == KeyEvent.KEYCODE_DPAD_DOWN)) {
+                    if (down && !repeat) ftpPane.move(code == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
+                    return true;
+                }
             }
             if (cursorMode) {
                 lastDpadKeyAt = SystemClock.uptimeMillis();
@@ -561,21 +639,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
         leftPane = new Pane(false);
         rightPane = new Pane(true);
-        if (stacked) {
-            panes.addView(leftPane.card, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-            LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-            rightLp.topMargin = dp(5);
-            panes.addView(rightPane.card, rightLp);
-        } else {
-            panes.addView(leftPane.card, new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
-            LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-            rightLp.leftMargin = dp(5);
-            panes.addView(rightPane.card, rightLp);
-        }
+        if (ftpMode) ftpPane = new FtpPane(ftpHost, ftpPort, ftpUser, ftpPass);
+        attachPaneViews(stacked);
 
         column.addView(buildFooter(), matchWrap());
 
@@ -686,6 +751,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
     }
 
     private void activateCursor() {
+        if (ftpMode && ftpActive && ftpPane != null) {
+            ftpPane.activate();
+            return;
+        }
         Pane pane = navPane != null ? navPane : activePane;
         if (pane == null || pane.files.isEmpty()) return;
         chooseFile(pane, pane.files.get(clampIndex(pane)));
@@ -724,6 +793,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void switchControllerPane(boolean left) {
         stopHoldScroll();
+        if (ftpMode) return;
         Pane target = left ? leftPane : rightPane;
         if (target == null || target == navPane) return;
         focusRow(target, target.cursor);
@@ -858,6 +928,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
     private void updateFooter() {
         if (actionRow == null) return;
         actionRow.removeAllViews();
+        if (ftpPane != null && ftpActive) {
+            updateFtpFooter();
+            return;
+        }
         Pane p = activePane;
         if (p == null) return;
         if (!p.selected.isEmpty()) {
@@ -889,9 +963,11 @@ public final class FileManagerActivity extends PavoGlassActivity {
             actionRow.addView(actionButton("CANCEL", new Runnable() {
                 @Override public void run() { clearSelection(); }
             }), actionLp(5));
-        } else if (!clipboard.isEmpty()) {
-            clipboardLabel.setText(clipboard.size() + " "
-                    + Loc.s(this, clipboard.size() == 1 ? "ITEM" : "ITEMS")
+        } else if (!clipboard.isEmpty()
+                || (remoteClipSrc && !remoteClipboard.isEmpty())) {
+            int count = remoteClipSrc ? remoteClipboard.size() : clipboard.size();
+            clipboardLabel.setText(count + " "
+                    + Loc.s(this, count == 1 ? "ITEM" : "ITEMS")
                     + "  ·  " + Loc.s(this, clipboardCut ? "MOVE" : "COPY")
                     + "  ·  " + Loc.s(this, "PASTE INTO") + " " + p.titleText());
             actionRow.addView(actionButton("PASTE", true, new Runnable() {
@@ -900,15 +976,22 @@ public final class FileManagerActivity extends PavoGlassActivity {
             actionRow.addView(actionButton("CLEAR", new Runnable() {
                 @Override public void run() {
                     clipboard.clear();
+                    remoteClipboard.clear();
+                    remoteClipSrc = false;
                     updateFooter();
                 }
             }), actionLp(5));
         } else {
             clipboardLabel.setText(Loc.s(this, "TAP TO OPEN  ·  LONG PRESS TO SELECT")
                     + "  ·  " + p.titleText());
+            if (ftpPane != null) {
+                actionRow.addView(actionButton("SWAP", new Runnable() {
+                    @Override public void run() { swapPanes(); }
+                }), actionLp(0));
+            }
             actionRow.addView(actionButton("REFRESH", new Runnable() {
                 @Override public void run() { reloadAll(); }
-            }), actionLp(0));
+            }), actionLp(ftpPane != null ? 5 : 0));
             actionRow.addView(actionButton("NEW FOLDER", new Runnable() {
                 @Override public void run() { showNewFolderDialog(); }
             }), actionLp(5));
@@ -925,6 +1008,77 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 @Override public void run() { actionRow.requestLayout(); }
             });
         }
+    }
+
+    private void updateFtpFooter() {
+        String local = leftPane != null && leftPane.root != null
+                && leftPane.root.equals(removableRoot) ? "SD CARD" : "INTERNAL";
+        if (!ftpPane.selected.isEmpty()) {
+            int n = ftpPane.selected.size();
+            clipboardLabel.setText(n + " "
+                    + Loc.s(this, n == 1 ? "ITEM SELECTED" : "ITEMS SELECTED")
+                    + "  \u00b7  " + ftpPane.dir);
+            actionRow.addView(actionButton("COPY", new Runnable() {
+                @Override public void run() { ftpPane.copySelected(false); }
+            }), actionLp(0));
+            actionRow.addView(actionButton("CUT", new Runnable() {
+                @Override public void run() { ftpPane.copySelected(true); }
+            }), actionLp(5));
+            if (n == 1) {
+                actionRow.addView(actionButton("RENAME", new Runnable() {
+                    @Override public void run() { ftpPane.renameSelected(); }
+                }), actionLp(5));
+            }
+            actionRow.addView(actionButton("DELETE", new Runnable() {
+                @Override public void run() { ftpPane.deleteSelected(); }
+            }), actionLp(5));
+            if (n == 1) {
+                actionRow.addView(actionButton("INFO", new Runnable() {
+                    @Override public void run() { ftpPane.infoSelected(); }
+                }), actionLp(5));
+            }
+            actionRow.addView(actionButton("CANCEL", new Runnable() {
+                @Override public void run() { ftpPane.clearSelection(); }
+            }), actionLp(5));
+            return;
+        }
+        boolean remoteClip = remoteClipSrc && !remoteClipboard.isEmpty();
+        boolean localClip = !remoteClipSrc && !clipboard.isEmpty();
+        if (remoteClip || localClip) {
+            int n = remoteClip ? remoteClipboard.size() : clipboard.size();
+            clipboardLabel.setText(n + " "
+                    + Loc.s(this, n == 1 ? "ITEM" : "ITEMS")
+                    + "  \u00b7  " + Loc.s(this, clipboardCut ? "MOVE" : "COPY")
+                    + "  \u00b7  " + Loc.s(this, "PASTE INTO") + " FTP");
+            actionRow.addView(actionButton("PASTE", true, new Runnable() {
+                @Override public void run() { ftpPane.paste(); }
+            }), actionLp(0));
+            actionRow.addView(actionButton("CLEAR", new Runnable() {
+                @Override public void run() {
+                    remoteClipboard.clear();
+                    clipboard.clear();
+                    remoteClipSrc = false;
+                    updateFooter();
+                }
+            }), actionLp(5));
+            return;
+        }
+        clipboardLabel.setText("FTP  \u00b7  " + ftpHost + "  \u00b7  " + local);
+        actionRow.addView(actionButton("SWAP", new Runnable() {
+            @Override public void run() { swapPanes(); }
+        }), actionLp(0));
+        actionRow.addView(actionButton(local, new Runnable() {
+            @Override public void run() { toggleLocalRoot(); }
+        }), actionLp(5));
+        actionRow.addView(actionButton("NEW FOLDER", new Runnable() {
+            @Override public void run() { ftpPane.newFolder(); }
+        }), actionLp(5));
+        actionRow.addView(actionButton("REFRESH", new Runnable() {
+            @Override public void run() {
+                reload(leftPane);
+                if (ftpPane != null) ftpPane.refresh();
+            }
+        }), actionLp(5));
     }
 
     private LinearLayout.LayoutParams actionLp(int left) {
@@ -957,6 +1111,923 @@ public final class FileManagerActivity extends PavoGlassActivity {
     // Panes
     // ------------------------------------------------------------------
 
+    /** Remote pane: an FTP host presented like a storage location. */
+    private final class FtpPane {
+        final FrameLayout card;
+        final TextView title;
+        final TextView path;
+        final TextView status;
+        final ListView list;
+        final FtpAdapter adapter;
+        final List<FtpClient.Entry> entries = new ArrayList<>();
+        final java.util.Set<FtpClient.Entry> selected = new java.util.HashSet<>();
+        FtpClient client;
+        String dir = "/";
+        int token;
+        int sel;
+        final List<String> roots = new ArrayList<>();
+        boolean busy;
+
+        FtpPane(final String host, final int port, final String user, final String pass) {
+            card = new FrameLayout(FileManagerActivity.this);
+            card.setBackground(paneBackground(false));
+            card.setPadding(dp(8), dp(6), dp(8), dp(5));
+
+            LinearLayout column = new LinearLayout(FileManagerActivity.this);
+            column.setOrientation(LinearLayout.VERTICAL);
+            card.addView(column, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+            LinearLayout head = new LinearLayout(FileManagerActivity.this);
+            head.setOrientation(LinearLayout.HORIZONTAL);
+            head.setGravity(Gravity.CENTER_VERTICAL);
+            title = text("FTP", 10.5f, 0xFFFFFFFF, false);
+            title.setLetterSpacing(0.10f);
+            title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            title.setSingleLine(true);
+            title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+            title.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x3DFFFFFF, dp(1)));
+            title.setPadding(dp(9), dp(4), dp(9), dp(4));
+            title.setFocusable(false);
+            title.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    setFtpActive();
+                    showRemoteStorageMenu(title);
+                }
+            });
+            head.addView(title, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            View headSpacer = new View(FileManagerActivity.this);
+            head.addView(headSpacer, new LinearLayout.LayoutParams(0, 1, 1f));
+
+            TextView up = button("\u2191", false);
+            up.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+            up.setMinWidth(dp(30));
+            up.setPadding(0, 0, 0, dp(3));
+            up.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { goUp(); }
+            });
+            head.addView(up, new LinearLayout.LayoutParams(dp(30), dp(28)));
+            column.addView(head, matchWrap());
+
+            path = plainText("\u2026", 9f, 0xB8FFFFFF, true);
+            path.setSingleLine(true);
+            path.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+            path.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { setFtpActive(); }
+            });
+            column.addView(path, matchWrap());
+
+            status = plainText(Loc.s(FileManagerActivity.this, "Connecting") + "\u2026",
+                    8.5f, 0xA0FFFFFF, true);
+            status.setMaxLines(2);
+            status.setPadding(0, dp(1), 0, dp(2));
+            status.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { refresh(); }
+            });
+            column.addView(status, matchWrap());
+
+            FrameLayout holder = new FrameLayout(FileManagerActivity.this);
+            list = new ListView(FileManagerActivity.this);
+            list.setDivider(null);
+            list.setDividerHeight(0);
+            list.setSelector(new ColorDrawable(Color.TRANSPARENT));
+            list.setVerticalScrollBarEnabled(false);
+            list.setClipToPadding(true);
+            list.setPadding(0, dp(2), 0, dp(6));
+            list.setFocusable(false);
+            list.setFocusableInTouchMode(false);
+            list.setItemsCanFocus(true);
+            adapter = new FtpAdapter();
+            list.setAdapter(adapter);
+            // No activation on ACTION_DOWN: rebuilding the footer mid-gesture
+            // moved the rows and swallowed the first tap.
+            holder.addView(list, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            TextView empty = plainText("", 10.5f, MUTED, false);
+            empty.setGravity(Gravity.CENTER);
+            empty.setVisibility(View.GONE);
+            holder.addView(empty, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+                    Gravity.CENTER));
+            list.setEmptyView(empty);
+            column.addView(holder, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+            card.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { setFtpActive(); }
+            });
+
+            title.setText("FTP \u00b7 " + host);
+            connect(host, port, user, pass);
+        }
+
+        private void connect(final String host, final int port,
+                             final String user, final String pass) {
+            final int ticket = ++token;
+            busy = true;
+            io.execute(new Runnable() {
+                @Override public void run() {
+                    String error = null;
+                    FtpClient c = new FtpClient();
+                    try {
+                        c.connect(host, port, user, pass, 8000);
+                    } catch (Throwable t) {
+                        error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+                        c.close();
+                        c = null;
+                    }
+                    final FtpClient opened = c;
+                    final String failure = error;
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            if (ticket != token || isFinishing()) {
+                                if (opened != null) opened.close();
+                                return;
+                            }
+                            client = opened;
+                            busy = false;
+                            if (client == null) {
+                                status.setText("FTP: " + failure + "  \u00b7  tap to retry");
+                                path.setText(host);
+                                return;
+                            }
+                            listDir("/");
+                        }
+                    });
+                }
+            });
+        }
+
+        void refresh() {
+            if (client == null) {
+                status.setText(Loc.s(FileManagerActivity.this, "Not connected"));
+                return;
+            }
+            listDir(dir);
+        }
+
+        void listDir(final String next) {
+            final FtpClient c = client;
+            if (c == null) return;
+            final int ticket = ++token;
+            busy = true;
+            status.setText(Loc.s(FileManagerActivity.this, "Loading") + "\u2026");
+            io.execute(new Runnable() {
+                @Override public void run() {
+                    String error = null;
+                    List<FtpClient.Entry> result = null;
+                    try {
+                        result = c.list(next);
+                    } catch (Throwable t) {
+                        error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+                    }
+                    final List<FtpClient.Entry> found = result;
+                    final String failure = error;
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            if (ticket != token || isFinishing()) return;
+                            busy = false;
+                            if (found == null) {
+                                status.setText("FTP: " + failure + "  \u00b7  tap to retry");
+                                return;
+                            }
+                            dir = next;
+                            entries.clear();
+                            entries.addAll(found);
+                            if ("/".equals(next)) {
+                                roots.clear();
+                                for (FtpClient.Entry e : found) {
+                                    if (e.dir) roots.add(e.name);
+                                }
+                            }
+                            selected.clear();
+                            sel = 0;
+                            adapter.notifyDataSetChanged();
+                            path.setText(dir);
+                            status.setText(entries.size() + " "
+                                    + Loc.s(FileManagerActivity.this,
+                                            entries.size() == 1 ? "ITEM" : "ITEMS")
+                                    + "  \u00b7  " + Loc.s(FileManagerActivity.this,
+                                            "tap to preview"));
+                            list.setSelection(0);
+                        }
+                    });
+                }
+            });
+        }
+
+        void move(int delta) {
+            if (entries.isEmpty()) return;
+            sel = Math.max(0, Math.min(entries.size() - 1, sel + delta));
+            adapter.notifyDataSetChanged();
+            list.setSelection(sel);
+            adapter.notifyDataSetChanged();
+        }
+
+        void activate() {
+            if (sel < 0 || sel >= entries.size()) return;
+            open(entries.get(sel));
+        }
+
+        void goUp() {
+            if ("/".equals(dir) || dir.isEmpty()) return;
+            int cut = dir.lastIndexOf('/');
+            listDir(cut <= 0 ? "/" : dir.substring(0, cut));
+        }
+
+        String childPath(String name) {
+            return "/".equals(dir) ? "/" + name : dir + "/" + name;
+        }
+
+        void open(FtpClient.Entry entry) {
+            if (entry == null) return;
+            if (entry.dir) {
+                listDir(childPath(entry.name));
+            } else {
+                preview(entry);
+            }
+        }
+
+        /** Opens a remote file in the matching viewer without a SAVE step. */
+        void preview(final FtpClient.Entry entry) {
+            final FtpClient c = client;
+            if (c == null || entry == null || busy) return;
+            final File cached = previewFile(entry.name);
+            if (entry.size > 0 && cached.isFile() && cached.length() == entry.size) {
+                openPreview(cached, entry.name);
+                return;
+            }
+            busy = true;
+            status.setText(Loc.s(FileManagerActivity.this, "Preparing preview")
+                    + "  " + entry.name + "\u2026");
+            io.execute(new Runnable() {
+                @Override public void run() {
+                    String error = null;
+                    File tmp = new File(cached.getParentFile(), cached.getName() + ".part");
+                    try {
+                        File parent = cached.getParentFile();
+                        if (parent != null) parent.mkdirs();
+                        c.download(childPath(entry.name), tmp);
+                        if (cached.exists()) cached.delete();
+                        if (!tmp.renameTo(cached)) {
+                            throw new java.io.IOException("Could not cache preview");
+                        }
+                        // Previews are a read-only look at the remote file; SAVE
+                        // is what copies it into the local pane.
+                        cached.setReadOnly();
+                    } catch (Throwable t) {
+                        error = t.getMessage() == null
+                                ? t.getClass().getSimpleName() : t.getMessage();
+                        if (tmp.exists()) tmp.delete();
+                    }
+                    final String failure = error;
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            busy = false;
+                            if (failure != null) {
+                                status.setText("FTP: " + failure);
+                                return;
+                            }
+                            status.setText(cached.getName());
+                            openPreview(cached, entry.name);
+                        }
+                    });
+                }
+            });
+        }
+
+        File previewFile(String name) {
+            String host = ftpHost.replaceAll("[^A-Za-z0-9._-]", "_");
+            File base = new File(getCacheDir(), "ftp-preview/" + host + dir);
+            return new File(base, name);
+        }
+
+        void openPreview(File file, String name) {
+            String ext = extensionOf(name);
+            Intent intent;
+            switch (ext) {
+                case "jpg": case "jpeg": case "png": case "gif": case "webp":
+                case "bmp": case "heic": case "heif": case "avif":
+                    intent = new Intent(FileManagerActivity.this, ImageViewerActivity.class);
+                    intent.putExtra(ImageViewerActivity.EXTRA_PATH, file.getAbsolutePath());
+                    break;
+                case "mp4": case "mkv": case "webm": case "mov": case "avi":
+                case "3gp": case "m4v":
+                    intent = new Intent(FileManagerActivity.this, VideoPlayerActivity.class);
+                    intent.putExtra(VideoPlayerActivity.EXTRA_PATH, file.getAbsolutePath());
+                    break;
+                case "mp3": case "flac": case "wav": case "ogg": case "m4a":
+                case "opus": case "aac":
+                    intent = new Intent(FileManagerActivity.this, AudioPlayerActivity.class);
+                    intent.putExtra(AudioPlayerActivity.EXTRA_PATH, file.getAbsolutePath());
+                    break;
+                case "txt": case "log": case "json": case "xml": case "conf":
+                case "cfg": case "ini": case "md": case "java": case "kt":
+                case "js": case "css": case "html": case "sh":
+                    editorOpen = true;
+                    intent = new Intent(FileManagerActivity.this, FileEditorActivity.class);
+                    intent.putExtra(FileEditorActivity.EXTRA_PATH, file.getAbsolutePath());
+                    break;
+                default:
+                    openFile(file);
+                    return;
+            }
+            startActivity(intent);
+        }
+
+        String extensionOf(String name) {
+            if (name == null) return "";
+            int dot = name.lastIndexOf('.');
+            return dot < 0 ? "" : name.substring(dot + 1).toLowerCase(Locale.US);
+        }
+
+        void toggleSelected(FtpClient.Entry entry) {
+            if (entry == null) return;
+            if (selected.contains(entry)) selected.remove(entry);
+            else selected.add(entry);
+            adapter.notifyDataSetChanged();
+            updateFooter();
+        }
+
+        void clearSelection() {
+            selected.clear();
+            adapter.notifyDataSetChanged();
+            updateFooter();
+        }
+
+        String join(String base, String name) {
+            if (base == null || base.isEmpty() || "/".equals(base)) return "/" + name;
+            return base + "/" + name;
+        }
+
+        void deleteSelected() {
+            if (selected.isEmpty()) return;
+            showConfirm(Loc.s(FileManagerActivity.this, "DELETE ITEM(S)?"),
+                    Loc.s(FileManagerActivity.this, "This cannot be undone."),
+                    Loc.s(FileManagerActivity.this, "DELETE"), new Runnable() {
+                        @Override public void run() {
+                            final List<FtpClient.Entry> targets = new ArrayList<>(selected);
+                            final String base = dir;
+                            selected.clear();
+                            adapter.notifyDataSetChanged();
+                            updateFooter();
+                            status.setText(Loc.s(FileManagerActivity.this, "Deleting") + "\u2026");
+                            io.execute(new Runnable() {
+                                @Override public void run() {
+                                    String error = null;
+                                    try {
+                                        for (FtpClient.Entry e : targets) deleteTree(base, e);
+                                    } catch (Throwable t) {
+                                        error = message(t);
+                                    }
+                                    final String failure = error;
+                                    main.post(new Runnable() {
+                                        @Override public void run() {
+                                            if (failure != null) status.setText("FTP: " + failure);
+                                            else LToast.makeText(FileManagerActivity.this,
+                                                    Loc.s(FileManagerActivity.this, "Deleted"),
+                                                    android.widget.Toast.LENGTH_SHORT).show();
+                                            listDir(dir);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+        }
+
+        void renameSelected() {
+            if (selected.size() != 1) return;
+            final FtpClient.Entry entry = selected.iterator().next();
+            showTextDialog(Loc.s(FileManagerActivity.this, "RENAME"), entry.name,
+                    Loc.s(FileManagerActivity.this, "RENAME"), false,
+                    new TextCallback() {
+                        @Override public void onText(String value) {
+                            final String name = value == null ? "" : value.trim();
+                            if (name.isEmpty() || name.equals(entry.name)) return;
+                            final String base = dir;
+                            status.setText(Loc.s(FileManagerActivity.this, "Working") + "\u2026");
+                            io.execute(new Runnable() {
+                                @Override public void run() {
+                                    String error = null;
+                                    try {
+                                        client.rename(join(base, entry.name), join(base, name));
+                                    } catch (Throwable t) {
+                                        error = message(t);
+                                    }
+                                    final String failure = error;
+                                    main.post(new Runnable() {
+                                        @Override public void run() {
+                                            selected.clear();
+                                            if (failure != null) status.setText("FTP: " + failure);
+                                            listDir(dir);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+        }
+
+        void newFolder() {
+            showTextDialog(Loc.s(FileManagerActivity.this, "NEW FOLDER"), "",
+                    Loc.s(FileManagerActivity.this, "CREATE"), true, new TextCallback() {
+                        @Override public void onText(String value) {
+                            final String name = value == null ? "" : value.trim();
+                            if (name.isEmpty()) return;
+                            final String base = dir;
+                            status.setText(Loc.s(FileManagerActivity.this, "Working") + "\u2026");
+                            io.execute(new Runnable() {
+                                @Override public void run() {
+                                    String error = null;
+                                    try {
+                                        client.makeDir(join(base, name));
+                                    } catch (Throwable t) {
+                                        error = message(t);
+                                    }
+                                    final String failure = error;
+                                    main.post(new Runnable() {
+                                        @Override public void run() {
+                                            if (failure != null) status.setText("FTP: " + failure);
+                                            listDir(dir);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+        }
+
+        void infoSelected() {
+            if (selected.size() != 1) return;
+            FtpClient.Entry e = selected.iterator().next();
+            LToast.makeText(FileManagerActivity.this,
+                    e.name + "  \u00b7  " + (e.dir
+                            ? Loc.s(FileManagerActivity.this, "Folder")
+                            : formatBytes(e.size))
+                            + "\n" + join(dir, e.name),
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
+
+        void copySelected(boolean cut) {
+            if (selected.isEmpty()) return;
+            remoteClipboard.clear();
+            remoteClipboard.addAll(selected);
+            remoteClipSrc = true;
+            remoteClipDir = dir;
+            clipboard.clear();
+            clipboardCut = cut;
+            selected.clear();
+            adapter.notifyDataSetChanged();
+            updateFooter();
+        }
+
+        void paste() {
+            final String base = dir;
+            final boolean cut = clipboardCut;
+            status.setText(Loc.s(FileManagerActivity.this, "Working") + "\u2026");
+            if (remoteClipSrc) {
+                final List<FtpClient.Entry> items = new ArrayList<>(remoteClipboard);
+                final String from = remoteClipDir;
+                io.execute(new Runnable() {
+                    @Override public void run() {
+                        String error = null;
+                        try {
+                            for (FtpClient.Entry e : items) {
+                                downloadTree(from, e, getCacheDir());
+                                uploadTree(new File(getCacheDir(), e.name), base);
+                                if (cut) deleteTree(from, e);
+                            }
+                        } catch (Throwable t) {
+                            error = message(t);
+                        }
+                        final String failure = error;
+                        main.post(new Runnable() {
+                            @Override public void run() {
+                                if (failure != null) status.setText("FTP: " + failure);
+                                else if (cut) remoteClipboard.clear();
+                                listDir(dir);
+                            }
+                        });
+                    }
+                });
+            } else {
+                final List<File> items = new ArrayList<>(clipboard);
+                io.execute(new Runnable() {
+                    @Override public void run() {
+                        String error = null;
+                        try {
+                            for (File f : items) {
+                                uploadTree(f, base);
+                                if (cut) deleteRecursive(f);
+                            }
+                        } catch (Throwable t) {
+                            error = message(t);
+                        }
+                        final String failure = error;
+                        main.post(new Runnable() {
+                            @Override public void run() {
+                                if (failure != null) status.setText("FTP: " + failure);
+                                else if (cut) clipboard.clear();
+                                if (leftPane != null) reload(leftPane);
+                                listDir(dir);
+                            }
+                        });
+                    }
+                });
+            }
+        }
+
+        /** Copies a remote selection into a local folder (used by local PASTE). */
+        void downloadInto(final List<FtpClient.Entry> items, final String from,
+                          final File dest, final boolean cut) {
+            status.setText(Loc.s(FileManagerActivity.this, "Downloading") + "\u2026");
+            io.execute(new Runnable() {
+                @Override public void run() {
+                    String error = null;
+                    try {
+                        for (FtpClient.Entry e : items) {
+                            downloadTree(from, e, dest);
+                            if (cut) deleteTree(from, e);
+                        }
+                    } catch (Throwable t) {
+                        error = message(t);
+                    }
+                    final String failure = error;
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            if (failure != null) status.setText("FTP: " + failure);
+                            else if (cut) remoteClipboard.clear();
+                            if (leftPane != null) reload(leftPane);
+                            updateFooter();
+                        }
+                    });
+                }
+            });
+        }
+
+        void deleteTree(String parent, FtpClient.Entry e) throws Exception {
+            String path = join(parent, e.name);
+            if (e.dir) {
+                List<FtpClient.Entry> kids = client.list(path);
+                for (FtpClient.Entry kid : kids) deleteTree(path, kid);
+                client.deleteDir(path);
+            } else {
+                client.deleteFile(path);
+            }
+        }
+
+        void downloadTree(String parent, FtpClient.Entry e, File dest) throws Exception {
+            String path = join(parent, e.name);
+            File out = new File(dest, e.name);
+            if (e.dir) {
+                if (!out.isDirectory() && !out.mkdirs()) {
+                    throw new java.io.IOException("Could not create " + e.name);
+                }
+                for (FtpClient.Entry kid : client.list(path)) downloadTree(path, kid, out);
+            } else {
+                client.download(path, out);
+            }
+        }
+
+        void uploadTree(File local, String remoteBase) throws Exception {
+            String path = join(remoteBase, local.getName());
+            if (local.isDirectory()) {
+                try {
+                    client.makeDir(path);
+                } catch (Throwable ignored) {
+                }
+                File[] kids = local.listFiles();
+                if (kids != null) for (File kid : kids) uploadTree(kid, path);
+            } else {
+                client.upload(local, path);
+            }
+        }
+
+        String message(Throwable t) {
+            return t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+        }
+
+        void download(final FtpClient.Entry entry) {
+            final FtpClient c = client;
+            if (c == null || busy) return;
+            final File target = leftPane == null || leftPane.dir == null
+                    ? Environment.getExternalStorageDirectory() : leftPane.dir;
+            File out = new File(target, entry.name);
+            int copy = 1;
+            while (out.exists()) {
+                out = new File(target, entry.name + " (" + copy++ + ")");
+            }
+            final File destination = out;
+            busy = true;
+            status.setText(Loc.s(FileManagerActivity.this, "Downloading") + "  " + entry.name + "\u2026");
+            io.execute(new Runnable() {
+                @Override public void run() {
+                    String error = null;
+                    try {
+                        c.download(childPath(entry.name), destination);
+                    } catch (Throwable t) {
+                        error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+                    }
+                    final String failure = error;
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            busy = false;
+                            if (failure != null) {
+                                status.setText("FTP: " + failure);
+                                return;
+                            }
+                            status.setText(Loc.s(FileManagerActivity.this, "Saved") + ": "
+                                    + destination.getName());
+                            if (leftPane != null) reload(leftPane);
+                        }
+                    });
+                }
+            });
+        }
+
+        void uploadSelection() {
+            final FtpClient c = client;
+            if (c == null || leftPane == null || leftPane.selected.isEmpty()) return;
+            final List<File> files = new ArrayList<>(leftPane.selected);
+            final String remoteDir = dir;
+            busy = true;
+            status.setText(Loc.s(FileManagerActivity.this, "Uploading") + "\u2026");
+            io.execute(new Runnable() {
+                @Override public void run() {
+                    String error = null;
+                    int done = 0;
+                    for (File f : files) {
+                        if (f == null || !f.isFile()) continue;
+                        try {
+                            c.upload(f, ("/".equals(remoteDir) ? "/" : remoteDir + "/") + f.getName());
+                            done++;
+                        } catch (Throwable t) {
+                            error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+                            break;
+                        }
+                    }
+                    final String failure = error;
+                    final int uploaded = done;
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            busy = false;
+                            if (failure != null) {
+                                status.setText("FTP: " + failure);
+                            } else {
+                                status.setText(Loc.s(FileManagerActivity.this, "Uploaded") + " "
+                                        + uploaded);
+                            }
+                            if (leftPane != null) {
+                                leftPane.clearSelection();
+                                reload(leftPane);
+                            }
+                            refresh();
+                            updateFooter();
+                        }
+                    });
+                }
+            });
+        }
+
+        private final class FtpAdapter extends BaseAdapter {
+            @Override public int getCount() { return entries.size(); }
+            @Override public Object getItem(int position) { return entries.get(position); }
+            @Override public long getItemId(int position) { return position; }
+
+            @Override public View getView(int position, View convertView, ViewGroup parent) {
+                final FtpClient.Entry entry = entries.get(position);
+                LinearLayout row = new LinearLayout(FileManagerActivity.this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(8), dp(6), dp(8), dp(6));
+                boolean picked = selected.contains(entry);
+                boolean current = ftpActive && position == sel;
+                row.setBackground(picked
+                        ? Ui.focusRing(FileManagerActivity.this, dp(10))
+                        : current ? Ui.focusRing(FileManagerActivity.this, dp(10))
+                        : Ui.ripple(FileManagerActivity.this, dp(10)));
+                // Not focusable: a focusable row makes the first tap take
+                // focus instead of opening the file. The controller uses the
+                // pane cursor below.
+                row.setFocusable(false);
+                row.setTag(entry);
+                row.setOnClickListener(new View.OnClickListener() {
+                    @Override public void onClick(View v) {
+                        ftpActive = true;
+                        sel = position;
+                        setFtpActive();
+                        if (!selected.isEmpty()) {
+                            toggleSelected(entry);
+                            return;
+                        }
+                        open(entry);
+                    }
+                });
+                row.setOnLongClickListener(new View.OnLongClickListener() {
+                    @Override public boolean onLongClick(View v) {
+                        ftpActive = true;
+                        sel = position;
+                        setFtpActive();
+                        toggleSelected(entry);
+                        Haptics.longPress(v);
+                        return true;
+                    }
+                });
+
+                FileGlyphView glyph = new FileGlyphView(FileManagerActivity.this,
+                        entry.name, entry.dir);
+                row.addView(glyph, new LinearLayout.LayoutParams(dp(42), dp(42)));
+
+                LinearLayout labels = new LinearLayout(FileManagerActivity.this);
+                labels.setOrientation(LinearLayout.VERTICAL);
+                labels.setPadding(dp(10), 0, dp(4), 0);
+                TextView name = plainText(entry.name, 11f, TEXT, false);
+                name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                name.setSingleLine(true);
+                name.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+                labels.addView(name, matchWrap());
+                TextView detail = plainText(entry.dir
+                        ? Loc.s(FileManagerActivity.this, "Folder")
+                        : formatBytes(entry.size), 9f, MUTED, true);
+                detail.setSingleLine(true);
+                labels.addView(detail, matchWrap());
+                row.addView(labels, new LinearLayout.LayoutParams(0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+                if (picked) {
+                    TextView check = text("\u2713", 14f, ThemeColors.accent(), true);
+                    check.setGravity(Gravity.CENTER);
+                    check.setMinWidth(dp(24));
+                    row.addView(check);
+                }
+                TextView tail = text(entry.dir ? "\u203a" : Loc.s(FileManagerActivity.this, "SAVE"),
+                        11f, entry.dir ? MUTED : ThemeColors.accent(), true);
+                tail.setGravity(Gravity.CENTER);
+                tail.setMinWidth(dp(48));
+                if (!entry.dir) {
+                    tail.setClickable(true);
+                    tail.setFocusable(false);
+                    tail.setPadding(dp(6), 0, dp(6), 0);
+                    tail.setOnClickListener(new View.OnClickListener() {
+                        @Override public void onClick(View v) {
+                            setFtpActive();
+                            download(entry);
+                        }
+                    });
+                }
+                row.addView(tail, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, dp(42)));
+                return row;
+            }
+        }
+    }
+
+    /** Compact storage picker shown under a pane title. */
+    private void showStorageMenu(final Pane pane, final View anchor) {
+        if (pane == null) return;
+        final Dialog d = new Dialog(this, android.R.style.Theme_Translucent_NoTitleBar);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        GlassPanel panel = dialogPanel();
+        TextView head = text(pane.titleText(), 10.5f, TEXT, false);
+        head.setLetterSpacing(0.10f);
+        head.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        head.setPadding(dp(2), 0, 0, dp(5));
+        panel.addView(head);
+        addStorageRow(panel, d, "INTERNAL",
+                pane.root != null && pane.root.equals(internalRoot),
+                new Runnable() {
+                    @Override public void run() { pane.setRoot(internalRoot); }
+                });
+        if (hasRemovable) {
+            addStorageRow(panel, d, "SD CARD",
+                    pane.root != null && pane.root.equals(removableRoot),
+                    new Runnable() {
+                        @Override public void run() { pane.setRoot(removableRoot); }
+                    });
+        }
+        if (ftpPane != null) {
+            addStorageRow(panel, d, "FTP  \u00b7  " + ftpHost, false, new Runnable() {
+                @Override public void run() {
+                    // The remote host takes this side; the local pane moves over.
+                    swapPanes();
+                }
+            });
+        }
+        showPanel(d, panel, 260);
+        positionMenu(d, anchor);
+    }
+
+    /** The host's own roots, e.g. Internal and SD card on Pavo's FTP server. */
+    private void showRemoteStorageMenu(final View anchor) {
+        if (ftpPane == null) return;
+        final Dialog d = new Dialog(this, android.R.style.Theme_Translucent_NoTitleBar);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        GlassPanel panel = dialogPanel();
+        TextView head = text(ftpPane.title.getText().toString(), 10.5f, TEXT, false);
+        head.setLetterSpacing(0.10f);
+        head.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        head.setPadding(dp(2), 0, 0, dp(5));
+        panel.addView(head);
+        addStorageRow(panel, d, "/",
+                "/".equals(ftpPane.dir),
+                new Runnable() {
+                    @Override public void run() { ftpPane.listDir("/"); }
+                });
+        for (final String root : new ArrayList<>(ftpPane.roots)) {
+            final String path = "/" + root;
+            addStorageRow(panel, d, root, path.equals(ftpPane.dir), new Runnable() {
+                @Override public void run() { ftpPane.listDir(path); }
+            });
+        }
+        addStorageRow(panel, d, "INTERNAL",
+                leftPane != null && leftPane.root != null && leftPane.root.equals(internalRoot),
+                new Runnable() {
+                    @Override public void run() {
+                        swapPanes();
+                        if (leftPane != null) leftPane.setRoot(internalRoot);
+                    }
+                });
+        if (hasRemovable) {
+            addStorageRow(panel, d, "SD CARD",
+                    leftPane != null && leftPane.root != null
+                            && leftPane.root.equals(removableRoot),
+                    new Runnable() {
+                        @Override public void run() {
+                            swapPanes();
+                            if (leftPane != null) leftPane.setRoot(removableRoot);
+                        }
+                    });
+        }
+        showPanel(d, panel, 260);
+        positionMenu(d, anchor);
+    }
+
+    /** Touch-first press handling: a tap must act even when the system is in
+     *  controller (non-touch) mode, where a focusable view only takes focus. */
+    private void pressable(final View v) {
+        v.setOnTouchListener(new View.OnTouchListener() {
+            @Override public boolean onTouch(View view, MotionEvent event) {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        view.setPressed(true);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        view.setPressed(false);
+                        view.performClick();
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        view.setPressed(false);
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        });
+    }
+
+    private void addStorageRow(GlassPanel panel, final Dialog dialog, String label,
+                               boolean current, final Runnable action) {
+        TextView row = text(label, 11f, current ? ThemeColors.accent() : TEXT, false);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), dp(9), dp(10), dp(9));
+        row.setBackground(Ui.ripple(this, dp(9)));
+        row.setFocusable(true);
+        row.setClickable(true);
+        if (current) row.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                dialog.dismiss();
+                action.run();
+            }
+        });
+        pressable(row);
+        panel.addView(row, matchWrap());
+    }
+
+    private void positionMenu(Dialog dialog, View anchor) {
+        if (dialog == null || anchor == null || dialog.getWindow() == null) return;
+        int[] at = new int[2];
+        anchor.getLocationOnScreen(at);
+        WindowManager.LayoutParams lp = dialog.getWindow().getAttributes();
+        lp.gravity = Gravity.TOP | Gravity.START;
+        lp.x = Math.max(dp(8), at[0]);
+        lp.y = at[1] + anchor.getHeight() + dp(4);
+        dialog.getWindow().setAttributes(lp);
+    }
+
+    private void setFtpActive() {
+        if (ftpPane == null) return;
+        ftpActive = true;
+        if (leftPane != null) leftPane.card.setBackground(paneBackground(false));
+        if (rightPane != null) rightPane.card.setBackground(paneBackground(false));
+        ftpPane.card.setBackground(paneBackground(true));
+        cursorMode = true;
+        ftpPane.adapter.notifyDataSetChanged();
+        updateFooter();
+    }
+
     private final class Pane {
         final boolean right;
         final FrameLayout card;
@@ -968,7 +2039,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
         final DrawerAdapter adapter;
         final List<File> files = new ArrayList<>();
         final Set<File> selected = new HashSet<>();
-        final File root;
+        File root;
         File dir;
         int cursor;
         String query = "";
@@ -995,13 +2066,20 @@ public final class FileManagerActivity extends PavoGlassActivity {
                     10.5f, 0xFFFFFFFF, false);
             title.setLetterSpacing(0.10f);
             title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            // The pane title is a label; the controller cursor lives in the list.
+            // Ringed like a chip: tapping it opens the storage picker.
+            title.setBackground(Ui.rounded(0x1AFFFFFF, dp(10), 0x3DFFFFFF, dp(1)));
+            title.setPadding(dp(9), dp(4), dp(9), dp(4));
             title.setFocusable(false);
             title.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) { setActive(Pane.this); }
+                @Override public void onClick(View v) {
+                    setActive(Pane.this);
+                    showStorageMenu(Pane.this, title);
+                }
             });
-            head.addView(title, new LinearLayout.LayoutParams(0,
-                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            head.addView(title, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            View headSpacer = new View(FileManagerActivity.this);
+            head.addView(headSpacer, new LinearLayout.LayoutParams(0, 1, 1f));
 
             TextView up = button("\u2191", false);
             up.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
@@ -1103,6 +2181,16 @@ public final class FileManagerActivity extends PavoGlassActivity {
             card.setOnDragListener(new PaneDropListener(this));
         }
 
+        void setRoot(File next) {
+            if (next == null || !next.isDirectory()) return;
+            root = next;
+            dir = next;
+            query = "";
+            clearSelection();
+            title.setText(next.equals(removableRoot) ? "SD CARD" : "INTERNAL");
+            reload(this);
+        }
+
         String titleText() {
             if (query != null && !query.isEmpty()) return tr("SEARCH") + ": " + query;
             return title.getText().toString();
@@ -1123,6 +2211,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
     private void setActive(Pane p, boolean haptic) {
         if (p == null) return;
         activePane = p;
+        ftpActive = false;
+        if (ftpPane != null) ftpPane.card.setBackground(paneBackground(false));
         if (leftPane != null) leftPane.card.setBackground(paneBackground(leftPane == p));
         if (rightPane != null) rightPane.card.setBackground(paneBackground(rightPane == p));
         updateFooter();
@@ -1731,6 +2821,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
     private void copySelection(boolean cut) {
         if (activePane == null || activePane.selected.isEmpty()) return;
+        remoteClipSrc = false;
+        remoteClipboard.clear();
         clipboard.clear();
         clipboard.addAll(activePane.selected);
         clipboardCut = cut;
@@ -1741,7 +2833,20 @@ public final class FileManagerActivity extends PavoGlassActivity {
     }
 
     private void pasteClipboard() {
-        if (activePane == null || clipboard.isEmpty()) return;
+        if (activePane == null) return;
+        if (remoteClipSrc && !remoteClipboard.isEmpty() && ftpPane != null) {
+            final Pane target = activePane;
+            final File dest = target.dir;
+            final ArrayList<FtpClient.Entry> items = new ArrayList<>(remoteClipboard);
+            final String from = remoteClipDir;
+            final boolean cut = clipboardCut;
+            target.selected.clear();
+            target.adapter.notifyDataSetChanged();
+            updateFooter();
+            ftpPane.downloadInto(items, from, dest, cut);
+            return;
+        }
+        if (clipboard.isEmpty()) return;
         final Pane target = activePane;
         final File dest = target.dir;
         final ArrayList<File> source = new ArrayList<>(clipboard);
@@ -2085,8 +3190,10 @@ public final class FileManagerActivity extends PavoGlassActivity {
         input.setInputType(InputType.TYPE_CLASS_TEXT);
         panel.addView(input, matchWrap());
 
+        // Stacked, and the whole dialog stays narrow: the handheld's floating
+        // keyboard covers the right half of the screen while typing.
         LinearLayout buttons = new LinearLayout(this);
-        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setOrientation(LinearLayout.VERTICAL);
         buttons.setPadding(0, dp(10), 0, 0);
         TextView cancel = button(Loc.s(this, "CANCEL"), false);
         TextView ok = button(positive, true);
@@ -2100,6 +3207,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 callback.onText(value);
             }
         });
+        pressable(cancel);
+        pressable(ok);
         input.setImeOptions(EditorInfo.IME_ACTION_DONE);
         input.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
@@ -2113,18 +3222,21 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 return false;
             }
         });
-        buttons.addView(cancel, new LinearLayout.LayoutParams(0, dp(36), 1f));
-        LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(0, dp(36), 1f);
-        okLp.leftMargin = dp(8);
+        buttons.addView(cancel, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(32)));
+        LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(32));
+        okLp.topMargin = dp(6);
         buttons.addView(ok, okLp);
         panel.addView(buttons, matchWrap());
-        showPanel(d, panel, 420);
+        // Keep the buttons clear of the floating on-screen keyboard.
+        showPanel(d, panel, 170);
         Window window = d.getWindow();
         if (window != null) {
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
             WindowManager.LayoutParams lp = window.getAttributes();
             lp.width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(24),
-                    dp(360));
+                    dp(170));
             lp.gravity = Gravity.TOP | Gravity.START;
             lp.x = dp(14);
             lp.y = dp(14);
@@ -2157,6 +3269,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
         ok.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { d.dismiss(); onConfirm.run(); }
         });
+        pressable(cancel);
+        pressable(ok);
         buttons.addView(cancel, new LinearLayout.LayoutParams(0, dp(36), 1f));
         LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(0, dp(36), 1f);
         okLp.leftMargin = dp(8);
@@ -2698,9 +3812,13 @@ public final class FileManagerActivity extends PavoGlassActivity {
         private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         FileGlyphView(Context c, File file) {
+            this(c, file.getName(), file.isDirectory());
+        }
+
+        FileGlyphView(Context c, String name, boolean isFolder) {
             super(c);
-            folder = file.isDirectory();
-            String name = file.getName();
+            folder = isFolder;
+            if (name == null) name = "";
             int dot = name.lastIndexOf('.');
             ext = dot >= 0 && dot < name.length() - 1
                     ? name.substring(dot + 1).toUpperCase(Locale.US) : "";
@@ -2760,6 +3878,58 @@ public final class FileManagerActivity extends PavoGlassActivity {
     // ------------------------------------------------------------------
     // Small view helpers
     // ------------------------------------------------------------------
+
+    private static String value(String v) {
+        return v == null ? "" : v;
+    }
+
+    /** (Re)attaches the local and FTP cards; the order flips when swapped. */
+    private void attachPaneViews(boolean stacked) {
+        if (panes == null || leftPane == null) return;
+        panes.removeAllViews();
+        View remote = ftpPane != null ? ftpPane.card : rightPane.card;
+        View first = localLeft ? leftPane.card : remote;
+        View second = localLeft ? remote : leftPane.card;
+        if (stacked) {
+            panes.addView(first, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+            lp.topMargin = dp(5);
+            panes.addView(second, lp);
+        } else {
+            panes.addView(first, new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            lp.leftMargin = dp(5);
+            panes.addView(second, lp);
+        }
+    }
+
+    private boolean stackedPanes() {
+        return panes != null
+                && panes.getOrientation() == LinearLayout.VERTICAL;
+    }
+
+    private void swapPanes() {
+        if (ftpPane == null) return;
+        localLeft = !localLeft;
+        attachPaneViews(stackedPanes());
+        Haptics.tick(panes);
+        updateFooter();
+    }
+
+    /** Switches the local pane between internal storage and the SD card. */
+    private void toggleLocalRoot() {
+        if (leftPane == null) return;
+        File target = leftPane.root != null && leftPane.root.equals(removableRoot)
+                ? internalRoot : removableRoot;
+        if (target == null || !target.isDirectory()) return;
+        leftPane.setRoot(target);
+        updateFooter();
+        Haptics.tick(leftPane.card);
+    }
 
     private LinearLayout.LayoutParams matchWrap() {
         return new LinearLayout.LayoutParams(
