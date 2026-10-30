@@ -1314,6 +1314,9 @@ public final class MainActivity extends Activity {
             }
         }, "device-probe").start();
         if (new TuneStore(this).hasOverrides()) PerAppTuneService.start(this);
+        // Keep the saved clock caps applied while HOLD is on: the vendor daemon
+        // restores stock clocks under load otherwise.
+        if (prefs.perfHoldEnabled()) PerfTuneService.start(this);
         // Re-arm the background fan control after an update, a reboot or a
         // process kill; otherwise the curve only comes back when Fan Control
         // is opened by hand.

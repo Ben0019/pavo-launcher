@@ -25,7 +25,8 @@ public final class PerfTuneService extends Service {
     static final String ACTION_STOP = "com.ben.pavo.perftune.STOP";
     private static final String CHANNEL = "aurora_performance_hold";
     private static final int NOTIFICATION_ID = 0x4174756E;
-    private static final float THERMAL_LIMIT_C = 72f;
+    /** Fallback when the preference cannot be read. */
+    private static final float THERMAL_LIMIT_C = 88f;
 
     private static volatile boolean running;
 
@@ -149,7 +150,11 @@ public final class PerfTuneService extends Service {
             return new boolean[]{false};
         }
         float[] temps = PerfTuner.temperatures();
-        if (Math.max(temps[0], temps[1]) >= THERMAL_LIMIT_C) {
+        // Only step aside when the chip is genuinely hot; the old 72 C limit
+        // meant the caps never applied while gaming (junctions run 80-95 C).
+        float limit = prefs.perfHoldLimitC();
+        if (limit <= 0f) limit = THERMAL_LIMIT_C;
+        if (Math.max(temps[0], temps[1]) >= limit) {
             return new boolean[]{true};
         }
         // The per-app watcher already owns the clocks whenever it is active.

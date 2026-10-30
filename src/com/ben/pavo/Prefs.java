@@ -458,6 +458,8 @@ final class Prefs {
     String drawerFavorites() { return sp.getString("drawer_favorites", ""); }
 
     boolean perfHoldEnabled() { return sp.getBoolean("perf_hold_enabled", true); }
+    /** Junction temperature at which the hold lets the firmware take over. */
+    int perfHoldLimitC() { return clamp(sp.getInt("perf_hold_limit_c", 88), 60, 100); }
 
     void setPerfHoldEnabled(boolean value) {
         sp.edit().putBoolean("perf_hold_enabled", value).apply();
