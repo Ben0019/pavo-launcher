@@ -214,6 +214,10 @@ final class Prefs {
     // --- performance overlay ---
     boolean perfOverlay() { return sp.getBoolean("perf_overlay", false); }
     boolean setupDone() { return sp.getBoolean("setup_done", false); }
+    boolean defaultsApplied() { return sp.getBoolean("defaults_applied", false); }
+    void setDefaultsApplied(boolean value) {
+        sp.edit().putBoolean("defaults_applied", value).apply();
+    }
     void setSetupDone(boolean done) { sp.edit().putBoolean("setup_done", done).apply(); }
     boolean setupSkipped(String key) {
         return sp.getStringSet("setup_skipped", java.util.Collections.emptySet()).contains(key);

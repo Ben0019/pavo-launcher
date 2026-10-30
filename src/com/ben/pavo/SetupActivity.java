@@ -374,6 +374,12 @@ public final class SetupActivity extends Activity {
 
     private void finishSetup() {
         prefs.setSetupDone(true);
+        // Balanced clocks and Smart fan for a fresh install.
+        new Thread(new Runnable() {
+            @Override public void run() {
+                Defaults.apply(SetupActivity.this);
+            }
+        }, "pavo-defaults").start();
         finish();
         overridePendingTransition(0, 0);
     }

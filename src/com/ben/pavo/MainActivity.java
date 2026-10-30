@@ -918,6 +918,7 @@ public final class MainActivity extends Activity {
     };
 
     private boolean setupShown;
+    private boolean defaultsShown;
 
     private final BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
         @Override
@@ -1327,6 +1328,14 @@ public final class MainActivity extends Activity {
         // Auto charge separation lives in a service as well; re-arm it here so a
         // fresh install or a reboot does not silently disable it.
         if (new DeviceHealthStore(this).autoSeparation()) BatteryGuardService.start(this);
+        if (!prefs.defaultsApplied() && !defaultsShown) {
+            defaultsShown = true;
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    Defaults.apply(MainActivity.this);
+                }
+            }, "pavo-defaults").start();
+        }
         if (!prefs.setupDone() && !setupShown) {
             setupShown = true;
             try {
