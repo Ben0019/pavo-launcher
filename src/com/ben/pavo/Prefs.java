@@ -213,6 +213,10 @@ final class Prefs {
 
     // --- performance overlay ---
     boolean perfOverlay() { return sp.getBoolean("perf_overlay", false); }
+    boolean benchUseTunerClocks() { return sp.getBoolean("bench_use_tuner_clocks", false); }
+    void setBenchUseTunerClocks(boolean value) {
+        sp.edit().putBoolean("bench_use_tuner_clocks", value).apply();
+    }
     int perfOverlayX() { return sp.getInt("perf_overlay_x", -1); }
     int perfOverlayY() { return sp.getInt("perf_overlay_y", -1); }
     float perfOverlayScale() {

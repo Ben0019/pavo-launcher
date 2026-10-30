@@ -84,6 +84,11 @@ public final class BenchmarkActivity extends PavoGlassActivity {
     private final List<View> liveControls = new ArrayList<>();
 
     private int mode = BenchmarkStageView.MODE_BOTH;
+    /** Keep the Performance Tuner clocks instead of pinning the test's own. */
+    private boolean useTunerClocks;
+    private LinearLayout clockRow;
+    private TuneConfig tunerConfig;
+    private Runnable tunerHoldTask;
     private int threads = Math.min(8, Math.max(1, Runtime.getRuntime().availableProcessors()));
     private int durationSec = 15;
     private int cpuEffPct = 100;
@@ -224,6 +229,7 @@ public final class BenchmarkActivity extends PavoGlassActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = new Prefs(this);
+        useTunerClocks = prefs.benchUseTunerClocks();
         ThemeColors.initialize(this);
         sampler = new PerfSampler();
         buildUi();
@@ -484,6 +490,16 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         controls.add(lengthBar);
         left.addView(durationLine, matchWrap());
 
+        LinearLayout clockLine = inlineLine();
+        clockLine.addView(inlineLabel("CLOCKS"));
+        clockRow = new LinearLayout(this);
+        clockRow.setOrientation(LinearLayout.HORIZONTAL);
+        clockRow.setGravity(Gravity.CENTER_VERTICAL);
+        clockLine.addView(clockRow, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        left.addView(clockLine, matchWrap());
+        rebuildClockChips();
+
         LinearLayout metrics = new LinearLayout(this);
         metrics.setOrientation(LinearLayout.VERTICAL);
         metrics.setPadding(0, dp(5), 0, 0);
@@ -712,6 +728,25 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         }
     }
 
+    private void rebuildClockChips() {
+        if (clockRow == null) return;
+        clockRow.removeAllViews();
+        addChoice(clockRow, "TEST", !useTunerClocks, new Runnable() {
+            @Override public void run() {
+                useTunerClocks = false;
+                prefs.setBenchUseTunerClocks(false);
+                rebuildClockChips();
+            }
+        });
+        addChoice(clockRow, "TUNER", useTunerClocks, new Runnable() {
+            @Override public void run() {
+                useTunerClocks = true;
+                prefs.setBenchUseTunerClocks(true);
+                rebuildClockChips();
+            }
+        });
+    }
+
     private LinearLayout inlineLine() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -810,6 +845,38 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         Choreographer.getInstance().removeFrameCallback(idleFrameCallback);
     }
 
+    /** Re-apply the Performance Tuner's saved clocks while the run is active. */
+    private void startTunerHold() {
+        stopTunerHold();
+        if (!useTunerClocks || tunerConfig == null) return;
+        tunerHoldTask = new Runnable() {
+            @Override public void run() {
+                if (!running) return;
+                applyTunerClocks(tunerConfig);
+                main.postDelayed(this, 1000L);
+            }
+        };
+        main.postDelayed(tunerHoldTask, 1000L);
+    }
+
+    private void stopTunerHold() {
+        if (tunerHoldTask != null) main.removeCallbacks(tunerHoldTask);
+        tunerHoldTask = null;
+    }
+
+    private void applyTunerClocks(TuneConfig cfg) {
+        if (cfg == null || original == null) return;
+        if (original.efficiency != null && cfg.p0Max > 0) {
+            PerfTuner.setCpuPServer(original.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
+        }
+        if (original.performance != null && cfg.p6Max > 0) {
+            PerfTuner.setCpuPServer(original.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
+        }
+        if (original.gpu != null && original.gpu.freqs.length > 0 && cfg.gpuMax > 0) {
+            PerfTuner.setGpuPServer(original.gpu, cfg.gpuMax, cfg.gpuMin);
+        }
+    }
+
     private void startFanHold() {
         stopFanHold();
         if (fanManual && fanPct <= 0) return;
@@ -881,12 +948,14 @@ public final class BenchmarkActivity extends PavoGlassActivity {
 
     private void applyLiveTuning() {
         if (!running || !tuned || original == null) return;
-        if (cpuEffPct > 0) stressCpu(original.efficiency, cpuEffPct, cpuEffGovernor);
-        if (cpuPerfPct > 0) stressCpu(original.performance, cpuPerfPct, cpuPerfGovernor);
-        if (gpuPct > 0 && original.gpu != null
-                && original.gpu.freqs.length > 0) {
-            int clock = frequencyForPct(original.gpu.freqs, gpuPct);
-            PerfTuner.setGpuPServer(original.gpu, clock, clock);
+        if (!useTunerClocks) {
+            if (cpuEffPct > 0) stressCpu(original.efficiency, cpuEffPct, cpuEffGovernor);
+            if (cpuPerfPct > 0) stressCpu(original.performance, cpuPerfPct, cpuPerfGovernor);
+            if (gpuPct > 0 && original.gpu != null
+                    && original.gpu.freqs.length > 0) {
+                int clock = frequencyForPct(original.gpu.freqs, gpuPct);
+                PerfTuner.setGpuPServer(original.gpu, clock, clock);
+            }
         }
         if (fanManual) {
             if (fanPct > 0) PerfTuner.setFanManualPServer(fanPct);
@@ -1167,7 +1236,15 @@ public final class BenchmarkActivity extends PavoGlassActivity {
                 original = PerfTuner.readStateLocal(BenchmarkActivity.this);
                 if (!running) return;
                 if (pserver && original != null) {
-                    applyTuning(original);
+                    if (useTunerClocks) {
+                        // Run at the clocks saved in the Performance Tuner and
+                        // keep re-asserting them: the vendor perf daemon raises
+                        // the ceiling under load otherwise.
+                        tunerConfig = new TuneStore(BenchmarkActivity.this).global();
+                        applyTunerClocks(tunerConfig);
+                    } else {
+                        applyTuning(original);
+                    }
                     tuned = true;
                 }
                 if (!running) {
@@ -1183,6 +1260,7 @@ public final class BenchmarkActivity extends PavoGlassActivity {
                         if (gpuWorkload != null) gpuWorkload.setRunning(gpuActive());
                         startCpuWorkers();
                         startFanHold();
+                        startTunerHold();
                         warmingUp = true;
                         progressLabel.setText("WARMING UP…");
                         // Give the CPU/GPU time to reach their selected maximum
@@ -1235,11 +1313,13 @@ public final class BenchmarkActivity extends PavoGlassActivity {
     private void applyTuning(PerfTuner.State s) {
         synchronized (tuningLock) {
             if (s == null) return;
-        if (cpuEffPct > 0) stressCpu(s.efficiency, cpuEffPct, cpuEffGovernor);
-        if (cpuPerfPct > 0) stressCpu(s.performance, cpuPerfPct, cpuPerfGovernor);
-        if (gpuPct > 0 && s.gpu != null && s.gpu.freqs.length > 0) {
-            int clock = frequencyForPct(s.gpu.freqs, gpuPct);
-            PerfTuner.setGpuPServer(s.gpu, clock, clock);
+        if (!useTunerClocks) {
+            if (cpuEffPct > 0) stressCpu(s.efficiency, cpuEffPct, cpuEffGovernor);
+            if (cpuPerfPct > 0) stressCpu(s.performance, cpuPerfPct, cpuPerfGovernor);
+            if (gpuPct > 0 && s.gpu != null && s.gpu.freqs.length > 0) {
+                int clock = frequencyForPct(s.gpu.freqs, gpuPct);
+                PerfTuner.setGpuPServer(s.gpu, clock, clock);
+            }
         }
         if (fanManual) {
             if (fanPct > 0) PerfTuner.setFanManualPServer(fanPct);
@@ -1267,6 +1347,8 @@ public final class BenchmarkActivity extends PavoGlassActivity {
     }
 
     private void restoreTuning() {
+        stopTunerHold();
+        tunerConfig = null;
         synchronized (tuningLock) {
             if (original == null) {
                 tuned = false;
