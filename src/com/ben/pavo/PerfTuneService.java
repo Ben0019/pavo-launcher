@@ -129,7 +129,7 @@ public final class PerfTuneService extends Service {
                                     nm.notify(NOTIFICATION_ID, notification(hot));
                                 }
                             }
-                            schedule(hot ? 1500L : 300L);
+                            schedule(hot ? 1500L : 150L);
                         }
                     });
                 }
