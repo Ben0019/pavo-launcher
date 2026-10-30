@@ -1816,8 +1816,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             public void run() {
                 PerfTuner.State s = state != null ? state : PerfTuner.readState(
                         PerformanceTunerActivity.this);
-                PerfTuner.setPerformanceMode(spec.performanceMode);
-                sleepBriefly();
+                // Do not write performance_mode: the Odin's fan daemon reacts to it
+                // by switching fan_mode to 0 (off). The tuner drives CPU/GPU
+                // directly, and the fan keeps its own mode.
                 PerfTuner.setCpu(s.efficiency, spec.p0Max, spec.p0Min, spec.governor);
                 PerfTuner.setCpu(s.performance, spec.p6Max, spec.p6Min, spec.governor);
                 PerfTuner.setGpu(s.gpu, spec.gpuMax,
@@ -1855,8 +1856,6 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             public void run() {
                 PerfTuner.State s = state != null ? state : PerfTuner.readState(
                         PerformanceTunerActivity.this);
-                PerfTuner.setPerformanceMode(0);
-                sleepBriefly();
                 PerfTuner.setCpu(s.efficiency, 3532800, 1996800, "walt");
                 PerfTuner.setCpu(s.performance, 4320000, 2246400, "walt");
                 PerfTuner.setGpu(s.gpu, 1100000000,

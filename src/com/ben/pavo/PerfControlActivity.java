@@ -95,6 +95,16 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
             @Override
             public void run() {
                 boolean ok = false;
+                int fanMode = 4;
+                int fanSpeed = 7000;
+                try {
+                    // Writing performance_mode makes the firmware's fan daemon
+                    // switch fan_mode to 0 (off). Remember the fan setup first and
+                    // put it back once the daemon has reacted.
+                    fanMode = Settings.System.getInt(getContentResolver(), "fan_mode", 4);
+                    fanSpeed = Settings.System.getInt(getContentResolver(), "fan_speed", 7000);
+                } catch (Throwable ignored) {
+                }
                 try {
                     String cmd = "settings put system performance_mode " + mode
                             + "; setprop persist.vendor.debug.mode " + mode;
@@ -103,6 +113,19 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
                     p.waitFor(3, TimeUnit.SECONDS);
                     ok = p.exitValue() == 0;
                 } catch (Throwable ignored) {
+                }
+                if (ok) {
+                    try {
+                        Thread.sleep(1200L);
+                        String restore = "settings put system fan_mode " + fanMode
+                                + "; settings put global fan_mode " + fanMode
+                                + "; settings put system fan_speed " + fanSpeed
+                                + "; settings put global fan_speed " + fanSpeed;
+                        new ProcessBuilder("su", "-c", restore)
+                                .redirectErrorStream(true).start()
+                                .waitFor(3, TimeUnit.SECONDS);
+                    } catch (Throwable ignored) {
+                    }
                 }
                 final boolean success = ok;
                 runOnUiThread(new Runnable() {
