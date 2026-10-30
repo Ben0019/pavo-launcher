@@ -679,8 +679,9 @@ public final class PavoA11yService extends AccessibilityService {
     private final Runnable profileSync = new Runnable() {
         @Override
         public void run() {
-            if (instance == null) return;
             ControllerProfiles.sync(PavoA11yService.this);
+            // Keep ticking even if the service is briefly unbound, so a reconnect
+            // never leaves per-app controller profiles stale.
             main.postDelayed(this, 1200L);
         }
     };
