@@ -217,14 +217,16 @@ final class PerfDetailView extends FrameLayout {
 
         setMetric(cpuTemp, d.cpuTempC > 0 ? Math.round(d.cpuTempC) + "\u00b0" : "\u2014",
                 d.cpuTempC > 0 ? PerfOverlayView.heat((d.cpuTempC - 32f) / 55f) : 0x55FFFFFF);
-        setMetric(cpuLoad, d.cpuUsage + "%", PerfOverlayView.heat(d.cpuUsage / 100f));
+        setMetric(cpuLoad, d.cpuUsageKnown ? d.cpuUsage + "%" : "\u2014",
+                d.cpuUsageKnown ? PerfOverlayView.heat(d.cpuUsage / 100f) : 0x55FFFFFF);
         setMetric(cpuClock, PerfOverlayView.fmtHz(d.cpuHz),
                 d.cpuHz > 0 ? PerfOverlayView.heat(d.cpuMaxHz > 0
                         ? d.cpuHz / (float) d.cpuMaxHz : 0f) : 0x55FFFFFF);
 
         setMetric(gpuTemp, d.gpuTempC > 0 ? Math.round(d.gpuTempC) + "\u00b0" : "\u2014",
                 d.gpuTempC > 0 ? PerfOverlayView.heat((d.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
-        setMetric(gpuLoad, d.gpuUsage + "%", PerfOverlayView.heat(d.gpuUsage / 100f));
+        setMetric(gpuLoad, d.gpuUsageKnown ? d.gpuUsage + "%" : "\u2014",
+                d.gpuUsageKnown ? PerfOverlayView.heat(d.gpuUsage / 100f) : 0x55FFFFFF);
         setMetric(gpuClock, PerfOverlayView.fmtHz(d.gpuHz),
                 d.gpuHz > 0 ? PerfOverlayView.heat(d.gpuMaxHz > 0
                         ? d.gpuHz / (float) d.gpuMaxHz : 0f) : 0x55FFFFFF);

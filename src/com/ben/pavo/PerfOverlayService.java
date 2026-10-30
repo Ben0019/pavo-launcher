@@ -1651,6 +1651,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             d.gpuTempC = s.gpuTempC;
             d.cpuUsage = s.cpuUsage;
             d.gpuUsage = s.gpuUsage;
+            d.cpuUsageKnown = s.cpuUsageKnown;
+            d.gpuUsageKnown = s.gpuUsageKnown;
             d.cpuHz = s.cpuHz;
             d.cpuMaxHz = s.cpuMaxHz;
             d.gpuHz = s.gpuHz;

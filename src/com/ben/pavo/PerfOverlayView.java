@@ -231,7 +231,8 @@ final class PerfOverlayView extends LinearLayout {
         setValue(cpuClock, cpuClockKnown ? fmtHz(s.cpuHz) : "\u2014",
                 cpuClockKnown ? heat(s.cpuMaxHz > 0
                         ? s.cpuHz / (float) s.cpuMaxHz : 0f) : 0x55FFFFFF);
-        setValue(cpuUsage, s.cpuUsage + "%", heat(s.cpuUsage / 100f));
+        setValue(cpuUsage, s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014",
+                s.cpuUsageKnown ? heat(s.cpuUsage / 100f) : 0x55FFFFFF);
 
         boolean gpuTempKnown = s.gpuTempC > 0f;
         setValue(gpuTemp, gpuTempKnown ? Math.round(s.gpuTempC) + "\u00b0" : "\u2014",
@@ -240,7 +241,8 @@ final class PerfOverlayView extends LinearLayout {
         setValue(gpuClock, gpuClockKnown ? fmtHz(s.gpuHz) : "\u2014",
                 gpuClockKnown ? heat(s.gpuMaxHz > 0
                         ? s.gpuHz / (float) s.gpuMaxHz : 0f) : 0x55FFFFFF);
-        setValue(gpuUsage, s.gpuUsage + "%", heat(s.gpuUsage / 100f));
+        setValue(gpuUsage, s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014",
+                s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0x55FFFFFF);
 
         if (s.memTotalKb > 0) {
             int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
@@ -275,7 +277,8 @@ final class PerfOverlayView extends LinearLayout {
             if (cv == null) continue;
             if (i < s.coreCount) {
                 cv.setVisibility(VISIBLE);
-                cv.setData(s.coreOnline[i], s.coreUsage[i], s.coreHz[i], s.coreMaxHz[i]);
+                cv.setData(s.coreOnline[i], s.coreUsage[i], s.coreHz[i], s.coreMaxHz[i],
+                        s.coreStatsKnown);
             } else {
                 cv.setVisibility(GONE);
             }
@@ -556,6 +559,7 @@ final class PerfOverlayView extends LinearLayout {
         private final float density;
         private final float textSize;
         private boolean online;
+        private boolean usageKnown = true;
         private float usage;
         private long hz;
         private long maxHz;
@@ -568,8 +572,9 @@ final class PerfOverlayView extends LinearLayout {
             setWillNotDraw(false);
         }
 
-        void setData(boolean online, float usage, long hz, long maxHz) {
+        void setData(boolean online, float usage, long hz, long maxHz, boolean usageKnown) {
             this.online = online;
+            this.usageKnown = usageKnown;
             this.usage = Math.max(0f, Math.min(100f, usage));
             this.hz = hz;
             this.maxHz = maxHz;
@@ -604,7 +609,8 @@ final class PerfOverlayView extends LinearLayout {
 
             p.setTextAlign(Paint.Align.RIGHT);
             p.setColor(online ? heat(usage / 100f) : 0x44FFFFFF);
-            canvas.drawText(online ? Math.round(usage) + "%" : "off",
+            canvas.drawText(!online ? "off" : usageKnown
+                            ? Math.round(usage) + "%" : "\u2014",
                     w - density * 30, baseline, p);
             int clockColor = !online ? 0x44FFFFFF
                     : heat(maxHz > 0 ? hz / (float) maxHz : 0f);

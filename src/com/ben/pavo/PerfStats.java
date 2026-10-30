@@ -27,6 +27,10 @@ final class PerfStats {
     long chargeCounterUah;
     boolean cpuCapped;
     boolean gpuCapped;
+    /** False when the kernel hides the counters (stock SELinux blocks /proc/stat). */
+    boolean cpuUsageKnown;
+    boolean gpuUsageKnown;
+    boolean coreStatsKnown;
     boolean thermalHot;
     String throttle = "NONE";
 

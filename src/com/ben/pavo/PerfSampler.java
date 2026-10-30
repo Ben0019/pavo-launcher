@@ -72,6 +72,78 @@ final class PerfSampler {
             + "mv \"$tmp\" \"$out\"\n"
             + "cp \"$out\" /data/local/tmp/aurora-fps-last.txt 2>/dev/null\n";
 
+    /** Privileged snapshot used when SELinux hides the counters from apps. */
+    private static final String PROC_SCRIPT =
+            "out=\"$1\"; tmp=\"$out.tmp\"\n"
+            + "{\n"
+            + "  echo '##STAT'\n"
+            + "  cat /proc/stat 2>/dev/null\n"
+            + "  echo '##GPUCLK'\n"
+            + "  cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null\n"
+            + "  echo '##GPUMAX'\n"
+            + "  cat /sys/class/kgsl/kgsl-3d0/max_gpuclk 2>/dev/null\n"
+            + "  echo '##GPUPCT'\n"
+            + "  cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null\n"
+            + "  echo '##END'\n"
+            + "} > \"$tmp\" 2>/dev/null\n"
+            + "chmod 644 \"$tmp\" 2>/dev/null\n"
+            + "mv \"$tmp\" \"$out\" 2>/dev/null\n";
+
+    private static File procScript;
+    private static long procKickNs;
+    private static int procFailures;
+    private String rootText;
+    private final long[] prevIdleUs = new long[PerfStats.MAX_CORES];
+    private final long[] prevIdleAt = new long[PerfStats.MAX_CORES];
+
+    private String rootSnapshot(Context context, long now) {
+        // Stock SELinux forbids pservice from writing into app data, so this is
+        // only useful on permissive/rooted units. Stop retrying after two misses.
+        if (procFailures >= 2) return null;
+        if (context == null || !PServer.available()) return null;
+        File cache = context.getCacheDir();
+        if (cache == null) return null;
+        try {
+            if (procScript == null || !procScript.exists()) {
+                File script = new File(cache, "aurora-proc.sh");
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(script);
+                fos.write(PROC_SCRIPT.getBytes("UTF-8"));
+                fos.close();
+                procScript = script;
+            }
+            File out = new File(cache, "aurora-proc.txt");
+            String text = readAllText(out);
+            if (text != null) {
+                procFailures = 0;
+                return text;
+            }
+            if (procKickNs != 0 && now - procKickNs > 1_500_000_000L) {
+                // The helper ran but nothing landed in app data: give up.
+                procFailures++;
+                procKickNs = 0;
+                return null;
+            }
+            if (procKickNs == 0) {
+                procKickNs = now;
+                PServer.run("sh " + procScript.getAbsolutePath()
+                        + " " + out.getAbsolutePath());
+            }
+            return null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static String section(String text, String name) {
+        if (text == null) return null;
+        String start = "##" + name + "\n";
+        int a = text.indexOf(start);
+        if (a < 0) return null;
+        a += start.length();
+        int b = text.indexOf("\n##", a);
+        return b < 0 ? text.substring(a) : text.substring(a, b);
+    }
+
     private static File pserverScript;
     private static long pserverOffUntil;
     private static String pserverToken;
@@ -106,8 +178,8 @@ final class PerfSampler {
     PerfStats sample(Context context, boolean wantFps) {
         PerfStats s = new PerfStats();
         s.coreCount = coreCount;
-        readCpu(s);
-        readGpu(s);
+        readCpu(s, context);
+        readGpu(s, context);
         readMemory(s);
         readBattery(context, s);
         if (wantFps) readFps(s, context);
@@ -119,7 +191,7 @@ final class PerfSampler {
         return s;
     }
 
-    private void readCpu(PerfStats s) {
+    private void readCpu(PerfStats s, Context context) {
         long maxCur = 0;
         long maxCap = 0;
         int online = 0;
@@ -144,15 +216,20 @@ final class PerfSampler {
         s.cpuHz = maxCur;
         s.cpuMaxHz = maxCap;
 
+        // Stock firmware denies untrusted apps /proc/stat (SELinux proc_stat),
+        // which used to leave CPU and core load stuck at 0%. Fall back to a
+        // privileged snapshot; it lags one refresh, which is invisible here.
+        rootText = null;
+        String stat = readAllText(new File("/proc/stat"));
+        boolean haveStat = stat != null && stat.contains("cpu0");
+
         float sumUsage = 0f;
         int usageCount = 0;
         long aggregateTotal = 0;
         long aggregateIdle = 0;
         boolean haveAggregate = false;
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(
-                new FileInputStream("/proc/stat")))) {
-            String line;
-            while ((line = br.readLine()) != null) {
+        if (haveStat) {
+            for (String line : stat.split("\n")) {
                 if (!line.startsWith("cpu")) break;
                 String[] p = line.trim().split("\\s+");
                 if (p.length < 5) continue;
@@ -192,10 +269,29 @@ final class PerfSampler {
                     usageCount++;
                 }
             }
-        } catch (Throwable ignored) {
         }
 
         s.cpuTempC = ThermalSensors.cpuTemp();
+        if (!haveStat) {
+            // No /proc/stat: derive load from per-core idle residency, which
+            // stock firmware still exposes to apps.
+            if (readUsageFromIdle(s)) {
+                return;
+            }
+            rootText = rootSnapshot(context, System.nanoTime());
+            if (rootText != null) {
+                stat = section(rootText, "STAT");
+                haveStat = stat != null && stat.contains("cpu0");
+            }
+            if (!haveStat) {
+                s.cpuUsage = 0;
+                s.cpuUsageKnown = false;
+                s.coreStatsKnown = false;
+                return;
+            }
+        }
+        s.cpuUsageKnown = true;
+        s.coreStatsKnown = true;
         if (haveAggregate && prevCpuTotal > 0) {
             long dt = aggregateTotal - prevCpuTotal;
             long di = aggregateIdle - prevCpuIdle;
@@ -210,7 +306,57 @@ final class PerfSampler {
         }
     }
 
-    private void readGpu(PerfStats s) {
+    /**
+     * CPU load from cpuidle residency: a core is busy whenever it is not in an
+     * idle state. Works on firmwares that deny /proc/stat to untrusted apps.
+     */
+    private boolean readUsageFromIdle(PerfStats s) {
+        long now = android.os.SystemClock.elapsedRealtime();
+        int measured = 0;
+        float sum = 0f;
+        for (int i = 0; i < s.coreCount; i++) {
+            if (!s.coreOnline[i]) continue;
+            long idleUs = idleTimeUs(i);
+            if (idleUs < 0) {
+                prevIdleAt[i] = 0;
+                continue;
+            }
+            long at = prevIdleAt[i];
+            long before = prevIdleUs[i];
+            prevIdleUs[i] = idleUs;
+            prevIdleAt[i] = now;
+            if (at <= 0 || now <= at) continue;
+            double elapsedUs = (now - at) * 1000.0;
+            double idle = idleUs - before;
+            if (elapsedUs <= 0 || idle < 0) continue;
+            s.coreUsage[i] = clamp((float) (100.0 * (1.0 - idle / elapsedUs)), 0f, 100f);
+            sum += s.coreUsage[i];
+            measured++;
+        }
+        if (measured == 0) return false;
+        s.cpuUsage = Math.round(sum / measured);
+        s.cpuUsageKnown = true;
+        s.coreStatsKnown = true;
+        return true;
+    }
+
+    /** Total time (microseconds) each core has spent in idle states, or -1. */
+    private static long idleTimeUs(int core) {
+        String base = "/sys/devices/system/cpu/cpu" + core + "/cpuidle";
+        long total = 0;
+        boolean found = false;
+        for (int k = 0; k < 4; k++) {
+            String text = readText(new File(base, "state" + k + "/time"));
+            if (text == null) continue;
+            long v = parseLong(text.trim());
+            if (v < 0) continue;
+            total += v;
+            found = true;
+        }
+        return found ? total : -1;
+    }
+
+    private void readGpu(PerfStats s, Context context) {
         DeviceProfile profile = DeviceProfile.get(null);
         File kgsl = profile.kgsl && profile.gpuPath != null && !profile.gpuPath.isEmpty()
                 ? new File(profile.gpuPath) : new File("/sys/class/kgsl/kgsl-3d0");
@@ -236,6 +382,33 @@ final class PerfSampler {
         }
         if (busy < 0) busy = readPercent(new File(kgsl, "gpu_busy_percentage"));
 
+        if (busy < 0 || hz <= 0 || max <= 0) {
+            if (rootText == null) rootText = rootSnapshot(context, System.nanoTime());
+            if (rootText != null) {
+                if (busy < 0) {
+                    String pct = section(rootText, "GPUPCT");
+                    if (pct != null && !pct.trim().isEmpty()) {
+                        long v = parseLong(pct.trim());
+                        if (v >= 0) busy = (int) Math.round(clamp(v, 0f, 100f));
+                    }
+                }
+                if (hz <= 0) {
+                    String clock = section(rootText, "GPUCLK");
+                    if (clock != null) hz = parseLong(clock.trim());
+                }
+                if (max <= 0) {
+                    String cap = section(rootText, "GPUMAX");
+                    if (cap != null) max = parseLong(cap.trim());
+                }
+            }
+        }
+
+        if (hz <= 0 || max <= 0) {
+            long cur = readLong(new File(kgsl, "devfreq/cur_freq"));
+            long cap = readLong(new File(kgsl, "devfreq/max_freq"));
+            if (cur > 0) hz = cur;
+            if (cap > 0) max = cap;
+        }
         if (hz <= 0 || max <= 0) {
             File devfreq = new File("/sys/class/devfreq");
             File[] dirs = devfreq.listFiles();
@@ -243,8 +416,9 @@ final class PerfSampler {
                 for (File d : dirs) {
                     String name = readText(new File(d, "name"));
                     if (name == null) continue;
-                    String n = name.toLowerCase(Locale.US);
-                    if (!n.contains("kgsl") && !n.contains("gpu")) continue;
+                    String n = (name + " " + d.getName()).toLowerCase(Locale.US);
+                    if (!n.contains("kgsl") && !n.contains("gpu")
+                            && !n.contains("mali") && !n.contains("3d")) continue;
                     long cur = readLong(new File(d, "cur_freq"));
                     long cap = readLong(new File(d, "max_freq"));
                     if (cur > 0) hz = cur;
@@ -271,6 +445,7 @@ final class PerfSampler {
         s.gpuHz = Math.max(0, hz);
         s.gpuMaxHz = Math.max(0, max);
         s.gpuUsage = busy;
+        s.gpuUsageKnown = busy >= 0;
         s.gpuTempC = ThermalSensors.gpuTemp();
     }
 

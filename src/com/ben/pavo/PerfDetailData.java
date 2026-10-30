@@ -17,6 +17,8 @@ final class PerfDetailData {
     float gpuTempC;
     int cpuUsage;
     int gpuUsage;
+    boolean cpuUsageKnown = true;
+    boolean gpuUsageKnown = true;
     long cpuHz;
     long cpuMaxHz;
     long gpuHz;
