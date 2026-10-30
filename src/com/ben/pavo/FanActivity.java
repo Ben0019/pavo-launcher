@@ -1416,7 +1416,10 @@ public final class FanActivity extends PavoGlassActivity {
         boolean estimated = measuredRpm <= 0 && fanRunning && actualDuty > 0;
         int displayRpm = measuredRpm > 0 ? measuredRpm
                 : (fanRunning ? PerfTuner.estimatedRpm(actualDuty) : 0);
-        float temp = Math.max(state.cpuTemp, state.gpuTemp);
+        // Follow the selected source so the graph marker and the TEMP stat match
+        // what the controller is actually using.
+        float temp = FanCurve.sourceTemp(state.cpuTemp, state.gpuTemp,
+                prefs.fanTempSource());
         if (temp > 0) currentTemp = temp;
         backView.setTelemetry(displayRpm, actualDuty, state.cpuTemp, state.gpuTemp);
         if (displayRpm > 0) {
