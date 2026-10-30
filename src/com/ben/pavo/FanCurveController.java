@@ -23,6 +23,8 @@ final class FanCurveController {
     static final int DEADBAND = 3;
     /** Downward slew limit, percentage points per second. */
     static final float FALL_LIMIT = 6f;
+    /** Upward slew limit, percentage points per second. */
+    static final float RISE_LIMIT = 60f;
 
     private boolean primed;
     private float filtered;
@@ -41,6 +43,10 @@ final class FanCurveController {
 
     int applied() {
         return applied;
+    }
+
+    boolean primed() {
+        return primed;
     }
 
     float filteredTemp() {
@@ -88,7 +94,10 @@ final class FanCurveController {
         int delta = target - applied;
         if (Math.abs(delta) < DEADBAND && !(responsive && delta > 0)) return -1;
         if (delta > 0) {
-            applied = target;
+            // A transient spike must not slam the blower to full: climb quickly
+            // but in steps, so a cold start does not begin at 100%.
+            int maxRise = Math.max(1, Math.round(RISE_LIMIT * dt));
+            applied = Math.min(target, applied + maxRise);
         } else {
             int maxFall = Math.max(1, Math.round(FALL_LIMIT * dt));
             applied = Math.max(target, applied - maxFall);

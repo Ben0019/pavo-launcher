@@ -114,11 +114,17 @@ public final class FanCurveService extends Service {
                 return;
             }
             float[] temps = PerfTuner.readTemperatures();
-            float temp = Math.max(temps[0], temps[1]);
+            float hal = Math.max(temps[0], temps[1]);
+            float temp = hal;
+            boolean warmup = SystemClock.uptimeMillis() - startedAt < 3000L;
             if (smart) {
-                // Follow the junction sensors for Smart: they answer a load step
-                // immediately instead of waiting for the thermal HAL average.
-                temp = Math.max(ThermalSensors.cpuTempRaw(), temps[1]);
+                // Junction sensors answer a load step immediately, but the first
+                // samples after the service starts spike while the launcher is
+                // still starting up. Follow the stable HAL value for the first
+                // seconds, then switch to the raw sensors.
+                if (!warmup && controller.primed()) {
+                    temp = Math.max(hal, ThermalSensors.cpuTempRaw());
+                }
             }
             if (temp <= 0f) temp = 40f;
             // Smart used to be the firmware's own curve, which reacts slowly.
@@ -130,6 +136,7 @@ public final class FanCurveService extends Service {
                 controller.reset();
             }
             int duty = controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
+            if (warmup && duty > 45) duty = 45;
             if (duty >= 0) {
                 lastDuty = duty;
                 // Take manual control once, then move only the duty. Rewriting
