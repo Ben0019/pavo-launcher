@@ -43,18 +43,7 @@ final class ScreenCaptureBackdrop {
         file.delete();
         String command = "screencap " + file.getAbsolutePath()
                 + "; chmod 666 " + file.getAbsolutePath();
-        boolean started = PServer.run(command);
-        if (!started) {
-            Process p = null;
-            try {
-                p = new ProcessBuilder("su", "-c", command)
-                        .redirectErrorStream(true).start();
-                p.waitFor(700L, TimeUnit.MILLISECONDS);
-            } catch (Throwable ignored) {
-            } finally {
-                if (p != null) p.destroy();
-            }
-        }
+        PServer.run(command);
 
         long deadline = SystemClock.uptimeMillis() + 1200L;
         long last = -1L;

@@ -24,6 +24,11 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+
 import java.util.List;
 
 import java.io.BufferedReader;
@@ -182,7 +187,6 @@ public final class PavoA11yService extends AccessibilityService {
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
     private volatile boolean controllerRunning;
     private volatile int controllerGeneration;
-    private Process controllerProcess;
     private Thread controllerThread;
 
     private AppDrawerOverlayView drawerOverlay;
@@ -967,24 +971,8 @@ public final class PavoA11yService extends AccessibilityService {
                         sleep(3000);
                         continue;
                     }
-                    Process p = null;
-                    try {
-                        p = new ProcessBuilder("su", "-c", "exec getevent -lt " + device)
-                                .redirectErrorStream(true).start();
-                        controllerProcess = p;
-                        try (BufferedReader br = new BufferedReader(
-                                new InputStreamReader(p.getInputStream()))) {
-                            String line;
-                            while (controllerRunning && generation == controllerGeneration
-                                    && (line = br.readLine()) != null) {
-                                parseKeyLine(line);
-                            }
-                        }
-                    } catch (Throwable ignored) {
-                    } finally {
-                        if (p != null) p.destroy();
-                        if (controllerProcess == p) controllerProcess = null;
-                    }
+                    listenGetEvent(device, generation);
+                    killGeteventListeners();
                     if (!controllerRunning || generation != controllerGeneration) break;
                     sleep(1000);
                 }
@@ -994,18 +982,55 @@ public final class PavoA11yService extends AccessibilityService {
         thread.start();
     }
 
+    /**
+     * PServer cannot hand back a live stream, so getevent writes into a cache
+     * file and this thread tails it. No su is involved anywhere.
+     */
+    private void listenGetEvent(String device, int generation) {
+        if (device == null) return;
+        File log = new File(getCacheDir(), "pavo-getevent.txt");
+        try (FileOutputStream out = new FileOutputStream(log, false)) {
+            // Truncate; the helper appends from byte zero.
+        } catch (Throwable ignored) {
+        }
+        String cache = getCacheDir().getAbsolutePath();
+        if (!PServer.run("cd " + cache + "; getevent -lt " + device
+                + " > pavo-getevent.txt 2>&1 &")) return;
+        long offset = 0L;
+        try (RandomAccessFile raf = new RandomAccessFile(log, "r")) {
+            while (controllerRunning && generation == controllerGeneration) {
+                long length = raf.length();
+                if (length > offset) {
+                    int want = (int) Math.min(length - offset, 8192);
+                    byte[] chunk = new byte[want];
+                    raf.seek(offset);
+                    int n = raf.read(chunk);
+                    if (n > 0) {
+                        int end = -1;
+                        for (int i = n - 1; i >= 0; i--) {
+                            if (chunk[i] == '\n') {
+                                end = i;
+                                break;
+                            }
+                        }
+                        if (end >= 0) {
+                            String text = new String(chunk, 0, end + 1,
+                                    StandardCharsets.UTF_8);
+                            for (String line : text.split("\n")) parseKeyLine(line);
+                            offset += end + 1;
+                        }
+                    }
+                }
+                sleep(60);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     private void stopControllerListener() {
         controllerRunning = false;
         controllerGeneration++;
-        Process p = controllerProcess;
-        controllerProcess = null;
-        if (p != null) {
-            try {
-                p.destroy();
-            } catch (Throwable ignored) {
-            }
-        }
-        if (p != null || controllerThread != null) killGeteventListeners();
+        killGeteventListeners();
         Thread t = controllerThread;
         controllerThread = null;
         if (t != null) {
@@ -1013,47 +1038,33 @@ public final class PavoA11yService extends AccessibilityService {
         }
     }
 
-    /** su leaves the getevent child behind when its shell is destroyed. */
+    /** The getevent child lives on when the helper shell exits. */
     private void killGeteventListeners() {
-        try {
-            Process p = new ProcessBuilder("su", "-c", "killall getevent 2>/dev/null")
-                    .redirectErrorStream(true).start();
-            p.waitFor();
-        } catch (Throwable ignored) {
-        }
+        PServer.run("killall getevent 2>/dev/null");
     }
 
     private String findControllerDevice() {
-        try {
-            Process p = new ProcessBuilder("su", "-c", "getevent -lp")
-                    .redirectErrorStream(true).start();
-            String current = null;
-            String virtual = null;
-            String odin = null;
-            try (BufferedReader br = new BufferedReader(
-                    new InputStreamReader(p.getInputStream()))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    String t = line.trim();
-                    if (t.startsWith("add device")) {
-                        int slash = t.indexOf('/');
-                        if (slash >= 0) current = t.substring(slash).trim();
-                    } else if (t.startsWith("name:") && current != null) {
-                        String name = t.substring(5).trim().toLowerCase(Locale.US);
-                        if (name.contains("pavo virtual controller")) {
-                            virtual = current;
-                        } else if (name.contains("odin controller")) {
-                            odin = current;
-                        }
-                    }
+        String text = PServer.exec("getevent -lp", 1500L);
+        if (text == null || text.isEmpty()) return null;
+        String current = null;
+        String virtual = null;
+        String odin = null;
+        for (String raw : text.split("\n")) {
+            String t = raw.trim();
+            if (t.startsWith("add device")) {
+                int slash = t.indexOf('/');
+                if (slash >= 0) current = t.substring(slash).trim();
+            } else if (t.startsWith("name:") && current != null) {
+                String name = t.substring(5).trim().toLowerCase(Locale.US);
+                if (name.contains("pavo virtual controller")) {
+                    virtual = current;
+                } else if (name.contains("odin controller")) {
+                    odin = current;
                 }
             }
-            p.waitFor();
-            if (new Prefs(this).controllerRemapEnabled() && virtual != null) return virtual;
-            return odin != null ? odin : virtual;
-        } catch (Throwable ignored) {
         }
-        return null;
+        if (new Prefs(this).controllerRemapEnabled() && virtual != null) return virtual;
+        return odin != null ? odin : virtual;
     }
 
     private void parseKeyLine(String line) {

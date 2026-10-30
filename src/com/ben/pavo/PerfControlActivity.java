@@ -105,28 +105,17 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
                     fanSpeed = Settings.System.getInt(getContentResolver(), "fan_speed", 7000);
                 } catch (Throwable ignored) {
                 }
-                try {
-                    String cmd = "settings put system performance_mode " + mode
-                            + "; setprop persist.vendor.debug.mode " + mode;
-                    Process p = new ProcessBuilder("su", "-c", cmd)
-                            .redirectErrorStream(true).start();
-                    p.waitFor(3, TimeUnit.SECONDS);
-                    ok = p.exitValue() == 0;
-                } catch (Throwable ignored) {
-                }
-                if (ok) {
-                    try {
-                        Thread.sleep(1200L);
-                        String restore = "settings put system fan_mode " + fanMode
-                                + "; settings put global fan_mode " + fanMode
-                                + "; settings put system fan_speed " + fanSpeed
-                                + "; settings put global fan_speed " + fanSpeed;
-                        new ProcessBuilder("su", "-c", restore)
-                                .redirectErrorStream(true).start()
-                                .waitFor(3, TimeUnit.SECONDS);
-                    } catch (Throwable ignored) {
-                    }
-                }
+                // All privileged writes go through the vendor PServer service;
+                // there is no su fallback. The fan is restored after the
+                // firmware's daemon has seen the new performance mode.
+                String cmd = "settings put system performance_mode " + mode
+                        + "; setprop persist.vendor.debug.mode " + mode
+                        + "; sleep 1"
+                        + "; settings put system fan_mode " + fanMode
+                        + "; settings put global fan_mode " + fanMode
+                        + "; settings put system fan_speed " + fanSpeed
+                        + "; settings put global fan_speed " + fanSpeed;
+                ok = PerfTuner.Root.writeOk(cmd);
                 final boolean success = ok;
                 runOnUiThread(new Runnable() {
                     @Override
@@ -139,7 +128,7 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
                         } else {
                             if (menu != null) menu.setPerformanceMode(currentMode());
                             LToast.makeText(PerfControlActivity.this,
-                                    "Performance mode needs root access",
+                                    "Performance mode needs PServer",
                                     Toast.LENGTH_SHORT).show();
                         }
                     }

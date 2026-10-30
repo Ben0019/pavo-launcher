@@ -1329,16 +1329,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         worker.execute(new Runnable() {
             @Override
             public void run() {
-                boolean ok = false;
-                try {
-                    String cmd = "settings put system performance_mode " + mode
-                            + "; setprop persist.vendor.debug.mode " + mode;
-                    Process p = new ProcessBuilder("su", "-c", cmd)
-                            .redirectErrorStream(true).start();
-                    p.waitFor(3, TimeUnit.SECONDS);
-                    ok = p.exitValue() == 0;
-                } catch (Throwable ignored) {
-                }
+                boolean ok = PerfTuner.Root.writeOk(
+                        "settings put system performance_mode " + mode
+                                + "; setprop persist.vendor.debug.mode " + mode);
                 final boolean success = ok;
                 main.post(new Runnable() {
                     @Override
@@ -1353,7 +1346,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                                 menu.setPerformanceMode(currentPerformanceMode());
                             }
                             LToast.makeText(PerfOverlayService.this,
-                                    "Performance mode needs root access",
+                                    "Performance mode needs PServer",
                                     Toast.LENGTH_SHORT).show();
                         }
                     }

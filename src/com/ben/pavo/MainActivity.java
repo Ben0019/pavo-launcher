@@ -15777,46 +15777,9 @@ public final class MainActivity extends Activity {
         }
     }
 
-    /** Run KEYCODE_SLEEP through PServer (or su) without blocking the UI. */
+    /** Run KEYCODE_SLEEP through PServer; there is no su fallback. */
     private boolean tryRootSleep() {
-        if (PServer.available() && PServer.run("input keyevent 223")) return true;
-        try {
-            final Process process = new ProcessBuilder("su", "-c", "input keyevent 223").start();
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        int exit = process.waitFor();
-                        if (exit != 0) {
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (!PavoA11yService.lockScreen()) {
-                                        LToast.makeText(MainActivity.this,
-                                                "Root sleep failed; enable Pavo accessibility",
-                                                Toast.LENGTH_LONG).show();
-                                    }
-                                }
-                            });
-                        }
-                    } catch (Throwable t) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (!PavoA11yService.lockScreen()) {
-                                    LToast.makeText(MainActivity.this,
-                                            "Root sleep failed; enable Pavo accessibility",
-                                            Toast.LENGTH_LONG).show();
-                                }
-                            }
-                        });
-                    }
-                }
-            }, "sleep-root").start();
-            return true;
-        } catch (Throwable t) {
-            return false;
-        }
+        return PServer.available() && PServer.run("input keyevent 223");
     }
 
     private void showSleepAccessibilityHelp() {

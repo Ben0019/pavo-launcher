@@ -560,67 +560,38 @@ final class PerfTuner {
             }
         }
 
+        /** PServer is the only privileged channel; there is no su fallback. */
         static boolean ensure() {
             synchronized (LOCK) {
                 if (checked) return ready;
                 checked = true;
-                if (PServer.available()) {
-                    ready = true;
-                    mode = 1;
-                    return true;
-                }
-                String out = run("id");
-                ready = out.contains("uid=0");
-                mode = ready ? 2 : 0;
+                ready = PServer.available();
+                mode = ready ? 1 : 0;
                 return ready;
             }
         }
 
         static String run(String command) {
-            Process p = null;
-            try {
-                p = new ProcessBuilder("su", "-c", command)
-                        .redirectErrorStream(true).start();
-                StringBuilder out = new StringBuilder();
-                try (BufferedReader r = new BufferedReader(
-                        new InputStreamReader(p.getInputStream()))) {
-                    String line;
-                    while ((line = r.readLine()) != null) {
-                        out.append(line).append('\n');
-                    }
-                }
-                if (!p.waitFor(4, TimeUnit.SECONDS)) p.destroy();
-                return out.toString();
-            } catch (Throwable ignored) {
-                return "";
-            } finally {
-                if (p != null) p.destroy();
-            }
+            return PServer.exec(command);
         }
 
         static void write(String command) {
+            writeOk(command);
+        }
+
+        static boolean writeOk(String command) {
+            if (command == null || command.isEmpty()) return false;
             synchronized (LOCK) {
                 if (mode == 0 && PServer.available()) mode = 1;
-                if (mode == 1) {
-                    if (command.length() <= 250) {
-                        if (PServer.run(command)) return;
-                    } else {
-                        // Keep each PServer transaction below its 255-byte limit.
-                        boolean ok = true;
-                        for (String part : command.split(";")) {
-                            if (!PServer.run(part.trim())) {
-                                ok = false;
-                                break;
-                            }
-                        }
-                        if (ok) return;
-                    }
+                if (mode != 1) return false;
+                if (command.length() <= 250) {
+                    return PServer.run(command);
                 }
-                String out = run(command);
-                if (!ready && out.contains("uid=0")) {
-                    ready = true;
-                    mode = 2;
+                // Keep each PServer transaction below its 255-byte limit.
+                for (String part : command.split(";")) {
+                    if (!PServer.run(part.trim())) return false;
                 }
+                return true;
             }
         }
 

@@ -34,13 +34,7 @@ final class ForegroundApp {
                 + "dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity; }"
                 + " > " + FILE
                 + "; chmod 644 " + FILE;
-        if (PServer.available() && PServer.run(command)) return;
-        try {
-            Process p = new ProcessBuilder("su", "-c", command)
-                    .redirectErrorStream(true).start();
-            p.waitFor();
-        } catch (Throwable ignored) {
-        }
+        PServer.run(command);
     }
 
     static String read(Context context) {

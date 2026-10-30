@@ -148,23 +148,8 @@ final class ControllerRemapManager {
         if (launcher == null) return false;
         new File(c.getFilesDir(), PID).delete();
 
-        boolean launched = false;
-        if (PServer.available()) {
-            launched = PServer.run("sh " + shellQuote(launcher.getAbsolutePath()));
-            if (launched) Log.i(TAG, "launcher sent through PServer");
-        }
-        if (!launched) {
-            try {
-                Process p = new ProcessBuilder("su", "-c",
-                        "sh " + shellQuote(launcher.getAbsolutePath()))
-                        .redirectErrorStream(true).start();
-                process = p;
-                consume(p);
-                launched = true;
-            } catch (Throwable t) {
-                Log.w(TAG, "su launcher unavailable", t);
-            }
-        }
+        boolean launched = PServer.run("sh " + shellQuote(launcher.getAbsolutePath()));
+        if (launched) Log.i(TAG, "launcher sent through PServer");
         if (!launched) return false;
 
         long end = System.currentTimeMillis() + 6000L;
@@ -344,16 +329,7 @@ final class ControllerRemapManager {
     }
 
     private static void privileged(String command) {
-        try {
-            if (PServer.available() && PServer.run(command)) return;
-        } catch (Throwable ignored) {
-        }
-        try {
-            Process p = new ProcessBuilder("su", "-c", command)
-                    .redirectErrorStream(true).start();
-            p.waitFor();
-        } catch (Throwable ignored) {
-        }
+        PServer.run(command);
     }
 
     private static void sleep(long ms) {

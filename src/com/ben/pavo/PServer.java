@@ -1,8 +1,13 @@
 package com.ben.pavo;
 
+import android.content.Context;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.SystemClock;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.lang.reflect.Method;
 
 /**
@@ -57,6 +62,75 @@ final class PServer {
                 }
             }
             return false;
+        }
+    }
+
+    /**
+     * Runs a command through PServer and returns its output. PService is
+     * fire-and-forget, so the command is written to a script in the app cache
+     * and its output is picked up from a sibling file. Call from a worker
+     * thread; this waits for the command to finish.
+     */
+    static String exec(String command) {
+        return exec(command, 900L);
+    }
+
+    static String exec(String command, long timeoutMs) {
+        if (command == null || command.isEmpty() || !available()) return "";
+        Context context = appContext();
+        if (context == null) return "";
+        File cache = context.getCacheDir();
+        if (cache == null) return "";
+        synchronized (EXEC_LOCK) {
+            try {
+                File script = new File(cache, "pavo-pserver.sh");
+                File out = new File(cache, "pavo-pserver.out");
+                write(script, "#!/system/bin/sh\n" + command + "\n");
+                out.delete();
+                String line = "cd " + cache.getAbsolutePath()
+                        + "; sh " + script.getName() + " > " + out.getName()
+                        + " 2>&1; chmod 644 " + out.getName();
+                if (line.length() > 250 || !run(line)) return "";
+                long deadline = SystemClock.uptimeMillis() + timeoutMs;
+                long last = -1L;
+                while (SystemClock.uptimeMillis() < deadline) {
+                    long size = out.length();
+                    if (size > 0 && size == last) break;
+                    last = size;
+                    Thread.sleep(15L);
+                }
+                return read(out);
+            } catch (Throwable t) {
+                return "";
+            }
+        }
+    }
+
+    private static final Object EXEC_LOCK = new Object();
+
+    private static Context appContext() {
+        try {
+            Class<?> thread = Class.forName("android.app.ActivityThread");
+            Method current = thread.getMethod("currentApplication");
+            return (Context) current.invoke(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static void write(File file, String text) throws Exception {
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            out.write(text.getBytes("UTF-8"));
+        }
+    }
+
+    private static String read(File file) {
+        try (FileInputStream in = new FileInputStream(file)) {
+            byte[] data = new byte[8192];
+            int n = in.read(data);
+            return n <= 0 ? "" : new String(data, 0, n, "UTF-8");
+        } catch (Throwable t) {
+            return "";
         }
     }
 
