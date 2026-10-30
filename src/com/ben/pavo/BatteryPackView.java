@@ -1858,7 +1858,10 @@ final class BatteryPackView extends View {
                           float portX, float unusedLength, int levelColor) {
         float startY = body.top + dp(7f);
         float endY = surfaceY - dp(1f);
-        if (endY - startY < dp(5f)) return;
+        // Near a full tank the surface sits almost under the port. Keep a short
+        // stream (and its splash) visible instead of skipping the pour entirely,
+        // which made charging look dead above ~90%.
+        endY = Math.max(endY, startY + dp(6f));
 
         canvas.save();
         clipPath.reset();
