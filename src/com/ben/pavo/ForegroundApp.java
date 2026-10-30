@@ -33,11 +33,16 @@ final class ForegroundApp {
                 + "dumpsys window 2>/dev/null | grep -m1 'mFocusedApp='; "
                 + "dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity; }"
                 + " > " + FILE
-                + "; chmod 644 " + FILE;
+                + "; uid=$(stat -c %u .. 2>/dev/null); [ -n \"$uid\" ] && chown $uid:$uid " + FILE
+                + " 2>/dev/null; chmod 644 " + FILE + " 2>/dev/null";
         PServer.run(command);
     }
 
     static String read(Context context) {
+        // The accessibility service sees activity changes for free and does not
+        // depend on PServer being able to write into app storage.
+        String a11y = PavoA11yService.foregroundPackage();
+        if (a11y != null) return a11y;
         if (context == null) return null;
         File file = new File(context.getFilesDir(), FILE);
         if (!file.isFile()) return null;

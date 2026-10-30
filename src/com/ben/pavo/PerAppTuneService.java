@@ -26,7 +26,7 @@ public final class PerAppTuneService extends Service {
     private static final String CHANNEL = "aurora_per_app";
     private static final int NOTIFICATION_ID = 0x50455241;
     private static final long POLL_MS = 1200L;
-    private static final float THERMAL_LIMIT_C = 72f;
+    private static final float THERMAL_LIMIT_C = 88f;
 
     private static volatile boolean running;
     private static volatile boolean tunerVisible;
@@ -231,7 +231,11 @@ public final class PerAppTuneService extends Service {
             return false;
         }
         float[] temps = PerfTuner.temperatures();
-        if (Math.max(temps[0], temps[1]) >= THERMAL_LIMIT_C) return false;
+        float limit = prefs.perfHoldLimitC();
+        if (limit <= 0f) limit = THERMAL_LIMIT_C;
+        // Junctions sit at 80-95 C while gaming, so the old 72 C cut-off meant
+        // per-app profiles never applied exactly when they were needed.
+        if (Math.max(temps[0], temps[1]) >= limit) return false;
         PerfTuner.State state = PerfTuner.readStateForHold(this);
         if (state.efficiency == null || state.performance == null || state.gpu == null) {
             return false;

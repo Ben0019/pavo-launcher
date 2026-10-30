@@ -53,6 +53,15 @@ public final class PavoA11yService extends AccessibilityService {
     private static volatile VisualListener visualListener;
     private static volatile boolean autoAcceptProjection;
     private static volatile long autoAcceptProjectionUntil;
+    private static volatile String foregroundPackage;
+    private static volatile long foregroundAt;
+
+    /** Last foreground package seen by the accessibility service, or null. */
+    static String foregroundPackage() {
+        if (foregroundPackage == null) return null;
+        if (SystemClock.uptimeMillis() - foregroundAt > 10_000L) return null;
+        return foregroundPackage;
+    }
 
     interface VisualListener {
         void onControllerVisual(int raw, boolean down);
@@ -1584,6 +1593,25 @@ public final class PavoA11yService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (event != null
+                && event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            CharSequence pkg = event.getPackageName();
+            if (pkg != null) {
+                String name = pkg.toString();
+                // Overlays and the IME fire their own window changes while a game
+                // is in front; they must not overwrite the real foreground app.
+                if (!name.equals("com.android.systemui")
+                        && !name.equals("com.odin.gameassistant")
+                        && !name.equals("com.ben.pavo")
+                        && !name.equals("com.android.launcher3")
+                        && !name.equals("com.odin.odinlauncher")
+                        && !name.equals("android")
+                        && !name.contains("inputmethod")) {
+                    foregroundPackage = name;
+                    foregroundAt = SystemClock.uptimeMillis();
+                }
+            }
+        }
         if (!autoAcceptProjection) return;
         if (SystemClock.uptimeMillis() > autoAcceptProjectionUntil) {
             autoAcceptProjection = false;
