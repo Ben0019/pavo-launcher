@@ -4,6 +4,8 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.Sensor;
@@ -38,6 +40,7 @@ final class OdinOutlineView extends View implements SensorEventListener {
     private final Paint backLine = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint backDetail = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint backAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint maskPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path body = new Path();
     private final Path shape = new Path();
     private final Path screenClip = new Path();
@@ -821,8 +824,9 @@ final class OdinOutlineView extends View implements SensorEventListener {
         screenClip.addRoundRect(rect, 6f, 6f, Path.Direction.CW);
         // The whole game layer is translucent: the device shell remains visible
         // through the display while the level plays.
+        // The display is masked instead of clipped: a hardware clipPath has no
+        // antialiasing, which left stepped corners on the little screen.
         int layer = c.saveLayerAlpha(rect, 205);
-        c.clipPath(screenClip);
 
         // Sky and a slow-moving sun.
         gamePaint.setStyle(Paint.Style.FILL);
@@ -917,6 +921,9 @@ final class OdinOutlineView extends View implements SensorEventListener {
         gameText.setTextSize(3.4f);
         gameText.setColor(0xAAFFFFFF);
         c.drawText("WORLD 1-1", rect.left + 26f, rect.top + 8f, gameText);
+        maskPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
+        c.drawPath(screenClip, maskPaint);
+        maskPaint.setXfermode(null);
         c.restoreToCount(layer);
     }
 

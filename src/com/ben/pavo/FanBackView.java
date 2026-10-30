@@ -4,6 +4,8 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
 import android.graphics.Shader;
@@ -30,6 +32,7 @@ final class FanBackView extends View {
     private final Paint detail = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint blade = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint maskPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint hub = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint air = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -443,10 +446,13 @@ final class FanBackView extends View {
         c.drawCircle(cx, cy, r + 7, inner);
         c.drawCircle(cx, cy, r, inner);
 
-        c.save();
+        // Mask the rotor with an antialiased circle. A hardware clipPath is not
+        // antialiased, so clipping the blades directly left a stepped rim.
         Path clip = new Path();
         clip.addCircle(cx, cy, r - 1, Path.Direction.CW);
-        c.clipPath(clip);
+        int bladeLayer = c.saveLayer(
+                new RectF(cx - r, cy - r, cx + r, cy + r), null);
+        c.save();
         c.translate(cx + rotorX, cy + rotorY);
         c.rotate(angle);
         blade.setColor(HeatColor.mixColor(0xFF3B4653, heatColor, 0.16f));
@@ -464,6 +470,10 @@ final class FanBackView extends View {
             c.restore();
         }
         c.restore();
+        maskPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
+        c.drawPath(clip, maskPaint);
+        maskPaint.setXfermode(null);
+        c.restoreToCount(bladeLayer);
 
         float hubX = cx + rotorX;
         float hubY = cy + rotorY;
