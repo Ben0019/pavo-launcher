@@ -5,6 +5,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -162,6 +163,18 @@ public final class FileManagerActivity extends PavoGlassActivity {
     private int navIndex;
     private final long[] stickScrollAt = {0L};
     private final List<View> dialogFocusOrder = new ArrayList<>();
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        Configuration config = new Configuration(base.getResources().getConfiguration());
+        float aspect = config.screenWidthDp / (float) Math.max(1, config.screenHeightDp);
+        if (aspect < 1.5f) {
+            // 4:3 panels: shrink everything slightly so both panes still fit
+            // side by side instead of stacking.
+            config.densityDpi = Math.round(config.densityDpi * 0.85f);
+        }
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -638,11 +651,11 @@ public final class FileManagerActivity extends PavoGlassActivity {
 
         panes = new LinearLayout(this);
         android.content.res.Configuration cfg = getResources().getConfiguration();
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        float aspect = metrics.widthPixels / (float) Math.max(1, metrics.heightPixels);
         boolean stacked = cfg.orientation
                 == android.content.res.Configuration.ORIENTATION_PORTRAIT
-                || cfg.screenWidthDp < 520
-                || cfg.screenHeightDp < 440
-                || cfg.screenWidthDp / (float) Math.max(1, cfg.screenHeightDp) < 1.25f;
+                || aspect < 1.2f;
         panes.setOrientation(stacked ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams panesLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
