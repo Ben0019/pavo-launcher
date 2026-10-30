@@ -407,9 +407,9 @@ final class PerfSampler {
                         long busyCount = parseLong(p[0]);
                         long totalCount = parseLong(p[1]);
                         if (totalCount > 0 && busyCount >= 0 && busyCount <= totalCount) {
-                            int ratio = (int) Math.round(
+                            int rootRatio = (int) Math.round(
                                     clamp(busyCount * 100f / totalCount, 0f, 100f));
-                            if (ratio > busy) busy = ratio;
+                            if (rootRatio > busy) busy = rootRatio;
                         }
                     }
                 }
