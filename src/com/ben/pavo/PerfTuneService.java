@@ -129,7 +129,7 @@ public final class PerfTuneService extends Service {
                                     nm.notify(NOTIFICATION_ID, notification(hot));
                                 }
                             }
-                            schedule(hot ? 1500L : 500L);
+                            schedule(hot ? 1500L : 300L);
                         }
                     });
                 }
@@ -157,11 +157,21 @@ public final class PerfTuneService extends Service {
         if (Math.max(temps[0], temps[1]) >= limit) {
             return new boolean[]{true};
         }
-        // The per-app watcher already owns the clocks whenever it is active.
-        if (PerAppTuneService.isRunning()) {
-            return new boolean[]{false};
+        // Hold whatever profile was applied last: the per-app watcher stores its
+        // targets here, so a per-app profile stays pinned even if that service is
+        // busy, thermal-holding or restarted.
+        TuneConfig cfg = new TuneConfig();
+        cfg.p0Max = prefs.tuneP0Max();
+        cfg.p0Min = prefs.tuneP0Min();
+        cfg.p0Gov = prefs.tuneP0Gov();
+        cfg.p6Max = prefs.tuneP6Max();
+        cfg.p6Min = prefs.tuneP6Min();
+        cfg.p6Gov = prefs.tuneP6Gov();
+        cfg.gpuMax = prefs.tuneGpuMax();
+        cfg.gpuMin = prefs.tuneGpuMin();
+        if (cfg.p0Max <= 0 || cfg.p6Max <= 0 || cfg.gpuMax <= 0) {
+            cfg = new TuneStore(this).global();
         }
-        TuneConfig cfg = new TuneStore(this).global();
         if (cfg == null) {
             return new boolean[]{false};
         }

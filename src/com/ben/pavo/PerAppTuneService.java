@@ -225,7 +225,9 @@ public final class PerAppTuneService extends Service {
     private boolean applyConfig(TuneConfig config, boolean full) {
         if (config == null) return false;
         if (!nodesPrepared) {
-            if (!PerfTuner.prepare()) return false;
+            if (!PerfTuner.prepare()) {
+                return false;
+            }
             nodesPrepared = true;
         } else if (!PerfTuner.Root.ensure()) {
             return false;
@@ -235,7 +237,9 @@ public final class PerAppTuneService extends Service {
         if (limit <= 0f) limit = THERMAL_LIMIT_C;
         // Junctions sit at 80-95 C while gaming, so the old 72 C cut-off meant
         // per-app profiles never applied exactly when they were needed.
-        if (Math.max(temps[0], temps[1]) >= limit) return false;
+        if (Math.max(temps[0], temps[1]) >= limit) {
+            return false;
+        }
         PerfTuner.State state = PerfTuner.readStateForHold(this);
         if (state.efficiency == null || state.performance == null || state.gpu == null) {
             return false;
