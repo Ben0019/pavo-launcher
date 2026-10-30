@@ -509,6 +509,9 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         batteryView = new BatteryPackView(this);
+        // The sheet has one page: draw the pack even while the open animation is
+        // still placing it, otherwise it can stay blank until the first poll.
+        batteryView.setAlwaysDraw(true);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
         blp.topMargin = dp(2);

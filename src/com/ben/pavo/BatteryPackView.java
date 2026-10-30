@@ -76,6 +76,8 @@ final class BatteryPackView extends View {
     private float shownPlug = 1f;
     private long lastFrame;
     private boolean animating = true;
+    private boolean alwaysDraw;
+    private boolean sawData;
     private GyroTiltController gyro;
     private float liquidTilt;
     private float liquidTiltVelocity;
@@ -102,6 +104,13 @@ final class BatteryPackView extends View {
         textPaint.setTypeface(android.graphics.Typeface.create(
                 "sans-serif-medium", android.graphics.Typeface.NORMAL));
         gyro = allowTilt ? new GyroTiltController(c, this) : null;
+    }
+
+    /** The Device Health sheet is a single full-screen page: never skip its
+     *  drawing because an entrance animation briefly places it off-screen. */
+    void setAlwaysDraw(boolean on) {
+        alwaysDraw = on;
+        invalidate();
     }
 
     /** 3D tilt of the whole pack. Off keeps the model pixel-sharp: the artwork
@@ -173,6 +182,13 @@ final class BatteryPackView extends View {
     void setBattery(int level, boolean charging, boolean plugged,
                     boolean separated, boolean full) {
         targetLevel = Math.max(0, Math.min(100, level));
+        if (!sawData) {
+            // First real reading: show it instead of draining a placeholder
+            // 100% tank down to it.
+            sawData = true;
+            shownLevel = targetLevel;
+            shownPlug = plugged ? 1f : 0f;
+        }
         this.charging = charging;
         this.plugged = plugged;
         this.separated = separated;
@@ -187,7 +203,7 @@ final class BatteryPackView extends View {
         super.onDraw(canvas);
         // The home keeps every page attached; drawing the tank off-screen is
         // expensive software path work that heats the device for nothing.
-        if (!Ui.onScreen(this)) return;
+        if (!alwaysDraw && !Ui.onScreen(this)) return;
         float w = getWidth();
         float h = getHeight();
         if (w <= 0f || h <= 0f) return;
@@ -281,7 +297,7 @@ final class BatteryPackView extends View {
         if (geometry != null && charging && !separated) {
             drawPour(canvas, phase, surfaceY, portX, geometry[2], levelColor);
         }
-        if (animating && Ui.onScreen(this)) postInvalidateOnAnimation();
+        if (animating && (alwaysDraw || Ui.onScreen(this))) postInvalidateOnAnimation();
     }
 
     private void drawFloor(Canvas canvas, float w, float h) {
