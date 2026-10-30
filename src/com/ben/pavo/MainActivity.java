@@ -14293,7 +14293,7 @@ public final class MainActivity extends Activity {
                                             if (!running) {
                                                 prefs.setControllerRemapEnabled(false);
                                                 LToast.makeText(MainActivity.this,
-                                                        "Remapper could not start. PServer or root is required.",
+                                                        "Remapper could not start. PServer is required.",
                                                         Toast.LENGTH_LONG).show();
                                             }
                                         }
@@ -14386,7 +14386,7 @@ public final class MainActivity extends Activity {
         panel.addView(openRemap, remapLp);
         TextView remapHint = new LTextView(this);
         remapHint.setText("Maps the Odin controller system-wide, including inside games. "
-                + "PServer launches the root remapper without a su prompt; root is the fallback. "
+                + "PServer launches the remapper with no su, Magisk or KernelSU involved. "
                 + "No-root accessibility mode uses the accessibility filter instead.");
         remapHint.setTextColor(0x66FFFFFF);
         remapHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
@@ -14621,7 +14621,7 @@ public final class MainActivity extends Activity {
                             "Press a controller button to map it", Toast.LENGTH_LONG).show();
                 } else {
                     LToast.makeText(MainActivity.this,
-                            "Controller service unavailable. Check PServer/root or accessibility.",
+                            "Controller service unavailable. Check PServer or accessibility.",
                             Toast.LENGTH_LONG).show();
                 }
             }
@@ -14655,7 +14655,7 @@ public final class MainActivity extends Activity {
                             Toast.LENGTH_LONG).show();
                 } else {
                     LToast.makeText(MainActivity.this,
-                            "Controller service unavailable. Check PServer/root or accessibility.",
+                            "Controller service unavailable. Check PServer or accessibility.",
                             Toast.LENGTH_LONG).show();
                 }
             }
@@ -14805,7 +14805,7 @@ public final class MainActivity extends Activity {
             }
         });
         TextView perfHint = new LTextView(this);
-        perfHint.setText("Per-core rows show load and clock for every online CPU core. Framerate uses SurfaceFlinger through root; without root it shows —.");
+        perfHint.setText("Per-core rows show load and clock for every online CPU core. Framerate uses SurfaceFlinger through PServer; without it, it shows —.");
         perfHint.setTextColor(0x66FFFFFF);
         perfHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         perfHint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 4));
@@ -15472,7 +15472,7 @@ public final class MainActivity extends Activity {
         parent.addView(label);
 
         final String[] keys = {"accessibility", "root"};
-        final String[] labels = {"Accessibility", "Root"};
+        final String[] labels = {"Accessibility", "PServer"};
         final List<TextView> chips = new ArrayList<>();
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
@@ -15506,7 +15506,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("Root runs `su`; Accessibility uses Pavo's enabled service to lock the screen. The other method is used as a fallback.");
+        hint.setText("PServer runs the privileged sleep; Accessibility uses Pavo's enabled service to lock the screen. The other method is used as a fallback.");
         hint.setTextColor(0x66FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
@@ -15772,7 +15772,7 @@ public final class MainActivity extends Activity {
         if ("accessibility".equals(method)) {
             showSleepAccessibilityHelp();
         } else {
-            LToast.makeText(this, "Could not sleep: enable root or Pavo accessibility",
+            LToast.makeText(this, "Could not sleep: PServer unavailable, enable Pavo accessibility",
                     Toast.LENGTH_LONG).show();
         }
     }

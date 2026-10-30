@@ -202,7 +202,7 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
             finish();
         } else {
             LToast.makeText(this,
-                    "Controller service unavailable. Check PServer/root or accessibility.",
+                    "Controller service unavailable. Check PServer or accessibility.",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -219,7 +219,7 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
             finish();
         } else {
             LToast.makeText(this,
-                    "Controller service unavailable. Check PServer/root or accessibility.",
+                    "Controller service unavailable. Check PServer or accessibility.",
                     Toast.LENGTH_LONG).show();
         }
     }

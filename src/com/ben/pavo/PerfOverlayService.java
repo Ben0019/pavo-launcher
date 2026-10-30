@@ -1759,7 +1759,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             closeMenu();
         } else {
             LToast.makeText(this,
-                    "Controller service unavailable. Check PServer/root or accessibility.",
+                    "Controller service unavailable. Check PServer or accessibility.",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -1777,7 +1777,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             closeMenu();
         } else {
             LToast.makeText(this,
-                    "Controller service unavailable. Check PServer/root or accessibility.",
+                    "Controller service unavailable. Check PServer or accessibility.",
                     Toast.LENGTH_LONG).show();
         }
     }

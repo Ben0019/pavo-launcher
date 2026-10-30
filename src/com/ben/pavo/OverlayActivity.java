@@ -479,7 +479,7 @@ public final class OverlayActivity extends PavoGlassActivity {
                     }, 4200L);
                 } else {
                     LToast.makeText(OverlayActivity.this,
-                            "Controller service unavailable. Check PServer/root or accessibility.",
+                            "Controller service unavailable. Check PServer or accessibility.",
                             android.widget.Toast.LENGTH_LONG).show();
                 }
             }
@@ -577,7 +577,7 @@ public final class OverlayActivity extends PavoGlassActivity {
                             android.widget.Toast.LENGTH_LONG).show();
                 } else {
                     LToast.makeText(OverlayActivity.this,
-                            "Controller service unavailable. Check PServer/root or accessibility.",
+                            "Controller service unavailable. Check PServer or accessibility.",
                             android.widget.Toast.LENGTH_LONG).show();
                 }
             }

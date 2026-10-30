@@ -507,7 +507,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
                     if (isFinishing() || isDestroyed()) return;
                     refreshHeader();
                     if (!running) {
-                        toast("Remapper could not start. PServer or root is required.");
+                        toast("Remapper could not start. PServer is required.");
                         updatingSwitch = true;
                         masterSwitch.setChecked(false);
                         updatingSwitch = false;
@@ -606,7 +606,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         footer.setOrientation(LinearLayout.HORIZONTAL);
         footer.setGravity(Gravity.CENTER_VERTICAL);
         footer.setPadding(0, dp(14), 0, dp(4));
-        TextView hint = text("PServer/root daemon grabs the Odin controller and exposes one virtual controller.",
+        TextView hint = text("PServer grabs the Odin controller and exposes one virtual controller.",
                 9.5f, 0x66FFFFFF, false);
         footer.addView(hint, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));

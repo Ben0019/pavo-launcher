@@ -116,6 +116,10 @@ final class FtpClient {
     }
 
     private Socket passive() throws IOException {
+        // EPSV keeps the data connection on the control host, which is the only
+        // address that is guaranteed to work through NAT or a port forward.
+        Socket extended = extendedPassive();
+        if (extended != null) return extended;
         command("PASV");
         if (lastCode != 227) throw new IOException("PASV refused (" + lastCode + ")");
         String reply = lastReply;
@@ -127,10 +131,70 @@ final class FtpClient {
         String host = parts[0] + "." + parts[1] + "." + parts[2] + "." + parts[3];
         int port = (Integer.parseInt(parts[4].trim()) << 8)
                 + Integer.parseInt(parts[5].trim());
+        // Servers behind NAT advertise their private address here. If that
+        // address cannot be the one we are talking to, use the control host.
+        String controlHost = control.getInetAddress().getHostAddress();
+        if (isPrivate(host) && !host.equals(controlHost)) host = controlHost;
+        return openData(host, port);
+    }
+
+    private Socket extendedPassive() {
+        try {
+            command("EPSV");
+            if (lastCode != 229) return null;
+            String reply = lastReply;
+            int open = reply.indexOf('(');
+            int close = reply.indexOf(')', open);
+            if (open < 0 || close < 0) return null;
+            String body = reply.substring(open + 1, close);
+            String[] parts = body.split("\\|");
+            int port = -1;
+            for (int i = 0; i < parts.length; i++) {
+                if (parts[i].isEmpty()) continue;
+                try {
+                    port = Integer.parseInt(parts[i].trim());
+                    break;
+                } catch (Throwable ignored) {
+                }
+            }
+            if (port <= 0 || port > 65535) return null;
+            return openData(control.getInetAddress().getHostAddress(), port);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private Socket openData(String host, int port) throws IOException {
         Socket data = new Socket();
-        data.connect(new InetSocketAddress(host, port), 15_000);
-        data.setSoTimeout(30_000);
-        return data;
+        try {
+            data.connect(new InetSocketAddress(host, port), 15_000);
+            data.setSoTimeout(30_000);
+            return data;
+        } catch (IOException e) {
+            try {
+                data.close();
+            } catch (Throwable ignored) {
+            }
+            throw new IOException("Data connection to " + host + ":" + port
+                    + " failed: " + e.getMessage(), e);
+        }
+    }
+
+    private static boolean isPrivate(String host) {
+        if (host == null || host.isEmpty()) return true;
+        if ("0.0.0.0".equals(host)) return true;
+        String[] p = host.split("\\.");
+        if (p.length != 4) return false;
+        int a, b;
+        try {
+            a = Integer.parseInt(p[0]);
+            b = Integer.parseInt(p[1]);
+        } catch (Throwable t) {
+            return false;
+        }
+        return a == 10 || a == 127 || (a == 192 && b == 168)
+                || (a == 172 && b >= 16 && b <= 31) || (a == 169 && b == 254)
+                || (a == 100 && b >= 64 && b <= 127);
     }
 
     private String lastReply = "";

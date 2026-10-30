@@ -883,7 +883,9 @@ public final class FtpActivity extends PavoGlassActivity {
     private void addNav(View v) {
         if (v == null) return;
         v.setFocusable(true);
-        v.setFocusableInTouchMode(true);
+        // Deliberately not focusable in touch mode: taking focus on a touch
+        // swaps the chip background and relayouts mid-gesture, which swallowed
+        // taps on Connect and the tabs. Key events still focus these views.
         nav.add(v);
     }
 
