@@ -134,11 +134,17 @@ public final class FanCurveService extends Service {
             if (duty >= 0) {
                 lastDuty = duty;
                 // Take manual control once, then move only the duty. Rewriting
-                // fan_mode every 1.5 s made the firmware's fan daemon re-notify
+                // fan_mode every tick makes the firmware's fan daemon re-notify
                 // its quick-settings tile constantly, and a bad transient mode
-                // in that stream crashes SystemUI.
-                if (manualHeld) PerfTuner.setFanDuty(duty);
-                else {
+                // in that stream crashes SystemUI - so only write the mode when
+                // the firmware has actually taken the fan back.
+                boolean modeHeld = PerfTuner.fanMode(FanCurveService.this)
+                        == PerfTuner.FAN_MANUAL;
+                if (manualHeld && modeHeld) {
+                    PerfTuner.setFanDuty(duty);
+                } else {
+                    // The firmware took the fan back; put our target straight
+                    // back so its own (usually much lower) duty does not stick.
                     PerfTuner.setFanManual(duty);
                     manualHeld = true;
                 }
@@ -153,7 +159,13 @@ public final class FanCurveService extends Service {
                     manualHeld = true;
                 }
             }
-            handler.postDelayed(this, smart ? 500L : 1500L);
+            // Curve mode used to check twice a second less often than Smart,
+            // which let the firmware's own fan curve run for up to 1.5 s after
+            // it took the fan over - the visible up/down in the speed.
+            // Under load, check often enough that a firmware duty write is
+            // corrected before it is audible; idle ticks stay relaxed.
+            long next = smart ? 500L : (lastDuty >= 20 ? 300L : 800L);
+            handler.postDelayed(this, next);
         }
     };
 
