@@ -20,6 +20,7 @@ final class Prefs {
     static final int DOCK_HIDDEN = 3;
 
     static final String DEFAULT_CONTROLLER_RAW = "BTN_Z";
+    static final String DEFAULT_DRAWER_RAW = "BTN_C";
 
     private final SharedPreferences sp;
 
@@ -285,7 +286,7 @@ final class Prefs {
 
     // --- app drawer controller & floating drawer columns ---
     String drawerControllerRaw() {
-        return sp.getString("drawer_controller_raw", "");
+        return sp.getString("drawer_controller_raw", DEFAULT_DRAWER_RAW);
     }
 
     void setDrawerControllerRaw(String key) {
