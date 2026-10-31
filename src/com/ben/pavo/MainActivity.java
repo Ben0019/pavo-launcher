@@ -10278,6 +10278,13 @@ public final class MainActivity extends Activity {
                         }
                     })
                     .start();
+            // The shadow used to sit at full strength while the card shrank and
+            // then vanish in one frame, which read as a blink behind the drawer.
+            if (drawerShadow != null) {
+                drawerShadow.animate().alpha(0f).setDuration(220L)
+                        .setInterpolator(new PathInterpolator(0.4f, 0f, 0.75f, 0.35f))
+                        .start();
+            }
         }
     }
 

@@ -385,7 +385,7 @@ abstract class PavoGlassActivity extends Activity {
                     card.setBackdropScreenAnchored(true);
                     card.setLiquidEffect(true);
                     liquidCard = true;
-                    if (glassRoot != null) animateFrostVeil(glassRoot, 1f, 0f, 220L, null);
+                    if (glassRoot != null) animateFrostVeil(glassRoot, 1f, 0f, 380L, null);
                 }
                 if (!closing) {
                     Motion.giggleIn(card, 0.985f, 340L, 1.15f, 0.55f, false);
@@ -539,7 +539,7 @@ abstract class PavoGlassActivity extends Activity {
             // Fade the frost in over the live glass before the card freezes, so
             // the change from sampled glass to frost reads as a dissolve.
             veilClosing = true;
-            animateFrostVeil(decor, 0f, 1f, 130L, new Runnable() {
+            animateFrostVeil(decor, 0f, 1f, 240L, new Runnable() {
                 @Override public void run() {
                     veilClosing = false;
                     if (isFinishing() || isDestroyed()) return;
