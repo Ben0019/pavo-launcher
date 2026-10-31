@@ -1040,8 +1040,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void applyScaleGeometry(boolean keepCenter) {
         if (container == null || panel == null || params == null) return;
-        // The strip is content-sized; scaling it would show less than it contains.
-        if (panel.horizontal()) scale = 1f;
         scale = clampScale(scale);
         int newW = Math.round(baseWidthPx * scale);
         int newH = Math.round(baseHeightPx * scale);
