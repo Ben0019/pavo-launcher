@@ -491,7 +491,10 @@ final class PerfSampler {
         }
 
         s.gpuHz = Math.max(0, hz);
-        s.gpuMaxHz = Math.max(0, max);
+        // The devfreq "max" is only the current cap and drops to the idle step,
+        // which made every ratio read as 100% (red). Grade against the hardware
+        // maximum instead so idle clocks show green and boosts go red.
+        s.gpuMaxHz = hardwareMax > 0 ? hardwareMax : Math.max(0, max);
         s.gpuUsage = busy;
         s.gpuUsageKnown = busy >= 0;
         s.gpuTempC = ThermalSensors.gpuTemp();

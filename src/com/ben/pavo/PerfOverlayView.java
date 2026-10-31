@@ -227,7 +227,7 @@ final class PerfOverlayView extends LinearLayout {
     private void renderStrip(PerfStats s) {
         if (stripText == null) return;
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
-        appendSpan(b, "PERFORMANCE  ", 0xFF9FD8D1);
+        appendSpan(b, "PERFORMANCE  ", accent);
         if (s == null) {
             appendSpan(b, "waiting for data", 0x99FFFFFF);
             stripText.setText(b);
@@ -260,8 +260,7 @@ final class PerfOverlayView extends LinearLayout {
             }
             if (p.perfGpuClock()) {
                 appendSpan(b, (s.gpuHz > 0 ? fmtHz(s.gpuHz) : "\u2014") + " ",
-                        s.gpuHz > 0 && s.gpuMaxHz > 0
-                                ? heat(s.gpuHz / (float) s.gpuMaxHz) : 0x55FFFFFF);
+                        clockHeat(s.gpuHz, s.gpuMaxHz));
             }
             if (p.perfGpuUsage()) {
                 appendSpan(b, (s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014") + "  ",
@@ -392,8 +391,7 @@ final class PerfOverlayView extends LinearLayout {
                 gpuTempKnown ? heat((s.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
         boolean gpuClockKnown = s.gpuHz > 0;
         setValue(gpuClock, gpuClockKnown ? fmtHz(s.gpuHz) : "\u2014",
-                gpuClockKnown ? heat(s.gpuMaxHz > 0
-                        ? s.gpuHz / (float) s.gpuMaxHz : 0f) : 0x55FFFFFF);
+                gpuClockKnown ? clockHeat(s.gpuHz, s.gpuMaxHz) : 0x55FFFFFF);
         setValue(gpuUsage, s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014",
                 s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0x55FFFFFF);
 
@@ -580,6 +578,17 @@ final class PerfOverlayView extends LinearLayout {
         int red = 0xFFFF5C6C;
         if (v < 0.5f) return blend(green, amber, v * 2f);
         return blend(amber, red, (v - 0.5f) * 2f);
+    }
+
+    /**
+     * Clock colour: the lowest GPU steps sit at ~35% of the hardware maximum, so
+     * a plain ratio would already read yellow. Ignore the idle third of the range
+     * and the step goes green at rest, amber mid-boost, red at the ceiling.
+     */
+    static int clockHeat(long hz, long maxHz) {
+        if (hz <= 0 || maxHz <= 0) return 0x55FFFFFF;
+        float ratio = hz / (float) maxHz;
+        return heat((ratio - 0.25f) / 0.75f);
     }
 
     static int fpsColor(int fps) {
