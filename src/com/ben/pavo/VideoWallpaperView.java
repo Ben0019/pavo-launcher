@@ -70,6 +70,17 @@ final class VideoWallpaperView extends ViewGroup {
         });
     }
 
+    /** Current video frame, downscaled. Used for glass backdrops. */
+    Bitmap grabFrame(int width, int height) {
+        if (width <= 0 || height <= 0 || !texture.isAvailable()) return null;
+        if (getVisibility() != VISIBLE || texture.getWidth() <= 0) return null;
+        try {
+            return texture.getBitmap(width, height);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     void setListener(Listener listener) {
         this.listener = listener;
     }

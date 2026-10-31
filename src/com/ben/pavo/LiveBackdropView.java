@@ -32,6 +32,10 @@ final class LiveBackdropView extends View {
     private int restY = -1;
     private boolean recordPending;
     private Bitmap snapshot;
+    private Bitmap videoFrame;
+    private int videoX, videoY, videoW, videoH;
+    private final Paint framePaint = new Paint(Paint.ANTI_ALIAS_FLAG
+            | Paint.FILTER_BITMAP_FLAG);
     private final Paint snapshotPaint = new Paint(Paint.ANTI_ALIAS_FLAG
             | Paint.FILTER_BITMAP_FLAG);
     private RenderNode node;
@@ -138,6 +142,24 @@ final class LiveBackdropView extends View {
     void invalidateRecording() {
         recordPending = true;
         invalidate();
+    }
+
+    /** Latest video-wallpaper frame, in screen coordinates, for the live capture. */
+    void setVideoFrame(Bitmap frame, int x, int y, int w, int h) {
+        if (videoFrame != null && videoFrame != frame) videoFrame.recycle();
+        videoFrame = frame;
+        videoX = x;
+        videoY = y;
+        videoW = w;
+        videoH = h;
+        invalidate();
+    }
+
+    void clearVideoFrame() {
+        if (videoFrame != null) {
+            videoFrame.recycle();
+            videoFrame = null;
+        }
     }
 
     void setBackdropEnabled(boolean value) {
@@ -251,6 +273,13 @@ final class LiveBackdropView extends View {
             recording.clipPath(outer);
         }
         source.draw(recording);
+        if (videoFrame != null && !videoFrame.isRecycled() && videoW > 0 && videoH > 0) {
+            // TextureView content never lands in a render node, so the video
+            // wallpaper is stamped in from its latest frame.
+            recording.drawBitmap(videoFrame, null,
+                    new android.graphics.RectF(videoX - hx, videoY - hy,
+                            videoX + videoW - hx, videoY + videoH - hy), framePaint);
+        }
         node.endRecording();
 
         int save = canvas.save();

@@ -10107,6 +10107,10 @@ public final class MainActivity extends Activity {
         drawerCard.setScaleX(1f);
         drawerCard.setScaleY(1f);
         drawerSwipeProgress = drawerPopup ? 1f : 0f;
+        if (drawerBackdrop != null && videoWallpaper != null) {
+            handler.removeCallbacks(drawerVideoFrameTick);
+            handler.post(drawerVideoFrameTick);
+        }
         return true;
     }
 
@@ -10257,10 +10261,38 @@ public final class MainActivity extends Activity {
     }
 
     /** Live backdrop-filter equivalent for the home behind the app drawer. */
+    /**
+     * The video wallpaper lives in a TextureView, which never lands in a render
+     * node, so the live glass would show the still wallpaper instead of the
+     * video. Stamp its latest frame into the backdrop while the drawer is up.
+     */
+    private final Runnable drawerVideoFrameTick = new Runnable() {
+        @Override public void run() {
+            if (drawer == null || drawer.getVisibility() != View.VISIBLE) return;
+            if (drawerBackdrop == null || videoWallpaper == null
+                    || videoWallpaper.getVisibility() != View.VISIBLE
+                    || videoWallpaper.getWidth() <= 0) {
+                return;
+            }
+            Bitmap frame = videoWallpaper.grabFrame(
+                    Math.max(1, videoWallpaper.getWidth() / 4),
+                    Math.max(1, videoWallpaper.getHeight() / 4));
+            if (frame != null && drawerBackdrop != null) {
+                int[] loc = new int[2];
+                videoWallpaper.getLocationOnScreen(loc);
+                drawerBackdrop.setVideoFrame(frame, loc[0], loc[1],
+                        videoWallpaper.getWidth(), videoWallpaper.getHeight());
+            }
+            handler.postDelayed(this, 100L);
+        }
+    };
+
     private void setHomeLiveBlur(boolean enabled) {
         if (dock != null) dock.setLiquidPaused(enabled);
         if (drawerBackdrop == null) return;
         if (!enabled) {
+            handler.removeCallbacks(drawerVideoFrameTick);
+            drawerBackdrop.clearVideoFrame();
             drawerBackdrop.setBackdropEnabled(false);
             drawerBackdrop.setRestPosition(-1, -1);
             drawerBackdrop.setLivePaused(false);
@@ -10307,13 +10339,6 @@ public final class MainActivity extends Activity {
         drawerCloseArmed = false;
         recycleDrawerCloseVelocity();
         cancelDrawerSlide();
-        if (!drawerPopup) {
-            liftDrawerCard();
-            if (drawerBackdrop != null) {
-                drawerBackdrop.setRestPosition(-1, -1);
-                drawerBackdrop.setLivePaused(true);
-            }
-        }
         Motion.cancelGiggle(drawerCard);
         drawerCard.animate().cancel();
         drawerCard.setScaleX(1f);
@@ -17405,11 +17430,6 @@ public final class MainActivity extends Activity {
                         super.dispatchTouchEvent(cancel);
                         cancel.recycle();
                         drawerCloseSwipeActive = true;
-                        liftDrawerCard();
-                        if (drawerBackdrop != null) {
-                            drawerBackdrop.setRestPosition(-1, -1);
-                            drawerBackdrop.setLivePaused(true);
-                        }
                         Motion.cancelGiggle(drawerCard);
                         drawerCard.setRotation(0f);
                         float height = drawer.getHeight() > 0 ? drawer.getHeight()
