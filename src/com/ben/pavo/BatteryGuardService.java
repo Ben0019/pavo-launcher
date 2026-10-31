@@ -60,14 +60,16 @@ public final class BatteryGuardService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (store == null) store = new DeviceHealthStore(this);
         int target = targetLevel(store);
-        if (target < 0) {
+        if (target < 0 && store.speedMa() >= 2000) {
             stopSelf();
             return START_NOT_STICKY;
         }
-        startForeground(NOTIFICATION_ID, notification(store.limitEnabled()
+        startForeground(NOTIFICATION_ID, notification(
+                target < 0 ? "Charge speed" : store.limitEnabled()
                         && (target == store.limitPercent() || !store.autoSeparation())
                         ? "Charge limit" : "Automatic charge separation",
-                "Waiting for " + target + "%"));
+                target < 0 ? "Limited to " + (store.speedMa() / 100f) + " A"
+                        : "Waiting for " + target + "%"));
         if (!polling) {
             polling = true;
             main.post(poll);
@@ -91,7 +93,7 @@ public final class BatteryGuardService extends Service {
                     main.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (threshold < 0) {
+                            if (threshold < 0 && store.speedMa() >= 2000) {
                                 if (!store.separated()) {
                                     DeviceHealthController.setSeparation(
                                             BatteryGuardService.this, false);
@@ -99,7 +101,8 @@ public final class BatteryGuardService extends Service {
                                 stopSelf();
                                 return;
                             }
-                            apply(snap, threshold);
+                            applySpeed(snap);
+                            if (threshold >= 0) apply(snap, threshold);
                             main.postDelayed(poll, POLL_MS);
                         }
                     });
@@ -116,6 +119,17 @@ public final class BatteryGuardService extends Service {
         }
         if (store.autoSeparation()) target = Math.min(target, store.autoLevel());
         return target == Integer.MAX_VALUE ? -1 : target;
+    }
+
+    /** Re-applies the input ceiling when the firmware resets it after a replug. */
+    private void applySpeed(DeviceHealthReader.Snapshot snap) {
+        if (snap == null || !snap.plugged) return;
+        int want = store.speedMa();
+        int node = DeviceHealthReader.num(this,
+                "/sys/class/power_supply/usb/input_current_limit", -1);
+        boolean ok = want >= 2000 ? node >= 2000000
+                : Math.abs(node - want * 1000) < 60000;
+        if (!ok) DeviceHealthController.setInputLimit(this, want);
     }
 
     private void apply(DeviceHealthReader.Snapshot snap, int threshold) {
