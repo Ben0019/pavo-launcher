@@ -422,22 +422,25 @@ final class PerfTuner {
 
     /** Current fan duty as a percentage, or -1 when it cannot be read. */
     static int fanPercent(android.content.Context context) {
-        // The PWM node is what the fan is actually doing; the settings value is
-        // only the last requested duty and can disagree after the firmware has
-        // taken over.
+        // Prefer the commanded value in the fan settings: on this device the
+        // "pwm" class node that looks like a fan controller is the display
+        // backlight (gpio5_pwm2), so reading it reported whatever the panel
+        // brightness was - seeding the curve from it dropped the fan to ~12%.
+        int raw = fanSpeed(context);
         DeviceProfile p = profile();
+        int period = p.fanPeriod > 0 ? p.fanPeriod : 50000;
+        if (raw >= 0) {
+            return Math.max(0, Math.min(100, Math.round(raw * 100f / period)));
+        }
         if (p.fanDir != null && !p.fanDir.isEmpty()) {
             int duty = readInt(p.fanDir + "/duty");
-            int period = readInt(p.fanDir + "/period");
-            if (period <= 0) period = p.fanPeriod > 0 ? p.fanPeriod : 50000;
-            if (duty >= 0 && period > 0) {
-                return Math.max(0, Math.min(100, Math.round(duty * 100f / period)));
+            int nodePeriod = readInt(p.fanDir + "/period");
+            if (nodePeriod <= 0) nodePeriod = period;
+            if (duty >= 0 && nodePeriod > 0) {
+                return Math.max(0, Math.min(100, Math.round(duty * 100f / nodePeriod)));
             }
         }
-        int raw = fanSpeed(context);
-        int period = p.fanPeriod > 0 ? p.fanPeriod : 50000;
-        if (raw < 0) return -1;
-        return Math.max(0, Math.min(100, Math.round(raw * 100f / period)));
+        return -1;
     }
 
     /** Duty value for a percentage on this device's fan controller. */
