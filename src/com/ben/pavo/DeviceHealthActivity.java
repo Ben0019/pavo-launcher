@@ -49,11 +49,15 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         return ThemeColors.accent();
     }
 
-    /** The health sheet is its own surface; showing a copy of the home behind it
-     *  made the window look fully transparent after a wake-up or a reopen. */
+    /**
+     * Sample the launcher behind the sheet like the other built-ins. This was
+     * disabled once because a bright home capture made the sheet look
+     * transparent after a wake-up or a reopen; the blank-capture guard and the
+     * readable-frost fallback are expected to cover that now.
+     */
     @Override
     protected boolean samplesBackdrop() {
-        return false;
+        return true;
     }
 
     private final Handler main = new Handler(Looper.getMainLooper());
