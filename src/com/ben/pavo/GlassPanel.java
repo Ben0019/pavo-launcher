@@ -260,6 +260,56 @@ final class GlassPanel extends LinearLayout {
     }
 
     /** Replace the refractive liquid-glass treatment with frosted glass. */
+    private boolean frozenFrostedBefore;
+    private boolean frozenLiquidBefore;
+    private Backdrop frozenBackdrop;
+    private boolean opaqueFrost;
+    private boolean frozenForScale;
+
+    /**
+     * Freeze this panel for a scale animation. A sampled/liquid body re-crops
+     * its screen-anchored backdrop on every frame, which smears along the edges
+     * of nested cards while the parent scales. Frost keeps the frame static.
+     */
+    void freezeForScale() {
+        if (frozenForScale) {
+            // A second motion (e.g. Home mid-open) must not capture the already
+            // emptied backdrop, or the card would restore to nothing.
+            backdrop = null;
+            liquidEffect = false;
+            frosted = true;
+            opaqueFrost = true;
+            invalidate();
+            return;
+        }
+        frozenForScale = true;
+        frozenFrostedBefore = frosted;
+        frozenLiquidBefore = liquidEffect;
+        frozenBackdrop = backdrop;
+        // Drop the sample as well: its matrix is rebuilt from the view's screen
+        // position, so while the card moves the backdrop smears into stripes.
+        backdrop = null;
+        liquidEffect = false;
+        frosted = true;
+        opaqueFrost = true;
+        invalidate();
+    }
+
+    void unfreezeFromScale() {
+        if (!frozenForScale) return;
+        frozenForScale = false;
+        opaqueFrost = false;
+        if (frozenBackdrop != null) backdrop = frozenBackdrop;
+        frozenBackdrop = null;
+        frosted = frozenFrostedBefore;
+        liquidEffect = frozenLiquidBefore;
+        // The cached liquid renderer was built around the frozen frame; rebuild
+        // it so the restored backdrop is sampled again.
+        cardRenderer = null;
+        liquidShader = null;
+        invalidate();
+    }
+
     void setFrosted(boolean value) {
         frosted = value;
         if (frosted) stopLiquid();
@@ -498,6 +548,7 @@ final class GlassPanel extends LinearLayout {
         int baseTint = tintColor >>> 24;
         if (baseTint <= 0) baseTint = 0xB8;
         int alpha = Math.round(baseTint * (0.25f + 1.25f * surfaceAlpha));
+        if (opaqueFrost) alpha = Math.max(alpha, 0xF2);
         alpha = Math.max(0x10, Math.min(0xFF, alpha));
         tintPaint.setColor((alpha << 24) | (tintColor & 0x00FFFFFF));
         canvas.drawRoundRect(rect, radius, radius, tintPaint);

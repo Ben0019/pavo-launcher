@@ -227,6 +227,31 @@ abstract class PavoGlassActivity extends Activity {
         applyGlassTuning(root, saturation, darkness);
     }
 
+    /** Freeze every glass panel (outer card and nested sub-cards) for a scale. */
+    private static void freezeGlassForScale(View view) {
+        if (view instanceof GlassPanel) {
+            ((GlassPanel) view).freezeForScale();
+        }
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                freezeGlassForScale(group.getChildAt(i));
+            }
+        }
+    }
+
+    private static void unfreezeGlassForScale(View view) {
+        if (view instanceof GlassPanel) {
+            ((GlassPanel) view).unfreezeFromScale();
+        }
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                unfreezeGlassForScale(group.getChildAt(i));
+            }
+        }
+    }
+
     private static void applyGlassTuning(View view, float saturation, float darkness) {
         if (view instanceof GlassPanel) {
             GlassPanel panel = (GlassPanel) view;
@@ -259,9 +284,9 @@ abstract class PavoGlassActivity extends Activity {
         // full size the frozen and live renders coincide, so nothing pops when
         // the effect is restored on the last frame.
         final boolean restoreLiquid = liquidCard;
+        final View glassRoot = getWindow() == null ? null : getWindow().getDecorView();
         if (restoreLiquid) {
-            card.setLiquidEffect(false);
-            card.setBackdropScreenAnchored(false);
+            if (glassRoot != null) freezeGlassForScale(glassRoot);
             liquidCard = false;
         }
         card.animate().cancel();
@@ -318,6 +343,8 @@ abstract class PavoGlassActivity extends Activity {
                 returnAnim = null;
                 card.setAlpha(1f);
                 if (restoreLiquid) {
+                    if (glassRoot != null) unfreezeGlassForScale(glassRoot);
+                    card.setFrosted(false);
                     card.setBackdropScreenAnchored(true);
                     card.setLiquidEffect(true);
                     liquidCard = true;
@@ -450,6 +477,8 @@ abstract class PavoGlassActivity extends Activity {
             card.setRotation(0f);
             card.setAlpha(1f);
             if (returnWasLiquid) {
+                unfreezeGlassForScale(decor);
+                card.setFrosted(false);
                 card.setBackdropScreenAnchored(true);
                 card.setLiquidEffect(true);
                 liquidCard = true;
@@ -469,12 +498,12 @@ abstract class PavoGlassActivity extends Activity {
         GlassPanel card = largestGlassPanel(decor);
         if (card == null || card.getWidth() <= 1 || card.getHeight() <= 1) return false;
         if (liquidCard) {
-            // Freeze the sampled backdrop so the card can scale towards the launch
-            // icon; a screen-anchored shader would re-crop the capture every frame.
-            // Restored by resetReturnVisuals when the task stays alive.
+            // A live card scales badly: a screen-anchored shader re-crops the
+            // capture every frame, and the nested glass cards smear along their
+            // edges. Freeze the whole tree into frost for the shrink, the way a
+            // non-sampled card closes.
             returnWasLiquid = true;
-            card.setLiquidEffect(false);
-            card.setBackdropScreenAnchored(false);
+            freezeGlassForScale(decor);
             liquidCard = false;
         }
         WallpaperView wallpaper = findWallpaper(decor);
