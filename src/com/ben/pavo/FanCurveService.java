@@ -164,7 +164,7 @@ public final class FanCurveService extends Service {
             // it took the fan over - the visible up/down in the speed.
             // Under load, check often enough that a firmware duty write is
             // corrected before it is audible; idle ticks stay relaxed.
-            long next = smart ? 500L : (lastDuty >= 20 ? 300L : 800L);
+            long next = smart ? 500L : (lastDuty >= 20 ? 150L : 800L);
             handler.postDelayed(this, next);
         }
     };
