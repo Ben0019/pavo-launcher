@@ -281,7 +281,7 @@ final class PerfOverlayView extends LinearLayout {
                 int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
                 float usedGb = Math.max(0f, (s.memTotalKb - s.memAvailKb) / 1_000_000f);
                 appendSpan(b, String.format(Locale.US, "%.1f/%dG", usedGb, totalGb) + "  ",
-                        0xB3FFFFFF);
+                        levelHeat(s.memPercent / 100f));
             } else {
                 appendSpan(b, "\u2014  ", TEXT);
             }
@@ -406,7 +406,7 @@ final class PerfOverlayView extends LinearLayout {
             // No percentage: the used/total figure is the whole reading.
             ramUsage.setVisibility(GONE);
             setValue(ramAmount, String.format(Locale.US, "%.1f/%dG", usedGb, totalGb),
-                    0xB3FFFFFF);
+                    levelHeat(s.memPercent / 100f));
         } else {
             ramUsage.setVisibility(GONE);
             setValue(ramAmount, "\u2014", 0x55FFFFFF);
@@ -535,7 +535,8 @@ final class PerfOverlayView extends LinearLayout {
         // Frosted glass only: a translucent body with a soft sheen, a light rim
         // and film grain. Nothing is captured or blurred at run time, so the
         // panel costs the same as any other view.
-        int alpha = Math.round(240f * panelAlphaPct / 100f);
+        // 100% is now fully opaque; the low end stays as it was.
+        int alpha = Math.round(255f * panelAlphaPct / 100f);
         bgPaint.setColor((alpha << 24) | 0x0C1016);
         canvas.drawRoundRect(rect, corner, corner, bgPaint);
 
@@ -587,7 +588,11 @@ final class PerfOverlayView extends LinearLayout {
      */
     static int clockHeat(long hz, long maxHz) {
         if (hz <= 0 || maxHz <= 0) return 0x55FFFFFF;
-        float ratio = hz / (float) maxHz;
+        return levelHeat(hz / (float) maxHz);
+    }
+
+    /** Same green-to-red ramp for any 0..1 level, ignoring the lowest quarter. */
+    static int levelHeat(float ratio) {
         return heat((ratio - 0.25f) / 0.75f);
     }
 
