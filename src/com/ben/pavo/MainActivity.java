@@ -262,6 +262,9 @@ public final class MainActivity extends Activity {
     private GlassPanel drawerGlass;
     private EditText search;
     private GridView drawerGrid;
+    /** Last drawer entry the ring sat on, so reopening lands there again. */
+    private String drawerFocusKey;
+    private int drawerFocusIndex = -1;
     private DrawerAdapter drawerAdapter;
     private boolean drawerPopup;
     private boolean reopenDrawerAfterLaunch;
@@ -1473,6 +1476,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        captureDrawerFocus();
         activityResumed = false;
         recycleHomeVelocity();
         recycleDrawerCloseVelocity();
@@ -9959,7 +9963,7 @@ public final class MainActivity extends Activity {
                 @Override
                 public void run() {
                     if (drawer != null && drawer.getVisibility() == View.VISIBLE) {
-                        focusFirstInGrid(drawerGrid);
+                        restoreDrawerFocus();
                     }
                 }
             }, drawerPopup ? 540 : 360);
@@ -10096,7 +10100,7 @@ public final class MainActivity extends Activity {
                             public void run() {
                                 if (drawer != null && drawer.getVisibility()
                                         == View.VISIBLE) {
-                                    focusFirstInGrid(drawerGrid);
+                                    restoreDrawerFocus();
                                 }
                             }
                         }, 120L);
@@ -10159,6 +10163,7 @@ public final class MainActivity extends Activity {
 
     private void closeDrawer(boolean animate) {
         if (drawer == null || drawer.getVisibility() != View.VISIBLE) return;
+        captureDrawerFocus();
         drawerAnimationToken++;
         drawerSwipeActive = false;
         drawerCloseSwipeActive = false;
@@ -10581,6 +10586,15 @@ public final class MainActivity extends Activity {
             }
             v.bind(item, e, themed, store.labelFor(item, e.label), prefs.drawerLabels());
             v.listener = drawerListener;
+            v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                @Override public void onFocusChange(View view, boolean hasFocus) {
+                    if (!hasFocus || !(view instanceof ItemView)) return;
+                    ItemView iv = (ItemView) view;
+                    if (iv.item != null) drawerFocusKey = iv.item.key();
+                    int pos = drawerGrid == null ? -1 : drawerGrid.getPositionForView(view);
+                    if (pos >= 0) drawerFocusIndex = pos;
+                }
+            });
             v.setLayoutParams(new android.widget.AbsListView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return v;
@@ -16136,7 +16150,11 @@ public final class MainActivity extends Activity {
      * which is the status row (next to Bluetooth) rather than the grid.
      */
     private void restoreLaunchFocus() {
-        if (isDrawerVisible() || isFolderVisible()) return;
+        if (isDrawerVisible()) {
+            if (controllerActive) restoreDrawerFocus();
+            return;
+        }
+        if (isFolderVisible()) return;
         View current = getCurrentFocus();
         // Android's default focus after a resume is the first focusable view in
         // the window, which is the status row next to Bluetooth. Treat that as
@@ -16167,7 +16185,7 @@ public final class MainActivity extends Activity {
 
     private void ensureControllerFocus() {
         if (isDrawerVisible()) {
-            if (!(getCurrentFocus() instanceof ItemView)) focusFirstInGrid(drawerGrid);
+            if (!(getCurrentFocus() instanceof ItemView)) restoreDrawerFocus();
             return;
         }
         if (isFolderVisible()) {
@@ -16178,6 +16196,60 @@ public final class MainActivity extends Activity {
         View current = getCurrentFocus();
         if (current != null && candidates.contains(current)) return;
         if (!candidates.isEmpty()) candidates.get(0).requestFocus();
+    }
+
+    /** Remember which drawer entry the ring is on before it can be lost. */
+    private void captureDrawerFocus() {
+        if (drawer == null || drawer.getVisibility() != View.VISIBLE) return;
+        View f = getCurrentFocus();
+        if (!(f instanceof ItemView) || f.getParent() != drawerGrid) return;
+        ItemView iv = (ItemView) f;
+        if (iv.item != null) drawerFocusKey = iv.item.key();
+        int pos = drawerGrid.getPositionForView(f);
+        if (pos >= 0) drawerFocusIndex = pos;
+    }
+
+    /** Put the ring back on the entry it was on instead of the first one. */
+    private void restoreDrawerFocus() {
+        if (drawerGrid == null) return;
+        int pos = findDrawerPosition(drawerFocusKey);
+        if (pos < 0 && drawerFocusIndex >= 0 && drawerFocusIndex < drawerGrid.getCount()) {
+            pos = drawerFocusIndex;
+        }
+        if (pos < 0) {
+            focusFirstInGrid(drawerGrid);
+            return;
+        }
+        drawerGrid.setSelection(pos);
+        focusDrawerPosition(pos, 0);
+    }
+
+    private int findDrawerPosition(String key) {
+        if (key == null || drawerApps == null) return -1;
+        for (int i = 0; i < drawerApps.size(); i++) {
+            Apps.Entry e = drawerApps.get(i);
+            if (e == null) continue;
+            if (key.equals(Item.app(e.pkg, e.activity).key())) return i;
+        }
+        return -1;
+    }
+
+    private void focusDrawerPosition(final int pos, final int attempt) {
+        if (drawerGrid == null) return;
+        drawerGrid.postDelayed(new Runnable() {
+            @Override public void run() {
+                int first = drawerGrid.getFirstVisiblePosition();
+                int child = pos - first;
+                if (child >= 0 && child < drawerGrid.getChildCount()) {
+                    View v = drawerGrid.getChildAt(child);
+                    if (v instanceof ItemView && v.getVisibility() == View.VISIBLE) {
+                        v.requestFocus();
+                        return;
+                    }
+                }
+                if (attempt < 5) focusDrawerPosition(pos, attempt + 1);
+            }
+        }, attempt == 0 ? 0L : 40L);
     }
 
     private void focusFirstInGrid(GridView grid) {
@@ -16400,7 +16472,7 @@ public final class MainActivity extends Activity {
         }
         if (isDrawerVisible()) {
             if (!(focused instanceof ItemView) || focused.getParent() != drawerGrid) {
-                focusFirstInGrid(drawerGrid);
+                restoreDrawerFocus();
                 return true;
             }
         } else if (isFolderVisible()) {
@@ -16438,7 +16510,10 @@ public final class MainActivity extends Activity {
         if (grid == null) return false;
         View focused = getCurrentFocus();
         if (!(focused instanceof ItemView) || focused.getParent() != grid) {
-            focusFirstInGrid(grid);
+            // Coming back from an app or reopening the drawer: return to the
+            // entry the ring was on rather than jumping to the first app.
+            if (grid == drawerGrid) restoreDrawerFocus();
+            else focusFirstInGrid(grid);
             return true;
         }
         int focusDir = dir == 0 ? View.FOCUS_LEFT : dir == 1 ? View.FOCUS_RIGHT
