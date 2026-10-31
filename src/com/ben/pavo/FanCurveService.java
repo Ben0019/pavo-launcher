@@ -134,57 +134,28 @@ public final class FanCurveService extends Service {
             if (duty >= 0) {
                 lastDuty = duty;
                 // Take manual control once, then move only the duty. Rewriting
-                // fan_mode every tick makes the firmware's fan daemon re-notify
-                // its quick-settings tile constantly, and a bad transient mode
-                // in that stream crashes SystemUI - so only write the mode when
-                // the firmware has actually taken the fan back.
-                // The firmware's own fan daemon re-takes manual mode (6) every
-                // few seconds; its SMART mode is left alone, and fan_speed is
-                // still honoured, so the curve rides on SMART.
-                boolean modeHeld = PerfTuner.fanMode(FanCurveService.this)
-                        == PerfTuner.FAN_SMART;
-                if (manualHeld && modeHeld) {
-                    PerfTuner.setFanDuty(duty);
-                } else {
-                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
-                    PerfTuner.setFanDuty(duty);
+                // fan_mode while the firmware's fan daemon is awake makes it
+                // re-notify its tile, and fighting it back every second is heard
+                // as the blower stepping up and down.
+                if (manualHeld) PerfTuner.setFanDuty(duty);
+                else {
+                    PerfTuner.setFanManual(duty);
                     manualHeld = true;
                 }
             } else if (!warmup && PerfTuner.fanManualDrifted(FanCurveService.this,
                     controller.applied())) {
                 // The game panel or a preset switched the fan away from the
                 // curve; re-assert it instead of waiting for the temperature.
-                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_SMART) {
+                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_MANUAL) {
                     PerfTuner.setFanDuty(controller.applied());
                 } else {
-                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
-                    PerfTuner.setFanDuty(controller.applied());
+                    PerfTuner.setFanManual(controller.applied());
                     manualHeld = true;
                 }
             }
-            // Curve mode used to check twice a second less often than Smart,
-            // which let the firmware's own fan curve run for up to 1.5 s after
-            // it took the fan over - the visible up/down in the speed.
-            // Under load, check often enough that a firmware duty write is
-            // corrected before it is audible; idle ticks stay relaxed.
-            long next = smart ? 500L : (lastDuty >= 20 ? 150L : 800L);
-            handler.postDelayed(this, next);
+            handler.postDelayed(this, smart ? 500L : 1500L);
         }
     };
-
-    private void notifyText(String title, String text) {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (nm == null) return;
-        try {
-            nm.notify(NOTIFICATION_ID, new Notification.Builder(this, CHANNEL)
-                    .setSmallIcon(R.drawable.ic_perf)
-                    .setContentTitle(title)
-                    .setContentText(text)
-                    .setOngoing(true)
-                    .build());
-        } catch (Throwable ignored) {
-        }
-    }
 
     private Notification notification(Prefs prefs) {
         PendingIntent open = PendingIntent.getActivity(this, 0,
