@@ -468,6 +468,16 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 : "Performance overlay unlocked", Toast.LENGTH_SHORT).show();
     }
 
+    /** Double tap swaps between the vertical panel and the horizontal strip. */
+    private void toggleOverlayMode() {
+        boolean horizontal = !prefs.perfOverlayHorizontal();
+        prefs.setPerfOverlayHorizontal(horizontal);
+        Haptics.longPress(container);
+        LToast.makeText(this, horizontal ? "Strip overlay" : "Panel overlay",
+                Toast.LENGTH_SHORT).show();
+        applyPrefs();
+    }
+
     private void ensureOverlayShown() {
         if (container == null) return;
         container.setVisibility(View.VISIBLE);
@@ -1028,9 +1038,36 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel.setLayoutParams(lp);
     }
 
+    /** Real screen size, independent of the configuration the service last saw. */
+    private int screenWidthPx() {
+        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+        try {
+            windowManager.getDefaultDisplay().getRealMetrics(dm);
+        } catch (Throwable ignored) {
+        }
+        int w = dm.widthPixels > 0 ? dm.widthPixels
+                : getResources().getDisplayMetrics().widthPixels;
+        int h = dm.heightPixels > 0 ? dm.heightPixels
+                : getResources().getDisplayMetrics().heightPixels;
+        return Math.max(w, h);
+    }
+
+    private int screenHeightPx() {
+        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+        try {
+            windowManager.getDefaultDisplay().getRealMetrics(dm);
+        } catch (Throwable ignored) {
+        }
+        int w = dm.widthPixels > 0 ? dm.widthPixels
+                : getResources().getDisplayMetrics().widthPixels;
+        int h = dm.heightPixels > 0 ? dm.heightPixels
+                : getResources().getDisplayMetrics().heightPixels;
+        return Math.min(w, h);
+    }
+
     private float clampScale(float wanted) {
-        int sw = getResources().getDisplayMetrics().widthPixels;
-        int sh = getResources().getDisplayMetrics().heightPixels;
+        int sw = screenWidthPx();
+        int sh = screenHeightPx();
         float maxW = (sw - Ui.dp(uiContext, 12)) / (float) Math.max(1, baseWidthPx);
         float maxH = (sh - Ui.dp(uiContext, 12)) / (float) Math.max(1, baseHeightPx);
         float max = Math.min(1.8f, Math.min(maxW, maxH));
@@ -1213,7 +1250,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     if (now - lastTapUpMs <= ViewConfiguration.getDoubleTapTimeout()
                             && Math.hypot(tdx, tdy) <= touchSlop * 2f) {
                         lastTapUpMs = 0L;
-                        toggleOverlayLock();
+                        toggleOverlayMode();
                     } else {
                         lastTapUpMs = now;
                         lastTapUpX = e.getRawX();
@@ -1287,8 +1324,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void moveTo(int x, int y) {
         if (container == null || params == null) return;
-        int sw = getResources().getDisplayMetrics().widthPixels;
-        int sh = getResources().getDisplayMetrics().heightPixels;
+        int sw = screenWidthPx();
+        int sh = screenHeightPx();
         pendingX = Math.max(0, Math.min(x, Math.max(0, sw - params.width)));
         pendingY = Math.max(0, Math.min(y, Math.max(0, sh - params.height)));
         if (!moveScheduled) {
@@ -1299,8 +1336,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void clampPosition(boolean save) {
         if (container == null || params == null) return;
-        int sw = getResources().getDisplayMetrics().widthPixels;
-        int sh = getResources().getDisplayMetrics().heightPixels;
+        int sw = screenWidthPx();
+        int sh = screenHeightPx();
         if (params.x < 0) params.x = Math.max(0, sw - params.width - Ui.dp(uiContext, 16));
         if (params.y < 0) params.y = Ui.dp(uiContext, 90);
         params.x = Math.max(0, Math.min(params.x, Math.max(0, sw - params.width)));
