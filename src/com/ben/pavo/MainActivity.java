@@ -265,6 +265,8 @@ public final class MainActivity extends Activity {
     private GridView drawerGrid;
     /** Last drawer entry the ring sat on, so reopening lands there again. */
     private String drawerFocusKey;
+    /** Last home-screen icon the ring was on, used as the resting position. */
+    private String homeFocusKey;
     private int drawerFocusIndex = -1;
     private DrawerAdapter drawerAdapter;
     private boolean drawerPopup;
@@ -376,6 +378,8 @@ public final class MainActivity extends Activity {
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
 
     private boolean controllerActive;
+    /** When the D-pad last moved the ring, so delayed focus fixes don't fight it. */
+    private long lastControllerMoveAt;
     private String controllerReturnKey;
     private View controllerReturnFocus;
     private boolean controllerAHeld;
@@ -1859,8 +1863,16 @@ public final class MainActivity extends Activity {
     }
 
     private boolean isHeaderControl(View v) {
-        return v != null && (v == batteryPill || v == bluetoothStatusGlyph
-                || v == soundStatusGlyph || v == recordingStatusGlyph);
+        if (v == null) return false;
+        if (v == batteryPill || v == bluetoothStatusGlyph
+                || v == soundStatusGlyph || v == recordingStatusGlyph) {
+            return true;
+        }
+        if (v instanceof RecordingStatusGlyph) return true;
+        // The status glyphs can be rebuilt, leaving the field references stale;
+        // treat anything parented to the status cluster as a header control.
+        android.view.ViewParent parent = v.getParent();
+        return headerStatusCluster != null && parent == headerStatusCluster;
     }
 
     private Runnable clockLongPress;
@@ -2231,6 +2243,7 @@ public final class MainActivity extends Activity {
         dismissActiveMenu();
         activeMenu = Menu.show(this, captureBackdrop(false, 0), wallpaper.accent(), clockBox,
                 clockDownRawX, clockDownRawY, "Clock & date", entries, false);
+        trackActiveMenu();
     }
 
     // ------------------------------------------------------------------
@@ -3570,6 +3583,7 @@ public final class MainActivity extends Activity {
         dismissActiveMenu();
         activeMenu = Menu.show(this, captureBackdrop(false, 0), wallpaper.accent(),
                 anchor, anchor.touchX(), anchor.touchY(), "Widget", entries, false);
+        trackActiveMenu();
     }
 
     private void removeAppWidget(Store.PlacedWidget w) {
@@ -5292,6 +5306,7 @@ public final class MainActivity extends Activity {
         dismissActiveMenu();
         activeMenu = Menu.show(this, captureBackdrop(false, 0), wallpaper.accent(),
                 anchor, touchX, touchY, "App drawer", entries, false);
+        trackActiveMenu();
     }
 
     private void renameDockDrawer() {
@@ -8894,6 +8909,7 @@ public final class MainActivity extends Activity {
         dismissActiveMenu();
         PopupWindow popup = Menu.show(this, captureBackdrop(false, 0), wallpaper.accent(),
                 v, v.lastTouchX(), v.lastTouchY(), label, entries, false);
+        final PopupWindow tracked = popup;
         popup.setOnDismissListener(new PopupWindow.OnDismissListener() {
             @Override
             public void onDismiss() {
@@ -8901,6 +8917,7 @@ public final class MainActivity extends Activity {
                     v.setLifted(false);
                     resetDragSource();
                 }
+                if (activeMenu == tracked) clearMenuState();
             }
         });
         activeMenu = popup;
@@ -8935,6 +8952,7 @@ public final class MainActivity extends Activity {
         activeMenu = Menu.show(this, captureBackdrop(false, 0),
                 wallpaper.accent(), v, v.lastTouchX(), v.lastTouchY(),
                 "Folder", entries, false);
+        trackActiveMenu();
     }
 
     /** Remove exactly the icon that owns this menu, not every copy with the same key. */
@@ -8961,18 +8979,36 @@ public final class MainActivity extends Activity {
         dismissActiveMenu();
         activeMenu = Menu.showAt(this, captureBackdrop(false, 0), wallpaper.accent(), root,
                 Math.round(rawX), Math.round(rawY), null, entries, false);
+        trackActiveMenu();
     }
 
-    private void dismissActiveMenu() {
+    private void clearMenuState() {
         cancelStickRepeat();
         activeMenuRows.clear();
         menuRowsOwner = null;
         menuFocusRing = null;
         activeMenuSelection = -1;
-        if (activeMenu != null) {
-            activeMenu.dismiss();
-            activeMenu = null;
-        }
+        activeMenu = null;
+    }
+
+    /**
+     * A menu row dismisses its own popup; without this the launcher would keep
+     * treating it as open and swallow the next controller press.
+     */
+    private void trackActiveMenu() {
+        final PopupWindow menu = activeMenu;
+        if (menu == null) return;
+        menu.setOnDismissListener(new PopupWindow.OnDismissListener() {
+            @Override public void onDismiss() {
+                if (activeMenu == menu) clearMenuState();
+            }
+        });
+    }
+
+    private void dismissActiveMenu() {
+        PopupWindow menu = activeMenu;
+        clearMenuState();
+        if (menu != null) menu.dismiss();
     }
 
     /** Rebuild the selectable rows when the active popup changes. */
@@ -16171,7 +16207,12 @@ public final class MainActivity extends Activity {
     private void rememberControllerFocus() {
         if (!controllerActive) return;
         View f = getCurrentFocus();
-        if (f == dockDrawerButton || isHeaderControl(f)
+        if (isHomeItemView(f) && ((ItemView) f).item != null) {
+            homeFocusKey = ((ItemView) f).item.key();
+        }
+        // Header glyphs are never the resting position; only a home icon or the
+        // dock drawer button is remembered here.
+        if (f == dockDrawerButton
                 || (f instanceof ItemView && f.getParent() != drawerGrid
                 && f.getParent() != folderGrid)) {
             controllerReturnFocus = f;
@@ -16186,7 +16227,8 @@ public final class MainActivity extends Activity {
         View v = controllerReturnFocus;
         controllerReturnFocus = null;
         if (v != null && v.isAttachedToWindow() && v.getVisibility() == View.VISIBLE
-                && (v == dockDrawerButton || isHeaderControl(v) || v instanceof ItemView)) {
+                && !isHeaderControl(v)
+                && (v == dockDrawerButton || v instanceof ItemView)) {
             v.requestFocus();
             return;
         }
@@ -16270,7 +16312,17 @@ public final class MainActivity extends Activity {
         }
         ArrayList<View> candidates = controllerCandidates();
         View current = getCurrentFocus();
-        if (current != null && candidates.contains(current)) return;
+        // Status glyphs are reachable with the D-pad but must not be where the
+        // ring rests; settle on the last home icon, else the first one.
+        if (current != null && candidates.contains(current) && !isHeaderControl(current)) return;
+        View last = findHomeItemView(homeFocusKey);
+        if (last != null && last.isAttachedToWindow() && last.getVisibility() == View.VISIBLE
+                && last.requestFocus()) {
+            return;
+        }
+        for (View candidate : candidates) {
+            if (candidate instanceof ItemView && candidate.requestFocus()) return;
+        }
         if (!candidates.isEmpty()) candidates.get(0).requestFocus();
     }
 
@@ -16483,7 +16535,19 @@ public final class MainActivity extends Activity {
     }
 
     private boolean moveControllerFocus(int dir) {
+        lastControllerMoveAt = System.currentTimeMillis();
         restoreStrayHeaderFocus();
+        // Android's default window focus after a dialog or a resume lands on the
+        // status row (the recording glyph). A direction press should return to
+        // the home icons instead of navigating the status row.
+        View headerFocus = getCurrentFocus();
+        android.util.Log.d("PavoLog", "move " + dir + " focus="
+                + ControllerNav.describe(headerFocus) + " header=" + isHeaderControl(headerFocus));
+        if (isHeaderControl(headerFocus) && !isDrawerVisible() && !isFolderVisible()) {
+            controllerActive = true;
+            ensureControllerFocus();
+            return true;
+        }
         ArrayList<View> candidates = controllerCandidates();
         if (candidates.isEmpty()) return false;
         View current = getCurrentFocus();
@@ -17497,6 +17561,24 @@ public final class MainActivity extends Activity {
         if (hasFocus) {
             hideSystemBars();
             applySurfaceTransparency();
+            if (controllerActive && !isDrawerVisible() && !isFolderVisible()
+                    && (getCurrentFocus() == null || isHeaderControl(getCurrentFocus()))) {
+                ensureControllerFocus();
+            }
+            // A dialog or menu hands focus back to the window after this
+            // callback, and the framework's default is the status row. Re-check
+            // once that restore has happened, unless the user just steered the
+            // ring into the header on purpose.
+            if (root != null) {
+                root.postDelayed(new Runnable() {
+                    @Override public void run() {
+                        if (isFinishing() || isDrawerVisible() || isFolderVisible()) return;
+                        if (System.currentTimeMillis() - lastControllerMoveAt < 1200) return;
+                        View f = getCurrentFocus();
+                        if (f == null || isHeaderControl(f)) ensureControllerFocus();
+                    }
+                }, 220);
+            }
         }
     }
 }
