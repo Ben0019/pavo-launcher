@@ -103,10 +103,49 @@ final class PavoHomeWidgetView extends FrameLayout {
     }
 
     private final boolean[] visible = {true};
+    private final Object wakeLock = new Object();
     private volatile boolean activePage = true;
 
     void setActivePage(boolean active) {
+        if (activePage == active) return;
         activePage = active;
+        if (active) {
+            // Paint the real state in this frame instead of waiting out the
+            // worker's idle sleep; that sleep is what made the widget pop in
+            // late after a page swipe.
+            refreshImmediately();
+            synchronized (wakeLock) {
+                wakeLock.notifyAll();
+            }
+        }
+    }
+
+    /** Cheap sticky-broadcast read so the card is never blank on arrival. */
+    private void refreshImmediately() {
+        if (!(visual instanceof BatteryPackView)) return;
+        try {
+            Context c = getContext();
+            android.content.Intent i = c.registerReceiver(null,
+                    new android.content.IntentFilter(
+                            android.content.Intent.ACTION_BATTERY_CHANGED));
+            if (i == null) return;
+            int level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+            int scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+            if (level < 0 || scale <= 0) return;
+            int status = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
+            boolean charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING;
+            boolean full = status == android.os.BatteryManager.BATTERY_STATUS_FULL;
+            boolean plugged = i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
+            int pct = Math.round(level * 100f / scale);
+            ((BatteryPackView) visual).setBattery(pct, charging, plugged, false, full);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void sleepOrWake(long ms) throws InterruptedException {
+        synchronized (wakeLock) {
+            wakeLock.wait(ms);
+        }
     }
 
     private void poll() {
@@ -121,7 +160,7 @@ final class PavoHomeWidgetView extends FrameLayout {
                     }
                 });
                 if (!activePage || !visible[0]) {
-                    Thread.sleep(750L);
+                    sleepOrWake(750L);
                     continue;
                 }
                 if (KIND_BATTERY.equals(kind)) {
@@ -179,7 +218,7 @@ final class PavoHomeWidgetView extends FrameLayout {
             } catch (Throwable ignored) {
             }
             try {
-                Thread.sleep(750L);
+                sleepOrWake(750L);
             } catch (InterruptedException e) {
                 break;
             }
