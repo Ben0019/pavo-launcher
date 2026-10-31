@@ -120,24 +120,46 @@ final class PavoHomeWidgetView extends FrameLayout {
         }
     }
 
-    /** Cheap sticky-broadcast read so the card is never blank on arrival. */
+    /** Cheap local read so the card is never blank when its page arrives. */
     private void refreshImmediately() {
-        if (!(visual instanceof BatteryPackView)) return;
         try {
             Context c = getContext();
-            android.content.Intent i = c.registerReceiver(null,
-                    new android.content.IntentFilter(
-                            android.content.Intent.ACTION_BATTERY_CHANGED));
-            if (i == null) return;
-            int level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
-            int scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
-            if (level < 0 || scale <= 0) return;
-            int status = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
-            boolean charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING;
-            boolean full = status == android.os.BatteryManager.BATTERY_STATUS_FULL;
-            boolean plugged = i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
-            int pct = Math.round(level * 100f / scale);
-            ((BatteryPackView) visual).setBattery(pct, charging, plugged, false, full);
+            if (visual instanceof BatteryPackView) {
+                android.content.Intent i = c.registerReceiver(null,
+                        new android.content.IntentFilter(
+                                android.content.Intent.ACTION_BATTERY_CHANGED));
+                if (i == null) return;
+                int level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                int scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+                if (level < 0 || scale <= 0) return;
+                int status = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
+                boolean charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING;
+                boolean full = status == android.os.BatteryManager.BATTERY_STATUS_FULL;
+                boolean plugged = i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
+                int pct = Math.round(level * 100f / scale);
+                ((BatteryPackView) visual).setBattery(pct, charging, plugged, false, full);
+            } else if (visual instanceof ThermalBoardView) {
+                float[] temps = PerfTuner.readTemperatures();
+                ((ThermalBoardView) visual).setTelemetry(0, 0,
+                        temps.length > 0 ? temps[0] : 0f,
+                        temps.length > 1 ? temps[1] : 0f);
+            } else if (visual instanceof FanBackView) {
+                PerfTuner.State st = PerfTuner.readStateLocal(c);
+                int rpm = 0;
+                int duty = 0;
+                if (st.fan != null && st.fan.state != 0) {
+                    rpm = Math.max(0, st.fan.rpm);
+                    if (st.fan.period > 0) {
+                        duty = Math.max(0, Math.min(100,
+                                Math.round(st.fan.duty * 100f / st.fan.period)));
+                    } else if (st.fan.speedPref > 0) {
+                        duty = Math.max(0, Math.min(100,
+                                Math.round(st.fan.speedPref / 500f)));
+                    }
+                    if (rpm <= 0) rpm = PerfTuner.estimatedRpm(duty);
+                }
+                ((FanBackView) visual).setTelemetry(rpm, duty, st.cpuTemp, st.gpuTemp);
+            }
         } catch (Throwable ignored) {
         }
     }
