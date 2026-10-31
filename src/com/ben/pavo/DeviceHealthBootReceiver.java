@@ -9,14 +9,14 @@ public final class DeviceHealthBootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (context == null || intent == null) return;
-        if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())
-                && !Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(intent.getAction())) {
+        String action = intent.getAction();
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(action)
+                && !Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action)
+                && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             return;
         }
-        DeviceHealthStore store = new DeviceHealthStore(context);
-        if (store.autoSeparation() || (store.limitEnabled() && store.limitPercent() < 100)
-                || store.speedMa() < 2000) {
-            BatteryGuardService.start(context);
-        }
+        // A package update kills the guard; re-arm it immediately instead of
+        // waiting for the launcher or Device Health to be opened again.
+        BatteryGuardService.armIfNeeded(context);
     }
 }

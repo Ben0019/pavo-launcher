@@ -1378,9 +1378,9 @@ public final class MainActivity extends Activity {
             // running from the first launch, not only after Fan Control is opened.
             FanCurveService.start(this);
         }
-        // Auto charge separation lives in a service as well; re-arm it here so a
-        // fresh install or a reboot does not silently disable it.
-        if (new DeviceHealthStore(this).autoSeparation()) BatteryGuardService.start(this);
+        // The charge guard lives in a service as well; re-arm it here so an
+        // update or a process kill never lets the pack charge past the limit.
+        BatteryGuardService.armIfNeeded(this);
         if (!prefs.defaultsApplied() && !defaultsShown) {
             defaultsShown = true;
             new Thread(new Runnable() {

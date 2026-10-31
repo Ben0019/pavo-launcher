@@ -41,6 +41,17 @@ public final class BatteryGuardService extends Service {
         }
     }
 
+    /** Start the guard whenever any charge rule is active, not only auto separation. */
+    static void armIfNeeded(Context c) {
+        if (c == null) return;
+        try {
+            DeviceHealthStore store = new DeviceHealthStore(c);
+            if (targetLevel(store) < 0 && store.speedMa() >= 2000) return;
+            start(c);
+        } catch (Throwable ignored) {
+        }
+    }
+
     static void stop(Context c) {
         if (c == null) return;
         try {

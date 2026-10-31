@@ -258,7 +258,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         hideBars();
         hidePerformanceOverlay();
         if (batteryView != null) batteryView.setAnimating(true);
-        if (store.autoSeparation()) BatteryGuardService.start(this);
+        BatteryGuardService.armIfNeeded(this);
         main.removeCallbacks(poll);
         main.post(poll);
         if (demoChip != null) {
