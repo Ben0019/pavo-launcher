@@ -191,7 +191,19 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                             public void run() {
                                 sampling = false;
                                 updateSession(stats);
-                                if (running && panel != null) panel.update(stats);
+                                if (running && panel != null) {
+                                    panel.update(stats);
+                                    if (panel.horizontal()) {
+                                        // The strip's width follows its text; a
+                                        // changed value can change the width.
+                                        measurePanel();
+                                        applyScaleGeometry(true);
+                                        try {
+                                            windowManager.updateViewLayout(container, params);
+                                        } catch (Throwable ignored) {
+                                        }
+                                    }
+                                }
                                 if (detail != null) detail.update(buildDetail());
                             }
                         });
@@ -978,6 +990,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void measurePanel() {
         if (panel == null) return;
+        // Visibility toggles change the strip width; make sure the measure pass
+        // is not served from a cached layout.
+        panel.forceLayout();
         if (panel.horizontal()) {
             android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
             try {
@@ -989,9 +1004,11 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     getResources().getDisplayMetrics().widthPixels,
                     getResources().getDisplayMetrics().heightPixels);
             int maxW = Math.max(Ui.dp(uiContext, 320), screenMax - Ui.dp(uiContext, 24));
-            panel.measure(View.MeasureSpec.makeMeasureSpec(maxW, View.MeasureSpec.EXACTLY),
+            panel.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-            baseWidthPx = maxW;
+            baseWidthPx = Math.max(Ui.dp(uiContext, 260),
+                    Math.min(maxW, panel.getMeasuredWidth()));
+
             baseHeightPx = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
         } else {
             int widthSpec = View.MeasureSpec.makeMeasureSpec(baseWidthPx, View.MeasureSpec.EXACTLY);
@@ -1007,6 +1024,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             lp.width = baseWidthPx;
             lp.height = baseHeightPx;
         }
+        // Mutating the params alone does not trigger a layout pass.
+        panel.setLayoutParams(lp);
     }
 
     private float clampScale(float wanted) {
@@ -1021,6 +1040,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void applyScaleGeometry(boolean keepCenter) {
         if (container == null || panel == null || params == null) return;
+        // The strip is content-sized; scaling it would show less than it contains.
+        if (panel.horizontal()) scale = 1f;
         scale = clampScale(scale);
         int newW = Math.round(baseWidthPx * scale);
         int newH = Math.round(baseHeightPx * scale);
@@ -1062,7 +1083,15 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel.applyPrefs(prefs);
         panel.setPanelAlpha(prefs.perfOverlayAlpha());
         measurePanel();
-        applyScaleGeometry(false);
+        // In strip mode the width follows the visible metrics, so keep it centred
+        // instead of leaving it pinned by its left edge.
+        applyScaleGeometry(panel.horizontal());
+        if (container != null) {
+            try {
+                windowManager.updateViewLayout(container, params);
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     private boolean overlayTouch(MotionEvent e) {

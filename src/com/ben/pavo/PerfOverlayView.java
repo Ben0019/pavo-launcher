@@ -56,7 +56,8 @@ final class PerfOverlayView extends LinearLayout {
     private LinearLayout fpsRow;
     private FpsGraphView graph;
     private final boolean horizontal;
-    private LinearLayout cpuChip, gpuChip, netChip, ramChip, battChip, fpsChip;
+    private TextView stripText;
+    private PerfStats lastStats;
     private final CoreView[] cores = new CoreView[PerfStats.MAX_CORES];
 
     PerfOverlayView(Context c) {
@@ -208,84 +209,90 @@ final class PerfOverlayView extends LinearLayout {
         if (horizontal) buildHorizontalStrip(c);
     }
 
-    /**
-     * One-row layout: the same numbers, laid out as a strip. Every value view is
-     * reused, so updates keep working unchanged.
-     */
+    /** One row of text: measured as a single line, so it always fits and resizes. */
     private void buildHorizontalStrip(Context c) {
         removeAllViews();
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
         setPadding(dp(12), dp(6), dp(12), dp(6));
-
-        TextView title = label("PERFORMANCE", 7.4f, accent);
-        title.setLetterSpacing(0.14f);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        title.setPadding(0, 0, dp(8), 0);
-        addView(title, new LinearLayout.LayoutParams(
+        stripText = new LTextView(c);
+        stripText.setSingleLine(true);
+        stripText.setIncludeFontPadding(false);
+        stripText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        stripText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        addView(stripText, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        cpuChip = addChip("CPU", 1.15f, cpuTemp, cpuClock, cpuUsage);
-        gpuChip = addChip("GPU", 1.15f, gpuTemp, gpuClock, gpuUsage);
-        netChip = addChip("NET", 1.35f, netUp, netDown);
-        ramChip = addChip("RAM", 1.0f, ramUsage, ramAmount);
-        battChip = addChip("BATT", 0.95f, battTemp, battPower);
-        fpsChip = addChip("FPS", 0.55f, fpsValue);
-        fpsValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
-
-        if (lockIcon != null && lockIcon.getParent() instanceof ViewGroup) {
-            ((ViewGroup) lockIcon.getParent()).removeView(lockIcon);
-        }
-        if (battery != null && battery.getParent() instanceof ViewGroup) {
-            ((ViewGroup) battery.getParent()).removeView(battery);
-        }
-        if (editDoneBar != null && editDoneBar.getParent() instanceof ViewGroup) {
-            ((ViewGroup) editDoneBar.getParent()).removeView(editDoneBar);
-        }
-        if (lockIcon != null) addView(lockIcon);
-        if (battery != null) {
-            battery.setPadding(dp(6), dp(1), dp(6), dp(1));
-            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            blp.leftMargin = dp(4);
-            addView(battery, blp);
-        }
-        if (editDoneBar != null) {
-            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            dlp.leftMargin = dp(8);
-            addView(editDoneBar, dlp);
-            editDoneBar.setPadding(dp(10), dp(4), dp(10), dp(4));
-        }
     }
 
-    private LinearLayout addChip(String name, float weight, TextView... values) {
-        LinearLayout chip = new LinearLayout(getContext());
-        chip.setOrientation(HORIZONTAL);
-        chip.setGravity(Gravity.CENTER_VERTICAL);
-        TextView label = label(name, 7.0f, MUTED);
-        label.setLetterSpacing(0.12f);
-        label.setPadding(0, 0, dp(4), 0);
-        chip.addView(label);
-        for (TextView v : values) {
-            if (v == null) continue;
-            // The value views still belong to their vertical rows; detach first.
-            if (v.getParent() instanceof ViewGroup) {
-                ((ViewGroup) v.getParent()).removeView(v);
-            }
-            v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
-            v.setPadding(dp(3), 0, dp(3), 0);
-            v.setSingleLine(true);
-            v.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            chip.addView(v, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    private void renderStrip(PerfStats s) {
+        if (stripText == null) return;
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        appendSpan(b, "PERFORMANCE  ", 0xFF9FD8D1);
+        if (s == null) {
+            appendSpan(b, "waiting for data", 0x99FFFFFF);
+            stripText.setText(b);
+            return;
         }
-        // Weighted so every chip shares the strip width and nothing is clipped.
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.WRAP_CONTENT, weight);
-        lp.rightMargin = dp(6);
-        addView(chip, lp);
-        return chip;
+        Prefs p = new Prefs(getContext());
+        boolean any = false;
+        if (p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()) {
+            appendSpan(b, "CPU ", MUTED);
+            if (p.perfCpuTemp()) appendSpan(b, fmtTemp(s.cpuTempC) + " ", TEXT);
+            if (p.perfCpuClock()) appendSpan(b, (s.cpuHz > 0 ? fmtHz(s.cpuHz) : "\u2014") + " ", TEXT);
+            if (p.perfCpuUsage()) appendSpan(b, (s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014") + "  ", TEXT);
+            any = true;
+        }
+        if (p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()) {
+            appendSpan(b, "GPU ", MUTED);
+            if (p.perfGpuTemp()) appendSpan(b, fmtTemp(s.gpuTempC) + " ", TEXT);
+            if (p.perfGpuClock()) appendSpan(b, (s.gpuHz > 0 ? fmtHz(s.gpuHz) : "\u2014") + " ", TEXT);
+            if (p.perfGpuUsage()) appendSpan(b, (s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014") + "  ", TEXT);
+            any = true;
+        }
+        appendSpan(b, "NET ", MUTED);
+        appendSpan(b, (s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps)
+                + " \u2193 " + SysStats.fmtRate(s.netRxBps) : "\u2191 \u2014  \u2193 \u2014") + "  ", TEXT);
+        any = true;
+        if (p.perfRam()) {
+            appendSpan(b, "RAM ", MUTED);
+            if (s.memTotalKb > 0) {
+                int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
+                float usedGb = Math.max(0f, (s.memTotalKb - s.memAvailKb) / 1_000_000f);
+                appendSpan(b, s.memPercent + "% "
+                        + String.format(Locale.US, "%.1f/%dG", usedGb, totalGb) + "  ", TEXT);
+            } else {
+                appendSpan(b, "\u2014  ", TEXT);
+            }
+            any = true;
+        }
+        if (p.perfBattery()) {
+            appendSpan(b, "BATT ", MUTED);
+            appendSpan(b, fmtTemp(s.batteryTempC) + " ", TEXT);
+            appendSpan(b, (s.powerW > 0f ? String.format(Locale.US, "%.1fW", s.powerW) : "\u2014") + "  ", TEXT);
+            any = true;
+        }
+        if (p.perfFps()) {
+            appendSpan(b, "FPS ", MUTED);
+            appendSpan(b, (s.fpsValid ? String.valueOf(s.fps) : "\u2014") + "  ",
+                    s.fpsValid ? fpsColor(s.fps) : 0x99FFFFFF);
+            any = true;
+        }
+        if (p.perfBattery() && s.battery >= 0) {
+            appendSpan(b, "\u00b7 " + s.battery + "%", batteryColor(s.battery));
+        }
+        if (!any) appendSpan(b, "no metrics selected", 0x99FFFFFF);
+        stripText.setText(b);
+    }
+
+    private String fmtTemp(float c) {
+        return c > 0f ? Math.round(c) + "\u00b0" : "\u2014";
+    }
+
+    private void appendSpan(android.text.SpannableStringBuilder b, String text, int color) {
+        int start = b.length();
+        b.append(text);
+        b.setSpan(new android.text.style.ForegroundColorSpan(color), start, b.length(),
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
 
     boolean horizontal() {
@@ -308,25 +315,7 @@ final class PerfOverlayView extends LinearLayout {
     void applyPrefs(Prefs p) {
         setPanelAlpha(p.perfOverlayAlpha());
         if (horizontal) {
-            // Same toggles as the vertical panel, applied to the strip chips.
-            cpuTemp.setVisibility(p.perfCpuTemp() ? VISIBLE : GONE);
-            cpuClock.setVisibility(p.perfCpuClock() ? VISIBLE : GONE);
-            cpuUsage.setVisibility(p.perfCpuUsage() ? VISIBLE : GONE);
-            if (cpuChip != null) {
-                cpuChip.setVisibility(p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()
-                        ? VISIBLE : GONE);
-            }
-            gpuTemp.setVisibility(p.perfGpuTemp() ? VISIBLE : GONE);
-            gpuClock.setVisibility(p.perfGpuClock() ? VISIBLE : GONE);
-            gpuUsage.setVisibility(p.perfGpuUsage() ? VISIBLE : GONE);
-            if (gpuChip != null) {
-                gpuChip.setVisibility(p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()
-                        ? VISIBLE : GONE);
-            }
-            if (ramChip != null) ramChip.setVisibility(p.perfRam() ? VISIBLE : GONE);
-            if (battChip != null) battChip.setVisibility(p.perfBattery() ? VISIBLE : GONE);
-            if (fpsChip != null) fpsChip.setVisibility(p.perfFps() ? VISIBLE : GONE);
-            battery.setVisibility(p.perfBattery() ? VISIBLE : GONE);
+            renderStrip(lastStats);
             graph.setRefreshMs(p.perfRefreshMs());
             requestLayout();
             return;
@@ -357,6 +346,11 @@ final class PerfOverlayView extends LinearLayout {
     }
 
     void update(PerfStats s) {
+        if (horizontal) {
+            lastStats = s;
+            renderStrip(s);
+            return;
+        }
         boolean cpuTempKnown = s.cpuTempC > 0f;
         setValue(cpuTemp, cpuTempKnown ? Math.round(s.cpuTempC) + "\u00b0" : "\u2014",
                 cpuTempKnown ? heat((s.cpuTempC - 32f) / 55f) : 0x55FFFFFF);
