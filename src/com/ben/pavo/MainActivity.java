@@ -90,6 +90,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.AbsListView;
 import android.widget.GridView;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
@@ -324,7 +325,13 @@ public final class MainActivity extends Activity {
     private int settingsStickAxis;
     private final long[] settingsSliderStickAt = {0L};
     private final long[] settingsScrollStickAt = {0L};
-    private final long[] drawerScrollStickAt = {0L};
+    private float stickScrollY;
+    private long stickScrollEventAt;
+    private long stickScrollFrameAt;
+    private float stickScrollCarry;
+    private boolean stickScrollRunning;
+    private int stickScrollAnchorY = -1;
+    private int stickScrollAnchorCol;
     private int settingsStickHeldDir = -1;
     private int settingsStickTicks = 1;
     private long lastSettingsNavAt;
@@ -16198,6 +16205,117 @@ public final class MainActivity extends Activity {
         if (!candidates.isEmpty()) candidates.get(0).requestFocus();
     }
 
+    /**
+     * Right-stick scrolling runs on a 60 Hz frame loop instead of jumping once
+     * per axis event, so the list glides. The ring is pinned to the screen point
+     * it occupied when the scroll began, so it follows the list underneath.
+     */
+    private final Runnable stickScrollTick = new Runnable() {
+        @Override public void run() {
+            if (!stickScrollRunning) return;
+            View target = isDrawerVisible() ? drawerGrid
+                    : isFolderVisible() ? folderGrid : null;
+            long now = SystemClock.uptimeMillis();
+            if (target == null || Math.abs(stickScrollY) < StickScroll.MIN
+                    || now - stickScrollEventAt > 400L) {
+                stopStickScroll();
+                return;
+            }
+            float dt = Math.min(0.05f, (now - stickScrollFrameAt) / 1000f);
+            stickScrollFrameAt = now;
+            float density = getResources().getDisplayMetrics().density;
+            float speed = StickScroll.speedDpPerSec(stickScrollY) * density;
+            stickScrollCarry += (stickScrollY > 0f ? speed : -speed) * dt;
+            int delta = (int) stickScrollCarry;
+            if (delta != 0) {
+                stickScrollCarry -= delta;
+                if (target instanceof AbsListView) {
+                    ((AbsListView) target).scrollListBy(delta);
+                } else if (target instanceof ScrollView) {
+                    ((ScrollView) target).scrollBy(0, delta);
+                }
+                followStickScroll(target);
+            }
+            handler.postDelayed(this, 16L);
+        }
+    };
+
+    private void beginStickScroll(View target) {
+        stickScrollRunning = true;
+        stickScrollCarry = 0f;
+        stickScrollFrameAt = SystemClock.uptimeMillis();
+        captureStickAnchor(target);
+        handler.removeCallbacks(stickScrollTick);
+        handler.post(stickScrollTick);
+    }
+
+    private void stopStickScroll() {
+        stickScrollRunning = false;
+        stickScrollY = 0f;
+        stickScrollCarry = 0f;
+        stickScrollAnchorY = -1;
+        stickScrollAnchorCol = 0;
+        handler.removeCallbacks(stickScrollTick);
+    }
+
+    /** Row and column the ring should stay on while the list moves under it. */
+    private void captureStickAnchor(View target) {
+        stickScrollAnchorY = -1;
+        stickScrollAnchorCol = 0;
+        if (!(target instanceof AbsListView)) return;
+        AbsListView list = (AbsListView) target;
+        int cols = target instanceof GridView
+                ? Math.max(1, ((GridView) target).getNumColumns()) : 1;
+        View f = getCurrentFocus();
+        int[] loc = new int[2];
+        if (f instanceof ItemView && f.getParent() == target) {
+            int pos = list.getPositionForView(f);
+            if (pos >= 0) stickScrollAnchorCol = pos % cols;
+            f.getLocationOnScreen(loc);
+            stickScrollAnchorY = loc[1] + f.getHeight() / 2;
+            return;
+        }
+        View first = list.getChildAt(0);
+        if (first != null) {
+            first.getLocationOnScreen(loc);
+            stickScrollAnchorY = loc[1] + first.getHeight() / 2;
+        }
+    }
+
+    /**
+     * Keep the ring on the entry under the anchor row, in the same column, so
+     * the list glides underneath it instead of leaving the ring behind.
+     */
+    private void followStickScroll(View target) {
+        if (stickScrollAnchorY < 0 || !(target instanceof AbsListView)) return;
+        AbsListView list = (AbsListView) target;
+        int cols = target instanceof GridView
+                ? Math.max(1, ((GridView) target).getNumColumns()) : 1;
+        int col = Math.max(0, Math.min(cols - 1, stickScrollAnchorCol));
+        int bestChild = -1;
+        float bestD = Float.MAX_VALUE;
+        int[] loc = new int[2];
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View c = list.getChildAt(i);
+            if (!(c instanceof ItemView) || c.getVisibility() != View.VISIBLE) continue;
+            c.getLocationOnScreen(loc);
+            float d = Math.abs(loc[1] + c.getHeight() / 2f - stickScrollAnchorY);
+            if (d < bestD) {
+                bestD = d;
+                bestChild = i;
+            }
+        }
+        if (bestChild < 0) return;
+        int pos = list.getFirstVisiblePosition() + bestChild;
+        int rowStart = pos - (pos % cols);
+        int wanted = Math.min(rowStart + col, Math.max(0, list.getCount() - 1));
+        View child = list.getChildAt(wanted - list.getFirstVisiblePosition());
+        if (child instanceof ItemView && child.getVisibility() == View.VISIBLE
+                && getCurrentFocus() != child) {
+            child.requestFocus();
+        }
+    }
+
     /** Remember which drawer entry the ring is on before it can be lost. */
     private void captureDrawerFocus() {
         if (drawer == null || drawer.getVisibility() != View.VISIBLE) return;
@@ -16796,7 +16914,14 @@ public final class MainActivity extends Activity {
                 View scroll = null;
                 if (isDrawerVisible()) scroll = drawerGrid;
                 else if (isFolderVisible()) scroll = folderGrid;
-                if (StickScroll.scroll(scroll, ry, drawerScrollStickAt)) return true;
+                if (scroll != null) {
+                    stickScrollY = ry;
+                    stickScrollEventAt = SystemClock.uptimeMillis();
+                    if (!stickScrollRunning) beginStickScroll(scroll);
+                    return true;
+                }
+            } else if (stickScrollRunning) {
+                stopStickScroll();
             }
             float x = event.getAxisValue(MotionEvent.AXIS_HAT_X);
             float y = event.getAxisValue(MotionEvent.AXIS_HAT_Y);

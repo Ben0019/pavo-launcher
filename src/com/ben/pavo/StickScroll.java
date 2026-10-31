@@ -17,8 +17,21 @@ final class StickScroll {
         return Math.max(-1f, Math.min(1f, y));
     }
 
+    static final float MIN = 0.22f;
+
     static boolean active(float y) {
-        return Math.abs(y) >= 0.22f;
+        return Math.abs(y) >= MIN;
+    }
+
+    /** 0 at the dead zone, 1 at full deflection. */
+    static float power(float y) {
+        return Math.min(1f, Math.max(0f, (Math.abs(y) - 0.18f) / 0.82f));
+    }
+
+    /** Smoothed travel speed in dp per second for a frame-driven scroll. */
+    static float speedDpPerSec(float y) {
+        float p = power(y);
+        return 45f + 950f * p * p;
     }
 
     /** Scroll a ScrollView/GridView/ListView at a speed driven by stick deflection. */
