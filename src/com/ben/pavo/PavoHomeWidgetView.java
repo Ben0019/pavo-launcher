@@ -105,69 +105,78 @@ final class PavoHomeWidgetView extends FrameLayout {
     private final boolean[] visible = {true};
     private final Object wakeLock = new Object();
     private volatile boolean activePage = true;
+    private volatile boolean wakeRequested;
 
     void setActivePage(boolean active) {
-        if (activePage == active) return;
+        boolean changed = activePage != active;
         activePage = active;
         if (active) {
-            // Paint the real state in this frame instead of waiting out the
-            // worker's idle sleep; that sleep is what made the widget pop in
-            // late after a page swipe.
-            refreshImmediately();
+            // The page is active, so the card is on screen even if the worker's
+            // last visibility sample (taken while it was off page) says no.
+            visible[0] = true;
+            // Paint what can be painted without I/O right now, then make sure the
+            // worker does not sit out its idle sleep before the first sample.
+            if (changed) refreshImmediately();
+            wakeRequested = true;
             synchronized (wakeLock) {
                 wakeLock.notifyAll();
             }
+            // Repaint even when the data has not changed: a card that comes back
+            // from an off-screen page must not wait for the next sample to show
+            // its frame.
+            main.post(new Runnable() {
+                @Override public void run() {
+                    invalidate();
+                    if (visual != null) visual.invalidate();
+                }
+            });
+            // The page is often still sliding when it becomes "current", so a
+            // card near the far edge can skip its draw as off-screen. Repaint
+            // once more after the slide has settled.
+            main.postDelayed(new Runnable() {
+                @Override public void run() {
+                    invalidate();
+                    if (visual != null) visual.invalidate();
+                }
+            }, 320L);
         }
     }
 
-    /** Cheap local read so the card is never blank when its page arrives. */
+    /** Cheap sticky-broadcast read so the battery card is never blank on arrival. */
     private void refreshImmediately() {
+        if (!(visual instanceof BatteryPackView)) return;
         try {
             Context c = getContext();
-            if (visual instanceof BatteryPackView) {
-                android.content.Intent i = c.registerReceiver(null,
-                        new android.content.IntentFilter(
-                                android.content.Intent.ACTION_BATTERY_CHANGED));
-                if (i == null) return;
-                int level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
-                int scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
-                if (level < 0 || scale <= 0) return;
-                int status = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
-                boolean charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING;
-                boolean full = status == android.os.BatteryManager.BATTERY_STATUS_FULL;
-                boolean plugged = i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
-                int pct = Math.round(level * 100f / scale);
-                ((BatteryPackView) visual).setBattery(pct, charging, plugged, false, full);
-            } else if (visual instanceof ThermalBoardView) {
-                float[] temps = PerfTuner.readTemperatures();
-                ((ThermalBoardView) visual).setTelemetry(0, 0,
-                        temps.length > 0 ? temps[0] : 0f,
-                        temps.length > 1 ? temps[1] : 0f);
-            } else if (visual instanceof FanBackView) {
-                PerfTuner.State st = PerfTuner.readStateLocal(c);
-                int rpm = 0;
-                int duty = 0;
-                if (st.fan != null && st.fan.state != 0) {
-                    rpm = Math.max(0, st.fan.rpm);
-                    if (st.fan.period > 0) {
-                        duty = Math.max(0, Math.min(100,
-                                Math.round(st.fan.duty * 100f / st.fan.period)));
-                    } else if (st.fan.speedPref > 0) {
-                        duty = Math.max(0, Math.min(100,
-                                Math.round(st.fan.speedPref / 500f)));
-                    }
-                    if (rpm <= 0) rpm = PerfTuner.estimatedRpm(duty);
-                }
-                ((FanBackView) visual).setTelemetry(rpm, duty, st.cpuTemp, st.gpuTemp);
-            }
+            android.content.Intent i = c.registerReceiver(null,
+                    new android.content.IntentFilter(
+                            android.content.Intent.ACTION_BATTERY_CHANGED));
+            if (i == null) return;
+            int level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+            int scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+            if (level < 0 || scale <= 0) return;
+            int status = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
+            boolean charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING;
+            boolean full = status == android.os.BatteryManager.BATTERY_STATUS_FULL;
+            boolean plugged = i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
+            int pct = Math.round(level * 100f / scale);
+            ((BatteryPackView) visual).setBattery(pct, charging, plugged, false, full);
         } catch (Throwable ignored) {
         }
     }
 
     private void sleepOrWake(long ms) throws InterruptedException {
+        if (wakeRequested) {
+            wakeRequested = false;
+            return;
+        }
         synchronized (wakeLock) {
+            if (wakeRequested) {
+                wakeRequested = false;
+                return;
+            }
             wakeLock.wait(ms);
         }
+        wakeRequested = false;
     }
 
     private void poll() {

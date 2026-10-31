@@ -252,7 +252,6 @@ final class ThermalBoardView extends View {
     protected void onDraw(Canvas c) {
         super.onDraw(c);
         if (getWidth() <= 0 || getHeight() <= 0) return;
-        if (!Ui.onScreen(this)) return;
         float s = Math.min(getWidth() / W, getHeight() / H);
         c.save();
         c.translate((getWidth() - W * s) / 2f, (getHeight() - H * s) / 2f);
