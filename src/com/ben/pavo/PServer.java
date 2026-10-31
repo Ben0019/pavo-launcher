@@ -20,14 +20,20 @@ final class PServer {
 
     private static IBinder binder;
     private static boolean checked;
+    private static long checkedAt;
+    /** A failed lookup must not disable every later write for the whole process. */
+    private static final long RETRY_MS = 5000L;
 
     private PServer() {}
 
     static boolean available() {
         synchronized (PServer.class) {
             if (binder != null && binder.isBinderAlive()) return true;
-            if (checked && binder == null) return false;
+            binder = null;
+            long now = SystemClock.uptimeMillis();
+            if (checked && now - checkedAt < RETRY_MS) return false;
             checked = true;
+            checkedAt = now;
             try {
                 Class<?> manager = Class.forName("android.os.ServiceManager");
                 Method getService = manager.getDeclaredMethod("getService", String.class);
