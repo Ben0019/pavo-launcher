@@ -204,6 +204,7 @@ final class ControllerNav {
 
     private void focusView(View view) {
         if (view == null) return;
+        android.util.Log.d("PavoLog", "focus -> " + describe(view));
         if (!view.requestFocus()) view.requestFocusFromTouch();
         view.post(new Runnable() {
             @Override public void run() {
@@ -391,8 +392,17 @@ final class ControllerNav {
         return false;
     }
 
+    static String describe(View v) {
+        if (v == null) return "null";
+        CharSequence d = v.getContentDescription();
+        String name = v.getClass().getSimpleName();
+        if (d != null && d.length() > 0) name += "[" + d + "]";
+        return name + " " + v.getWidth() + "x" + v.getHeight();
+    }
+
     private void performMove(int dir) {
         View focus = currentFocus();
+        android.util.Log.d("PavoLog", "move dir=" + dir + " from=" + describe(focus));
         if (focus == null || !navigable(focus) || !withinRoot(focus)) {
             // A list refresh can replace the focused row; the old view is no
             // longer a descendant and FocusFinder throws on it.

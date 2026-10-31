@@ -387,10 +387,15 @@ public final class MainActivity extends Activity {
         public void run() {
             if (!controllerAHeld || controllerALongFired) return;
             View focused = getCurrentFocus();
-            if (!(focused instanceof ItemView)) return;
+            if (!(focused instanceof ItemView)) {
+                android.util.Log.d("PavoLog", "A long-press blocked: focus not an icon ("
+                        + ControllerNav.describe(focused) + ")");
+                return;
+            }
             ItemView icon = (ItemView) focused;
             if (icon.item == null || icon.getWidth() <= 0) return;
             controllerALongFired = true;
+            android.util.Log.d("PavoLog", "A long-press fired -> item menu");
             startLongPressRipple(icon);
             handler.postDelayed(new Runnable() {
                 @Override
@@ -415,8 +420,15 @@ public final class MainActivity extends Activity {
             if (!activityResumed || !hasWindowFocus()
                     || (settingsDialog != null && settingsDialog.isShowing())
                     || isDrawerVisible() || isFolderVisible()
-                    || activeMenu != null || dragSource != null || dragging) return;
+                    || activeMenu != null || dragSource != null || dragging) {
+                android.util.Log.d("PavoLog", "Y long-press blocked resumed=" + activityResumed
+                        + " focusWin=" + hasWindowFocus() + " drawer=" + isDrawerVisible()
+                        + " folder=" + isFolderVisible() + " menu=" + (activeMenu != null)
+                        + " drag=" + (dragSource != null) + " dragging=" + dragging);
+                return;
+            }
             controllerYLongFired = true;
+            android.util.Log.d("PavoLog", "Y long-press fired -> home menu");
             int w = root != null ? root.getWidth() : getResources().getDisplayMetrics().widthPixels;
             int h = root != null ? root.getHeight() : getResources().getDisplayMetrics().heightPixels;
             final float x = w * 0.5f;
@@ -6393,6 +6405,8 @@ public final class MainActivity extends Activity {
     }
 
     private void launch(final Item item, final ItemView source) {
+        android.util.Log.d("PavoLog", "launch " + (item == null ? "null"
+                : item.pkg + "/" + item.cls));
         Haptics.launch(source != null ? source : root);
         if (source != null && source.item != null && source.getParent() != drawerGrid) {
             // Come back to the icon you left from, not to a status glyph.
@@ -9927,6 +9941,7 @@ public final class MainActivity extends Activity {
 
     private void openDrawer(boolean popup) {
         if (drawer == null || drawer.getVisibility() == View.VISIBLE) return;
+        android.util.Log.d("PavoLog", "open drawer popup=" + popup);
         Haptics.key(root);
         if (!prepareDrawer(popup)) return;
         cancelDrawerSlide();
@@ -10170,7 +10185,11 @@ public final class MainActivity extends Activity {
 
     private void closeDrawer(boolean animate) {
         if (drawer == null || drawer.getVisibility() != View.VISIBLE) return;
+        android.util.Log.d("PavoLog", "close drawer popup=" + drawerPopup + " animate=" + animate);
         captureDrawerFocus();
+        // An item menu opened on a drawer entry would otherwise survive the close
+        // invisibly and swallow the next A (menu nav) and Y (menu open) presses.
+        if (activeMenu != null) dismissActiveMenu();
         drawerAnimationToken++;
         drawerSwipeActive = false;
         drawerCloseSwipeActive = false;
@@ -16162,6 +16181,8 @@ public final class MainActivity extends Activity {
     }
 
     private void restoreControllerFocus() {
+        android.util.Log.d("PavoLog", "restore focus from="
+                + ControllerNav.describe(controllerReturnFocus));
         View v = controllerReturnFocus;
         controllerReturnFocus = null;
         if (v != null && v.isAttachedToWindow() && v.getVisibility() == View.VISIBLE
@@ -16774,6 +16795,8 @@ public final class MainActivity extends Activity {
     }
 
     private void beginControllerALongPress() {
+        android.util.Log.d("PavoLog", "A long-press armed focus="
+                + ControllerNav.describe(getCurrentFocus()));
         controllerAHeld = true;
         controllerALongFired = false;
         handler.removeCallbacks(controllerALongPress);
@@ -16789,6 +16812,12 @@ public final class MainActivity extends Activity {
     }
 
     private void beginControllerYLongPress() {
+        if (activeMenu != null && !activeMenu.isShowing()) dismissActiveMenu();
+        android.util.Log.d("PavoLog", "Y arm post=" + (activityResumed && hasWindowFocus()
+                && (settingsDialog == null || !settingsDialog.isShowing())
+                && !isDrawerVisible() && !isFolderVisible() && activeMenu == null)
+                + " focus="
+                + ControllerNav.describe(getCurrentFocus()));
         controllerYHeld = true;
         controllerYLongFired = false;
         handler.removeCallbacks(controllerYLongPress);
@@ -16907,6 +16936,18 @@ public final class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_UP
+                && (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_A
+                    || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y
+                    || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B)) {
+            android.util.Log.d("PavoLog", "key up " + event.getKeyCode());
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+            android.util.Log.d("PavoLog", "key down " + event.getKeyCode()
+                    + " focus=" + ControllerNav.describe(getCurrentFocus())
+                    + " drawer=" + isDrawerVisible() + " folder=" + isFolderVisible()
+                    + " menu=" + (activeMenu != null) + " drag=" + (dragSource != null));
+        }
         noteUserActivity();
         int floatingCode = event.getKeyCode();
         if (PavoA11yService.isFloatingDrawerVisible()
