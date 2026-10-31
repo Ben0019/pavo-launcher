@@ -237,16 +237,36 @@ final class PerfOverlayView extends LinearLayout {
         boolean any = false;
         if (p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()) {
             appendSpan(b, "CPU ", MUTED);
-            if (p.perfCpuTemp()) appendSpan(b, fmtTemp(s.cpuTempC) + " ", TEXT);
-            if (p.perfCpuClock()) appendSpan(b, (s.cpuHz > 0 ? fmtHz(s.cpuHz) : "\u2014") + " ", TEXT);
-            if (p.perfCpuUsage()) appendSpan(b, (s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014") + "  ", TEXT);
+            if (p.perfCpuTemp()) {
+                appendSpan(b, fmtTemp(s.cpuTempC) + " ", s.cpuTempC > 0f
+                        ? heat((s.cpuTempC - 32f) / 55f) : 0x55FFFFFF);
+            }
+            if (p.perfCpuClock()) {
+                appendSpan(b, (s.cpuHz > 0 ? fmtHz(s.cpuHz) : "\u2014") + " ",
+                        s.cpuHz > 0 && s.cpuMaxHz > 0
+                                ? heat(s.cpuHz / (float) s.cpuMaxHz) : 0x55FFFFFF);
+            }
+            if (p.perfCpuUsage()) {
+                appendSpan(b, (s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014") + "  ",
+                        s.cpuUsageKnown ? heat(s.cpuUsage / 100f) : 0x55FFFFFF);
+            }
             any = true;
         }
         if (p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()) {
             appendSpan(b, "GPU ", MUTED);
-            if (p.perfGpuTemp()) appendSpan(b, fmtTemp(s.gpuTempC) + " ", TEXT);
-            if (p.perfGpuClock()) appendSpan(b, (s.gpuHz > 0 ? fmtHz(s.gpuHz) : "\u2014") + " ", TEXT);
-            if (p.perfGpuUsage()) appendSpan(b, (s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014") + "  ", TEXT);
+            if (p.perfGpuTemp()) {
+                appendSpan(b, fmtTemp(s.gpuTempC) + " ", s.gpuTempC > 0f
+                        ? heat((s.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
+            }
+            if (p.perfGpuClock()) {
+                appendSpan(b, (s.gpuHz > 0 ? fmtHz(s.gpuHz) : "\u2014") + " ",
+                        s.gpuHz > 0 && s.gpuMaxHz > 0
+                                ? heat(s.gpuHz / (float) s.gpuMaxHz) : 0x55FFFFFF);
+            }
+            if (p.perfGpuUsage()) {
+                appendSpan(b, (s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014") + "  ",
+                        s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0x55FFFFFF);
+            }
             any = true;
         }
         appendSpan(b, "NET ", MUTED);
@@ -258,8 +278,9 @@ final class PerfOverlayView extends LinearLayout {
             if (s.memTotalKb > 0) {
                 int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
                 float usedGb = Math.max(0f, (s.memTotalKb - s.memAvailKb) / 1_000_000f);
-                appendSpan(b, s.memPercent + "% "
-                        + String.format(Locale.US, "%.1f/%dG", usedGb, totalGb) + "  ", TEXT);
+                appendSpan(b, s.memPercent + " ", heat(s.memPercent / 100f));
+                appendSpan(b, String.format(Locale.US, "%.1f/%dG", usedGb, totalGb) + "  ",
+                        0xB3FFFFFF);
             } else {
                 appendSpan(b, "\u2014  ", TEXT);
             }
@@ -267,8 +288,10 @@ final class PerfOverlayView extends LinearLayout {
         }
         if (p.perfBattery()) {
             appendSpan(b, "BATT ", MUTED);
-            appendSpan(b, fmtTemp(s.batteryTempC) + " ", TEXT);
-            appendSpan(b, (s.powerW > 0f ? String.format(Locale.US, "%.1fW", s.powerW) : "\u2014") + "  ", TEXT);
+            appendSpan(b, fmtTemp(s.batteryTempC) + " ", s.batteryTempC > 0f
+                    ? heat((s.batteryTempC - 30f) / 40f) : 0x55FFFFFF);
+            appendSpan(b, (s.powerW > 0f ? String.format(Locale.US, "%.1fW", s.powerW) : "\u2014") + "  ",
+                    s.powerW > 0f ? heat(s.powerW / 25f) : 0x55FFFFFF);
             any = true;
         }
         if (p.perfFps()) {
