@@ -33,6 +33,8 @@ abstract class PavoGlassActivity extends Activity {
 
     private boolean closing;
     private boolean liquidCard;
+    /** The close froze a liquid card so it could shrink to the icon. */
+    private boolean returnWasLiquid;
     private boolean perfOverlayHidden;
     private boolean hasReturnTarget;
     private int returnLeft;
@@ -427,6 +429,12 @@ abstract class PavoGlassActivity extends Activity {
             card.setTranslationY(0f);
             card.setRotation(0f);
             card.setAlpha(1f);
+            if (returnWasLiquid) {
+                card.setBackdropScreenAnchored(true);
+                card.setLiquidEffect(true);
+                liquidCard = true;
+                returnWasLiquid = false;
+            }
         }
     }
 
@@ -435,16 +443,20 @@ abstract class PavoGlassActivity extends Activity {
      * when the card is not ready, in which case the normal fade is used.
      */
     private boolean animateCardToIcon(long duration, final boolean finish) {
-        // Scaling a shader-backed card to the launch icon would re-crop its
-        // screen-anchored backdrop on every frame, making the card look like it
-        // has a moving bitmap behind it. Use the same stable fade/scale exit for
-        // home and drawer launches.
-        if (liquidCard) return false;
         if (!hasReturnTarget) return false;
         Window window = getWindow();
         View decor = window.getDecorView();
         GlassPanel card = largestGlassPanel(decor);
         if (card == null || card.getWidth() <= 1 || card.getHeight() <= 1) return false;
+        if (liquidCard) {
+            // Freeze the sampled backdrop so the card can scale towards the launch
+            // icon; a screen-anchored shader would re-crop the capture every frame.
+            // Restored by resetReturnVisuals when the task stays alive.
+            returnWasLiquid = true;
+            card.setLiquidEffect(false);
+            card.setBackdropScreenAnchored(false);
+            liquidCard = false;
+        }
         WallpaperView wallpaper = findWallpaper(decor);
         if (wallpaper != null) {
             wallpaper.animate().cancel();

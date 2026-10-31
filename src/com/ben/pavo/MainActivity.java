@@ -10618,57 +10618,57 @@ public final class MainActivity extends Activity {
             reopenDrawerAfterLaunch = false;
             if (v.entry != null && PERF_LOG_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, PerfLogActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, PerfLogActivity.class), v);
                 return;
             }
             if (v.entry != null && PERF_TUNER_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, PerformanceTunerActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, PerformanceTunerActivity.class), v);
                 return;
             }
             if (v.entry != null && CONTROLLER_MAP_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, ControllerMapActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, ControllerMapActivity.class), v);
                 return;
             }
             if (v.entry != null && DISPLAY_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, DisplayActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, DisplayActivity.class), v);
                 return;
             }
             if (v.entry != null && RGB_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, RgbActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, RgbActivity.class), v);
                 return;
             }
             if (v.entry != null && FAN_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, FanActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, FanActivity.class), v);
                 return;
             }
             if (v.entry != null && TOUCH_MAP_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, TouchMapperActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, TouchMapperActivity.class), v);
                 return;
             }
             if (v.entry != null && DEVICE_HEALTH_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, DeviceHealthActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, DeviceHealthActivity.class), v);
                 return;
             }
             if (v.entry != null && BENCHMARK_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, BenchmarkActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, BenchmarkActivity.class), v);
                 return;
             }
             if (v.entry != null && FILE_MANAGER_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, FileManagerActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, FileManagerActivity.class), v);
                 return;
             }
             if (v.entry != null && SCREEN_RECORDER_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, ScreenRecorderActivity.class));
+                startBuiltIn(new Intent(MainActivity.this, ScreenRecorderActivity.class), v);
                 return;
             }
             if (v.item != null) launch(v.item, null);
