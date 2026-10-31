@@ -156,6 +156,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     private TextView footerRoot;
     private TextView modeStatus;
     private TextView holdChip;
+    private TextView bigCoreChip;
     private LinearLayout appSelector;
     private ImageView appSelectorIcon;
     private TextView appSelectorLabel;
@@ -611,6 +612,29 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         addFocusable(stock, true);
         headerFocus.add(stock);
 
+        bigCoreChip = text("BIG ON", 9.5f, GREEN, true);
+        bigCoreChip.setLetterSpacing(0.06f);
+        bigCoreChip.setGravity(Gravity.CENTER);
+        bigCoreChip.setPadding(dp(8), dp(5), dp(8), dp(5));
+        bigCoreChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Haptics.click(v);
+                boolean next = !prefs.bigCoreKick();
+                prefs.setBigCoreKick(next);
+                updateBigCoreChip();
+                LToast.makeText(PerformanceTunerActivity.this, next
+                        ? "Big cores unparked when the efficiency cores saturate"
+                        : "Big core unparking off", Toast.LENGTH_SHORT).show();
+            }
+        });
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        blp.rightMargin = dp(6);
+        controls.addView(bigCoreChip, blp);
+        addFocusable(bigCoreChip, true);
+        headerFocus.add(bigCoreChip);
+
         holdChip = text("HOLD ON", 9.5f, GREEN, true);
         holdChip.setLetterSpacing(0.08f);
         holdChip.setGravity(Gravity.CENTER);
@@ -656,12 +680,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             appSelectorLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             profileStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             stock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+            bigCoreChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             holdChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             ((LinearLayout.LayoutParams) profileStatus.getLayoutParams()).rightMargin = dp(5);
             ((LinearLayout.LayoutParams) stock.getLayoutParams()).rightMargin = dp(5);
+            ((LinearLayout.LayoutParams) bigCoreChip.getLayoutParams()).rightMargin = dp(5);
             ((LinearLayout.LayoutParams) holdChip.getLayoutParams()).rightMargin = dp(5);
             profileStatus.setPadding(dp(7), dp(3), dp(7), dp(3));
             stock.setPadding(dp(8), dp(3), dp(8), dp(3));
+            bigCoreChip.setPadding(dp(7), dp(3), dp(7), dp(3));
             holdChip.setPadding(dp(7), dp(3), dp(7), dp(3));
         }
 
@@ -1678,6 +1705,18 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         holdChip.setTextColor(on ? GREEN : AMBER);
         holdChip.setBackground(Ui.rounded(on ? 0x2216C784 : 0x22FFC857,
                 dp(11), on ? 0x5569D98B : 0x55FFC857, dp(1)));
+        updateBigCoreChip();
+    }
+
+    /** The unpark pulse rides on the perf hold, so dim the chip when it is off. */
+    private void updateBigCoreChip() {
+        if (bigCoreChip == null || prefs == null) return;
+        boolean on = prefs.bigCoreKick();
+        bigCoreChip.setText(on ? "BIG ON" : "BIG OFF");
+        bigCoreChip.setTextColor(on ? GREEN : AMBER);
+        bigCoreChip.setBackground(Ui.rounded(on ? 0x2216C784 : 0x22FFC857,
+                dp(11), on ? 0x5569D98B : 0x55FFC857, dp(1)));
+        bigCoreChip.setAlpha(prefs.perfHoldEnabled() ? 1f : 0.55f);
     }
 
     private void startHold() {

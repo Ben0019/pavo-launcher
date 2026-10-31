@@ -410,6 +410,16 @@ final class PerfTuner {
         }
     }
 
+    /**
+     * WALT parks the big cluster for apps the vendor does not treat as games.
+     * A short boost migrates runnable work onto cores 6-7 and it stays there
+     * while the load lasts; the firmware keeps the parked state otherwise.
+     */
+    static void setSchedBoost(boolean on) {
+        if (!Root.ensure()) return;
+        Root.write("echo " + (on ? "1" : "0") + " > /proc/sys/walt/sched_boost");
+    }
+
     /** Current fan duty as a percentage, or -1 when it cannot be read. */
     static int fanPercent(android.content.Context context) {
         // The PWM node is what the fan is actually doing; the settings value is

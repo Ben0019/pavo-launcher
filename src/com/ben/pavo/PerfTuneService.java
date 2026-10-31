@@ -11,6 +11,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
+
+import java.io.File;
+import java.io.FileInputStream;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,6 +40,25 @@ public final class PerfTuneService extends Service {
     private boolean tickInFlight;
     private boolean thermalHold;
     private boolean modePaused;
+
+    /**
+     * The Odin firmware parks cores 6-7 for apps it does not classify as games:
+     * with twenty runnable threads the six efficiency cores sit at 100% while
+     * the big cluster stays at exactly 0%. A brief WALT boost migrates the work
+     * onto the big cluster and it stays there while the load lasts.
+     */
+    private static final long KICK_COOLDOWN_MS = 8000L;
+    private static final long BOOST_PULSE_MS = 1500L;
+    private static final float CORE_SATURATED = 90f;
+    private static final int SATURATED_MID_CORES = 4;
+    private static final float BIG_IDLE = 12f;
+
+    private final long[] prevCoreTotal = new long[8];
+    private final long[] prevCoreIdle = new long[8];
+    private boolean coreBaseline;
+    private long lastKickAt;
+    private boolean boostActive;
+    private long boostAt;
 
     static boolean isRunning() {
         return running;
@@ -83,6 +106,9 @@ public final class PerfTuneService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        // A previous process may have died mid-pulse; never inherit a stuck boost.
+        boostActive = false;
+        PerfTuner.setSchedBoost(false);
         startForeground(NOTIFICATION_ID, notification(false, false));
         io.execute(new Runnable() {
             @Override
@@ -98,6 +124,8 @@ public final class PerfTuneService extends Service {
     public void onDestroy() {
         running = false;
         handler.removeCallbacksAndMessages(null);
+        // Never leave WALT boosted if the hold is killed mid-pulse.
+        PerfTuner.setSchedBoost(false);
         io.shutdownNow();
         super.onDestroy();
     }
@@ -157,6 +185,7 @@ public final class PerfTuneService extends Service {
             });
             return new boolean[]{false, false};
         }
+        expireBoost();
         float[] temps = PerfTuner.temperatures();
         // Only step aside when the chip is genuinely hot; the old 72 C limit
         // meant the caps never applied while gaming (junctions run 80-95 C).
@@ -207,7 +236,119 @@ public final class PerfTuneService extends Service {
         PerfTuner.setCpu(state.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
         PerfTuner.setCpu(state.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
         PerfTuner.setGpu(state.gpu, cfg.gpuMax, cfg.gpuMin);
+        maybeKickBigCores(prefs);
         return new boolean[]{false, false};
+    }
+
+    /**
+     * Watches the per-core counters and unparks the big cluster when the
+     * efficiency cores are saturated but cores 6-7 are doing nothing. The boost
+     * is only pulsed: once migrated, WALT keeps the work there.
+     */
+    /**
+     * Ends a pulse on the next tick no matter what happened in between, so a
+     * thermal pause, a mode change or a blocked io thread cannot leave WALT
+     * boosted forever.
+     */
+    private void expireBoost() {
+        if (!boostActive) return;
+        long now = SystemClock.uptimeMillis();
+        if (now - boostAt < BOOST_PULSE_MS) return;
+        PerfTuner.setSchedBoost(false);
+        boostActive = false;
+        lastKickAt = now;
+    }
+
+    private void maybeKickBigCores(Prefs prefs) {
+        if (!prefs.bigCoreKick()) {
+            if (boostActive) {
+                PerfTuner.setSchedBoost(false);
+                boostActive = false;
+            }
+            return;
+        }
+        if (boostActive) return;
+        long now = SystemClock.uptimeMillis();
+        if (now - lastKickAt < KICK_COOLDOWN_MS) return;
+        String stat = readText("/proc/stat");
+        if (stat == null) return;
+
+        long bigTotal = 0, bigIdle = 0;
+        boolean valid = true;
+        int seen = 0;
+        int saturatedMid = 0;
+        for (String line : stat.split("\n")) {
+            if (!line.startsWith("cpu") || line.startsWith("cpu ")) continue;
+            String[] p = line.trim().split("\\s+");
+            if (p.length < 5) continue;
+            int index;
+            try {
+                index = Integer.parseInt(p[0].substring(3));
+            } catch (Throwable ignored) {
+                continue;
+            }
+            if (index < 0 || index > 7) continue;
+            long total = 0;
+            int fields = Math.min(8, p.length - 1);
+            for (int i = 1; i <= fields; i++) total += parseLong(p[i]);
+            long idle = parseLong(p[4]) + (p.length > 5 ? parseLong(p[5]) : 0);
+            if (!coreBaseline) {
+                prevCoreTotal[index] = total;
+                prevCoreIdle[index] = idle;
+                continue;
+            }
+            long dt = total - prevCoreTotal[index];
+            long di = idle - prevCoreIdle[index];
+            prevCoreTotal[index] = total;
+            prevCoreIdle[index] = idle;
+            if (dt <= 0) {
+                valid = false;
+                continue;
+            }
+            if (index <= 5) {
+                if ((dt - di) * 100f / dt >= CORE_SATURATED) saturatedMid++;
+            } else {
+                bigTotal += dt;
+                bigIdle += di;
+            }
+            seen++;
+        }
+        coreBaseline = true;
+        if (!valid || seen < 8 || bigTotal <= 0) return;
+
+        float bigUse = (bigTotal - bigIdle) * 100f / bigTotal;
+        if (saturatedMid < SATURATED_MID_CORES || bigUse > BIG_IDLE) return;
+
+        PerfTuner.setSchedBoost(true);
+        boostActive = true;
+        boostAt = now;
+    }
+
+    private static String readText(String path) {
+        FileInputStream in = null;
+        try {
+            in = new FileInputStream(new File(path));
+            byte[] buf = new byte[8192];
+            int n = in.read(buf);
+            return n <= 0 ? null : new String(buf, 0, n, "UTF-8");
+        } catch (Throwable ignored) {
+            return null;
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+    }
+
+    private static long parseLong(String value) {
+        try {
+            return Long.parseLong(value.trim());
+        } catch (Throwable ignored) {
+            return 0L;
+        }
     }
 
     private Notification notification(boolean hot, boolean paused) {

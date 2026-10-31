@@ -243,6 +243,16 @@ final class Prefs {
     void setPerfRefreshMs(int ms) {
         sp.edit().putInt("perf_refresh_ms", clamp(ms, 250, 10000)).apply();
     }
+    /**
+     * Kick WALT's big cluster when the efficiency cores saturate. The Odin
+     * firmware parks cores 6-7 for apps it does not recognise as games.
+     */
+    boolean bigCoreKick() { return sp.getBoolean("big_core_kick", true); }
+
+    void setBigCoreKick(boolean value) {
+        sp.edit().putBoolean("big_core_kick", value).apply();
+    }
+
     boolean perfOverlayLocked() { return sp.getBoolean("perf_overlay_locked", false); }
     void setPerfOverlayLocked(boolean value) {
         sp.edit().putBoolean("perf_overlay_locked", value).apply();
