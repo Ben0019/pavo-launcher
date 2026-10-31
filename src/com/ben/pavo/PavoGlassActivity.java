@@ -175,7 +175,7 @@ abstract class PavoGlassActivity extends Activity {
                         }
                         if (readableTextPass()) ReadableText.apply(decor);
                         decor.setAlpha(1f);
-                        if (hasReturnTarget && !liquidCard && startCardFromIcon(card)) return;
+                        if (hasReturnTarget && startCardFromIcon(card)) return;
                         final GlassPanel target = card;
                         decor.postDelayed(new Runnable() {
                             @Override
@@ -254,6 +254,16 @@ abstract class PavoGlassActivity extends Activity {
 
     /** Expand the real app card out of the launch icon, like a window restore. */
     private boolean startCardFromIcon(GlassPanel card) {
+        // Mirror the close: a liquid card freezes its sampled backdrop while it
+        // scales, otherwise the screen-anchored shader re-crops every frame. At
+        // full size the frozen and live renders coincide, so nothing pops when
+        // the effect is restored on the last frame.
+        final boolean restoreLiquid = liquidCard;
+        if (restoreLiquid) {
+            card.setLiquidEffect(false);
+            card.setBackdropScreenAnchored(false);
+            liquidCard = false;
+        }
         card.animate().cancel();
         card.setScaleX(1f);
         card.setScaleY(1f);
@@ -286,8 +296,9 @@ abstract class PavoGlassActivity extends Activity {
 
         if (returnAnim != null) returnAnim.cancel();
         returnAnim = ValueAnimator.ofFloat(0f, 1f);
-        returnAnim.setDuration(320L);
-        returnAnim.setInterpolator(new PathInterpolator(0.18f, 0.80f, 0.30f, 1f));
+        returnAnim.setDuration(280L);
+        // Mirror of the close curve, so the two read as one motion.
+        returnAnim.setInterpolator(new PathInterpolator(0.28f, 0.55f, 0.70f, 1f));
         returnAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
@@ -296,12 +307,21 @@ abstract class PavoGlassActivity extends Activity {
                 card.setScaleY(fromScaleY + (1f - fromScaleY) * t);
                 card.setTranslationX(fromX * (1f - t));
                 card.setTranslationY(fromY * (1f - t));
+                // Reverse of the close fade: appear while still at the icon.
+                float fadeEnd = 0.22f;
+                card.setAlpha(t >= fadeEnd ? 1f : t / fadeEnd);
             }
         });
         returnAnim.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
                 returnAnim = null;
+                card.setAlpha(1f);
+                if (restoreLiquid) {
+                    card.setBackdropScreenAnchored(true);
+                    card.setLiquidEffect(true);
+                    liquidCard = true;
+                }
                 if (!closing) {
                     Motion.giggleIn(card, 0.985f, 340L, 1.15f, 0.55f, false);
                 }
