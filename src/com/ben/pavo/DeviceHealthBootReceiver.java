@@ -14,6 +14,8 @@ public final class DeviceHealthBootReceiver extends BroadcastReceiver {
             return;
         }
         DeviceHealthStore store = new DeviceHealthStore(context);
-        if (store.autoSeparation()) BatteryGuardService.start(context);
+        if (store.autoSeparation() || (store.limitEnabled() && store.limitPercent() < 100)) {
+            BatteryGuardService.start(context);
+        }
     }
 }

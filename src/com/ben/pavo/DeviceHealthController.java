@@ -9,9 +9,7 @@ import android.os.SystemClock;
  * battery state, while we verify the resulting hardware node.
  */
 final class DeviceHealthController {
-    private static final String LIMIT_NODE = "/sys/class/qcom-battery/limit_capacity_charge";
     private static final String USB_CHARGE_NODE = "/sys/class/qcom-battery/usb_charge_now";
-    private static final String LIMIT_SETTING = "percent_80_charge_limit";
     private static final String SEPARATION_SETTING = "is_charging_separation";
 
     static final class Result {
@@ -26,18 +24,6 @@ final class DeviceHealthController {
 
     private DeviceHealthController() {}
 
-    /** Odin's hardware limit exposes the standard 80% threshold. */
-    static Result setLimit80(Context c, boolean enabled) {
-        int target = enabled ? 1 : 0;
-        runPrivileged("settings put system " + LIMIT_SETTING + " " + target);
-        if (waitForNode(c, LIMIT_NODE, target, 1200L)) {
-            return new Result(true, enabled
-                    ? "80% charge limit enabled"
-                    : "80% charge limit disabled");
-        }
-        return new Result(false, "Odin charge limit did not respond");
-    }
-
     static Result setSeparation(Context c, boolean enabled) {
         int target = enabled ? 0 : 1;
         runPrivileged("settings put system " + SEPARATION_SETTING + " "
@@ -48,10 +34,6 @@ final class DeviceHealthController {
                     : "Charge separation disabled");
         }
         return new Result(false, "Odin charge separation did not respond");
-    }
-
-    static boolean isLimitOn(Context c) {
-        return DeviceHealthReader.num(c, LIMIT_NODE, 0) == 1;
     }
 
     static boolean isSeparated(Context c) {

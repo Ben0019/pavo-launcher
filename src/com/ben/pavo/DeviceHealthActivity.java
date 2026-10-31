@@ -89,12 +89,15 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
     private TextView autoValue;
     private SeekBar autoBar;
     private TextView autoHint;
+    private SeekBar limitBar;
+    private TextView limitHint;
 
     private TextView vStatus, vHealth, vCycles, vTemp, vVoltage, vCurrent, vPower;
     private TextView vChargeType, vTimeFull, vTimeEmpty;
     private TextView vDesign, vFull, vCounter, vWear, vSoh, vResistance;
     private TextView vCpu, vGpu, vBatteryTemp;
     private TextView vModel, vAndroid, vBatteryModel, vUsb, vCcLimit;
+    private TextView vConn, vInput, vInputPower, vInputLimit, vPd, vPath;
 
     private boolean resumed;
     private boolean applying;
@@ -429,6 +432,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         buildHero(left);
         buildBatterySection(right);
         buildCapacitySection(right);
+        buildChargerSection(right);
         buildChargingSection(right);
         buildThermalSection(right);
         buildDeviceSection(right);
@@ -624,6 +628,16 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         vResistance = row(card, "Internal resistance", "--");
     }
 
+    private void buildChargerSection(LinearLayout right) {
+        LinearLayout card = section(right, "CHARGER");
+        vConn = row(card, "Connection", "--");
+        vInput = row(card, "Input", "--");
+        vInputPower = row(card, "Input power", "--");
+        vInputLimit = row(card, "Input limit", "--");
+        vPd = row(card, "Power delivery", "--");
+        vPath = row(card, "Charge path", "--");
+    }
+
     private void buildChargingSection(LinearLayout right) {
         LinearLayout card = section(right, "CHARGING CONTROL");
 
@@ -633,7 +647,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         TextView limitLabel = text("Charge limit", 10f, TEXT, false);
         limitHead.addView(limitLabel, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        limitValue = text("80%", 10.5f, accent(), false);
+        limitValue = text(store.limitPercent() + "%", 10.5f, accent(), false);
         limitValue.setPadding(0, 0, dp(8), 0);
         limitHead.addView(limitValue);
         limitChip = text("OFF", 8.5f, TEXT, false);
@@ -643,7 +657,11 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         limitChip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                boolean on = !store.limitEnabled();
+                boolean on = !(store.limitEnabled() && store.limitPercent() < 100);
+                if (on && store.limitPercent() >= 100) {
+                    toast("Set a level below 100% first");
+                    return;
+                }
                 store.setLimitEnabled(on);
                 applyLimit(on, true);
                 syncChips();
@@ -652,12 +670,52 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         limitHead.addView(limitChip);
         card.addView(limitHead);
 
-        limitNode = text("Hardware threshold: reading…", 8.5f, 0x66FFFFFF, false);
-        card.addView(limitNode);
-        TextView limitHint = text("Uses Odin's verified 80% battery-health threshold.",
+        limitBar = seekBar(50, 100, store.limitPercent());
+        limitBar.setBackground(navBackground(0x00000000, 10, 0x00000000, 0));
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(28));
+        llp.topMargin = dp(3);
+        card.addView(limitBar, llp);
+        limitHint = text("Stops charging at this level and runs from the cable.",
                 8.5f, 0x66FFFFFF, false);
-        limitHint.setPadding(0, dp(2), 0, dp(6));
         card.addView(limitHint);
+        limitBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                if (!fromUser) return;
+                int pct = 50 + progress * 5;
+                store.setLimitPercent(pct);
+                limitValue.setText(pct + "%");
+                if (store.limitEnabled() && pct < 100) {
+                    BatteryGuardService.start(DeviceHealthActivity.this);
+                }
+                limitHint.setText(pct >= 100
+                        ? "No ceiling: the battery charges to full."
+                        : "Stops charging at " + pct + "% and runs from the cable.");
+            }
+            @Override public void onStartTrackingTouch(SeekBar bar) {}
+            @Override public void onStopTrackingTouch(SeekBar bar) {
+                if (store.limitPercent() >= 100) {
+                    // 100% means "no ceiling": leave the battery free to fill.
+                    store.setLimitEnabled(false);
+                    applyLimit(false, false);
+                    syncChips();
+                    toast("Charge limit off \u00b7 charging to full");
+                    return;
+                }
+                if (!store.limitEnabled()) {
+                    store.setLimitEnabled(true);
+                    BatteryGuardService.start(DeviceHealthActivity.this);
+                    if (snap != null && snap.level >= store.limitPercent()) {
+                        DeviceHealthController.setSeparation(DeviceHealthActivity.this, true);
+                    }
+                    syncChips();
+                }
+            }
+        });
+        limitNode = text("Charge limit is enforced by charge separation.",
+                8.5f, 0x66FFFFFF, false);
+        card.addView(limitNode);
 
         LinearLayout sepHead = new LinearLayout(this);
         sepHead.setOrientation(LinearLayout.HORIZONTAL);
@@ -794,6 +852,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         demoChip.setTextColor(0xFF061015);
         demoChip.setBackground(navBackground(accent(), 8, 0x00000000, 1));
         limitChip.setEnabled(false);
+        if (limitBar != null) limitBar.setEnabled(false);
         sepChip.setEnabled(false);
         autoChip.setEnabled(false);
         autoBar.setEnabled(false);
@@ -813,6 +872,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         demoChip.setTextColor(0xCCFFFFFF);
         demoChip.setBackground(navBackground(0x1AFFFFFF, 8, 0x33FFFFFF, 1));
         limitChip.setEnabled(true);
+        if (limitBar != null) limitBar.setEnabled(true);
         sepChip.setEnabled(true);
         autoChip.setEnabled(true);
         autoBar.setEnabled(true);
@@ -1077,37 +1137,70 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 s.chargeControlLimitMax / 1_000_000f)
                 : "--");
 
-        limitNode.setText("Hardware threshold: "
-                + (s.limitPct == 1 ? "80% active" : "off")
-                + "  ·  end " + (s.endThreshold >= 0 ? s.endThreshold + "%" : "--"));
+        String connType = s.inputType == null || "--".equals(s.inputType)
+                ? "USB-C" : s.inputType;
+        vConn.setText(s.plugged ? connType : "Not connected");
+        vInput.setText(s.inputVoltageV > 0f
+                ? String.format(Locale.US, "%.2f V  ·  %.2f A",
+                s.inputVoltageV, s.inputCurrentA)
+                : "--");
+        vInputPower.setText(s.inputVoltageV > 0f && s.inputCurrentA > 0f
+                ? String.format(Locale.US, "%.1f W",
+                s.inputVoltageV * s.inputCurrentA)
+                : "--");
+        vInputLimit.setText(s.inputLimitA > 0f
+                ? String.format(Locale.US, "%.2f A", s.inputLimitA) : "--");
+        vPd.setText(!s.plugged ? "--"
+                : s.pdSupported ? "USB-PD " + s.pdRevision
+                : "Not offered by charger");
+        vPath.setText(!s.plugged ? "Disconnected"
+                : s.separated ? "Separation \u00b7 from cable"
+                : s.charging ? "Battery charging"
+                : "Connected \u00b7 idle");
+
+        updateLimitTexts();
         serverState.setText(s.pserver
                 ? Loc.s(this, "PServer ready  ·  privileged battery controls")
                 : Loc.s(this, "PServer unavailable  ·  read-only battery data"));
 
         if (initialSync) {
             initialSync = false;
-            if (s.limitPct == 1) {
-                store.setLimitEnabled(true);
-            } else if (s.limitPct == 0) {
-                store.setLimitEnabled(false);
-            }
-            store.setSeparated(s.separated);
+            // Hardware separation may have been set by the guard, so it must not
+            // be mistaken for the user's manual separation preference.
         }
         if (!applying) {
             suppress = true;
             autoBar.setProgress(Math.max(0, Math.min(10,
                     Math.round((store.autoLevel() - 50) / 5f))));
             suppress = false;
-            limitValue.setText("80%");
+            if (!limitBar.isPressed()) updateLimitTexts();
             autoValue.setText(store.autoLevel() + "%");
+            limitBar.setProgress(Math.max(0, Math.min(10,
+                    Math.round((store.limitPercent() - 50) / 5f))));
             limitChip.setEnabled(true);
         }
         syncChips();
     }
 
+    private void updateLimitTexts() {
+        if (limitValue == null) return;
+        int pct = store.limitPercent();
+        boolean on = store.limitEnabled() && pct < 100;
+        limitValue.setText(pct + "%");
+        limitHint.setText(!on
+                ? (pct >= 100 ? "No ceiling: the battery charges to full."
+                        : "Off \u00b7 slide to set a ceiling.")
+                : "Stops charging at " + pct + "% and runs from the cable.");
+        limitNode.setText(!on ? "Charge limit off"
+                : snap != null && snap.separated
+                        ? "Charge separation active \u00b7 holding " + pct + "%"
+                        : "Guard armed \u00b7 stops at " + pct + "%");
+    }
+
     private void syncChips() {
         if (limitChip == null) return;
-        setChip(limitChip, store.limitEnabled(), accent());
+        setChip(limitChip, store.limitEnabled() && store.limitPercent() < 100, accent());
+        updateLimitTexts();
         setChip(sepChip, snap != null && snap.separated, AMBER);
         setChip(autoChip, store.autoSeparation(), accent());
         sepChip.setEnabled(!store.autoSeparation() || (snap != null && snap.separated));
@@ -1125,20 +1218,47 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
 
     private void applyLimit(boolean enabled, boolean feedback) {
         applying = true;
+        final int pct = store.limitPercent();
         worker.execute(new Runnable() {
             @Override
             public void run() {
-                final DeviceHealthController.Result r =
-                        DeviceHealthController.setLimit80(DeviceHealthActivity.this, enabled);
+                // The Odin only offers a fixed 80% hardware threshold, so an
+                // arbitrary ceiling is held by the guard switching the charge
+                // path to separation at the requested level.
+                boolean ok = true;
+                if (enabled && pct < 100 && snap != null && snap.plugged
+                        && snap.level >= pct) {
+                    ok = DeviceHealthController.setSeparation(
+                            DeviceHealthActivity.this, true).ok;
+                }
+                if (!enabled) {
+                    if (!store.autoSeparation()) {
+                        if (!store.separated()) {
+                            DeviceHealthController.setSeparation(
+                                    DeviceHealthActivity.this, false);
+                        }
+                        BatteryGuardService.stop(DeviceHealthActivity.this);
+                    }
+                } else if (pct < 100) {
+                    BatteryGuardService.start(DeviceHealthActivity.this);
+                } else if (!store.autoSeparation()) {
+                    BatteryGuardService.stop(DeviceHealthActivity.this);
+                }
+                final boolean success = ok;
                 main.post(new Runnable() {
                     @Override
                     public void run() {
                         applying = false;
-                        if (!r.ok && store.limitEnabled()) {
+                        if (!success && store.limitEnabled()) {
                             store.setLimitEnabled(false);
                             syncChips();
                         }
-                        if (feedback) toast(r.message);
+                        if (feedback) {
+                            toast(!enabled ? "Charge limit off"
+                                    : pct >= 100 ? "Charge limit at 100% · charges to full"
+                                    : "Charge limit at " + pct
+                                    + "% · running from the cable once reached");
+                        }
                         main.removeCallbacks(poll);
                         main.post(poll);
                     }

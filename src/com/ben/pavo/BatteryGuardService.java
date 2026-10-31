@@ -23,7 +23,7 @@ import java.util.concurrent.Executors;
 public final class BatteryGuardService extends Service {
     private static final String CHANNEL = "aurora_device_health_guard";
     private static final int NOTIFICATION_ID = 0x42415448; // "BATH"
-    private static final long POLL_MS = 15000L;
+    private static final long POLL_MS = 5000L;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -59,12 +59,15 @@ public final class BatteryGuardService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (store == null) store = new DeviceHealthStore(this);
-        if (!store.autoSeparation()) {
+        int target = targetLevel(store);
+        if (target < 0) {
             stopSelf();
             return START_NOT_STICKY;
         }
-        startForeground(NOTIFICATION_ID, notification("Automatic charge separation",
-                "Waiting for " + store.autoLevel() + "%"));
+        startForeground(NOTIFICATION_ID, notification(store.limitEnabled()
+                        && (target == store.limitPercent() || !store.autoSeparation())
+                        ? "Charge limit" : "Automatic charge separation",
+                "Waiting for " + target + "%"));
         if (!polling) {
             polling = true;
             main.post(poll);
@@ -84,12 +87,15 @@ public final class BatteryGuardService extends Service {
                     // the next refresh when the two disagree.
                     PerfTuner.repairFanMode(BatteryGuardService.this);
                     final DeviceHealthReader.Snapshot snap = DeviceHealthReader.read(BatteryGuardService.this);
-                    final boolean auto = store.autoSeparation();
-                    final int threshold = store.autoLevel();
+                    final int threshold = targetLevel(store);
                     main.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (!auto) {
+                            if (threshold < 0) {
+                                if (!store.separated()) {
+                                    DeviceHealthController.setSeparation(
+                                            BatteryGuardService.this, false);
+                                }
                                 stopSelf();
                                 return;
                             }
@@ -101,6 +107,16 @@ public final class BatteryGuardService extends Service {
             });
         }
     };
+
+    /** Lowest active charge ceiling, or -1 when neither guard is on. */
+    static int targetLevel(DeviceHealthStore store) {
+        int target = Integer.MAX_VALUE;
+        if (store.limitEnabled() && store.limitPercent() < 100) {
+            target = store.limitPercent();
+        }
+        if (store.autoSeparation()) target = Math.min(target, store.autoLevel());
+        return target == Integer.MAX_VALUE ? -1 : target;
+    }
 
     private void apply(DeviceHealthReader.Snapshot snap, int threshold) {
         if (snap.level < 0) {
@@ -141,8 +157,8 @@ public final class BatteryGuardService extends Service {
     }
 
     private void notifyIfChanged() {
-        update("Automatic charge separation",
-                "Target " + store.autoLevel() + "%");
+        update(store.limitEnabled() ? "Charge limit" : "Automatic charge separation",
+                "Target " + targetLevel(store) + "%");
     }
 
     private void createChannel() {

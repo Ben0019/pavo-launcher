@@ -46,6 +46,12 @@ final class DeviceHealthReader {
         String model = "--";
         String chargeType = "--";
         String usbType = "--";
+        String inputType = "--";
+        float inputVoltageV = -1f;
+        float inputCurrentA = -1f;
+        float inputLimitA = -1f;
+        boolean pdSupported;
+        String pdRevision = "--";
         int limitPct = -1;
         int endThreshold = -1;
         int startThreshold = -1;
@@ -143,6 +149,18 @@ final class DeviceHealthReader {
 
         s.timeToFullSec = num(c, BATTERY + "time_to_full_now", -1);
         s.timeToEmptySec = num(c, BATTERY + "time_to_empty_avg", -1);
+
+        int inVolt = num(c, USB + "voltage_now", Integer.MIN_VALUE);
+        if (inVolt != Integer.MIN_VALUE) s.inputVoltageV = inVolt / 1_000_000f;
+        int inCur = num(c, USB + "current_now", Integer.MIN_VALUE);
+        if (inCur != Integer.MIN_VALUE) s.inputCurrentA = inCur / 1_000_000f;
+        int inLimit = num(c, USB + "input_current_limit", Integer.MIN_VALUE);
+        if (inLimit != Integer.MIN_VALUE) s.inputLimitA = inLimit / 1_000_000f;
+        s.inputType = clean(text(c, USB + "type"));
+        s.pdSupported = "yes".equalsIgnoreCase(
+                text(c, "/sys/class/typec/port0-partner/supports_usb_power_delivery"));
+        String pdRev = text(c, "/sys/class/typec/port0/usb_power_delivery_revision");
+        if (pdRev != null && !pdRev.isEmpty()) s.pdRevision = clean(pdRev);
 
         s.limitPct = num(c, QCOM + "limit_capacity_charge", -1);
         s.endThreshold = num(c, BATTERY + "charge_control_end_threshold", -1);
