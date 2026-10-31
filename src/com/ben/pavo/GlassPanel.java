@@ -265,6 +265,8 @@ final class GlassPanel extends LinearLayout {
     private Backdrop frozenBackdrop;
     private boolean opaqueFrost;
     private boolean frozenForScale;
+    /** 0 = live glass, 1 = fully frosted; blends the two across an open/close. */
+    private float frostVeil;
 
     /**
      * Freeze this panel for a scale animation. A sampled/liquid body re-crops
@@ -307,6 +309,13 @@ final class GlassPanel extends LinearLayout {
         // it so the restored backdrop is sampled again.
         cardRenderer = null;
         liquidShader = null;
+        invalidate();
+    }
+
+    void setFrostVeil(float value) {
+        float v = Math.max(0f, Math.min(1f, value));
+        if (v == frostVeil) return;
+        frostVeil = v;
         invalidate();
     }
 
@@ -373,6 +382,7 @@ final class GlassPanel extends LinearLayout {
             if (cardRenderer.draw(canvas, (int) w, (int) h, radius, backdrop)) {
                 drawReadabilityScrim(canvas, w, h, radius);
                 drawLiquidOverlay(canvas, w, h, radius);
+                drawFrostVeil(canvas, w, h, radius);
                 return;
             }
         }
@@ -580,6 +590,19 @@ final class GlassPanel extends LinearLayout {
         borderPaint.setColor(0x38FFFFFF);
         borderPaint.setStrokeWidth(Math.max(1f, Ui.dpf(getContext(), 1f)));
         canvas.drawRoundRect(rect, radius, radius, borderPaint);
+    }
+
+    /**
+     * Frost laid over the live glass while a card changes between the frozen and
+     * sampled states, so the switch reads as a dissolve rather than a cut.
+     */
+    private void drawFrostVeil(Canvas canvas, float w, float h, float radius) {
+        if (frostVeil <= 0.001f) return;
+        int baseTint = tintColor >>> 24;
+        if (baseTint <= 0) baseTint = 0xB8;
+        int alpha = Math.round(0xF2 * frostVeil);
+        tintPaint.setColor((alpha << 24) | (tintColor & 0x00FFFFFF));
+        canvas.drawRoundRect(rect, radius, radius, tintPaint);
     }
 
     /** Clear-glass tint and lighting for a card rendered by the liquid pipeline. */
