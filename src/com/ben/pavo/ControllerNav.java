@@ -380,9 +380,22 @@ final class ControllerNav {
         sliderBar = null;
     }
 
+    /** True when the view still lives inside the navigator's root. */
+    private boolean withinRoot(View view) {
+        if (view == null || root == null) return false;
+        android.view.ViewParent parent = view.getParent();
+        while (parent != null) {
+            if (parent == root) return true;
+            parent = parent.getParent();
+        }
+        return false;
+    }
+
     private void performMove(int dir) {
         View focus = currentFocus();
-        if (focus == null || !navigable(focus)) {
+        if (focus == null || !navigable(focus) || !withinRoot(focus)) {
+            // A list refresh can replace the focused row; the old view is no
+            // longer a descendant and FocusFinder throws on it.
             focusFirst();
             return;
         }
