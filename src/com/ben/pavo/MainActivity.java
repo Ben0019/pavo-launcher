@@ -10019,6 +10019,7 @@ public final class MainActivity extends Activity {
             dropDrawerCardLayerSoon(780L);
         } else {
             drawerCard.setVisibility(View.VISIBLE);
+            liftDrawerCard();
             drawerSwipeProgress = 1f;
             drawer.setAlpha(0.82f);
             drawer.setTranslationY(Ui.dpf(this, 30));
@@ -10200,6 +10201,9 @@ public final class MainActivity extends Activity {
     private void settleDrawer(final boolean open, float velocityY) {
         cancelDrawerSlide();
         if (drawer == null) return;
+        // The card is laid out at its final size by now, so a layer built here
+        // survives the whole settle instead of being rebuilt per frame.
+        if (open && drawerCard != null) liftDrawerCard();
         final float from = drawerSwipeProgress;
         final float to = open ? 1f : 0f;
         float height = drawer.getHeight() > 0 ? drawer.getHeight()
