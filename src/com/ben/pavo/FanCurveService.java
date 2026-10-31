@@ -118,16 +118,6 @@ public final class FanCurveService extends Service {
             float temp = Math.max(hal, 0f);
             boolean warmup = SystemClock.uptimeMillis() - startedAt < 3000L;
             if (temp <= 0f) temp = 40f;
-            if (appMode == FanActivity.MODE_CURVE) {
-                // The firmware's own fan daemon re-takes manual mode every few
-                // seconds, which is heard as the blower wandering. Its presets
-                // are not contested, so curve mode is a two-stage preset with
-                // hysteresis: the firmware's quiet smart curve below the knee,
-                // full speed above it.
-                applyPresetCurve(temp);
-                handler.postDelayed(this, 1000L);
-                return;
-            }
             // Smart used to be the firmware's own curve, which reacts slowly.
             // Driving the built-in smart curve here makes it as responsive as
             // the user's curve mode.
@@ -148,24 +138,27 @@ public final class FanCurveService extends Service {
                 // its quick-settings tile constantly, and a bad transient mode
                 // in that stream crashes SystemUI - so only write the mode when
                 // the firmware has actually taken the fan back.
+                // The firmware's own fan daemon re-takes manual mode (6) every
+                // few seconds; its SMART mode is left alone, and fan_speed is
+                // still honoured, so the curve rides on SMART.
                 boolean modeHeld = PerfTuner.fanMode(FanCurveService.this)
-                        == PerfTuner.FAN_MANUAL;
+                        == PerfTuner.FAN_SMART;
                 if (manualHeld && modeHeld) {
                     PerfTuner.setFanDuty(duty);
                 } else {
-                    // The firmware took the fan back; put our target straight
-                    // back so its own (usually much lower) duty does not stick.
-                    PerfTuner.setFanManual(duty);
+                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
+                    PerfTuner.setFanDuty(duty);
                     manualHeld = true;
                 }
             } else if (!warmup && PerfTuner.fanManualDrifted(FanCurveService.this,
                     controller.applied())) {
                 // The game panel or a preset switched the fan away from the
                 // curve; re-assert it instead of waiting for the temperature.
-                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_MANUAL) {
+                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_SMART) {
                     PerfTuner.setFanDuty(controller.applied());
                 } else {
-                    PerfTuner.setFanManual(controller.applied());
+                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
+                    PerfTuner.setFanDuty(controller.applied());
                     manualHeld = true;
                 }
             }
@@ -178,29 +171,6 @@ public final class FanCurveService extends Service {
             handler.postDelayed(this, next);
         }
     };
-
-    private static final float PRESET_HIGH_AT = 60f;
-    private static final float PRESET_HIGH_RELEASE = 54f;
-
-    /** Curve mode without fighting the firmware: SMART below the knee, HIGH above. */
-    private void applyPresetCurve(float temp) {
-        int mode = PerfTuner.fanMode(this);
-        int want;
-        if (temp >= PRESET_HIGH_AT) {
-            want = PerfTuner.FAN_HIGH;
-        } else if (temp <= PRESET_HIGH_RELEASE) {
-            want = PerfTuner.FAN_SMART;
-        } else {
-            want = mode == PerfTuner.FAN_HIGH ? PerfTuner.FAN_HIGH : PerfTuner.FAN_SMART;
-        }
-        if (mode != want) {
-            PerfTuner.setFanMode(this, want);
-        }
-        boolean high = want == PerfTuner.FAN_HIGH;
-        notifyText(high ? "Fan HIGH" : "Fan auto",
-                Math.round(temp) + "\u00b0 \u00b7 "
-                        + (high ? "full speed" : "firmware curve"));
-    }
 
     private void notifyText(String title, String text) {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
