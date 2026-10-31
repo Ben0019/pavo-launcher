@@ -13275,6 +13275,17 @@ public final class MainActivity extends Activity {
                 tile.setBackground(Ui.rounded(tileBg, Ui.dp(MainActivity.this, 12),
                         isActive ? ThemeColors.accent() : 0x22FFFFFF,
                         Ui.dpf(MainActivity.this, 1)));
+                // The framework's focus highlight is not redrawn on tiles that
+                // were rebuilt by the IN USE refresh, so draw the ring from the
+                // view state instead: it survives any focus restore path.
+                tile.setDefaultFocusHighlightEnabled(false);
+                android.graphics.drawable.StateListDrawable tileFocus =
+                        new android.graphics.drawable.StateListDrawable();
+                tileFocus.addState(new int[]{android.R.attr.state_focused},
+                        Ui.rounded(0x00000000, Ui.dpf(MainActivity.this, 12),
+                                0xFFFFFFFF, Ui.dpf(MainActivity.this, 2.5f)));
+                tileFocus.addState(new int[]{}, new ColorDrawable(0x00000000));
+                tile.setForeground(tileFocus);
 
                 final FrameLayout photo = new FrameLayout(MainActivity.this);
                 tile.addView(photo, new LinearLayout.LayoutParams(
