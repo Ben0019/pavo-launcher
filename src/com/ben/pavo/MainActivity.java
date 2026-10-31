@@ -13152,9 +13152,17 @@ public final class MainActivity extends Activity {
                 tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         Ui.dp(MainActivity.this, 96)));
-                tile.setClickable(false);
+                tile.setClickable(true);
                 tile.setFocusable(true);
                 tile.setFocusableInTouchMode(false);
+                // Controller A performs a click on the focused tile; without a
+                // click listener the tile only answered touch.
+                tile.setOnClickListener(new View.OnClickListener() {
+                    @Override public void onClick(View v) {
+                        dialog.dismiss();
+                        activateWallpaperItem(item);
+                    }
+                });
 
                 final float[] down = new float[2];
                 final boolean[] longFired = {false};
