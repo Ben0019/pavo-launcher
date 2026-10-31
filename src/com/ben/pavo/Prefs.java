@@ -242,7 +242,22 @@ final class Prefs {
     int perfOverlayAlpha() { return clamp(sp.getInt("perf_overlay_alpha", 88), 25, 100); }
     boolean perfOverlayHorizontal() { return sp.getBoolean("perf_overlay_horizontal", false); }
     void setPerfOverlayHorizontal(boolean v) {
-        sp.edit().putBoolean("perf_overlay_horizontal", v).apply();
+        if (perfOverlayHorizontal() == v) return;
+        if (v) {
+            // The strip has no core view. Remember the current choice and hide
+            // cores, so the panel can put them back exactly as they were.
+            sp.edit()
+                    .putBoolean("perf_cores_before_strip", perfCores())
+                    .putBoolean("perf_overlay_horizontal", true)
+                    .putBoolean("perf_cores", false)
+                    .apply();
+        } else {
+            boolean restore = sp.getBoolean("perf_cores_before_strip", false);
+            sp.edit()
+                    .putBoolean("perf_overlay_horizontal", false)
+                    .putBoolean("perf_cores", restore)
+                    .apply();
+        }
     }
     int perfRefreshMs() { return clamp(sp.getInt("perf_refresh_ms", 1000), 250, 10000); }
     void setPerfRefreshMs(int ms) {
@@ -638,7 +653,13 @@ final class Prefs {
     void setPerfFpsGraph(boolean v) { sp.edit().putBoolean("perf_fps_graph", v).apply(); }
     void setPerfBattery(boolean v) { sp.edit().putBoolean("perf_battery", v).apply(); }
     void setPerfRam(boolean v) { sp.edit().putBoolean("perf_ram", v).apply(); }
-    void setPerfCores(boolean v) { sp.edit().putBoolean("perf_cores", v).apply(); }
+    void setPerfCores(boolean v) {
+        android.content.SharedPreferences.Editor e = sp.edit().putBoolean("perf_cores", v);
+        // Changing cores while the strip is active becomes the state the panel
+        // restores when the strip is closed.
+        if (perfOverlayHorizontal()) e.putBoolean("perf_cores_before_strip", v);
+        e.apply();
+    }
     String perfCombo() { return sp.getString("perf_combo", ""); }
     void setPerfCombo(String value) {
         sp.edit().putString("perf_combo", value == null ? "" : value).apply();
