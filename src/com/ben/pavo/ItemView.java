@@ -20,6 +20,16 @@ import android.widget.TextView;
 /** An icon + label cell used on the home grid, the dock and the app drawer. */
 final class ItemView extends LinearLayout {
 
+    /**
+     * While the launcher is settling after a resume, Android briefly hands focus
+     * to the first icon before the ring is restored to the remembered one. Keep
+     * both icons from flashing their ring and scale during that window, then
+     * apply the effects once, to whichever icon ends up focused.
+     */
+    private static boolean focusQuiet;
+    private static final java.util.ArrayList<ItemView> quietFocus =
+            new java.util.ArrayList<>();
+
     interface Listener {
         void onItemClick(ItemView v);
 
@@ -294,10 +304,14 @@ final class ItemView extends LinearLayout {
     protected void onFocusChanged(boolean focused, int direction,
                                   android.graphics.Rect previouslyFocusedRect) {
         super.onFocusChanged(focused, direction, previouslyFocusedRect);
+        android.util.Log.d("PavoLog", (focused ? "icon focus " : "icon blur  ")
+                + getContentDescription());
         if (focused) {
-            Haptics.tick(this);
-            showFocusRing();
-            animate().scaleX(focusScale).scaleY(focusScale).setDuration(110).start();
+            if (focusQuiet) {
+                if (!quietFocus.contains(this)) quietFocus.add(this);
+            } else {
+                applyFocusFx(true);
+            }
         } else {
             hideFocusRing();
             animate().scaleX(1f).scaleY(1f).setDuration(110).start();
@@ -305,6 +319,29 @@ final class ItemView extends LinearLayout {
         // Focus changes used to re-apply a focused-only marquee rule here,
         // which silently cancelled the scroll for every resting icon.
         if (marquee) updateMarqueeSelection();
+    }
+
+    private void applyFocusFx(boolean haptic) {
+        android.util.Log.d("PavoLog", "ring -> " + getContentDescription());
+        if (haptic) Haptics.tick(this);
+        showFocusRing();
+        animate().scaleX(focusScale).scaleY(focusScale).setDuration(110).start();
+    }
+
+    static void beginFocusQuiet() {
+        focusQuiet = true;
+        quietFocus.clear();
+    }
+
+    /** Apply the deferred focus effect to whichever icon holds focus now. */
+    static void endFocusQuiet() {
+        if (!focusQuiet) return;
+        focusQuiet = false;
+        java.util.ArrayList<ItemView> pending = new java.util.ArrayList<>(quietFocus);
+        quietFocus.clear();
+        for (ItemView v : pending) {
+            if (v != null && v.isFocused()) v.applyFocusFx(true);
+        }
     }
 
     /**
@@ -343,7 +380,7 @@ final class ItemView extends LinearLayout {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
-        if (isFocused()) showFocusRing();
+        if (isFocused() && !focusQuiet) showFocusRing();
     }
 
     void setLifted(boolean lifted) {

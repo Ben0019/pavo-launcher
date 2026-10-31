@@ -1288,6 +1288,16 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        // The window regains focus during this resume and Android briefly
+        // focuses the first icon before restoreLaunchFocus moves the ring back.
+        // Mute the icon focus effects until that settles, so only one icon
+        // lights up when an app is closed.
+        ItemView.beginFocusQuiet();
+        final Runnable endQuiet = new Runnable() {
+            @Override public void run() { ItemView.endFocusQuiet(); }
+        };
+        handler.removeCallbacks(endQuiet);
+        handler.postDelayed(endQuiet, 900L);
         syncPinnedShortcuts();
         if (Loc.applyLocale(this)) {
             recreate();
@@ -16268,6 +16278,14 @@ public final class MainActivity extends Activity {
      * which is the status row (next to Bluetooth) rather than the grid.
      */
     private void restoreLaunchFocus() {
+        try {
+            restoreLaunchFocusInner();
+        } finally {
+            ItemView.endFocusQuiet();
+        }
+    }
+
+    private void restoreLaunchFocusInner() {
         if (isDrawerVisible()) {
             if (controllerActive) restoreDrawerFocus();
             return;
