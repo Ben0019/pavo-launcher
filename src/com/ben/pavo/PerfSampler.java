@@ -165,6 +165,9 @@ final class PerfSampler {
     private int fpsRecentCount;
     private int fpsRecentIndex;
     private String fpsRecentLayer;
+    private long prevNetRx = -1;
+    private long prevNetTx = -1;
+    private long prevNetAt;
     private String cachedTargetPkg;
     private String cachedTargetCls;
     private long cachedAppRamKb;
@@ -185,6 +188,7 @@ final class PerfSampler {
         readGpu(s, context);
         readMemory(s);
         readBattery(context, s);
+        readNetwork(s);
         if (wantFps) readFps(s, context);
         s.thermalHot = s.cpuTempC >= 75f || s.gpuTempC >= 75f;
         if (s.thermalHot) s.throttle = "THERMAL";
@@ -192,6 +196,29 @@ final class PerfSampler {
         else if (s.gpuCapped) s.throttle = "GPU CAP";
         else s.throttle = "NONE";
         return s;
+    }
+
+    /** Upload/download throughput since the previous sample. */
+    private void readNetwork(PerfStats s) {
+        long rx;
+        long tx;
+        try {
+            rx = android.net.TrafficStats.getTotalRxBytes();
+            tx = android.net.TrafficStats.getTotalTxBytes();
+        } catch (Throwable t) {
+            return;
+        }
+        if (rx < 0 || tx < 0) return;
+        long now = android.os.SystemClock.uptimeMillis();
+        if (prevNetRx >= 0 && now > prevNetAt) {
+            long dt = now - prevNetAt;
+            s.netRxBps = Math.max(0L, (rx - prevNetRx) * 1000L / dt);
+            s.netTxBps = Math.max(0L, (tx - prevNetTx) * 1000L / dt);
+            s.netKnown = true;
+        }
+        prevNetRx = rx;
+        prevNetTx = tx;
+        prevNetAt = now;
     }
 
     private void readCpu(PerfStats s, Context context) {

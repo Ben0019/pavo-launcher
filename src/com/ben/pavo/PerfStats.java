@@ -19,6 +19,9 @@ final class PerfStats {
     int fps;
     boolean fpsValid;
     int coreCount = MAX_CORES;
+    long netRxBps;
+    long netTxBps;
+    boolean netKnown;
 
     String targetPkg;
     String targetCls;

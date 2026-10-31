@@ -4252,7 +4252,13 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         showGlassDialog(dialog, glass, backdrop, 480, 0.78f);
         dialog.show();
-        attachCardController(dialog, glass, list);
+        attachCardListController(dialog, glass, glass, new RowSource() {
+            @Override public List<View> rows() {
+                List<View> out = new ArrayList<>();
+                collectCardRows(list, out);
+                return out;
+            }
+        }, null, null);
     }
 
     private void addIconPackRow(LinearLayout list, final String pkg, String label,
@@ -4751,7 +4757,6 @@ public final class MainActivity extends Activity {
                 installedScroll.setVisibility(showPavo[0] ? View.GONE : View.VISIBLE);
                 styleWidgetTab(pavoTab, showPavo[0]);
                 styleWidgetTab(installedTab, !showPavo[0]);
-                attachCardController(dialog, glass, glass);
             }
         };
         pavoTab.setOnClickListener(new View.OnClickListener() {
@@ -4774,6 +4779,29 @@ public final class MainActivity extends Activity {
         });
 
         showGlassDialog(dialog, glass, backdrop, 380, 0.64f);
+        final LinearLayout pavoRows = auroraList;
+        final LinearLayout installedRows = installedList;
+        final Runnable switchToPavo = new Runnable() {
+            @Override public void run() {
+                if (showPavo[0]) return;
+                showPavo[0] = true;
+                applyPage.run();
+            }
+        };
+        final Runnable switchToInstalled = new Runnable() {
+            @Override public void run() {
+                if (!showPavo[0]) return;
+                showPavo[0] = false;
+                applyPage.run();
+            }
+        };
+        attachCardListController(dialog, glass, glass, new RowSource() {
+            @Override public List<View> rows() {
+                List<View> out = new ArrayList<>();
+                collectCardRows(showPavo[0] ? pavoRows : installedRows, out);
+                return out;
+            }
+        }, switchToPavo, switchToInstalled);
         final DisplayMetrics wdm = getResources().getDisplayMetrics();
         final float[] drag = new float[4];
         View.OnTouchListener dragListener = new View.OnTouchListener() {
@@ -14104,6 +14132,126 @@ public final class MainActivity extends Activity {
                 collectSettingsTargets(group.getChildAt(i), out);
             }
         }
+    }
+
+    private interface RowSource {
+        List<View> rows();
+    }
+
+    /** Clickable rows of a card, without the card itself swallowing the list. */
+    private void collectCardRows(ViewGroup root, List<View> out) {
+        if (root == null) return;
+        for (int i = 0; i < root.getChildCount(); i++) {
+            collectSettingsTargets(root.getChildAt(i), out);
+        }
+    }
+
+    /**
+     * Controller navigation for card dialogs whose rows are clickable views:
+     * up/down walks the rows, A clicks the highlighted one, and L1/R1 switch
+     * tabs where the card has them.
+     */
+    private void attachCardListController(final Dialog dialog, final View card,
+                                          final View ringHost, final RowSource source,
+                                          final Runnable prevTab, final Runnable nextTab) {
+        final FocusRingDrawable[] ring = {null};
+        final int[] index = {-1};
+        final long[] lastNav = {0L};
+        ringHost.post(new Runnable() {
+            @Override public void run() {
+                if (ring[0] != null) return;
+                ring[0] = new FocusRingDrawable(MainActivity.this, wallpaper.accent());
+                try {
+                    ringHost.getOverlay().add(ring[0]);
+                } catch (Throwable t) {
+                    ring[0] = null;
+                }
+            }
+        });
+        dialog.setOnKeyListener(new Dialog.OnKeyListener() {
+            @Override
+            public boolean onKey(android.content.DialogInterface d, int keyCode, KeyEvent event) {
+                int dir = keyDirection(keyCode);
+                boolean select = isSelectKey(keyCode);
+                boolean back = isBackKey(keyCode);
+                boolean prev = keyCode == KeyEvent.KEYCODE_BUTTON_L1
+                        || keyCode == KeyEvent.KEYCODE_PAGE_UP;
+                boolean next = keyCode == KeyEvent.KEYCODE_BUTTON_R1
+                        || keyCode == KeyEvent.KEYCODE_PAGE_DOWN;
+                if (dir < 0 && !select && !back && !prev && !next) return false;
+                if (event.getAction() != KeyEvent.ACTION_DOWN) return true;
+                if (back) {
+                    if (event.getRepeatCount() == 0) {
+                        Haptics.key(card);
+                        dialog.dismiss();
+                    }
+                    return true;
+                }
+                if (prev || next) {
+                    if (event.getRepeatCount() > 0) return true;
+                    if (prev && prevTab != null) prevTab.run();
+                    if (next && nextTab != null) nextTab.run();
+                    index[0] = 0;
+                    List<View> fresh = source.rows();
+                    if (!fresh.isEmpty()) {
+                        final View first = fresh.get(0);
+                        ringHost.postDelayed(new Runnable() {
+                            @Override public void run() {
+                                showCardRow(first, ringHost, ring);
+                            }
+                        }, 70L);
+                    }
+                    Haptics.tick(card);
+                    return true;
+                }
+                List<View> rows = source.rows();
+                if (rows.isEmpty()) return true;
+                if (select) {
+                    if (event.getRepeatCount() > 0) return true;
+                    if (index[0] < 0) index[0] = 0;
+                    View target = rows.get(Math.min(index[0], rows.size() - 1));
+                    Haptics.click(target);
+                    target.performClick();
+                    return true;
+                }
+                long now = android.os.SystemClock.uptimeMillis();
+                if (event.getRepeatCount() > 0 && now - lastNav[0] < 80L) return true;
+                lastNav[0] = now;
+                if (index[0] < 0) index[0] = 0;
+                else if (dir == 0 || dir == 2) index[0] = (index[0] - 1 + rows.size()) % rows.size();
+                else index[0] = (index[0] + 1) % rows.size();
+                showCardRow(rows.get(index[0]), ringHost, ring);
+                return true;
+            }
+        });
+    }
+
+    private void showCardRow(View target, View ringHost, FocusRingDrawable[] ring) {
+        if (target == null) return;
+        if (target.getWidth() > 0) {
+            target.requestRectangleOnScreen(new Rect(0, 0,
+                    target.getWidth(), target.getHeight()), true);
+        }
+        if (ring[0] == null) {
+            ring[0] = new FocusRingDrawable(this, wallpaper.accent());
+            try {
+                ringHost.getOverlay().add(ring[0]);
+            } catch (Throwable t) {
+                ring[0] = null;
+            }
+        }
+        if (ring[0] != null) {
+            placeOverlayRing(ring[0], ringHost, target);
+            ring[0].invalidateSelf();
+            ringHost.invalidate();
+            final FocusRingDrawable drawable = ring[0];
+            ringHost.post(new Runnable() {
+                @Override public void run() {
+                    placeOverlayRing(drawable, ringHost, target);
+                }
+            });
+        }
+        Haptics.tick(target);
     }
 
     /** Controller navigation for simple card dialogs (widgets, icon packs, colour, resize). */

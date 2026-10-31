@@ -44,11 +44,12 @@ final class PerfOverlayView extends LinearLayout {
     private TextView lockIcon;
     private TextView editDoneBar;
     private Runnable editDoneAction;
-    private LinearLayout cpuRow, gpuRow, fpsBlock, coresBox;
+    private LinearLayout cpuRow, gpuRow, netRow, fpsBlock, coresBox;
     private LinearLayout ramRow;
     private LinearLayout battRow;
     private TextView cpuTemp, cpuClock, cpuUsage;
     private TextView gpuTemp, gpuClock, gpuUsage;
+    private TextView netUp, netDown;
     private TextView ramUsage, ramAmount;
     private TextView battTemp, battPower;
     private TextView fpsValue;
@@ -111,6 +112,14 @@ final class PerfOverlayView extends LinearLayout {
         gpuRow.addView(gpuClock, weight(1.05f));
         gpuRow.addView(gpuUsage, weight(0.85f));
         addView(gpuRow, rowParams(3));
+
+        netRow = metricRow();
+        addMetricLabel(netRow, "NET");
+        netUp = metricValue(Gravity.START);
+        netDown = metricValue(Gravity.END);
+        netRow.addView(netUp, weight(1.3f));
+        netRow.addView(netDown, weight(1.3f));
+        addView(netRow, rowParams(3));
 
         ramRow = metricRow();
         addMetricLabel(ramRow, "RAM");
@@ -254,6 +263,11 @@ final class PerfOverlayView extends LinearLayout {
                         ? s.gpuHz / (float) s.gpuMaxHz : 0f) : 0x55FFFFFF);
         setValue(gpuUsage, s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014",
                 s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0x55FFFFFF);
+
+        setValue(netUp, s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps) : "\u2191 \u2014",
+                0xB3FFFFFF);
+        setValue(netDown, s.netKnown ? "\u2193 " + SysStats.fmtRate(s.netRxBps) : "\u2193 \u2014",
+                0xB3FFFFFF);
 
         if (s.memTotalKb > 0) {
             int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
