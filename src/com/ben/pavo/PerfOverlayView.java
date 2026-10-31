@@ -282,8 +282,9 @@ final class PerfOverlayView extends LinearLayout {
                         ? heat((s.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
             }
             if (p.perfGpuClock()) {
-                appendSpan(b, (s.gpuHz > 0 ? fmtHz(s.gpuHz) : "\u2014") + " ",
-                        clockHeat(s.gpuHz, s.gpuMaxHz));
+                appendSpan(b, s.gpuHz > 0
+                        ? fmtHz(s.gpuHz) + (s.gpuCapHz > 0 ? "/" + fmtHz(s.gpuCapHz) : "")
+                        + " " : "\u2014 ", clockHeat(s.gpuHz, s.gpuMaxHz));
             }
             if (p.perfGpuUsage()) {
                 appendSpan(b, (s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014") + "  ",
@@ -479,7 +480,9 @@ final class PerfOverlayView extends LinearLayout {
         setValue(gpuTemp, gpuTempKnown ? Math.round(s.gpuTempC) + "\u00b0" : "\u2014",
                 gpuTempKnown ? heat((s.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
         boolean gpuClockKnown = s.gpuHz > 0;
-        setValue(gpuClock, gpuClockKnown ? fmtHz(s.gpuHz) : "\u2014",
+        setValue(gpuClock, gpuClockKnown
+                        ? fmtHz(s.gpuHz) + (s.gpuCapHz > 0 ? "/" + fmtHz(s.gpuCapHz) : "")
+                        : "\u2014",
                 gpuClockKnown ? clockHeat(s.gpuHz, s.gpuMaxHz) : 0x55FFFFFF);
         setValue(gpuUsage, s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014",
                 s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0x55FFFFFF);
