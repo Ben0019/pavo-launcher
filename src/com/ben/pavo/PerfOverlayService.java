@@ -110,6 +110,16 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private boolean overlayLocked, lockWarned;
     private long lastTapUpMs;
     private float lastTapUpX, lastTapUpY;
+    private int tapCount;
+
+    /** Fires only if a second tap is not followed by a third. */
+    private final Runnable tapAction = new Runnable() {
+        @Override
+        public void run() {
+            tapCount = 0;
+            toggleOverlayMode();
+        }
+    };
     private float pinchStartSpan, pinchStartScale;
     private int pinchCenterX, pinchCenterY;
     private float targetScale;
@@ -122,6 +132,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         public void run() {
             if (!running || menu != null || pinching || moved || longPressed) return;
             longPressed = true;
+            tapCount = 0;
+            main.removeCallbacks(tapAction);
             openMenu();
         }
     };
@@ -1141,6 +1153,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 clearOverlayDim();
                 scheduleOverlayDim();
                 main.removeCallbacks(longPress);
+                main.removeCallbacks(tapAction);
                 downRawX = e.getRawX();
                 downRawY = e.getRawY();
                 downX = params.x;
@@ -1170,6 +1183,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 pinching = true;
                 gestureLocked = true;
                 moved = true;
+                tapCount = 0;
                 longPressed = false;
                 pinchStartSpan = span(e);
                 pinchStartScale = scale;
@@ -1201,6 +1215,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 float dy = e.getRawY() - downRawY;
                 if (Math.hypot(dx, dy) > touchSlop) {
                     moved = true;
+                    tapCount = 0;
                     longPressed = false;
                     main.removeCallbacks(longPress);
                     if (overlayLocked) {
@@ -1249,12 +1264,21 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     float tdy = e.getRawY() - lastTapUpY;
                     if (now - lastTapUpMs <= ViewConfiguration.getDoubleTapTimeout()
                             && Math.hypot(tdx, tdy) <= touchSlop * 2f) {
-                        lastTapUpMs = 0L;
-                        toggleOverlayMode();
+                        tapCount++;
                     } else {
-                        lastTapUpMs = now;
-                        lastTapUpX = e.getRawX();
-                        lastTapUpY = e.getRawY();
+                        tapCount = 1;
+                    }
+                    lastTapUpMs = now;
+                    lastTapUpX = e.getRawX();
+                    lastTapUpY = e.getRawY();
+                    main.removeCallbacks(tapAction);
+                    if (tapCount == 2) {
+                        // Hold the mode switch briefly so a third tap can cancel it.
+                        main.postDelayed(tapAction, ViewConfiguration.getDoubleTapTimeout());
+                    } else if (tapCount >= 3) {
+                        tapCount = 0;
+                        lastTapUpMs = 0L;
+                        toggleOverlayLock();
                     }
                 }
                 moved = false;
