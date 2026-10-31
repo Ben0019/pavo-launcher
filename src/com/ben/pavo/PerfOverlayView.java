@@ -57,6 +57,9 @@ final class PerfOverlayView extends LinearLayout {
     private FpsGraphView graph;
     private final boolean horizontal;
     private TextView stripText;
+    private TextView titleView;
+    private String presetLabel;
+    private long presetReadAt;
     private PerfStats lastStats;
     private final CoreView[] cores = new CoreView[PerfStats.MAX_CORES];
 
@@ -77,7 +80,8 @@ final class PerfOverlayView extends LinearLayout {
         LinearLayout header = new LinearLayout(c);
         header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("PERFORMANCE", 9.5f, accent);
+        titleView = label(presetName(), 9.5f, accent);
+        TextView title = titleView;
         title.setLetterSpacing(0.14f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         header.addView(title, new LinearLayout.LayoutParams(
@@ -227,7 +231,7 @@ final class PerfOverlayView extends LinearLayout {
     private void renderStrip(PerfStats s) {
         if (stripText == null) return;
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
-        appendSpan(b, "PERFORMANCE  ", accent);
+        appendSpan(b, presetName() + "  ", accent);
         if (s == null) {
             appendSpan(b, "waiting for data", 0x99FFFFFF);
             stripText.setText(b);
@@ -330,6 +334,19 @@ final class PerfOverlayView extends LinearLayout {
                 android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
 
+    /** Current tuner preset shown in place of the static PERFORMANCE label. */
+    private String presetName() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (presetLabel == null || now - presetReadAt >= 1000L) {
+            presetReadAt = now;
+            TuneConfig config = new TuneStore(getContext()).global();
+            String name = config == null || config.profile == null || config.profile.isEmpty()
+                    ? PerfProfiles.BALANCED : config.profile;
+            presetLabel = name.toUpperCase(java.util.Locale.US);
+        }
+        return presetLabel;
+    }
+
     boolean horizontal() {
         return horizontal;
     }
@@ -382,6 +399,10 @@ final class PerfOverlayView extends LinearLayout {
     }
 
     void update(PerfStats s) {
+        if (titleView != null) {
+            String label = presetName();
+            if (!label.contentEquals(titleView.getText())) titleView.setText(label);
+        }
         if (horizontal) {
             lastStats = s;
             renderStrip(s);
