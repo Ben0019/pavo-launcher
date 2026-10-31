@@ -265,6 +265,7 @@ final class GlassPanel extends LinearLayout {
     private Backdrop frozenBackdrop;
     private boolean opaqueFrost;
     private boolean frozenForScale;
+    private boolean liquidFrozen;
     /** 0 = live glass, 1 = fully frosted; blends the two across an open/close. */
     private float frostVeil;
 
@@ -274,22 +275,23 @@ final class GlassPanel extends LinearLayout {
      * of nested cards while the parent scales. Frost keeps the frame static.
      */
     void freezeForScale() {
-        if (frozenForScale) {
-            // A second motion (e.g. Home mid-open) must not capture the already
-            // emptied backdrop, or the card would restore to nothing.
-            backdrop = null;
-            liquidEffect = false;
-            frosted = true;
-            opaqueFrost = true;
-            invalidate();
-            return;
-        }
+        if (frozenForScale) return;
         frozenForScale = true;
+        // Preferred: keep the live glass and pin the renderer to the crop it has
+        // at full size. The card scales with that image, so it still looks like
+        // glass and the restore is seamless.
+        if (liquidEffect && backdrop != null) {
+            if (cardRenderer == null) cardRenderer = new GlassCardRenderer(this);
+            if (cardRenderer.freeze(backdrop, getWidth(), getHeight())) {
+                liquidFrozen = true;
+                invalidate();
+                return;
+            }
+        }
+        // Fallback (no render effect): opaque frost with the sample dropped.
         frozenFrostedBefore = frosted;
         frozenLiquidBefore = liquidEffect;
         frozenBackdrop = backdrop;
-        // Drop the sample as well: its matrix is rebuilt from the view's screen
-        // position, so while the card moves the backdrop smears into stripes.
         backdrop = null;
         liquidEffect = false;
         frosted = true;
@@ -300,6 +302,12 @@ final class GlassPanel extends LinearLayout {
     void unfreezeFromScale() {
         if (!frozenForScale) return;
         frozenForScale = false;
+        if (liquidFrozen) {
+            liquidFrozen = false;
+            if (cardRenderer != null) cardRenderer.unfreeze();
+            invalidate();
+            return;
+        }
         opaqueFrost = false;
         if (frozenBackdrop != null) backdrop = frozenBackdrop;
         frozenBackdrop = null;

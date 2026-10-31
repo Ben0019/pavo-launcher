@@ -55,6 +55,36 @@ final class GlassCardRenderer {
         lastBitmap = null;
     }
 
+    /** Fixed source crop used while the card is scaled for open/close. */
+    private Rect frozenSrc;
+
+    boolean freeze(Backdrop backdrop, int width, int height) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || backdrop == null
+                || backdrop.bitmap == null || width < 4 || height < 4) {
+            return false;
+        }
+        view.getLocationOnScreen(location);
+        float bx = backdrop.bitmap.getWidth() / (float) backdrop.screenWidth;
+        float by = backdrop.bitmap.getHeight() / (float) backdrop.screenHeight;
+        Rect src = new Rect(
+                Math.round(location[0] * bx),
+                Math.round(location[1] * by),
+                Math.round((location[0] + width) * bx),
+                Math.round((location[1] + height) * by));
+        if (src.isEmpty()
+                || !src.intersect(0, 0, backdrop.bitmap.getWidth(), backdrop.bitmap.getHeight())) {
+            return false;
+        }
+        frozenSrc = src;
+        lastLocX = Integer.MIN_VALUE;
+        return true;
+    }
+
+    void unfreeze() {
+        frozenSrc = null;
+        lastLocX = Integer.MIN_VALUE;
+    }
+
     boolean draw(Canvas canvas, int width, int height, float radius, Backdrop backdrop) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
                 || !canvas.isHardwareAccelerated()
@@ -76,21 +106,27 @@ final class GlassCardRenderer {
             node.setPosition(0, 0, sw, sh);
 
             boolean changed = bitmap != lastBitmap
-                    || location[0] != lastLocX || location[1] != lastLocY
+                    || (frozenSrc == null
+                        && (location[0] != lastLocX || location[1] != lastLocY))
                     || width != lastWidth || height != lastHeight
                     || radius != lastRadius
                     || nodeWidth != sw || nodeHeight != sh;
             if (changed) {
-                float bx = bitmap.getWidth() / (float) backdrop.screenWidth;
-                float by = bitmap.getHeight() / (float) backdrop.screenHeight;
-                Rect src = new Rect(
-                        Math.round(location[0] * bx),
-                        Math.round(location[1] * by),
-                        Math.round((location[0] + width) * bx),
-                        Math.round((location[1] + height) * by));
-                if (src.isEmpty()
-                        || !src.intersect(0, 0, bitmap.getWidth(), bitmap.getHeight())) {
-                    src.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
+                Rect src;
+                if (frozenSrc != null) {
+                    src = new Rect(frozenSrc);
+                } else {
+                    float bx = bitmap.getWidth() / (float) backdrop.screenWidth;
+                    float by = bitmap.getHeight() / (float) backdrop.screenHeight;
+                    src = new Rect(
+                            Math.round(location[0] * bx),
+                            Math.round(location[1] * by),
+                            Math.round((location[0] + width) * bx),
+                            Math.round((location[1] + height) * by));
+                    if (src.isEmpty()
+                            || !src.intersect(0, 0, bitmap.getWidth(), bitmap.getHeight())) {
+                        src.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
+                    }
                 }
                 RecordingCanvas recording = node.beginRecording(sw, sh);
                 recording.drawBitmap(bitmap, src, new RectF(0, 0, sw, sh), bitmapPaint);

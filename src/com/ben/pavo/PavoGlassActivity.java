@@ -35,7 +35,6 @@ abstract class PavoGlassActivity extends Activity {
     private boolean liquidCard;
     /** The close froze a liquid card so it could shrink to the icon. */
     private boolean returnWasLiquid;
-    private boolean veilClosing;
     private boolean perfOverlayHidden;
     private boolean hasReturnTarget;
     private int returnLeft;
@@ -385,7 +384,6 @@ abstract class PavoGlassActivity extends Activity {
                     card.setBackdropScreenAnchored(true);
                     card.setLiquidEffect(true);
                     liquidCard = true;
-                    if (glassRoot != null) animateFrostVeil(glassRoot, 1f, 0f, 380L, null);
                 }
                 if (!closing) {
                     Motion.giggleIn(card, 0.985f, 340L, 1.15f, 0.55f, false);
@@ -535,25 +533,6 @@ abstract class PavoGlassActivity extends Activity {
         final View decor = window.getDecorView();
         GlassPanel card = largestGlassPanel(decor);
         if (card == null || card.getWidth() <= 1 || card.getHeight() <= 1) return false;
-        if (liquidCard && finish && !veilClosing) {
-            // Fade the frost in over the live glass before the card freezes, so
-            // the change from sampled glass to frost reads as a dissolve.
-            veilClosing = true;
-            animateFrostVeil(decor, 0f, 1f, 240L, new Runnable() {
-                @Override public void run() {
-                    veilClosing = false;
-                    if (isFinishing() || isDestroyed()) return;
-                    setFrostVeil(decor, 0f);
-                    if (liquidCard) {
-                        returnWasLiquid = true;
-                        freezeGlassForScale(decor);
-                        liquidCard = false;
-                    }
-                    animateCardToIcon(duration, finish);
-                }
-            });
-            return true;
-        }
         if (liquidCard) {
             // A live card scales badly: a screen-anchored shader re-crops the
             // capture every frame, and the nested glass cards smear along their
