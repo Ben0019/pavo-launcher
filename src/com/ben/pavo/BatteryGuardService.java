@@ -123,7 +123,7 @@ public final class BatteryGuardService extends Service {
 
     /** Re-applies the input ceiling when the firmware resets it after a replug. */
     private void applySpeed(DeviceHealthReader.Snapshot snap) {
-        if (snap == null || !snap.plugged) return;
+        if (snap == null || !snap.plugged || snap.separated) return;
         int want = store.speedMa();
         int node = DeviceHealthReader.num(this,
                 "/sys/class/power_supply/usb/input_current_limit", -1);

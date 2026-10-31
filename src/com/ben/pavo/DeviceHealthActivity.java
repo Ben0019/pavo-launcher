@@ -686,6 +686,14 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
 
     private void applySpeed(final int ma, final boolean feedback) {
         boolean plugged = snap != null && snap.plugged;
+        if (plugged && snap.separated) {
+            // The pack is not charging; applying an input ceiling now would fight
+            // the separation state. The guard applies it once charging resumes.
+            if (ma < 2000) BatteryGuardService.start(DeviceHealthActivity.this);
+            if (feedback) toast(String.format(Locale.US,
+                    "Charge speed %.1f A \u00b7 applies when charging resumes", ma / 1000f));
+            return;
+        }
         if (!plugged) {
             // Nothing to limit until a charger is attached; the guard applies it
             // the moment one appears.
