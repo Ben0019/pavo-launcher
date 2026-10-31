@@ -16434,43 +16434,48 @@ public final class MainActivity extends Activity {
      * per axis event, so the list glides. The ring is pinned to the screen point
      * it occupied when the scroll began, so it follows the list underneath.
      */
-    private final Runnable stickScrollTick = new Runnable() {
-        @Override public void run() {
-            if (!stickScrollRunning) return;
-            View target = isDrawerVisible() ? drawerGrid
-                    : isFolderVisible() ? folderGrid : null;
-            long now = SystemClock.uptimeMillis();
-            if (target == null || Math.abs(stickScrollY) < StickScroll.MIN
-                    || now - stickScrollEventAt > 400L) {
-                stopStickScroll();
-                return;
-            }
-            float dt = Math.min(0.05f, (now - stickScrollFrameAt) / 1000f);
-            stickScrollFrameAt = now;
-            float density = getResources().getDisplayMetrics().density;
-            float speed = StickScroll.speedDpPerSec(stickScrollY) * density;
-            stickScrollCarry += (stickScrollY > 0f ? speed : -speed) * dt;
-            int delta = (int) stickScrollCarry;
-            if (delta != 0) {
-                stickScrollCarry -= delta;
-                if (target instanceof AbsListView) {
-                    ((AbsListView) target).scrollListBy(delta);
-                } else if (target instanceof ScrollView) {
-                    ((ScrollView) target).scrollBy(0, delta);
-                }
-                followStickScroll(target);
-            }
-            handler.postDelayed(this, 16L);
+    private final android.view.Choreographer.FrameCallback stickScrollFrame =
+            new android.view.Choreographer.FrameCallback() {
+        @Override public void doFrame(long frameTimeNanos) {
+            runStickScrollFrame();
         }
     };
+
+    private void runStickScrollFrame() {
+        if (!stickScrollRunning) return;
+        View target = isDrawerVisible() ? drawerGrid
+                : isFolderVisible() ? folderGrid : null;
+        long now = SystemClock.uptimeMillis();
+        if (target == null || Math.abs(stickScrollY) < StickScroll.MIN
+                || now - stickScrollEventAt > 400L) {
+            stopStickScroll();
+            return;
+        }
+        float dt = Math.min(0.05f, (now - stickScrollFrameAt) / 1000f);
+        stickScrollFrameAt = now;
+        float density = getResources().getDisplayMetrics().density;
+        float speed = StickScroll.speedDpPerSec(stickScrollY) * density;
+        stickScrollCarry += (stickScrollY > 0f ? speed : -speed) * dt;
+        int delta = (int) stickScrollCarry;
+        if (delta != 0) {
+            stickScrollCarry -= delta;
+            if (target instanceof AbsListView) {
+                ((AbsListView) target).scrollListBy(delta);
+            } else if (target instanceof ScrollView) {
+                ((ScrollView) target).scrollBy(0, delta);
+            }
+            followStickScroll(target);
+        }
+        android.view.Choreographer.getInstance().postFrameCallback(stickScrollFrame);
+    }
 
     private void beginStickScroll(View target) {
         stickScrollRunning = true;
         stickScrollCarry = 0f;
         stickScrollFrameAt = SystemClock.uptimeMillis();
         captureStickAnchor(target);
-        handler.removeCallbacks(stickScrollTick);
-        handler.post(stickScrollTick);
+        android.view.Choreographer.getInstance().removeFrameCallback(stickScrollFrame);
+        android.view.Choreographer.getInstance().postFrameCallback(stickScrollFrame);
     }
 
     private void stopStickScroll() {
@@ -16479,7 +16484,7 @@ public final class MainActivity extends Activity {
         stickScrollCarry = 0f;
         stickScrollAnchorY = -1;
         stickScrollAnchorCol = 0;
-        handler.removeCallbacks(stickScrollTick);
+        android.view.Choreographer.getInstance().removeFrameCallback(stickScrollFrame);
     }
 
     /** Row and column the ring should stay on while the list moves under it. */
