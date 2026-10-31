@@ -348,6 +348,31 @@ final class PerfOverlayView extends LinearLayout {
         return presetLabel;
     }
 
+    /** True when a panel-local point lands on the preset title. */
+    boolean hitPresetLabel(float x, float y) {
+        if (x < 0f || y < 0f || x > getWidth() || y > getHeight()) return false;
+        if (horizontal) {
+            if (stripText == null) return false;
+            float width = stripText.getPaint().measureText(presetName());
+            float left = getPaddingLeft();
+            return x >= left - dp(4) && x <= left + width + dp(10);
+        }
+        if (titleView == null) return false;
+        float tx = titleView.getLeft();
+        float ty = titleView.getTop();
+        if (titleView.getParent() instanceof View) {
+            tx += ((View) titleView.getParent()).getLeft();
+            ty += ((View) titleView.getParent()).getTop();
+        }
+        return x >= tx && x <= tx + titleView.getWidth()
+                && y >= ty - dp(5) && y <= ty + titleView.getHeight() + dp(5);
+    }
+
+    void invalidatePreset() {
+        presetLabel = null;
+        presetReadAt = 0L;
+    }
+
     /** The tuner's own per-preset colour, so the title matches the mode. */
     private int presetColor() {
         return PerformanceTunerActivity.profileColor(presetName());

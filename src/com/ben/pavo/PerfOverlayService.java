@@ -531,6 +531,113 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         });
     }
 
+    private static final String[] PRESET_CYCLE = {
+            PerfProfiles.QUIET, PerfProfiles.BALANCED, PerfProfiles.PERFORMANCE,
+            PerfProfiles.EXTREME, "CUSTOM"
+    };
+
+    /** Tapping the title walks through the tuner presets and applies each one. */
+    private void cyclePreset() {
+        worker.execute(new Runnable() {
+            @Override
+            public void run() {
+                final TuneStore store = new TuneStore(PerfOverlayService.this);
+                TuneConfig current = store.global();
+                String profile = current == null || current.profile == null
+                        || current.profile.isEmpty()
+                        ? "CUSTOM" : current.profile.toUpperCase(java.util.Locale.US);
+                int index = PRESET_CYCLE.length - 1;
+                for (int i = 0; i < PRESET_CYCLE.length; i++) {
+                    if (PRESET_CYCLE[i].equals(profile)) {
+                        index = i;
+                        break;
+                    }
+                }
+                // Remember a hand-tuned setup before walking away from it.
+                if ("CUSTOM".equals(profile) && current != null) store.setCustom(current);
+                final String next = PRESET_CYCLE[(index + 1) % PRESET_CYCLE.length];
+
+                PerfTuner.State state = PerfTuner.readState(PerfOverlayService.this);
+                if (state == null) {
+                    main.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            LToast.makeText(PerfOverlayService.this,
+                                    "Presets need PServer", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    return;
+                }
+
+                TuneConfig config;
+                if ("CUSTOM".equals(next)) {
+                    TuneConfig custom = store.custom();
+                    if (custom == null) custom = current;
+                    if (custom == null) custom = TuneConfig.fromState(state);
+                    config = custom.copy();
+                    config.profile = "CUSTOM";
+                    if (state.efficiency != null) {
+                        PerfTuner.setCpu(state.efficiency, config.p0Max, config.p0Min,
+                                config.p0Gov);
+                    }
+                    if (state.performance != null) {
+                        PerfTuner.setCpu(state.performance, config.p6Max, config.p6Min,
+                                config.p6Gov);
+                    }
+                    if (state.gpu != null) PerfTuner.setGpu(state.gpu, config.gpuMax,
+                            config.gpuMin);
+                } else {
+                    PerfProfiles.Spec spec = PerfProfiles.get(next, state);
+                    if (state.efficiency != null) {
+                        PerfTuner.setCpu(state.efficiency, spec.p0Max, spec.p0Min,
+                                spec.governor);
+                    }
+                    if (state.performance != null) {
+                        PerfTuner.setCpu(state.performance, spec.p6Max, spec.p6Min,
+                                spec.governor);
+                    }
+                    int gpuMin = spec.gpuMax;
+                    if (state.gpu != null) {
+                        if (state.gpu.freqs != null && state.gpu.freqs.length > 0) {
+                            gpuMin = state.gpu.freqs[0];
+                        }
+                        PerfTuner.setGpu(state.gpu, spec.gpuMax, gpuMin);
+                    }
+                    config = current != null ? current.copy() : TuneConfig.fromState(state);
+                    config.p0Max = spec.p0Max;
+                    config.p0Min = spec.p0Min;
+                    config.p0Gov = spec.governor;
+                    config.p6Max = spec.p6Max;
+                    config.p6Min = spec.p6Min;
+                    config.p6Gov = spec.governor;
+                    config.gpuMax = spec.gpuMax;
+                    config.gpuMin = gpuMin;
+                    config.performanceMode = spec.performanceMode;
+                    config.profile = next;
+                }
+                store.setGlobal(config);
+
+                Prefs p = new Prefs(PerfOverlayService.this);
+                p.setPerfHoldEnabled(true);
+                p.setTuneTargets(config.p0Max, config.p0Min, config.p0Gov,
+                        config.p6Max, config.p6Min, config.p6Gov,
+                        config.gpuMax, config.gpuMin);
+                p.setHoldMode(PerfTuner.currentMode(PerfOverlayService.this));
+                if (!PerfTuneService.isRunning()) PerfTuneService.start(PerfOverlayService.this);
+
+                main.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (container != null) Haptics.key(container);
+                        LToast.makeText(PerfOverlayService.this, next + " applied",
+                                Toast.LENGTH_SHORT).show();
+                        if (panel != null) panel.invalidatePreset();
+                    }
+                });
+            }
+        });
+    }
+
     /** Double tap swaps between the vertical panel and the horizontal strip. */
     private void toggleOverlayMode() {
         boolean horizontal = !prefs.perfOverlayHorizontal();
@@ -1310,6 +1417,20 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 }
                 if (e.getActionMasked() == MotionEvent.ACTION_UP
                         && !wasMoved && !wasPinching && !wasLongPressed) {
+                    if (panel != null && params != null && scale > 0f
+                            && panel.hitPresetLabel((e.getRawX() - params.x) / scale,
+                                    (e.getRawY() - params.y) / scale)) {
+                        tapCount = 0;
+                        lastTapUpMs = 0L;
+                        main.removeCallbacks(tapAction);
+                        cyclePreset();
+                        moved = false;
+                        pinching = false;
+                        longPressed = false;
+                        gestureLocked = false;
+                        endInteraction();
+                        return true;
+                    }
                     long now = SystemClock.uptimeMillis();
                     float tdx = e.getRawX() - lastTapUpX;
                     float tdy = e.getRawY() - lastTapUpY;

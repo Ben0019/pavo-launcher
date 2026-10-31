@@ -10,6 +10,7 @@ final class TuneStore {
 
     private static final String FILE = "aurora_tune";
     private static final String GLOBAL = "global";
+    private static final String CUSTOM = "custom";
     private static final String APP_PREFIX = "app:";
 
     private final SharedPreferences sp;
@@ -48,7 +49,19 @@ final class TuneStore {
 
     void setGlobal(TuneConfig config) {
         if (config == null) return;
-        sp.edit().putString(GLOBAL, config.encode()).apply();
+        android.content.SharedPreferences.Editor e = sp.edit().putString(GLOBAL, config.encode());
+        // Keep the last hand-tuned setup so the overlay can cycle back to it.
+        if ("CUSTOM".equals(config.profile)) e.putString(CUSTOM, config.encode());
+        e.apply();
+    }
+
+    TuneConfig custom() {
+        return TuneConfig.decode(sp.getString(CUSTOM, null));
+    }
+
+    void setCustom(TuneConfig config) {
+        if (config == null) return;
+        sp.edit().putString(CUSTOM, config.encode()).apply();
     }
 
     TuneConfig app(String pkg) {
