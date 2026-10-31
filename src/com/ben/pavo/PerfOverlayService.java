@@ -1332,6 +1332,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 boolean ok = PerfTuner.Root.writeOk(
                         "settings put system performance_mode " + mode
                                 + "; setprop persist.vendor.debug.mode " + mode);
+                if (ok) PerfTuner.applyModeClocks(PerfOverlayService.this, mode);
                 final boolean success = ok;
                 main.post(new Runnable() {
                     @Override

@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 public final class PerfTuneService extends Service {
 
     static final String ACTION_STOP = "com.ben.pavo.perftune.STOP";
+    static final String ACTION_RESUME = "com.ben.pavo.perftune.RESUME";
     private static final String CHANNEL = "aurora_performance_hold";
     private static final int NOTIFICATION_ID = 0x4174756E;
     /** Fallback when the preference cannot be read. */
@@ -34,6 +35,7 @@ public final class PerfTuneService extends Service {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private boolean tickInFlight;
     private boolean thermalHold;
+    private boolean modePaused;
 
     static boolean isRunning() {
         return running;
@@ -72,12 +74,16 @@ public final class PerfTuneService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (intent != null && ACTION_RESUME.equals(intent.getAction())) {
+            // Take the firmware's current mode as the one to hold for again.
+            new Prefs(this).setHoldMode(PerfTuner.currentMode(this));
+        }
         Prefs prefs = new Prefs(this);
         if (!prefs.perfHoldEnabled()) {
             stopSelf();
             return START_NOT_STICKY;
         }
-        startForeground(NOTIFICATION_ID, notification(false));
+        startForeground(NOTIFICATION_ID, notification(false, false));
         io.execute(new Runnable() {
             @Override
             public void run() {
@@ -121,15 +127,17 @@ public final class PerfTuneService extends Service {
                             tickInFlight = false;
                             if (!running) return;
                             boolean hot = result[0];
-                            if (hot != thermalHold) {
+                            boolean paused = result.length > 1 && result[1];
+                            if (hot != thermalHold || paused != modePaused) {
                                 thermalHold = hot;
+                                modePaused = paused;
                                 NotificationManager nm = (NotificationManager)
                                         getSystemService(NOTIFICATION_SERVICE);
                                 if (nm != null) {
-                                    nm.notify(NOTIFICATION_ID, notification(hot));
+                                    nm.notify(NOTIFICATION_ID, notification(hot, paused));
                                 }
                             }
-                            schedule(hot ? 1500L : 150L);
+                            schedule(hot || paused ? 1000L : 150L);
                         }
                     });
                 }
@@ -147,7 +155,7 @@ public final class PerfTuneService extends Service {
                     stopSelf();
                 }
             });
-            return new boolean[]{false};
+            return new boolean[]{false, false};
         }
         float[] temps = PerfTuner.temperatures();
         // Only step aside when the chip is genuinely hot; the old 72 C limit
@@ -155,7 +163,23 @@ public final class PerfTuneService extends Service {
         float limit = prefs.perfHoldLimitC();
         if (limit <= 0f) limit = THERMAL_LIMIT_C;
         if (Math.max(temps[0], temps[1]) >= limit) {
-            return new boolean[]{true};
+            return new boolean[]{true, false};
+        }
+        // The firmware's performance mode can be changed outside Pavo (its Quick
+        // Settings tile). Anything Pavo was holding then belongs to the old mode,
+        // and re-applying it is what made the big cores look disabled: the mode
+        // change lifted the caps for a moment and this hold put them straight
+        // back. Step aside until Pavo re-applies clocks or the mode returns.
+        int mode = PerfTuner.currentMode(this);
+        int heldMode = prefs.holdMode();
+        if (heldMode < 0) {
+            prefs.setHoldMode(mode);
+        } else if (mode != heldMode) {
+            // Follow the firmware: apply that mode's clocks and hold those. Only
+            // if that fails do we step aside (which would otherwise leave the old
+            // mode's caps in place and make the big cores look disabled).
+            if (!PerfTuner.applyModeClocks(this, mode)) return new boolean[]{false, true};
+            prefs = new Prefs(this);
         }
         // Hold whatever profile was applied last: the per-app watcher stores its
         // targets here, so a per-app profile stays pinned even if that service is
@@ -173,7 +197,7 @@ public final class PerfTuneService extends Service {
             cfg = new TuneStore(this).global();
         }
         if (cfg == null) {
-            return new boolean[]{false};
+            return new boolean[]{false, false};
         }
         PerfTuner.Root.ensure();
         PerfTuner.State state = PerfTuner.readStateForHold(this);
@@ -183,10 +207,10 @@ public final class PerfTuneService extends Service {
         PerfTuner.setCpu(state.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
         PerfTuner.setCpu(state.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
         PerfTuner.setGpu(state.gpu, cfg.gpuMax, cfg.gpuMin);
-        return new boolean[]{false};
+        return new boolean[]{false, false};
     }
 
-    private Notification notification(boolean hot) {
+    private Notification notification(boolean hot, boolean paused) {
         Intent open = new Intent(this, PerformanceTunerActivity.class);
         open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent content = PendingIntent.getActivity(this, 20, open,

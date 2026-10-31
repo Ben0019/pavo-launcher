@@ -476,6 +476,11 @@ final class Prefs {
         sp.edit().putBoolean("perf_hold_migrated", value).apply();
     }
 
+    /** Firmware performance_mode in force when Pavo last applied clocks. */
+    int holdMode() { return sp.getInt("hold_mode", -1); }
+
+    void setHoldMode(int mode) { sp.edit().putInt("hold_mode", mode).apply(); }
+
     int tuneP0Max() { return sp.getInt("tune_p0_max", 0); }
     int tuneP0Min() { return sp.getInt("tune_p0_min", 0); }
     int tuneP6Max() { return sp.getInt("tune_p6_max", 0); }

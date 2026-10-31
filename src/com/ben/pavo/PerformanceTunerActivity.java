@@ -1696,6 +1696,8 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         if (c == null) c = TuneConfig.fromState(state);
         prefs.setTuneTargets(c.p0Max, c.p0Min, c.p0Gov,
                 c.p6Max, c.p6Min, c.p6Gov, c.gpuMax, c.gpuMin);
+        // Re-arm the hold for the firmware mode that is current right now.
+        prefs.setHoldMode(PerfTuner.currentMode(this));
         if (!PerfTuneService.isRunning()) {
             PerfTuneService.start(this);
         }

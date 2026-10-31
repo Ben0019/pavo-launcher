@@ -120,6 +120,7 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
                         + "; settings put system fan_speed " + fanSpeed
                         + "; settings put global fan_speed " + fanSpeed;
                 ok = PerfTuner.Root.writeOk(cmd);
+                if (ok) PerfTuner.applyModeClocks(PerfControlActivity.this, mode);
                 final boolean success = ok;
                 runOnUiThread(new Runnable() {
                     @Override

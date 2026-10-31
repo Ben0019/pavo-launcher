@@ -255,6 +255,7 @@ public final class PerAppTuneService extends Service {
             prefs.setTuneTargets(config.p0Max, config.p0Min, config.p0Gov,
                     config.p6Max, config.p6Min, config.p6Gov,
                     config.gpuMax, config.gpuMin);
+            prefs.setHoldMode(PerfTuner.currentMode(this));
             if (!PerfTuneService.isRunning()) PerfTuneService.start(this);
         }
         return true;

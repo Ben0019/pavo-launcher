@@ -44,6 +44,20 @@ final class PerfProfiles {
     }
 
     /**
+     * The Odin firmware's performance_mode values mapped onto clock presets, so
+     * picking a mode in Pavo actually moves clocks instead of only the fan.
+     */
+    static String forMode(int mode) {
+        switch (mode) {
+            case 1: return PERFORMANCE;
+            case 2:
+            case 3: return EXTREME;
+            case 4: return QUIET;
+            default: return BALANCED;
+        }
+    }
+
+    /**
      * Presets are fractions of whatever this device actually offers, snapped to
      * a supported step, so the same profile means "quiet" or "max" on any CPU
      * rather than a fixed Odin clock.
