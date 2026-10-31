@@ -111,6 +111,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private long lastTapUpMs;
     private float lastTapUpX, lastTapUpY;
     private int tapCount;
+    /** Grace window for a third tap before a double tap switches modes. */
+    private static final int TAP_SETTLE_MS = 170;
 
     /** Fires only if a second tap is not followed by a third. */
     private final Runnable tapAction = new Runnable() {
@@ -478,6 +480,23 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         LToast.makeText(this, overlayLocked
                 ? "Performance overlay locked"
                 : "Performance overlay unlocked", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Controller shortcut (double press) swaps panel and strip. */
+    static void toggleModeFromShortcut(Context c) {
+        final PerfOverlayService s = instance;
+        if (s == null) {
+            Haptics.click(c);
+            new Prefs(c).setPerfOverlayHorizontal(!new Prefs(c).perfOverlayHorizontal());
+            start(c);
+            return;
+        }
+        s.main.post(new Runnable() {
+            @Override
+            public void run() {
+                s.toggleOverlayMode();
+            }
+        });
     }
 
     /** Double tap swaps between the vertical panel and the horizontal strip. */
@@ -1274,7 +1293,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     main.removeCallbacks(tapAction);
                     if (tapCount == 2) {
                         // Hold the mode switch briefly so a third tap can cancel it.
-                        main.postDelayed(tapAction, ViewConfiguration.getDoubleTapTimeout());
+                        main.postDelayed(tapAction, TAP_SETTLE_MS);
                     } else if (tapCount >= 3) {
                         tapCount = 0;
                         lastTapUpMs = 0L;

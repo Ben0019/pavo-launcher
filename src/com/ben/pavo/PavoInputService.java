@@ -810,8 +810,36 @@ public final class PavoInputService extends Service {
             final boolean shortTap = mappedDown != null && !mappedLongFired;
             mappedDown = null;
             mappedLongFired = false;
-            if (shortTap) PerfOverlayService.toggleOverlayFromShortcut(this);
+            if (shortTap) handleMappedTap();
         }
+    }
+
+    /** Keep the single-press delay and the double-press window identical. */
+    private static final long MAPPED_TAP_MS = 170L;
+    private long mappedTapAt;
+    private final Runnable mappedTap = new Runnable() {
+        @Override
+        public void run() {
+            PerfOverlayService.toggleOverlayFromShortcut(PavoInputService.this);
+        }
+    };
+
+    /**
+     * Single press shows or hides the overlay; a second press inside the
+     * double-tap window switches between the panel and the strip instead.
+     */
+    private void handleMappedTap() {
+        long now = SystemClock.uptimeMillis();
+        boolean doubled = now - mappedTapAt <= MAPPED_TAP_MS;
+        mappedTapAt = doubled ? 0L : now;
+        main.removeCallbacks(mappedTap);
+        if (doubled) {
+            Haptics.key(this);
+            PerfOverlayService.toggleModeFromShortcut(this);
+            return;
+        }
+        // A short pause lets the second press be recognised before acting.
+        main.postDelayed(mappedTap, MAPPED_TAP_MS);
     }
 
     // ------------------------------------------------------------------
