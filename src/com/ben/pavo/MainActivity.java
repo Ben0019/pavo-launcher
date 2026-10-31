@@ -10016,6 +10016,7 @@ public final class MainActivity extends Activity {
                     if (openToken == drawerAnimationToken) animatePopupCard(true);
                 }
             });
+            dropDrawerCardLayerSoon(780L);
         } else {
             drawerCard.setVisibility(View.VISIBLE);
             drawerSwipeProgress = 1f;
@@ -10033,6 +10034,7 @@ public final class MainActivity extends Activity {
                         }
                     })
                     .start();
+            dropDrawerCardLayerSoon(820L);
         }
         if (controllerActive) {
             handler.postDelayed(new Runnable() {
@@ -10102,6 +10104,23 @@ public final class MainActivity extends Activity {
         drawerCard.setScaleX(1f);
         drawerCard.setScaleY(1f);
         drawerSwipeProgress = drawerPopup ? 1f : 0f;
+        if (!drawerPopup && drawerBackdrop != null) {
+            // The full drawer opens by sliding up. Pin the backdrop to the card's
+            // resting rect and stop re-recording while it moves, so the swipe
+            // holds 120 Hz; the frozen crop already matches the rest position,
+            // so nothing pops when live updates resume.
+            int rx = 0;
+            int ry = 0;
+            if (drawerCard.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+                FrameLayout.LayoutParams clp =
+                        (FrameLayout.LayoutParams) drawerCard.getLayoutParams();
+                rx = clp.leftMargin;
+                ry = clp.topMargin;
+            }
+            drawerBackdrop.setRestPosition(rx, ry);
+            drawerBackdrop.invalidateRecording();
+            drawerBackdrop.setLivePaused(true);
+        }
         return true;
     }
 
@@ -10123,6 +10142,46 @@ public final class MainActivity extends Activity {
         drawerCard.setScaleX(cardScale);
         drawerCard.setScaleY(cardScale);
         drawerScrim.invalidate();
+    }
+
+    private int drawerLayerToken;
+
+    /**
+     * Rasterise the drawer card once so a swipe or a pop can move a texture
+     * instead of re-running the whole glass stack at every frame.
+     */
+    private void liftDrawerCard() {
+        if (drawerCard == null || drawerCard.getWidth() <= 4
+                || drawerCard.getHeight() <= 4) {
+            return;
+        }
+        try {
+            drawerCard.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            drawerCard.buildLayer();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void dropDrawerCardLayerSoon(long delayMs) {
+        final int token = ++drawerLayerToken;
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (token != drawerLayerToken) return;
+                if (drawerCard != null) {
+                    drawerCard.setLayerType(View.LAYER_TYPE_NONE, null);
+                }
+                if (drawerBackdrop != null) {
+                    drawerBackdrop.setRestPosition(-1, -1);
+                    drawerBackdrop.setLivePaused(false);
+                }
+            }
+        }, delayMs);
+    }
+
+    private void dropDrawerCardLayerNow() {
+        drawerLayerToken++;
+        if (drawerCard != null) drawerCard.setLayerType(View.LAYER_TYPE_NONE, null);
     }
 
     private void bounceDrawerCard() {
@@ -10170,6 +10229,7 @@ public final class MainActivity extends Activity {
                     drawer.setTranslationY(0f);
                     drawer.setAlpha(1f);
                     bounceDrawerCard();
+                    dropDrawerCardLayerSoon(820L);
                     if (controllerActive) {
                         handler.postDelayed(new Runnable() {
                             @Override
@@ -10184,6 +10244,7 @@ public final class MainActivity extends Activity {
                 } else {
                     drawerSwipeProgress = 0f;
                     drawer.setVisibility(View.GONE);
+                    dropDrawerCardLayerNow();
                     setHomeLiveBlur(false);
                     drawer.setTranslationY(0f);
                     drawer.setAlpha(1f);
@@ -10209,6 +10270,8 @@ public final class MainActivity extends Activity {
         if (drawerBackdrop == null) return;
         if (!enabled) {
             drawerBackdrop.setBackdropEnabled(false);
+            drawerBackdrop.setRestPosition(-1, -1);
+            drawerBackdrop.setLivePaused(false);
             return;
         }
         int left = 0;
@@ -10250,6 +10313,13 @@ public final class MainActivity extends Activity {
         drawerCloseArmed = false;
         recycleDrawerCloseVelocity();
         cancelDrawerSlide();
+        if (!drawerPopup) {
+            liftDrawerCard();
+            if (drawerBackdrop != null) {
+                drawerBackdrop.setRestPosition(-1, -1);
+                drawerBackdrop.setLivePaused(true);
+            }
+        }
         Motion.cancelGiggle(drawerCard);
         drawerCard.animate().cancel();
         drawerCard.setScaleX(1f);
@@ -10270,6 +10340,7 @@ public final class MainActivity extends Activity {
             content.setScaleX(1f);
             content.setScaleY(1f);
             content.setAlpha(1f);
+            dropDrawerCardLayerNow();
             setHomeLiveBlur(false);
             return;
         }
@@ -10287,6 +10358,7 @@ public final class MainActivity extends Activity {
                     @Override
                     public void run() {
                         drawer.setVisibility(View.GONE);
+                        dropDrawerCardLayerNow();
                         setHomeLiveBlur(false);
                     }
                 })
@@ -10343,6 +10415,7 @@ public final class MainActivity extends Activity {
                         @Override
                         public void run() {
                             drawer.setVisibility(View.GONE);
+                            dropDrawerCardLayerNow();
                             drawerCard.setAlpha(1f);
                             drawerCard.setScaleX(1f);
                             drawerCard.setScaleY(1f);
@@ -17333,6 +17406,11 @@ public final class MainActivity extends Activity {
                         super.dispatchTouchEvent(cancel);
                         cancel.recycle();
                         drawerCloseSwipeActive = true;
+                        liftDrawerCard();
+                        if (drawerBackdrop != null) {
+                            drawerBackdrop.setRestPosition(-1, -1);
+                            drawerBackdrop.setLivePaused(true);
+                        }
                         Motion.cancelGiggle(drawerCard);
                         drawerCard.setRotation(0f);
                         float height = drawer.getHeight() > 0 ? drawer.getHeight()

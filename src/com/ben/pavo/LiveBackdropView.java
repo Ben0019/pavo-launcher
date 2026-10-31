@@ -26,6 +26,11 @@ final class LiveBackdropView extends View {
     private float edgeInsetPx;
     private boolean edgeOnly;
     private boolean enabled;
+    private boolean paused;
+    /** Resting card position, used when the card is scaled or sliding. */
+    private int restX = -1;
+    private int restY = -1;
+    private boolean recordPending;
     private Bitmap snapshot;
     private final Paint snapshotPaint = new Paint(Paint.ANTI_ALIAS_FLAG
             | Paint.FILTER_BITMAP_FLAG);
@@ -43,7 +48,7 @@ final class LiveBackdropView extends View {
         @Override
         public void run() {
             refreshPosted = false;
-            if (!enabled || getWindowVisibility() != VISIBLE) return;
+            if (!enabled || paused || getWindowVisibility() != VISIBLE) return;
             invalidate();
             postDelayed(this, 16L);
             refreshPosted = true;
@@ -108,6 +113,33 @@ final class LiveBackdropView extends View {
         invalidate();
     }
 
+    /**
+     * Stop re-recording the home layer while the drawer is moving. The last
+     * recorded node still draws with its blur, so the material looks the same
+     * but costs a blit instead of a full home redraw per frame.
+     */
+    void setLivePaused(boolean value) {
+        if (paused == value) return;
+        paused = value;
+        if (paused) {
+            removeCallbacks(refresh);
+            refreshPosted = false;
+        } else {
+            scheduleRefresh();
+        }
+    }
+
+    void setRestPosition(int x, int y) {
+        restX = x;
+        restY = y;
+    }
+
+    /** Re-record the frozen frame with the current geometry. */
+    void invalidateRecording() {
+        recordPending = true;
+        invalidate();
+    }
+
     void setBackdropEnabled(boolean value) {
         enabled = value;
         if (value) {
@@ -121,7 +153,7 @@ final class LiveBackdropView extends View {
     }
 
     private void scheduleRefresh() {
-        if (!refreshPosted && enabled) {
+        if (!refreshPosted && enabled && !paused) {
             refreshPosted = true;
             postDelayed(refresh, 33L);
         }
@@ -181,6 +213,15 @@ final class LiveBackdropView extends View {
         }
         int width = getWidth();
         int height = getHeight();
+        if (paused && !recordPending && node != null) {
+            int save = canvas.save();
+            canvas.scale(width / (float) Math.max(1, Math.round(width * RENDER_SCALE)),
+                    height / (float) Math.max(1, Math.round(height * RENDER_SCALE)));
+            canvas.drawRenderNode(node);
+            canvas.restoreToCount(save);
+            return;
+        }
+        recordPending = false;
         int sw = Math.max(1, Math.round(width * RENDER_SCALE));
         int sh = Math.max(1, Math.round(height * RENDER_SCALE));
         float scale = sw / (float) width;
@@ -192,9 +233,11 @@ final class LiveBackdropView extends View {
         int[] sourceOnScreen = new int[2];
         getLocationOnScreen(here);
         source.getLocationOnScreen(sourceOnScreen);
+        int hx = restX >= 0 ? restX : here[0];
+        int hy = restY >= 0 ? restY : here[1];
         RecordingCanvas recording = node.beginRecording(sw, sh);
         recording.scale(scale, scale);
-        recording.translate(sourceOnScreen[0] - here[0], sourceOnScreen[1] - here[1]);
+        recording.translate(sourceOnScreen[0] - hx, sourceOnScreen[1] - hy);
         if (edgeOnly) {
             Path outer = new Path();
             outer.addRoundRect(0, 0, width, height, radiusPx, radiusPx,
