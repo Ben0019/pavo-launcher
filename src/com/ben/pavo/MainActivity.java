@@ -12966,19 +12966,36 @@ public final class MainActivity extends Activity {
         }
     }
 
-    /** Keep the ring on the tile that was just applied after a list refresh. */
+    /**
+     * Keep the ring on the tile that was just applied.
+     *
+     * The IN USE badge refresh replaces every grid child, so the focused tile is
+     * detached and the dialog ends up with no focused view at all; the next
+     * direction press then fell through to the close button. Retry until the
+     * rebuilt child exists and takes focus, and land on the grid itself if it
+     * never does, so the D-pad always stays inside the picker.
+     */
     private static void refocusWallpaperTile(final GridView grid, final int position) {
         if (grid == null || position < 0) return;
         grid.postDelayed(new Runnable() {
+            private int tries;
+
             @Override public void run() {
                 int child = position - grid.getFirstVisiblePosition();
-                if (child < 0) child = 0;
-                if (child >= grid.getChildCount()) return;
-                View v = grid.getChildAt(child);
-                if (v == null) return;
-                if (!v.requestFocus()) v.requestFocusFromTouch();
+                if (child >= 0 && child < grid.getChildCount()) {
+                    View v = grid.getChildAt(child);
+                    if (v != null) {
+                        if (!v.requestFocus()) v.requestFocusFromTouch();
+                        if (v.isFocused()) return;
+                    }
+                }
+                if (++tries < 8) {
+                    grid.postDelayed(this, 50L);
+                    return;
+                }
+                if (!grid.requestFocus()) grid.requestFocusFromTouch();
             }
-        }, 80L);
+        }, 60L);
     }
 
     private void activateWallpaperItem(Object item) {
