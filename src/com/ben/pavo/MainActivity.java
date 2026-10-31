@@ -15228,6 +15228,13 @@ public final class MainActivity extends Activity {
                 PerfOverlayService.refreshIfRunning();
             }
         });
+        addSwitch(panel, "Horizontal strip", prefs.perfOverlayHorizontal(), new BoolCallback() {
+            @Override
+            public void onValue(boolean value) {
+                prefs.setPerfOverlayHorizontal(value);
+                PerfOverlayService.refreshIfRunning();
+            }
+        });
         TextView perfHint = new LTextView(this);
         perfHint.setText("Per-core rows show load and clock for every online CPU core. Framerate uses SurfaceFlinger through PServer; without it, it shows —.");
         perfHint.setTextColor(0x66FFFFFF);

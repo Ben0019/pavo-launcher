@@ -240,6 +240,10 @@ final class Prefs {
         return Math.max(0.55f, Math.min(1.8f, v));
     }
     int perfOverlayAlpha() { return clamp(sp.getInt("perf_overlay_alpha", 88), 25, 100); }
+    boolean perfOverlayHorizontal() { return sp.getBoolean("perf_overlay_horizontal", false); }
+    void setPerfOverlayHorizontal(boolean v) {
+        sp.edit().putBoolean("perf_overlay_horizontal", v).apply();
+    }
     int perfRefreshMs() { return clamp(sp.getInt("perf_refresh_ms", 1000), 250, 10000); }
     void setPerfRefreshMs(int ms) {
         sp.edit().putInt("perf_refresh_ms", clamp(ms, 250, 10000)).apply();

@@ -55,12 +55,14 @@ final class PerfOverlayView extends LinearLayout {
     private TextView fpsValue;
     private LinearLayout fpsRow;
     private FpsGraphView graph;
+    private final boolean horizontal;
     private final CoreView[] cores = new CoreView[PerfStats.MAX_CORES];
 
     PerfOverlayView(Context c) {
         super(c);
         ThemeColors.initialize(c);
         accent = ThemeColors.accent();
+        horizontal = new Prefs(c).perfOverlayHorizontal();
         setOrientation(VERTICAL);
         setWillNotDraw(false);
         setClickable(false);
@@ -201,6 +203,91 @@ final class PerfOverlayView extends LinearLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         doneLp.topMargin = dp(6);
         addView(editDoneBar, doneLp);
+
+        if (horizontal) buildHorizontalStrip(c);
+    }
+
+    /**
+     * One-row layout: the same numbers, laid out as a strip. Every value view is
+     * reused, so updates keep working unchanged.
+     */
+    private void buildHorizontalStrip(Context c) {
+        removeAllViews();
+        setOrientation(HORIZONTAL);
+        setGravity(Gravity.CENTER_VERTICAL);
+        setPadding(dp(12), dp(6), dp(12), dp(6));
+
+        TextView title = label("PERFORMANCE", 7.4f, accent);
+        title.setLetterSpacing(0.14f);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        title.setPadding(0, 0, dp(8), 0);
+        addView(title, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        addChip("CPU", 1.15f, cpuTemp, cpuClock, cpuUsage);
+        addChip("GPU", 1.15f, gpuTemp, gpuClock, gpuUsage);
+        addChip("NET", 1.35f, netUp, netDown);
+        addChip("RAM", 1.0f, ramUsage, ramAmount);
+        addChip("BATT", 0.95f, battTemp, battPower);
+        addChip("FPS", 0.55f, fpsValue);
+        fpsValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+
+        if (lockIcon != null && lockIcon.getParent() instanceof ViewGroup) {
+            ((ViewGroup) lockIcon.getParent()).removeView(lockIcon);
+        }
+        if (battery != null && battery.getParent() instanceof ViewGroup) {
+            ((ViewGroup) battery.getParent()).removeView(battery);
+        }
+        if (editDoneBar != null && editDoneBar.getParent() instanceof ViewGroup) {
+            ((ViewGroup) editDoneBar.getParent()).removeView(editDoneBar);
+        }
+        if (lockIcon != null) addView(lockIcon);
+        if (battery != null) {
+            battery.setPadding(dp(6), dp(1), dp(6), dp(1));
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            blp.leftMargin = dp(4);
+            addView(battery, blp);
+        }
+        if (editDoneBar != null) {
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            dlp.leftMargin = dp(8);
+            addView(editDoneBar, dlp);
+            editDoneBar.setPadding(dp(10), dp(4), dp(10), dp(4));
+        }
+    }
+
+    private void addChip(String name, float weight, TextView... values) {
+        LinearLayout chip = new LinearLayout(getContext());
+        chip.setOrientation(HORIZONTAL);
+        chip.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label = label(name, 7.0f, MUTED);
+        label.setLetterSpacing(0.12f);
+        label.setPadding(0, 0, dp(4), 0);
+        chip.addView(label);
+        for (TextView v : values) {
+            if (v == null) continue;
+            // The value views still belong to their vertical rows; detach first.
+            if (v.getParent() instanceof ViewGroup) {
+                ((ViewGroup) v.getParent()).removeView(v);
+            }
+            v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
+            v.setPadding(dp(3), 0, dp(3), 0);
+            v.setSingleLine(true);
+            v.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            chip.addView(v, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        // Weighted so every chip shares the strip width and nothing is clipped.
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, weight);
+        lp.rightMargin = dp(6);
+        addView(chip, lp);
+    }
+
+    boolean horizontal() {
+        return horizontal;
     }
 
     void setLocked(boolean locked) {
@@ -218,6 +305,17 @@ final class PerfOverlayView extends LinearLayout {
 
     void applyPrefs(Prefs p) {
         setPanelAlpha(p.perfOverlayAlpha());
+        if (horizontal) {
+            // The strip is a single row: show every metric instead of hiding rows.
+            for (TextView v : new TextView[]{cpuTemp, cpuClock, cpuUsage, gpuTemp, gpuClock,
+                    gpuUsage, netUp, netDown, ramUsage, ramAmount, battTemp, battPower,
+                    fpsValue, battery}) {
+                if (v != null) v.setVisibility(VISIBLE);
+            }
+            graph.setRefreshMs(p.perfRefreshMs());
+            requestLayout();
+            return;
+        }
         cpuTemp.setVisibility(p.perfCpuTemp() ? VISIBLE : GONE);
         cpuClock.setVisibility(p.perfCpuClock() ? VISIBLE : GONE);
         cpuUsage.setVisibility(p.perfCpuUsage() ? VISIBLE : GONE);

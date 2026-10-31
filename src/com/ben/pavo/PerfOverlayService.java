@@ -957,6 +957,19 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         container.post(new Runnable() {
             @Override
             public void run() {
+                if (panel != null && panel.horizontal()) {
+                    // A strip is wide; start it centred at the top so nothing is
+                    // cut off by the position saved for the vertical panel.
+                    int sw = Math.max(
+                            getResources().getDisplayMetrics().widthPixels,
+                            getResources().getDisplayMetrics().heightPixels);
+                    params.x = Math.max(0, (sw - params.width) / 2);
+                    params.y = Ui.dp(uiContext, 16);
+                    try {
+                        windowManager.updateViewLayout(container, params);
+                    } catch (Throwable ignored) {
+                    }
+                }
                 clampPosition(false);
             }
         });
@@ -965,9 +978,26 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void measurePanel() {
         if (panel == null) return;
-        int widthSpec = View.MeasureSpec.makeMeasureSpec(baseWidthPx, View.MeasureSpec.EXACTLY);
-        panel.measure(widthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-        baseHeightPx = Math.max(Ui.dp(uiContext, 120), panel.getMeasuredHeight());
+        if (panel.horizontal()) {
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            try {
+                windowManager.getDefaultDisplay().getRealMetrics(dm);
+            } catch (Throwable ignored) {
+            }
+            int screenMax = Math.max(dm.widthPixels, dm.heightPixels);
+            if (screenMax <= 0) screenMax = Math.max(
+                    getResources().getDisplayMetrics().widthPixels,
+                    getResources().getDisplayMetrics().heightPixels);
+            int maxW = Math.max(Ui.dp(uiContext, 320), screenMax - Ui.dp(uiContext, 24));
+            panel.measure(View.MeasureSpec.makeMeasureSpec(maxW, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            baseWidthPx = maxW;
+            baseHeightPx = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
+        } else {
+            int widthSpec = View.MeasureSpec.makeMeasureSpec(baseWidthPx, View.MeasureSpec.EXACTLY);
+            panel.measure(widthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            baseHeightPx = Math.max(Ui.dp(uiContext, 120), panel.getMeasuredHeight());
+        }
         FrameLayout.LayoutParams lp = panel.getLayoutParams() instanceof FrameLayout.LayoutParams
                 ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
         if (lp == null) {
@@ -1009,6 +1039,26 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void applyPrefs() {
         if (panel == null) return;
+        if (prefs.perfOverlayHorizontal() != panel.horizontal()) {
+            // Orientation is baked into the layout, so rebuild the panel once.
+            int px = params != null ? params.x : -1;
+            int py = params != null ? params.y : -1;
+            if (container != null) {
+                try {
+                    windowManager.removeView(container);
+                } catch (Throwable ignored) {
+                }
+                container = null;
+                panel = null;
+            }
+            addOverlay();
+            if (container != null && params != null && px >= 0 && !prefs.perfOverlayHorizontal()) {
+                params.x = px;
+                params.y = py;
+                clampPosition(false);
+            }
+            return;
+        }
         panel.applyPrefs(prefs);
         panel.setPanelAlpha(prefs.perfOverlayAlpha());
         measurePanel();

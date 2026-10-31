@@ -266,6 +266,10 @@ final class PerfOverlayMenuView extends FrameLayout {
         addToggle(content, "Per-core clocks & load", prefs.perfCores(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfCores(v); }
         }));
+        addToggle(content, "Horizontal strip", prefs.perfOverlayHorizontal(),
+                metric(new BoolSetter() {
+            @Override public void set(boolean v) { prefs.setPerfOverlayHorizontal(v); }
+        }));
 
         addSection(content, "UPDATE RATE");
         LinearLayout refreshRow = new LinearLayout(c);
