@@ -240,6 +240,7 @@ final class PerfOverlayView extends LinearLayout {
         Prefs p = new Prefs(getContext());
         boolean any = false;
         if (p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()) {
+            stripSep(b);
             appendSpan(b, "CPU ", MUTED);
             if (p.perfCpuTemp()) {
                 appendSpan(b, fmtTemp(s.cpuTempC) + " ", s.cpuTempC > 0f
@@ -257,7 +258,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()) {
-            if (any) stripSep(b);
+            stripSep(b);
             appendSpan(b, "GPU ", MUTED);
             if (p.perfGpuTemp()) {
                 appendSpan(b, fmtTemp(s.gpuTempC) + " ", s.gpuTempC > 0f
@@ -274,7 +275,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfNet()) {
-            if (any) stripSep(b);
+            stripSep(b);
             appendSpan(b, "NET ", MUTED);
             appendSpan(b, (s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps)
                     + " \u2193 " + SysStats.fmtRate(s.netRxBps)
@@ -282,7 +283,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfRam()) {
-            if (any) stripSep(b);
+            stripSep(b);
             appendSpan(b, "RAM ", MUTED);
             if (s.memTotalKb > 0) {
                 int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
@@ -295,7 +296,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfBattery()) {
-            if (any) stripSep(b);
+            stripSep(b);
             appendSpan(b, "BATT ", MUTED);
             appendSpan(b, fmtTemp(s.batteryTempC) + " ", s.batteryTempC > 0f
                     ? heat((s.batteryTempC - 30f) / 40f) : 0x55FFFFFF);
@@ -304,14 +305,14 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfFps()) {
-            if (any) stripSep(b);
+            stripSep(b);
             appendSpan(b, "FPS ", MUTED);
             appendSpan(b, (s.fpsValid ? String.valueOf(s.fps) : "\u2014") + "  ",
                     s.fpsValid ? fpsColor(s.fps) : 0x99FFFFFF);
             any = true;
         }
         if (p.perfBattery() && s.battery >= 0) {
-            if (any) stripSep(b);
+            stripSep(b);
             appendSpan(b, "\u00b7 " + s.battery + "%", batteryColor(s.battery));
         }
         if (!any) appendSpan(b, "no metrics selected", 0x99FFFFFF);
