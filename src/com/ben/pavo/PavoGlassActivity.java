@@ -82,6 +82,7 @@ abstract class PavoGlassActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        requestHighRefreshRate();
         Loc.applyLocale(this);
         Intent intent = getIntent();
         int l = intent.getIntExtra(EXTRA_RETURN_LEFT, Integer.MIN_VALUE);
@@ -219,6 +220,40 @@ abstract class PavoGlassActivity extends Activity {
         }
     }
 
+    /**
+     * Ask the display for its fastest mode while this window is up: the
+     * card-to-icon transitions are only as smooth as the panel's frame rate.
+     * The system still caps this at the user's chosen peak.
+     */
+    private void requestHighRefreshRate() {
+        try {
+            Window w = getWindow();
+            if (w == null) return;
+            android.view.WindowManager.LayoutParams lp = w.getAttributes();
+            lp.preferredRefreshRate = 120f;
+            w.setAttributes(lp);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Rasterise the card once so a scale animation is a texture blit per frame. */
+    private static void liftForScale(View card) {
+        if (card == null) return;
+        try {
+            card.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            card.buildLayer();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void dropScaleLayer(View card) {
+        if (card == null) return;
+        try {
+            card.setLayerType(View.LAYER_TYPE_NONE, null);
+        } catch (Throwable ignored) {
+        }
+    }
+
     /** One saturation/darkness pair for every glass card in a built-in app. */
     private void applyBuiltinSaturation(View root) {
         Prefs prefs = new Prefs(this);
@@ -334,6 +369,8 @@ abstract class PavoGlassActivity extends Activity {
         card.setAlpha(1f);
         card.setPivotX(card.getWidth() / 2f);
         card.setPivotY(card.getHeight() / 2f);
+        // Rasterise at full size before the small start transform is applied.
+        liftForScale(card);
 
         int[] loc = new int[2];
         card.getLocationOnScreen(loc);
@@ -378,6 +415,7 @@ abstract class PavoGlassActivity extends Activity {
             public void onAnimationEnd(Animator animation) {
                 returnAnim = null;
                 card.setAlpha(1f);
+                dropScaleLayer(card);
                 if (restoreLiquid) {
                     if (glassRoot != null) unfreezeGlassForScale(glassRoot);
                     card.setFrosted(false);
@@ -504,6 +542,7 @@ abstract class PavoGlassActivity extends Activity {
         }
         GlassPanel card = largestGlassPanel(decor);
         if (card != null) {
+            dropScaleLayer(card);
             Motion.cancelGiggle(card);
             card.animate().cancel();
             card.setScaleX(1f);
@@ -581,6 +620,7 @@ abstract class PavoGlassActivity extends Activity {
 
         if (returnAnim != null) returnAnim.cancel();
         window.setBackgroundBlurRadius(0);
+        liftForScale(card);
         returnAnim = ValueAnimator.ofFloat(0f, 1f);
         returnAnim.setDuration(duration);
         returnAnim.setInterpolator(new PathInterpolator(0.30f, 0.00f, 0.72f, 0.45f));
@@ -604,6 +644,7 @@ abstract class PavoGlassActivity extends Activity {
                     finish();
                     overridePendingTransition(0, 0);
                 } else {
+                    dropScaleLayer(card);
                     returnFinished = true;
                 }
             }

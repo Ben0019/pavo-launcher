@@ -1051,6 +1051,14 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Keep the home window on the panel's fastest mode so scrolling and the
+        // built-in card animations are not capped at the idle rate.
+        try {
+            android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.preferredRefreshRate = 120f;
+            getWindow().setAttributes(lp);
+        } catch (Throwable ignored) {
+        }
         installDefaultPrefs();
         prefs = new Prefs(this);
         ThemeColors.initialize(this);
