@@ -10019,7 +10019,6 @@ public final class MainActivity extends Activity {
             dropDrawerCardLayerSoon(780L);
         } else {
             drawerCard.setVisibility(View.VISIBLE);
-            liftDrawerCard();
             drawerSwipeProgress = 1f;
             drawer.setAlpha(0.82f);
             drawer.setTranslationY(Ui.dpf(this, 30));
@@ -10053,6 +10052,9 @@ public final class MainActivity extends Activity {
     private boolean prepareDrawer(boolean popup) {
         if (drawer == null) return false;
         if (drawer.getVisibility() == View.VISIBLE) return false;
+        // A close that was interrupted before its end action can leave the card
+        // on a stale hardware layer; never open the drawer with that texture.
+        dropDrawerCardLayerNow();
         drawerCloseSwipeActive = false;
         drawerCloseArmed = false;
         recycleDrawerCloseVelocity();
@@ -10105,23 +10107,6 @@ public final class MainActivity extends Activity {
         drawerCard.setScaleX(1f);
         drawerCard.setScaleY(1f);
         drawerSwipeProgress = drawerPopup ? 1f : 0f;
-        if (!drawerPopup && drawerBackdrop != null) {
-            // The full drawer opens by sliding up. Pin the backdrop to the card's
-            // resting rect and stop re-recording while it moves, so the swipe
-            // holds 120 Hz; the frozen crop already matches the rest position,
-            // so nothing pops when live updates resume.
-            int rx = 0;
-            int ry = 0;
-            if (drawerCard.getLayoutParams() instanceof FrameLayout.LayoutParams) {
-                FrameLayout.LayoutParams clp =
-                        (FrameLayout.LayoutParams) drawerCard.getLayoutParams();
-                rx = clp.leftMargin;
-                ry = clp.topMargin;
-            }
-            drawerBackdrop.setRestPosition(rx, ry);
-            drawerBackdrop.invalidateRecording();
-            drawerBackdrop.setLivePaused(true);
-        }
         return true;
     }
 
@@ -10201,9 +10186,7 @@ public final class MainActivity extends Activity {
     private void settleDrawer(final boolean open, float velocityY) {
         cancelDrawerSlide();
         if (drawer == null) return;
-        // The card is laid out at its final size by now, so a layer built here
-        // survives the whole settle instead of being rebuilt per frame.
-        if (open && drawerCard != null) liftDrawerCard();
+
         final float from = drawerSwipeProgress;
         final float to = open ? 1f : 0f;
         float height = drawer.getHeight() > 0 ? drawer.getHeight()
@@ -10234,6 +10217,11 @@ public final class MainActivity extends Activity {
                     drawer.setAlpha(1f);
                     bounceDrawerCard();
                     dropDrawerCardLayerSoon(820L);
+                    dropDrawerCardLayerNow();
+                    if (drawerBackdrop != null) {
+                        drawerBackdrop.setRestPosition(-1, -1);
+                        drawerBackdrop.setLivePaused(false);
+                    }
                     if (controllerActive) {
                         handler.postDelayed(new Runnable() {
                             @Override
@@ -10298,6 +10286,8 @@ public final class MainActivity extends Activity {
         } catch (Throwable ignored) {
         }
         drawerBackdrop.setBackdropEnabled(true);
+        drawerBackdrop.setRestPosition(-1, -1);
+        drawerBackdrop.setLivePaused(false);
     }
 
     private void closeDrawer() {
