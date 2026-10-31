@@ -10,6 +10,8 @@ final class PerfStats {
     long cpuMaxHz;
     long gpuHz;
     long gpuMaxHz;
+    /** Current configured GPU cap set by the active tuner preset. */
+    long gpuCapHz;
     int cpuUsage;
     int gpuUsage;
     int battery;

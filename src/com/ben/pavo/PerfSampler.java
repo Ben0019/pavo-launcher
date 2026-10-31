@@ -393,6 +393,7 @@ final class PerfSampler {
         long hz = readLong(new File(kgsl, "devfreq/cur_freq"));
         if (hz <= 0) hz = readLong(new File(kgsl, "gpuclk"));
         long max = readLong(new File(kgsl, "max_gpuclk"));
+        long cap = readLong(new File(kgsl, "devfreq/max_freq"));
         int busy = readPercentValue(new File(kgsl, "gpu_busy_percentage"));
         // Some Odin kernels expose only the vendor interface; it reports a plain
         // percentage.
@@ -445,17 +446,23 @@ final class PerfSampler {
                     if (clock != null) hz = parseLong(clock.trim());
                 }
                 if (max <= 0) {
-                    String cap = section(rootText, "GPUMAX");
-                    if (cap != null) max = parseLong(cap.trim());
+                    String rootCap = section(rootText, "GPUMAX");
+                    if (rootCap != null) {
+                        max = parseLong(rootCap.trim());
+                        if (cap <= 0) cap = max;
+                    }
                 }
             }
         }
 
         if (hz <= 0 || max <= 0) {
             long cur = readLong(new File(kgsl, "devfreq/cur_freq"));
-            long cap = readLong(new File(kgsl, "devfreq/max_freq"));
+            long devCap = readLong(new File(kgsl, "devfreq/max_freq"));
             if (cur > 0) hz = cur;
-            if (cap > 0) max = cap;
+            if (devCap > 0) {
+                max = devCap;
+                if (cap <= 0) cap = devCap;
+            }
         }
         if (hz <= 0 || max <= 0) {
             File devfreq = new File("/sys/class/devfreq");
@@ -468,9 +475,12 @@ final class PerfSampler {
                     if (!n.contains("kgsl") && !n.contains("gpu")
                             && !n.contains("mali") && !n.contains("3d")) continue;
                     long cur = readLong(new File(d, "cur_freq"));
-                    long cap = readLong(new File(d, "max_freq"));
+                    long devCap = readLong(new File(d, "max_freq"));
                     if (cur > 0) hz = cur;
-                    if (cap > 0) max = cap;
+                    if (devCap > 0) {
+                        max = devCap;
+                        if (cap <= 0) cap = devCap;
+                    }
                     break;
                 }
             }
@@ -495,6 +505,7 @@ final class PerfSampler {
         // which made every ratio read as 100% (red). Grade against the hardware
         // maximum instead so idle clocks show green and boosts go red.
         s.gpuMaxHz = hardwareMax > 0 ? hardwareMax : Math.max(0, max);
+        s.gpuCapHz = cap > 0 ? cap : Math.max(0, max);
         s.gpuUsage = busy;
         s.gpuUsageKnown = busy >= 0;
         s.gpuTempC = ThermalSensors.gpuTemp();
