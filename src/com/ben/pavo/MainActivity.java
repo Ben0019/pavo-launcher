@@ -13044,6 +13044,17 @@ public final class MainActivity extends Activity {
         // Only one delete affordance is visible at a time.
         final TextView[] deleteButton = {null};
         final BaseAdapter[] adapterHolder = new BaseAdapter[1];
+        // Applying a wallpaper no longer closes the sheet: re-read the lists so
+        // the IN USE badge moves to the tile that was just picked.
+        final Runnable refreshItems = new Runnable() {
+            @Override public void run() {
+                items.clear();
+                items.addAll(liveWallpapers());
+                items.addAll(videoWallpapers());
+                items.addAll(wallpaperHistory());
+                if (adapterHolder[0] != null) adapterHolder[0].notifyDataSetChanged();
+            }
+        };
         final BaseAdapter adapter = new BaseAdapter() {
             @Override public int getCount() { return items.size(); }
             @Override public Object getItem(int position) { return items.get(position); }
@@ -13157,10 +13168,11 @@ public final class MainActivity extends Activity {
                 tile.setFocusableInTouchMode(false);
                 // Controller A performs a click on the focused tile; without a
                 // click listener the tile only answered touch.
+                final int tilePos = position;
                 tile.setOnClickListener(new View.OnClickListener() {
                     @Override public void onClick(View v) {
-                        dialog.dismiss();
                         activateWallpaperItem(item);
+                        refreshItems.run();
                     }
                 });
 
@@ -13236,8 +13248,8 @@ public final class MainActivity extends Activity {
                             float dy = event.getY() - down[1];
                             if (!longFired[0]
                                     && Math.hypot(dx, dy) < Ui.dp(MainActivity.this, 12)) {
-                                dialog.dismiss();
                                 activateWallpaperItem(selectedItem);
+                                refreshItems.run();
                             }
                             return true;
                         case MotionEvent.ACTION_CANCEL:
@@ -13255,8 +13267,8 @@ public final class MainActivity extends Activity {
         grid.setOnItemClickListener((parent, view, position, id) -> {
             if (position < 0 || position >= items.size()) return;
             Object item = items.get(position);
-            dialog.dismiss();
             activateWallpaperItem(item);
+            refreshItems.run();
         });
         card.addView(grid, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
