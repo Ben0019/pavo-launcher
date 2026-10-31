@@ -56,6 +56,7 @@ final class PerfOverlayView extends LinearLayout {
     private LinearLayout fpsRow;
     private FpsGraphView graph;
     private final boolean horizontal;
+    private LinearLayout cpuChip, gpuChip, netChip, ramChip, battChip, fpsChip;
     private final CoreView[] cores = new CoreView[PerfStats.MAX_CORES];
 
     PerfOverlayView(Context c) {
@@ -224,12 +225,12 @@ final class PerfOverlayView extends LinearLayout {
         addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        addChip("CPU", 1.15f, cpuTemp, cpuClock, cpuUsage);
-        addChip("GPU", 1.15f, gpuTemp, gpuClock, gpuUsage);
-        addChip("NET", 1.35f, netUp, netDown);
-        addChip("RAM", 1.0f, ramUsage, ramAmount);
-        addChip("BATT", 0.95f, battTemp, battPower);
-        addChip("FPS", 0.55f, fpsValue);
+        cpuChip = addChip("CPU", 1.15f, cpuTemp, cpuClock, cpuUsage);
+        gpuChip = addChip("GPU", 1.15f, gpuTemp, gpuClock, gpuUsage);
+        netChip = addChip("NET", 1.35f, netUp, netDown);
+        ramChip = addChip("RAM", 1.0f, ramUsage, ramAmount);
+        battChip = addChip("BATT", 0.95f, battTemp, battPower);
+        fpsChip = addChip("FPS", 0.55f, fpsValue);
         fpsValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
 
         if (lockIcon != null && lockIcon.getParent() instanceof ViewGroup) {
@@ -258,7 +259,7 @@ final class PerfOverlayView extends LinearLayout {
         }
     }
 
-    private void addChip(String name, float weight, TextView... values) {
+    private LinearLayout addChip(String name, float weight, TextView... values) {
         LinearLayout chip = new LinearLayout(getContext());
         chip.setOrientation(HORIZONTAL);
         chip.setGravity(Gravity.CENTER_VERTICAL);
@@ -284,6 +285,7 @@ final class PerfOverlayView extends LinearLayout {
                 ViewGroup.LayoutParams.WRAP_CONTENT, weight);
         lp.rightMargin = dp(6);
         addView(chip, lp);
+        return chip;
     }
 
     boolean horizontal() {
@@ -306,12 +308,25 @@ final class PerfOverlayView extends LinearLayout {
     void applyPrefs(Prefs p) {
         setPanelAlpha(p.perfOverlayAlpha());
         if (horizontal) {
-            // The strip is a single row: show every metric instead of hiding rows.
-            for (TextView v : new TextView[]{cpuTemp, cpuClock, cpuUsage, gpuTemp, gpuClock,
-                    gpuUsage, netUp, netDown, ramUsage, ramAmount, battTemp, battPower,
-                    fpsValue, battery}) {
-                if (v != null) v.setVisibility(VISIBLE);
+            // Same toggles as the vertical panel, applied to the strip chips.
+            cpuTemp.setVisibility(p.perfCpuTemp() ? VISIBLE : GONE);
+            cpuClock.setVisibility(p.perfCpuClock() ? VISIBLE : GONE);
+            cpuUsage.setVisibility(p.perfCpuUsage() ? VISIBLE : GONE);
+            if (cpuChip != null) {
+                cpuChip.setVisibility(p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()
+                        ? VISIBLE : GONE);
             }
+            gpuTemp.setVisibility(p.perfGpuTemp() ? VISIBLE : GONE);
+            gpuClock.setVisibility(p.perfGpuClock() ? VISIBLE : GONE);
+            gpuUsage.setVisibility(p.perfGpuUsage() ? VISIBLE : GONE);
+            if (gpuChip != null) {
+                gpuChip.setVisibility(p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()
+                        ? VISIBLE : GONE);
+            }
+            if (ramChip != null) ramChip.setVisibility(p.perfRam() ? VISIBLE : GONE);
+            if (battChip != null) battChip.setVisibility(p.perfBattery() ? VISIBLE : GONE);
+            if (fpsChip != null) fpsChip.setVisibility(p.perfFps() ? VISIBLE : GONE);
+            battery.setVisibility(p.perfBattery() ? VISIBLE : GONE);
             graph.setRefreshMs(p.perfRefreshMs());
             requestLayout();
             return;
