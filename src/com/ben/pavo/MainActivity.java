@@ -1570,8 +1570,7 @@ public final class MainActivity extends Activity {
             dismissActiveMenu();
             return;
         }
-        // Back on the home opens the side app drawer; the launcher never exits.
-        openDrawer(true);
+        // A home screen should never exit on Back.
     }
 
     /** Keep the dock within its visible capacity after older builds or odd drops. */
@@ -17097,10 +17096,8 @@ public final class MainActivity extends Activity {
                         if (!isDrawerVisible() && !isFolderVisible()) restoreControllerFocus();
                     }
                 }, popupClose ? 430 : 320);
-            } else if (activeMenu == null) {
-                // Back on the home opens the side app drawer instead of leaving.
-                openDrawer(true);
             }
+            // Back on the home screen should not leave the launcher.
             return true;
         }
         if (isPageKey(code)) {
