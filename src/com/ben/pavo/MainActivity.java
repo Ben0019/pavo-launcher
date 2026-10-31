@@ -250,6 +250,7 @@ public final class MainActivity extends Activity {
     private LinearLayout headerStatusCluster;
     private RecordingStatusGlyph recordingStatusGlyph;
     private boolean recordingIndicatorDown;
+    private boolean recordingIndicatorLongFired;
     private float recordingIndicatorDownX, recordingIndicatorDownY;
     private HeaderStatusGlyph bluetoothStatusGlyph;
     private HeaderStatusGlyph soundStatusGlyph;
@@ -391,6 +392,11 @@ public final class MainActivity extends Activity {
         public void run() {
             if (!controllerAHeld || controllerALongFired) return;
             View focused = getCurrentFocus();
+            if (focused == recordingStatusGlyph) {
+                controllerALongFired = true;
+                openScreenRecorderFromIndicator(true);
+                return;
+            }
             if (!(focused instanceof ItemView)) {
                 android.util.Log.d("PavoLog", "A long-press blocked: focus not an icon ("
                         + ControllerNav.describe(focused) + ")");
@@ -1423,7 +1429,6 @@ public final class MainActivity extends Activity {
         startBurnInProtection();
         scheduleBurnInDim();
 
-        ensureDefaultWallpaper();
         updateWeatherView();
         refreshWeather(false);
         handler.removeCallbacks(weatherTick);
@@ -1565,7 +1570,8 @@ public final class MainActivity extends Activity {
             dismissActiveMenu();
             return;
         }
-        // A home screen should never exit on Back.
+        // Back on the home opens the side app drawer; the launcher never exits.
+        openDrawer(true);
     }
 
     /** Keep the dock within its visible capacity after older builds or odd drops. */
@@ -1757,9 +1763,9 @@ public final class MainActivity extends Activity {
         recLp.rightMargin = Ui.dp(this, 6);
         headerStatusCluster.addView(recordingStatusGlyph, recLp);
         installHeaderFocus(recordingStatusGlyph, false);
-        recordingStatusGlyph.setContentDescription("Start entire-screen recording");
+        recordingStatusGlyph.setContentDescription("Open screen recorder");
         recordingStatusGlyph.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { openScreenRecorderFromIndicator(); }
+            @Override public void onClick(View v) { openScreenRecorderFromIndicator(false); }
         });
 
         bluetoothStatusGlyph = new HeaderStatusGlyph(this, HeaderStatusGlyph.BLUETOOTH);
@@ -12900,32 +12906,6 @@ public final class MainActivity extends Activity {
         }
     }
 
-    /**
-     * First launch: install the bundled wallpaper so the home never starts
-     * bare. Only applies while the user has not chosen anything themselves.
-     */
-    private void ensureDefaultWallpaper() {
-        try {
-            if (prefs == null || prefs.wallpaperMode() != Prefs.MODE_DEVICE) return;
-            final File target = new File(getFilesDir(), "wallpaper.png");
-            if (!target.isFile() || target.length() == 0) {
-                java.io.InputStream in = getAssets().open("default_wallpaper.jpg");
-                java.io.FileOutputStream out = new java.io.FileOutputStream(target);
-                byte[] buf = new byte[16 * 1024];
-                int n;
-                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-                in.close();
-                out.close();
-            }
-            prefs.setWallpaperMode(Prefs.MODE_CUSTOM);
-            if (wallpaper != null) wallpaper.setMode(Prefs.MODE_CUSTOM);
-            applyWallpaperPresentation();
-            new Thread(() -> setSystemWallpaperFromFile(target),
-                    "pavo-system-wallpaper").start();
-        } catch (Throwable ignored) {
-        }
-    }
-
     private void applyWallpaperPresentation() {
         if (root == null || wallpaper == null) return;
         Window window = getWindow();
@@ -17117,8 +17097,10 @@ public final class MainActivity extends Activity {
                         if (!isDrawerVisible() && !isFolderVisible()) restoreControllerFocus();
                     }
                 }, popupClose ? 430 : 320);
+            } else if (activeMenu == null) {
+                // Back on the home opens the side app drawer instead of leaving.
+                openDrawer(true);
             }
-            // Back on the home screen should not leave the launcher.
             return true;
         }
         if (isPageKey(code)) {
@@ -17283,14 +17265,28 @@ public final class MainActivity extends Activity {
         return super.dispatchGenericMotionEvent(event);
     }
 
-    private void openScreenRecorderFromIndicator() {
+    /**
+     * The status glyph opens the recorder; only a long press starts a capture
+     * straight away, so a stray click never begins recording.
+     */
+    private void openScreenRecorderFromIndicator(boolean startRecording) {
         Haptics.click(recordingStatusGlyph);
         Intent recorder = new Intent(MainActivity.this, ScreenRecorderActivity.class);
-        if (!ScreenRecorderService.isRecording()) {
+        if (startRecording && !ScreenRecorderService.isRecording()
+                && !ScreenRecorderService.isSaving()) {
             recorder.putExtra(ScreenRecorderActivity.EXTRA_AUTO_FULLSCREEN, true);
         }
         startBuiltIn(recorder, null);
     }
+
+    private final Runnable recordingIndicatorLongPress = new Runnable() {
+        @Override public void run() {
+            if (!recordingIndicatorDown) return;
+            recordingIndicatorDown = false;
+            recordingIndicatorLongFired = true;
+            openScreenRecorderFromIndicator(true);
+        }
+    };
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -17303,8 +17299,11 @@ public final class MainActivity extends Activity {
             if (action == MotionEvent.ACTION_DOWN
                     && pointInView(recordingStatusGlyph, ev.getRawX(), ev.getRawY())) {
                 recordingIndicatorDown = true;
+                recordingIndicatorLongFired = false;
                 recordingIndicatorDownX = ev.getRawX();
                 recordingIndicatorDownY = ev.getRawY();
+                handler.removeCallbacks(recordingIndicatorLongPress);
+                handler.postDelayed(recordingIndicatorLongPress, 520L);
                 return true;
             }
             if (recordingIndicatorDown) {
@@ -17312,13 +17311,16 @@ public final class MainActivity extends Activity {
                     float dx = ev.getRawX() - recordingIndicatorDownX;
                     float dy = ev.getRawY() - recordingIndicatorDownY;
                     recordingIndicatorDown = false;
-                    if (Math.hypot(dx, dy) <= Ui.dpf(this, 12)) {
-                        openScreenRecorderFromIndicator();
+                    handler.removeCallbacks(recordingIndicatorLongPress);
+                    if (!recordingIndicatorLongFired
+                            && Math.hypot(dx, dy) <= Ui.dpf(this, 12)) {
+                        openScreenRecorderFromIndicator(false);
                     }
                     return true;
                 }
                 if (action == MotionEvent.ACTION_CANCEL) {
                     recordingIndicatorDown = false;
+                    handler.removeCallbacks(recordingIndicatorLongPress);
                     return true;
                 }
             }
