@@ -80,7 +80,7 @@ final class PerfOverlayView extends LinearLayout {
         LinearLayout header = new LinearLayout(c);
         header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        titleView = label(presetName(), 9.5f, accent);
+        titleView = label(presetName(), 9.5f, presetColor());
         TextView title = titleView;
         title.setLetterSpacing(0.14f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -231,7 +231,7 @@ final class PerfOverlayView extends LinearLayout {
     private void renderStrip(PerfStats s) {
         if (stripText == null) return;
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
-        appendSpan(b, presetName() + "  ", accent);
+        appendSpan(b, presetName() + "  ", presetColor());
         if (s == null) {
             appendSpan(b, "waiting for data", 0x99FFFFFF);
             stripText.setText(b);
@@ -347,6 +347,11 @@ final class PerfOverlayView extends LinearLayout {
         return presetLabel;
     }
 
+    /** The tuner's own per-preset colour, so the title matches the mode. */
+    private int presetColor() {
+        return PerformanceTunerActivity.profileColor(presetName());
+    }
+
     boolean horizontal() {
         return horizontal;
     }
@@ -401,7 +406,10 @@ final class PerfOverlayView extends LinearLayout {
     void update(PerfStats s) {
         if (titleView != null) {
             String label = presetName();
-            if (!label.contentEquals(titleView.getText())) titleView.setText(label);
+            if (!label.contentEquals(titleView.getText())) {
+                titleView.setText(label);
+                titleView.setTextColor(presetColor());
+            }
         }
         if (horizontal) {
             lastStats = s;
