@@ -251,6 +251,9 @@ final class PerfOverlayMenuView extends FrameLayout {
         addToggle(content, "GPU load", prefs.perfGpuUsage(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfGpuUsage(v); }
         }));
+        addToggle(content, "Network speed", prefs.perfNet(), metric(new BoolSetter() {
+            @Override public void set(boolean v) { prefs.setPerfNet(v); }
+        }));
         addToggle(content, "Framerate", prefs.perfFps(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfFps(v); }
         }));

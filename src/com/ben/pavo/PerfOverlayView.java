@@ -269,10 +269,13 @@ final class PerfOverlayView extends LinearLayout {
             }
             any = true;
         }
-        appendSpan(b, "NET ", MUTED);
-        appendSpan(b, (s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps)
-                + " \u2193 " + SysStats.fmtRate(s.netRxBps) : "\u2191 \u2014  \u2193 \u2014") + "  ", TEXT);
-        any = true;
+        if (p.perfNet()) {
+            appendSpan(b, "NET ", MUTED);
+            appendSpan(b, (s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps)
+                    + " \u2193 " + SysStats.fmtRate(s.netRxBps)
+                    : "\u2191 \u2014  \u2193 \u2014") + "  ", TEXT);
+            any = true;
+        }
         if (p.perfRam()) {
             appendSpan(b, "RAM ", MUTED);
             if (s.memTotalKb > 0) {
@@ -355,6 +358,7 @@ final class PerfOverlayView extends LinearLayout {
         gpuRow.setVisibility(p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()
                 ? VISIBLE : GONE);
 
+        netRow.setVisibility(p.perfNet() ? VISIBLE : GONE);
         ramRow.setVisibility(p.perfRam() ? VISIBLE : GONE);
         battRow.setVisibility(p.perfBattery() ? VISIBLE : GONE);
         fpsValue.setVisibility(p.perfFps() ? VISIBLE : GONE);

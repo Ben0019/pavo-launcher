@@ -273,6 +273,7 @@ final class Prefs {
     boolean perfGpuTemp() { return sp.getBoolean("perf_gpu_temp", true); }
     boolean perfGpuClock() { return sp.getBoolean("perf_gpu_clock", true); }
     boolean perfGpuUsage() { return sp.getBoolean("perf_gpu_usage", true); }
+    boolean perfNet() { return sp.getBoolean("perf_net", true); }
     boolean perfFps() { return sp.getBoolean("perf_fps", true); }
     boolean perfFpsGraph() { return sp.getBoolean("perf_fps_graph", true); }
     boolean perfBattery() { return sp.getBoolean("perf_battery", true); }
@@ -632,6 +633,7 @@ final class Prefs {
     void setPerfGpuTemp(boolean v) { sp.edit().putBoolean("perf_gpu_temp", v).apply(); }
     void setPerfGpuClock(boolean v) { sp.edit().putBoolean("perf_gpu_clock", v).apply(); }
     void setPerfGpuUsage(boolean v) { sp.edit().putBoolean("perf_gpu_usage", v).apply(); }
+    void setPerfNet(boolean v) { sp.edit().putBoolean("perf_net", v).apply(); }
     void setPerfFps(boolean v) { sp.edit().putBoolean("perf_fps", v).apply(); }
     void setPerfFpsGraph(boolean v) { sp.edit().putBoolean("perf_fps_graph", v).apply(); }
     void setPerfBattery(boolean v) { sp.edit().putBoolean("perf_battery", v).apply(); }
