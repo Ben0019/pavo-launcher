@@ -351,20 +351,52 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 && s.container.getVisibility() == View.VISIBLE);
     }
 
+    private static final android.os.Handler SHORTCUT_HANDLER =
+            new android.os.Handler(android.os.Looper.getMainLooper());
+    private static final long SHORTCUT_DOUBLE_MS = 300L;
+    private static long lastShortcutTapAt;
+    private static Context shortcutContext;
+
+    private static final Runnable shortcutToggle = new Runnable() {
+        @Override
+        public void run() {
+            final Context c = shortcutContext;
+            if (c == null) return;
+            PerfOverlayService s = instance;
+            if (s == null) {
+                Haptics.click(c);
+                new Prefs(c).setPerfOverlay(true);
+                start(c);
+                return;
+            }
+            s.main.post(new Runnable() {
+                @Override
+                public void run() {
+                    s.toggleOverlayPanel();
+                }
+            });
+        }
+    };
+
+    /**
+     * One short press shows or hides the overlay; a second press within the
+     * window switches between the panel and the strip instead. Detection lives
+     * here so every input source (daemon, accessibility, mapper) behaves the same.
+     */
     static void toggleOverlayFromShortcut(Context c) {
-        PerfOverlayService s = instance;
-        if (s == null) {
-            Haptics.click(c);
-            new Prefs(c).setPerfOverlay(true);
-            start(c);
+        if (c == null) return;
+        final Context app = c.getApplicationContext();
+        long now = SystemClock.uptimeMillis();
+        boolean doubled = now - lastShortcutTapAt <= SHORTCUT_DOUBLE_MS;
+        lastShortcutTapAt = doubled ? 0L : now;
+        SHORTCUT_HANDLER.removeCallbacks(shortcutToggle);
+        if (doubled) {
+            Haptics.click(app);
+            toggleModeFromShortcut(app);
             return;
         }
-        s.main.post(new Runnable() {
-            @Override
-            public void run() {
-                s.toggleOverlayPanel();
-            }
-        });
+        shortcutContext = app;
+        SHORTCUT_HANDLER.postDelayed(shortcutToggle, SHORTCUT_DOUBLE_MS);
     }
 
     static void flushCurrentSession() {
