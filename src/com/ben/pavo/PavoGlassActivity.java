@@ -43,8 +43,6 @@ abstract class PavoGlassActivity extends Activity {
     private int returnBottom;
     private boolean returning;
     private boolean returnFinished;
-    /** Set by onNewIntent when a reused task has to replay the open motion. */
-    private boolean pendingOpenAnim;
     private ValueAnimator returnAnim;
     private final Runnable readableTask = new Runnable() {
         @Override
@@ -70,46 +68,6 @@ abstract class PavoGlassActivity extends Activity {
      */
     protected boolean samplesBackdrop() { return true; }
 
-    /** The icon rectangle handed over by the launcher for the open/close motion. */
-    private void readReturnRect(Intent intent) {
-        if (intent == null) {
-            hasReturnTarget = false;
-            return;
-        }
-        int l = intent.getIntExtra(EXTRA_RETURN_LEFT, Integer.MIN_VALUE);
-        int t = intent.getIntExtra(EXTRA_RETURN_TOP, Integer.MIN_VALUE);
-        int r = intent.getIntExtra(EXTRA_RETURN_RIGHT, Integer.MIN_VALUE);
-        int b = intent.getIntExtra(EXTRA_RETURN_BOTTOM, Integer.MIN_VALUE);
-        if (l != Integer.MIN_VALUE && t != Integer.MIN_VALUE
-                && r != Integer.MIN_VALUE && b != Integer.MIN_VALUE
-                && r > l && b > t) {
-            hasReturnTarget = true;
-            returnLeft = l;
-            returnTop = t;
-            returnRight = r;
-            returnBottom = b;
-        } else {
-            hasReturnTarget = false;
-        }
-    }
-
-    /**
-     * A singleTask built-in is reused when it is still in memory, so a fresh
-     * launch never re-runs onCreate. Take the new icon rectangle and replay the
-     * expand on resume instead of keeping the first launch's position.
-     */
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        readReturnRect(intent);
-        pendingOpenAnim = true;
-        if (returning || returnFinished) {
-            returning = false;
-            returnFinished = false;
-        }
-    }
-
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
         super.attachBaseContext(Ui.adaptiveContext(newBase));
@@ -125,7 +83,20 @@ abstract class PavoGlassActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Loc.applyLocale(this);
-        readReturnRect(getIntent());
+        Intent intent = getIntent();
+        int l = intent.getIntExtra(EXTRA_RETURN_LEFT, Integer.MIN_VALUE);
+        int t = intent.getIntExtra(EXTRA_RETURN_TOP, Integer.MIN_VALUE);
+        int r = intent.getIntExtra(EXTRA_RETURN_RIGHT, Integer.MIN_VALUE);
+        int b = intent.getIntExtra(EXTRA_RETURN_BOTTOM, Integer.MIN_VALUE);
+        if (l != Integer.MIN_VALUE && t != Integer.MIN_VALUE
+                && r != Integer.MIN_VALUE && b != Integer.MIN_VALUE
+                && r > l && b > t) {
+            hasReturnTarget = true;
+            returnLeft = l;
+            returnTop = t;
+            returnRight = r;
+            returnBottom = b;
+        }
         Window window = getWindow();
         window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -414,15 +385,6 @@ abstract class PavoGlassActivity extends Activity {
             returning = false;
             returnFinished = false;
             resetReturnVisuals();
-        }
-        if (pendingOpenAnim) {
-            pendingOpenAnim = false;
-            View decor = getWindow() == null ? null : getWindow().getDecorView();
-            GlassPanel card = decor == null ? null : largestGlassPanel(decor);
-            if (card != null && card.getWidth() > 1 && card.getHeight() > 1
-                    && hasReturnTarget) {
-                startCardFromIcon(card);
-            }
         }
         ensureDecorVisible();
     }
