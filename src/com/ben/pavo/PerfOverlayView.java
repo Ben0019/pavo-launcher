@@ -253,6 +253,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()) {
+            if (any) stripSep(b);
             appendSpan(b, "GPU ", MUTED);
             if (p.perfGpuTemp()) {
                 appendSpan(b, fmtTemp(s.gpuTempC) + " ", s.gpuTempC > 0f
@@ -269,6 +270,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfNet()) {
+            if (any) stripSep(b);
             appendSpan(b, "NET ", MUTED);
             appendSpan(b, (s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps)
                     + " \u2193 " + SysStats.fmtRate(s.netRxBps)
@@ -276,6 +278,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfRam()) {
+            if (any) stripSep(b);
             appendSpan(b, "RAM ", MUTED);
             if (s.memTotalKb > 0) {
                 int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
@@ -288,6 +291,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfBattery()) {
+            if (any) stripSep(b);
             appendSpan(b, "BATT ", MUTED);
             appendSpan(b, fmtTemp(s.batteryTempC) + " ", s.batteryTempC > 0f
                     ? heat((s.batteryTempC - 30f) / 40f) : 0x55FFFFFF);
@@ -296,12 +300,14 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfFps()) {
+            if (any) stripSep(b);
             appendSpan(b, "FPS ", MUTED);
             appendSpan(b, (s.fpsValid ? String.valueOf(s.fps) : "\u2014") + "  ",
                     s.fpsValid ? fpsColor(s.fps) : 0x99FFFFFF);
             any = true;
         }
         if (p.perfBattery() && s.battery >= 0) {
+            if (any) stripSep(b);
             appendSpan(b, "\u00b7 " + s.battery + "%", batteryColor(s.battery));
         }
         if (!any) appendSpan(b, "no metrics selected", 0x99FFFFFF);
@@ -310,6 +316,11 @@ final class PerfOverlayView extends LinearLayout {
 
     private String fmtTemp(float c) {
         return c > 0f ? Math.round(c) + "\u00b0" : "\u2014";
+    }
+
+    /** Thin white rule between two metrics in the strip. */
+    private void stripSep(android.text.SpannableStringBuilder b) {
+        appendSpan(b, "\u2502  ", 0xB3FFFFFF);
     }
 
     private void appendSpan(android.text.SpannableStringBuilder b, String text, int color) {
