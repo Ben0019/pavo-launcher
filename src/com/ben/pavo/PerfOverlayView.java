@@ -82,10 +82,15 @@ final class PerfOverlayView extends LinearLayout {
         header.setGravity(Gravity.CENTER_VERTICAL);
         titleView = label(presetName(), 9.5f, presetColor());
         TextView title = titleView;
-        title.setLetterSpacing(0.14f);
+        title.setLetterSpacing(0.10f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        title.setPadding(dp(9), dp(3), dp(9), dp(3));
+        stylePresetChip();
         header.addView(title, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        View headerSpacer = new View(c);
+        header.addView(headerSpacer, new LinearLayout.LayoutParams(
+                0, 1, 1f));
 
         lockIcon = text("🔒", 11f, 0xFFFFD27F, false);
         lockIcon.setPadding(dp(4), 0, dp(6), 0);
@@ -219,19 +224,32 @@ final class PerfOverlayView extends LinearLayout {
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
         setPadding(dp(12), dp(6), dp(12), dp(6));
+        titleView = new LTextView(c);
+        titleView.setSingleLine(true);
+        titleView.setIncludeFontPadding(false);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        titleView.setLetterSpacing(0.08f);
+        titleView.setPadding(dp(9), dp(3), dp(9), dp(3));
+        titleView.setText(presetName());
+        stylePresetChip();
+        addView(titleView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         stripText = new LTextView(c);
         stripText.setSingleLine(true);
         stripText.setIncludeFontPadding(false);
         stripText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
         stripText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        addView(stripText, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        textLp.leftMargin = dp(8);
+        addView(stripText, textLp);
     }
 
     private void renderStrip(PerfStats s) {
         if (stripText == null) return;
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
-        appendSpan(b, presetName() + "  ", presetColor());
+        refreshPresetChip();
         if (s == null) {
             appendSpan(b, "waiting for data", 0x99FFFFFF);
             stripText.setText(b);
@@ -240,7 +258,6 @@ final class PerfOverlayView extends LinearLayout {
         Prefs p = new Prefs(getContext());
         boolean any = false;
         if (p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()) {
-            stripSep(b);
             appendSpan(b, "CPU ", MUTED);
             if (p.perfCpuTemp()) {
                 appendSpan(b, fmtTemp(s.cpuTempC) + " ", s.cpuTempC > 0f
@@ -258,7 +275,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()) {
-            stripSep(b);
+            if (any) stripSep(b);
             appendSpan(b, "GPU ", MUTED);
             if (p.perfGpuTemp()) {
                 appendSpan(b, fmtTemp(s.gpuTempC) + " ", s.gpuTempC > 0f
@@ -275,7 +292,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfNet()) {
-            stripSep(b);
+            if (any) stripSep(b);
             appendSpan(b, "NET ", MUTED);
             appendSpan(b, (s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps)
                     + " \u2193 " + SysStats.fmtRate(s.netRxBps)
@@ -283,7 +300,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfRam()) {
-            stripSep(b);
+            if (any) stripSep(b);
             appendSpan(b, "RAM ", MUTED);
             if (s.memTotalKb > 0) {
                 int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
@@ -296,7 +313,7 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfBattery()) {
-            stripSep(b);
+            if (any) stripSep(b);
             appendSpan(b, "BATT ", MUTED);
             appendSpan(b, fmtTemp(s.batteryTempC) + " ", s.batteryTempC > 0f
                     ? heat((s.batteryTempC - 30f) / 40f) : 0x55FFFFFF);
@@ -305,14 +322,14 @@ final class PerfOverlayView extends LinearLayout {
             any = true;
         }
         if (p.perfFps()) {
-            stripSep(b);
+            if (any) stripSep(b);
             appendSpan(b, "FPS ", MUTED);
             appendSpan(b, (s.fpsValid ? String.valueOf(s.fps) : "\u2014") + "  ",
                     s.fpsValid ? fpsColor(s.fps) : 0x99FFFFFF);
             any = true;
         }
         if (p.perfBattery() && s.battery >= 0) {
-            stripSep(b);
+            if (any) stripSep(b);
             appendSpan(b, "\u00b7 " + s.battery + "%", batteryColor(s.battery));
         }
         if (!any) appendSpan(b, "no metrics selected", 0x99FFFFFF);
@@ -348,15 +365,27 @@ final class PerfOverlayView extends LinearLayout {
         return presetLabel;
     }
 
+    private void stylePresetChip() {
+        if (titleView == null) return;
+        int color = presetColor();
+        int fill = (0x1F << 24) | (color & 0x00FFFFFF);
+        int stroke = (0xA6 << 24) | (color & 0x00FFFFFF);
+        titleView.setTextColor(color);
+        titleView.setBackground(Ui.rounded(fill, dp(9), stroke, dp(1)));
+    }
+
+    private void refreshPresetChip() {
+        if (titleView == null) return;
+        String label = presetName();
+        if (!label.contentEquals(titleView.getText())) {
+            titleView.setText(label);
+            stylePresetChip();
+        }
+    }
+
     /** True when a panel-local point lands on the preset title. */
     boolean hitPresetLabel(float x, float y) {
         if (x < 0f || y < 0f || x > getWidth() || y > getHeight()) return false;
-        if (horizontal) {
-            if (stripText == null) return false;
-            float width = stripText.getPaint().measureText(presetName());
-            float left = getPaddingLeft();
-            return x >= left - dp(4) && x <= left + width + dp(10);
-        }
         if (titleView == null) return false;
         float tx = titleView.getLeft();
         float ty = titleView.getTop();
@@ -430,13 +459,7 @@ final class PerfOverlayView extends LinearLayout {
     }
 
     void update(PerfStats s) {
-        if (titleView != null) {
-            String label = presetName();
-            if (!label.contentEquals(titleView.getText())) {
-                titleView.setText(label);
-                titleView.setTextColor(presetColor());
-            }
-        }
+        refreshPresetChip();
         if (horizontal) {
             lastStats = s;
             renderStrip(s);
