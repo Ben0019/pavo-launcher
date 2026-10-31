@@ -281,7 +281,6 @@ final class PerfOverlayView extends LinearLayout {
             if (s.memTotalKb > 0) {
                 int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
                 float usedGb = Math.max(0f, (s.memTotalKb - s.memAvailKb) / 1_000_000f);
-                appendSpan(b, s.memPercent + " ", heat(s.memPercent / 100f));
                 appendSpan(b, String.format(Locale.US, "%.1f/%dG", usedGb, totalGb) + "  ",
                         0xB3FFFFFF);
             } else {
@@ -406,11 +405,12 @@ final class PerfOverlayView extends LinearLayout {
         if (s.memTotalKb > 0) {
             int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
             float usedGb = Math.max(0f, (s.memTotalKb - s.memAvailKb) / 1_000_000f);
-            setValue(ramUsage, s.memPercent + "%", heat(s.memPercent / 100f));
+            // No percentage: the used/total figure is the whole reading.
+            ramUsage.setVisibility(GONE);
             setValue(ramAmount, String.format(Locale.US, "%.1f/%dG", usedGb, totalGb),
                     0xB3FFFFFF);
         } else {
-            setValue(ramUsage, "\u2014", 0x55FFFFFF);
+            ramUsage.setVisibility(GONE);
             setValue(ramAmount, "\u2014", 0x55FFFFFF);
         }
 
