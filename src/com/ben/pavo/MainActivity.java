@@ -12801,6 +12801,21 @@ public final class MainActivity extends Activity {
         }
     }
 
+    /** Keep the ring on the tile that was just applied after a list refresh. */
+    private static void refocusWallpaperTile(final GridView grid, final int position) {
+        if (grid == null || position < 0) return;
+        grid.postDelayed(new Runnable() {
+            @Override public void run() {
+                int child = position - grid.getFirstVisiblePosition();
+                if (child < 0) child = 0;
+                if (child >= grid.getChildCount()) return;
+                View v = grid.getChildAt(child);
+                if (v == null) return;
+                if (!v.requestFocus()) v.requestFocusFromTouch();
+            }
+        }, 80L);
+    }
+
     private void activateWallpaperItem(Object item) {
         if (item instanceof LiveWallpaper) {
             openLiveWallpaper(((LiveWallpaper) item).component);
@@ -12989,6 +13004,9 @@ public final class MainActivity extends Activity {
         card.setScrimAlpha(0xC4);
         card.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 16), Ui.dp(this, 14));
         card.setClickable(true);
+        // Keep the sheet itself out of the focus order so the ring lands on a
+        // wallpaper tile instead of the container after a list refresh.
+        card.setFocusable(false);
         int cw = Math.min(getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 32), Ui.dp(this, 720));
         int ch = Math.min(getResources().getDisplayMetrics().heightPixels - Ui.dp(this, 32), Ui.dp(this, 620));
         root.addView(card, new FrameLayout.LayoutParams(cw, ch, Gravity.CENTER));
@@ -13173,6 +13191,7 @@ public final class MainActivity extends Activity {
                     @Override public void onClick(View v) {
                         activateWallpaperItem(item);
                         refreshItems.run();
+                        refocusWallpaperTile(grid, tilePos);
                     }
                 });
 
@@ -13250,6 +13269,7 @@ public final class MainActivity extends Activity {
                                     && Math.hypot(dx, dy) < Ui.dp(MainActivity.this, 12)) {
                                 activateWallpaperItem(selectedItem);
                                 refreshItems.run();
+                                refocusWallpaperTile(grid, position);
                             }
                             return true;
                         case MotionEvent.ACTION_CANCEL:
@@ -13269,6 +13289,7 @@ public final class MainActivity extends Activity {
             Object item = items.get(position);
             activateWallpaperItem(item);
             refreshItems.run();
+            refocusWallpaperTile(grid, position);
         });
         card.addView(grid, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));

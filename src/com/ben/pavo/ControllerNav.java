@@ -204,7 +204,7 @@ final class ControllerNav {
 
     private void focusView(View view) {
         if (view == null) return;
-        view.requestFocus();
+        if (!view.requestFocus()) view.requestFocusFromTouch();
         view.post(new Runnable() {
             @Override public void run() {
                 if (view.isFocused()) {
