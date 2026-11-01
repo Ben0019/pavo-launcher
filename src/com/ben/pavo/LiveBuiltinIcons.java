@@ -25,6 +25,7 @@ final class LiveBuiltinIcons {
     static final String SCREEN_RECORDER = "com.ben.pavo.screenrecorder";
     static final String OVERLAY = "com.ben.pavo.overlay";
     static final String FTP = "com.ben.pavo.ftp";
+    static final String UPDATES = "com.ben.pavo.updates";
 
     private LiveBuiltinIcons() {}
 
@@ -35,7 +36,7 @@ final class LiveBuiltinIcons {
                 || TOUCH.equals(pkg) || HEALTH.equals(pkg)
                 || BENCHMARK.equals(pkg) || FILE_MANAGER.equals(pkg)
                 || SCREEN_RECORDER.equals(pkg) || OVERLAY.equals(pkg)
-                || FTP.equals(pkg);
+                || FTP.equals(pkg) || UPDATES.equals(pkg);
     }
 
     static long duration(String pkg) {
@@ -51,6 +52,7 @@ final class LiveBuiltinIcons {
         if (HEALTH.equals(pkg)) return 3000L;
         if (OVERLAY.equals(pkg)) return 4200L;
         if (FTP.equals(pkg)) return 3000L;
+        if (UPDATES.equals(pkg)) return 3400L;
         return 2400L;
     }
 
@@ -83,7 +85,59 @@ final class LiveBuiltinIcons {
             drawOverlay(c, size, accent, phase);
         } else if (FTP.equals(pkg)) {
             drawFtp(c, size, accent, phase);
+        } else if (UPDATES.equals(pkg)) {
+            drawUpdates(c, size, accent, phase);
         }
+        if (UPDATES.equals(pkg) && Updater.isUpdateAvailable()) {
+            drawUpdateBadge(c, size, phase);
+        }
+    }
+
+    /** Pulsing red badge in the icon's top-right corner when an update exists. */
+    private static void drawUpdateBadge(Canvas c, int size, float phase) {
+        float pulse = (float) (0.5 + 0.5 * Math.sin(phase * Math.PI * 2.0));
+        float cx = size * 0.80f;
+        float cy = size * 0.20f;
+        float radius = size * 0.075f * (0.9f + 0.25f * pulse);
+        Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
+        glow.setColor(0xFFFF3B30);
+        glow.setAlpha((int) (0x50 + 0x60 * pulse));
+        c.drawCircle(cx, cy, radius * 1.9f, glow);
+        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dot.setColor(0xFFFF3B30);
+        dot.setAlpha((int) (0xC0 + 0x3F * pulse));
+        c.drawCircle(cx, cy, radius, dot);
+        Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
+        rim.setStyle(Paint.Style.STROKE);
+        rim.setStrokeWidth(Math.max(1f, size * 0.012f));
+        rim.setColor(0x66FFFFFF);
+        c.drawCircle(cx, cy, radius, rim);
+    }
+
+    /** Pavo Updates: the refresh arrow turns once per cycle. */
+    private static void drawUpdates(Canvas c, int size, int accent, float phase) {
+        float cx = size * 0.5f;
+        float cy = size * 0.52f;
+        float radius = size * 0.25f;
+        c.save();
+        c.rotate(phase * 360f, cx, cy);
+        Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        stroke.setColor(accent);
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeWidth(Math.max(1.6f, size * 0.045f));
+        stroke.setStrokeCap(Paint.Cap.ROUND);
+        RectF arc = new RectF(cx - radius, cy - radius, cx + radius, cy + radius);
+        c.drawArc(arc, 205f, 285f, false, stroke);
+        stroke.setStyle(Paint.Style.FILL);
+        float ax = cx + radius * (float) Math.cos(Math.toRadians(-50f));
+        float ay = cy + radius * (float) Math.sin(Math.toRadians(-50f));
+        Path head = new Path();
+        head.moveTo(ax + size * 0.10f, ay - size * 0.01f);
+        head.lineTo(ax - size * 0.07f, ay - size * 0.07f);
+        head.lineTo(ax - size * 0.02f, ay + size * 0.07f);
+        head.close();
+        c.drawPath(head, stroke);
+        c.restore();
     }
 
     /**

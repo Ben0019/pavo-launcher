@@ -289,6 +289,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
         if (isFinishing()) return;
         current = check;
         newer = available;
+        Updater.setAvailable(this, available, check == null ? null : check.tag);
         if (check == null) {
             statusView.setText("Could not reach GitHub");
             statusView.setTextColor(AMBER);

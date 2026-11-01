@@ -1069,6 +1069,7 @@ public final class MainActivity extends Activity {
         }
         installDefaultPrefs();
         prefs = new Prefs(this);
+        Updater.refreshState(this);
         Updater.checkDaily(this);
         if (getIntent() != null
                 && getIntent().getBooleanExtra("pavo_check_updates", false)) {

@@ -38,10 +38,41 @@ final class Updater {
     private static final String KEY_LAST_CHECK = "last_check";
     // Interval is user-selectable (2-24 h); see Prefs.updateCheckHours().
     private static final String CHANNEL = "aurora_update";
+    private static final String KEY_AVAILABLE = "available";
+    private static final String KEY_TAG = "tag";
+
+    private static volatile boolean available;
 
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
 
     private Updater() {}
+
+    /** True when the last check found a newer release; drives the icon badge. */
+    static boolean isUpdateAvailable() {
+        return available;
+    }
+
+    /** Restore the badge state from prefs without touching the network. */
+    static void refreshState(Context context) {
+        Context app = context.getApplicationContext();
+        SharedPreferences sp = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String tag = sp.getString(KEY_TAG, null);
+        if (tag == null || tag.isEmpty()) {
+            available = false;
+            return;
+        }
+        available = compare(tag.replaceFirst("^v", ""), versionName(app)) > 0;
+    }
+
+    static void setAvailable(Context context, boolean on, String tag) {
+        available = on;
+        Context app = context.getApplicationContext();
+        SharedPreferences sp = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        SharedPreferences.Editor e = sp.edit().putBoolean(KEY_AVAILABLE, on);
+        if (tag == null) e.remove(KEY_TAG);
+        else e.putString(KEY_TAG, tag);
+        e.apply();
+    }
 
     static final class Check {
         String tag;
@@ -64,7 +95,9 @@ final class Updater {
                         toast(app, "Could not read the latest release");
                         return;
                     }
-                    if (!isNewer(app, check)) {
+                    boolean fresh = isNewer(app, check);
+                    setAvailable(app, fresh, check.tag);
+                    if (!fresh) {
                         toast(app, "Pavo is up to date (" + versionName(app) + ")");
                         return;
                     }
@@ -96,7 +129,9 @@ final class Updater {
             public void run() {
                 try {
                     Check check = latest();
-                    if (check != null && isNewer(app, check)) notifyAvailable(app, check);
+                    boolean fresh = check != null && isNewer(app, check);
+                    if (check != null) setAvailable(app, fresh, check.tag);
+                    if (fresh) notifyAvailable(app, check);
                 } catch (Throwable ignored) {
                 }
             }
