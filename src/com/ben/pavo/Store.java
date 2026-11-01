@@ -76,69 +76,92 @@ final class Store {
     }
 
     void load() {
-        pages.clear();
-        dock.clear();
-        widgets.clear();
-        customs.clear();
-
-        try {
-            String raw = prefs.layoutJson();
-            if (raw != null && !raw.isEmpty()) {
-                JSONObject root = new JSONObject(raw);
-                JSONArray ps = root.optJSONArray("pages");
-                if (ps != null) {
-                    for (int i = 0; i < ps.length(); i++) {
-                        JSONArray arr = ps.getJSONArray(i);
-                        List<Item> page = new ArrayList<>();
-                        for (int j = 0; j < arr.length(); j++) {
-                            Object v = arr.get(j);
-                            page.add(v == JSONObject.NULL ? null : Item.fromJson((JSONObject) v));
-                        }
-                        pages.add(page);
-                    }
-                }
-                JSONArray dk = root.optJSONArray("dock");
-                if (dk != null) {
-                    for (int i = 0; i < dk.length(); i++) {
-                        Object v = dk.get(i);
-                        if (v != JSONObject.NULL) dock.add(Item.fromJson((JSONObject) v));
-                    }
-                }
-                JSONArray ws = root.optJSONArray("widgets");
-                if (ws != null) {
-                    for (int i = 0; i < ws.length(); i++) {
-                        JSONObject o = ws.optJSONObject(i);
-                        if (o != null) {
-                            PlacedWidget w = PlacedWidget.fromJson(o);
-                            if (w.appWidgetId >= 0 || w.kind != null) widgets.add(w);
-                        }
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
+        boolean ok = parseLayout(prefs.layoutJson());
+        if (!ok) {
+            String backup = prefs.layoutBackup();
+            ok = parseLayout(backup);
+            if (ok && backup != null) prefs.setLayoutJson(backup);
         }
         if (pages.isEmpty()) pages.add(new ArrayList<>());
 
+        boolean customOk = parseCustoms(prefs.customJson());
+        if (!customOk) {
+            String backup = prefs.customBackup();
+            if (parseCustoms(backup) && backup != null) prefs.setCustomJson(backup);
+        }
+    }
+
+    private boolean parseLayout(String raw) {
+        pages.clear();
+        dock.clear();
+        widgets.clear();
+        if (raw == null || raw.isEmpty()) return false;
         try {
-            String raw = prefs.customJson();
-            if (raw != null && !raw.isEmpty()) {
-                JSONObject root = new JSONObject(raw);
-                for (Iterator<String> it = root.keys(); it.hasNext(); ) {
-                    String k = it.next();
-                    JSONObject o = root.optJSONObject(k);
-                    if (o == null) continue;
-                    Custom c = new Custom();
-                    c.label = o.isNull("l") ? null : o.optString("l", null);
-                    c.iconFile = o.isNull("i") ? null : o.optString("i", null);
-                    customs.put(k, c);
+            JSONObject root = new JSONObject(raw);
+            JSONArray ps = root.optJSONArray("pages");
+            if (ps == null) return false;
+            for (int i = 0; i < ps.length(); i++) {
+                JSONArray arr = ps.getJSONArray(i);
+                List<Item> page = new ArrayList<>();
+                for (int j = 0; j < arr.length(); j++) {
+                    Object v = arr.get(j);
+                    page.add(v == JSONObject.NULL ? null : Item.fromJson((JSONObject) v));
+                }
+                pages.add(page);
+            }
+            JSONArray dk = root.optJSONArray("dock");
+            if (dk != null) {
+                for (int i = 0; i < dk.length(); i++) {
+                    Object v = dk.get(i);
+                    if (v != JSONObject.NULL) dock.add(Item.fromJson((JSONObject) v));
                 }
             }
+            JSONArray ws = root.optJSONArray("widgets");
+            if (ws != null) {
+                for (int i = 0; i < ws.length(); i++) {
+                    JSONObject o = ws.optJSONObject(i);
+                    if (o != null) {
+                        PlacedWidget w = PlacedWidget.fromJson(o);
+                        if (w.appWidgetId >= 0 || w.kind != null) widgets.add(w);
+                    }
+                }
+            }
+            return true;
         } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean parseCustoms(String raw) {
+        customs.clear();
+        if (raw == null || raw.isEmpty()) return false;
+        try {
+            JSONObject root = new JSONObject(raw);
+            for (Iterator<String> it = root.keys(); it.hasNext(); ) {
+                String k = it.next();
+                JSONObject o = root.optJSONObject(k);
+                if (o == null) continue;
+                Custom c = new Custom();
+                c.label = o.isNull("l") ? null : o.optString("l", null);
+                c.iconFile = o.isNull("i") ? null : o.optString("i", null);
+                customs.put(k, c);
+            }
+            return true;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 
     void save() {
         try {
+            String previousLayout = prefs.layoutJson();
+            if (previousLayout != null && !previousLayout.isEmpty()) {
+                prefs.setLayoutBackup(previousLayout);
+            }
+            String previousCustom = prefs.customJson();
+            if (previousCustom != null && !previousCustom.isEmpty()) {
+                prefs.setCustomBackup(previousCustom);
+            }
             JSONObject root = new JSONObject();
             JSONArray ps = new JSONArray();
             for (List<Item> page : pages) {

@@ -564,6 +564,7 @@ final class Prefs {
 
     // --- layout data ---
     String layoutJson() { return sp.getString("layout", null); }
+    String layoutBackup() { return sp.getString("layout_backup", null); }
     String customJson() { return sp.getString("custom", null); }
 
     // --- setters ---
@@ -676,8 +677,11 @@ final class Prefs {
     void setIconPack(String v) {
         sp.edit().putString("icon_pack", v == null ? "" : v).apply();
     }
-    void setLayoutJson(String v) { sp.edit().putString("layout", v).apply(); }
-    void setCustomJson(String v) { sp.edit().putString("custom", v).apply(); }
+    void setLayoutJson(String v) { sp.edit().putString("layout", v).commit(); }
+    void setLayoutBackup(String v) { sp.edit().putString("layout_backup", v).commit(); }
+    void setCustomJson(String v) { sp.edit().putString("custom", v).commit(); }
+    String customBackup() { return sp.getString("custom_backup", null); }
+    void setCustomBackup(String v) { sp.edit().putString("custom_backup", v).commit(); }
 
     /** Reset style only; keeps the user's layout and customisations. */
     void resetStyle() {
