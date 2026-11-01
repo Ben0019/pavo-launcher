@@ -119,6 +119,16 @@ final class PerfTuner {
         return new float[]{s.cpuTemp, s.gpuTemp};
     }
 
+    /**
+     * Same as {@link #readTemperatures()} but includes every CPU junction
+     * sensor. The filtered sensor reads tens of degrees below the real die
+     * under load on the Odin 3, which made the fan curve think a 100 °C chip
+     * was idling at 35 °C.
+     */
+    static float[] readTemperaturesRaw() {
+        return new float[]{ThermalSensors.cpuTempRaw(), ThermalSensors.gpuTemp()};
+    }
+
     static State readStateForHold(Context context) {
         State s = new State();
         readCpus(s);

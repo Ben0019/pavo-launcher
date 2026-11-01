@@ -30,6 +30,7 @@ public final class FanCurveService extends Service {
     private String lastCurve = "";
     private final FanCurveController controller = new FanCurveController();
     private boolean manualHeld;
+    private boolean modeNormalized;
     private long startedAt;
 
     static void start(Context c) {
@@ -95,6 +96,7 @@ public final class FanCurveService extends Service {
         startedAt = SystemClock.uptimeMillis();
         lastDuty = -1;
         manualHeld = false;
+        modeNormalized = false;
         lastCurve = "";
         controller.reset();
         if (handler != null) {
@@ -116,7 +118,15 @@ public final class FanCurveService extends Service {
                 stopSelf();
                 return;
             }
-            float[] temps = PerfTuner.readTemperatures();
+            if (!modeNormalized) {
+                modeNormalized = true;
+                // Leave the firmware on a sane preset. Our duty writes below
+                // override its curve and cancel its loop; if this service is
+                // ever reclaimed, the vendor curve keeps the blower running
+                // instead of leaving it at whatever the last mode was.
+                PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
+            }
+            float[] temps = PerfTuner.readTemperaturesRaw();
             float hal = FanCurve.sourceTemp(temps[0], temps[1], prefs.fanTempSource());
             float temp = Math.max(hal, 0f);
             boolean warmup = SystemClock.uptimeMillis() - startedAt < 3000L;
@@ -135,40 +145,36 @@ public final class FanCurveService extends Service {
                 // the next tick; keep the fan where it is and ease from there.
                 controller.seed(PerfTuner.fanPercent(FanCurveService.this));
             }
-            int duty = controller.next(curve, temp, SystemClock.uptimeMillis(),
-                    smart || high);
+            // High is a hard maximum: do not ease into it or let the curve
+            // controller round it down.
+            int duty = high ? 100
+                    : controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
             if (warmup) duty = -1;  // start silently, keep the current speed
             if (duty >= 0) {
                 lastDuty = duty;
-                // Take manual control once, then move only the duty. Rewriting
-                // fan_mode every 1.5 s made the firmware's fan daemon re-notify
-                // its quick-settings tile constantly, and a bad transient mode
-                // in that stream crashes SystemUI.
-                // Ride the firmware's SMART mode. Taking manual mode makes its
-                // daemon flip 4<->6 every few seconds; each flip lets its own
-                // curve write a different speed, which is the audible up/down.
-                boolean modeHeld = PerfTuner.fanMode(FanCurveService.this)
-                        == PerfTuner.FAN_SMART;
-                if (manualHeld && modeHeld) {
-                    PerfTuner.setFanDuty(duty);
-                } else {
-                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
-                    PerfTuner.setFanDuty(duty);
-                    manualHeld = true;
+                // The vendor provider cancels its own four second curve and
+                // writes the duty node directly, so the requested duty holds
+                // without the 4<->6 mode fight that made the fan step audibly.
+                if (!VendorFan.setPercent(duty)) {
+                    // Fallback for builds without the provider: take manual
+                    // control once, then move only the duty.
+                    if (manualHeld) {
+                        PerfTuner.setFanDuty(duty);
+                    } else {
+                        PerfTuner.setFanManual(duty);
+                        manualHeld = true;
+                    }
                 }
-            } else if (!warmup && PerfTuner.fanManualDrifted(FanCurveService.this,
-                    controller.applied())) {
-                // The game panel or a preset switched the fan away from the
+            } else if (!warmup && manualHeld
+                    && PerfTuner.fanManualDrifted(FanCurveService.this,
+                            controller.applied())) {
+                // A preset or the game panel moved the fan away from the
                 // curve; re-assert it instead of waiting for the temperature.
-                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_SMART) {
-                    PerfTuner.setFanDuty(controller.applied());
-                } else {
-                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
-                    PerfTuner.setFanDuty(controller.applied());
-                    manualHeld = true;
+                if (!VendorFan.setPercent(controller.applied())) {
+                    PerfTuner.setFanManual(controller.applied());
                 }
             }
-            handler.postDelayed(this, smart || high ? 500L : 1500L);
+            handler.postDelayed(this, smart || high ? 750L : 1500L);
         }
     };
 

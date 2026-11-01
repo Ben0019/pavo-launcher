@@ -107,7 +107,9 @@ public final class FanActivity extends PavoGlassActivity {
             worker.execute(new Runnable() {
                 @Override
                 public void run() {
-                    PerfTuner.setFanManual(percent);
+                    if (!VendorFan.setPercent(percent)) {
+                        PerfTuner.setFanManual(percent);
+                    }
                 }
             });
         }
@@ -128,25 +130,24 @@ public final class FanActivity extends PavoGlassActivity {
             worker.execute(new Runnable() {
                 @Override
                 public void run() {
-                    float[] temps = PerfTuner.readTemperatures();
+                    float[] temps = PerfTuner.readTemperaturesRaw();
                     float temp = FanCurve.sourceTemp(temps[0], temps[1],
                             new Prefs(FanActivity.this).fanTempSource());
                     if (temp <= 0f) temp = 40f;
                     int duty = curveController.next(currentCurve, temp,
                             SystemClock.uptimeMillis());
                     if (duty >= 0) {
-                        if (curveManualHeld) PerfTuner.setFanDuty(duty);
-                        else {
-                            PerfTuner.setFanManual(duty);
-                            curveManualHeld = true;
+                        if (!VendorFan.setPercent(duty)) {
+                            if (curveManualHeld) PerfTuner.setFanDuty(duty);
+                            else {
+                                PerfTuner.setFanManual(duty);
+                                curveManualHeld = true;
+                            }
                         }
-                    } else if (PerfTuner.fanManualDrifted(
+                    } else if (curveManualHeld && PerfTuner.fanManualDrifted(
                             FanActivity.this, curveController.applied())) {
-                        if (PerfTuner.fanMode(FanActivity.this) == PerfTuner.FAN_MANUAL) {
-                            PerfTuner.setFanDuty(curveController.applied());
-                        } else {
+                        if (!VendorFan.setPercent(curveController.applied())) {
                             PerfTuner.setFanManual(curveController.applied());
-                            curveManualHeld = true;
                         }
                     }
                 }
@@ -787,7 +788,9 @@ public final class FanActivity extends PavoGlassActivity {
             @Override
             public void run() {
                 if (target == PerfTuner.FAN_MANUAL) {
-                    PerfTuner.setFanManual(percent);
+                    if (!VendorFan.setPercent(percent)) {
+                        PerfTuner.setFanManual(percent);
+                    }
                 } else {
                     PerfTuner.setFanMode(FanActivity.this, target);
                 }
