@@ -67,7 +67,7 @@ public final class PerfTuneService extends Service {
     static void start(Context context) {
         Intent intent = new Intent(context, PerfTuneService.class);
         if (Build.VERSION.SDK_INT >= 26) {
-            context.startService(intent);
+            context.startForegroundService(intent);
         } else {
             context.startService(intent);
         }
@@ -92,8 +92,8 @@ public final class PerfTuneService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // Satisfy startService() before any early stop below.
-        
+        // Satisfy startForegroundService() before any early stop below.
+        startForeground(NOTIFICATION_ID, notification(false, false));
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             new Prefs(this).setPerfHoldEnabled(false);
             stopSelf();

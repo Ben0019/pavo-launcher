@@ -217,7 +217,7 @@ public final class PavoInputService extends Service {
         if (!shouldRun(c)) return;
         try {
             Intent intent = new Intent(c, PavoInputService.class);
-            if (Build.VERSION.SDK_INT >= 26) c.startService(intent);
+            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(intent);
             else c.startService(intent);
         } catch (Throwable ignored) {
         }
@@ -343,7 +343,7 @@ public final class PavoInputService extends Service {
         running = true;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         createChannel();
-        
+        startForeground(NOTIFICATION_ID, buildNotification("Controller shortcuts starting"));
         if (!TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()
                 && !TouchMapService.isMapperEnabledForForeground(this)) {

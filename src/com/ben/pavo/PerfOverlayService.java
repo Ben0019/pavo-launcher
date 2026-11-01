@@ -239,7 +239,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         if (!Settings.canDrawOverlays(c)) return;
         Intent i = new Intent(c, PerfOverlayService.class);
         try {
-            if (Build.VERSION.SDK_INT >= 26) c.startService(i);
+            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i);
             else c.startService(i);
         } catch (Throwable ignored) {
         }
@@ -914,7 +914,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         dragSlop = Math.max(Ui.dp(uiContext, 3), touchSlop * 0.3f);
 
         createChannel();
-        
+        startForeground(NOTIFICATION_ID, buildNotification());
 
         if (!Settings.canDrawOverlays(this) || !prefs.perfOverlay()) {
             prefs.setPerfOverlay(false);
