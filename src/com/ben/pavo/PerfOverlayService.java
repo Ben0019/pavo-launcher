@@ -1318,6 +1318,17 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 scheduleOverlayDim();
                 main.removeCallbacks(longPress);
                 main.removeCallbacks(tapAction);
+                // A pinch keeps easing after the fingers lift. Stop it here so
+                // an immediate drag is not overridden by the settling ticker.
+                if (scaleTickerRunning) {
+                    main.removeCallbacks(scaleTicker);
+                    scaleTickerRunning = false;
+                    targetScale = scale;
+                    if (scaleSettleSave) {
+                        scaleSettleSave = false;
+                        saveGeometry();
+                    }
+                }
                 downRawX = e.getRawX();
                 downRawY = e.getRawY();
                 downX = params.x;
