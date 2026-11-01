@@ -1323,6 +1323,7 @@ public final class MainActivity extends Activity {
         handler.removeCallbacks(endQuiet);
         handler.postDelayed(endQuiet, 900L);
         syncPinnedShortcuts();
+        Updater.checkDaily(this);
         if (Loc.applyLocale(this)) {
             recreate();
             return;
@@ -15398,6 +15399,51 @@ public final class MainActivity extends Activity {
         updateHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         updateHint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 4));
         panel.addView(updateHint);
+
+        LinearLayout updateRow = new LinearLayout(this);
+        updateRow.setOrientation(LinearLayout.HORIZONTAL);
+        updateRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView updateLabel = new LTextView(this);
+        updateLabel.setText("Check every");
+        updateLabel.setTextColor(0xE6FFFFFF);
+        updateLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        updateRow.addView(updateLabel, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        final TextView updateValue = new LTextView(this);
+        updateValue.setText(prefs.updateCheckHours() + " h");
+        updateValue.setTextColor(0x8CFFFFFF);
+        updateValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        updateValue.setTypeface(Typeface.MONOSPACE);
+        updateValue.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        updateValue.setMinWidth(Ui.dp(this, 46));
+        updateRow.addView(updateValue);
+        panel.addView(updateRow);
+        SeekBar updateBar = new SeekBar(this);
+        updateBar.setMax(22);
+        updateBar.setProgress(prefs.updateCheckHours() - 2);
+        updateBar.setProgressTintList(ColorStateList.valueOf(0xFF69D98B));
+        updateBar.setThumbTintList(ColorStateList.valueOf(0xFF69D98B));
+        updateBar.setProgressBackgroundTintList(ColorStateList.valueOf(0x33FFFFFF));
+        updateBar.setPadding(Ui.dp(this, 2), Ui.dp(this, 2), Ui.dp(this, 2), 0);
+        updateBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                updateValue.setText((progress + 2) + " h");
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar bar) {
+                Haptics.key(bar);
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar bar) {
+                Haptics.click(bar);
+                prefs.setUpdateCheckHours(bar.getProgress() + 2);
+            }
+        });
+        panel.addView(updateBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 28)));
 
         panel.use("Language");
         addSection(panel, "Language");

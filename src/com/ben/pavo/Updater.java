@@ -36,7 +36,7 @@ final class Updater {
     private static final String ASSET = "Pavo.apk";
     private static final String PREFS = "pavo_update";
     private static final String KEY_LAST_CHECK = "last_check";
-    private static final long CHECK_EVERY_MS = 24L * 60L * 60L * 1000L;
+    // Interval is user-selectable (2-24 h); see Prefs.updateCheckHours().
     private static final String CHANNEL = "aurora_update";
 
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
@@ -87,7 +87,8 @@ final class Updater {
         final Context app = context.getApplicationContext();
         SharedPreferences sp = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         long last = sp.getLong(KEY_LAST_CHECK, 0L);
-        if (System.currentTimeMillis() - last < CHECK_EVERY_MS) return;
+        long every = new Prefs(app).updateCheckHours() * 60L * 60L * 1000L;
+        if (System.currentTimeMillis() - last < every) return;
         sp.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
         IO.execute(new Runnable() {
             @Override
