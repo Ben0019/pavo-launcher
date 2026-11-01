@@ -102,6 +102,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private boolean running;
     private boolean sampling;
+    private PerfStats lastSample;
     private int touchSlop;
 
     private float downRawX, downRawY;
@@ -217,6 +218,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                             @Override
                             public void run() {
                                 sampling = false;
+                                lastSample = stats;
                                 updateSession(stats);
                                 if (running && panel != null) {
                                     panel.update(stats);
@@ -1117,6 +1119,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel = new PerfOverlayView(uiContext);
         overlayLocked = prefs.perfOverlayLocked();
         panel.applyPrefs(prefs);
+        // Show the stats we already have instead of an empty card until the
+        // next sample lands (mode switches rebuild the panel from scratch).
+        if (lastSample != null) panel.update(lastSample);
         panel.setLocked(overlayLocked);
         panel.setPanelAlpha(prefs.perfOverlayAlpha());
         panel.setPivotX(0f);
