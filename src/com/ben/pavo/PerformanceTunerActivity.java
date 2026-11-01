@@ -355,6 +355,23 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     // UI construction
     // ------------------------------------------------------------------
 
+    /** 4:3 panels cannot fit the wide card text-for-text; scale it down instead of reflowing. */
+    private void shrinkForFourThree(final FrameLayout root) {
+        int w = getResources().getDisplayMetrics().widthPixels;
+        int h = getResources().getDisplayMetrics().heightPixels;
+        if (w <= 0 || h <= 0 || w / (float) h >= 1.5f) return;
+        root.post(new Runnable() {
+            @Override public void run() {
+                float s = Math.max(0.78f,
+                        getResources().getDisplayMetrics().widthPixels / 1600f);
+                root.setPivotX(root.getWidth() / 2f);
+                root.setPivotY(root.getHeight() / 2f);
+                root.setScaleX(s);
+                root.setScaleY(s);
+            }
+        });
+    }
+
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
         rootView = root;
@@ -455,6 +472,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
+        shrinkForFourThree(root);
         updateHoldChip();
     }
 

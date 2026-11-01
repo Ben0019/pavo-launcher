@@ -215,6 +215,24 @@ public final class UpdatesActivity extends PavoGlassActivity {
 
         setupControllerNav();
         setContentView(root);
+        shrinkForFourThree(root);
+    }
+
+    /** Scale the card down on 4:3 panels instead of rearranging it. */
+    private void shrinkForFourThree(final View root) {
+        int w = getResources().getDisplayMetrics().widthPixels;
+        int h = getResources().getDisplayMetrics().heightPixels;
+        if (w <= 0 || h <= 0 || w / (float) h >= 1.5f) return;
+        root.post(new Runnable() {
+            @Override public void run() {
+                float s = Math.max(0.78f,
+                        getResources().getDisplayMetrics().widthPixels / 1600f);
+                root.setPivotX(root.getWidth() / 2f);
+                root.setPivotY(root.getHeight() / 2f);
+                root.setScaleX(s);
+                root.setScaleY(s);
+            }
+        });
     }
 
     private View buildHeader() {
