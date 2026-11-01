@@ -1054,7 +1054,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 .setContentTitle(Loc.s(this, "Pavo performance overlay"))
                 .setContentText(Loc.s(this, "CPU, GPU, FPS and battery live above other apps"))
                 .setContentIntent(openIntent)
-                .setOngoing(true)
+                .setOngoing(true).setGroup("pavo_services")
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopIntent);

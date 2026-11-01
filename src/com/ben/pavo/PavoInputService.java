@@ -1332,8 +1332,8 @@ public final class PavoInputService extends Service {
                 .setContentTitle(Loc.s(this, "Pavo controller"))
                 .setContentText(Loc.s(this, text))
                 .setContentIntent(pending)
-                .setOngoing(true)
-                .setShowWhen(false)
+                .setOngoing(true).setGroup("pavo_services")
+                .setShowWhen(false).setGroup("pavo_services")
                 .setPriority(Notification.PRIORITY_MIN)
                 .build();
     }

@@ -280,8 +280,8 @@ public final class PerAppTuneService extends Service {
                 .setContentTitle(Loc.s(this, "Per-app performance"))
                 .setContentText(Loc.s(this, text))
                 .setContentIntent(content)
-                .setOngoing(true)
-                .setShowWhen(false)
+                .setOngoing(true).setGroup("pavo_services")
+                .setShowWhen(false).setGroup("pavo_services")
                 .setPriority(Notification.PRIORITY_MIN)
                 .build();
     }

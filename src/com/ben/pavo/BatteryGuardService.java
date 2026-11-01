@@ -212,7 +212,7 @@ public final class BatteryGuardService extends Service {
                 .setContentTitle(Loc.s(this, title))
                 .setContentText(Loc.s(this, text))
                 .setContentIntent(pi)
-                .setOngoing(true)
+                .setOngoing(true).setGroup("pavo_services")
                 .setCategory(Notification.CATEGORY_SERVICE);
         return b.build();
     }

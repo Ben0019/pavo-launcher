@@ -374,7 +374,7 @@ public final class PerfTuneService extends Service {
                         ? Loc.s(this, "Letting the Odin cool down; stock limits restored.")
                         : Loc.s(this, "Maintaining your CPU and GPU clock caps."))
                 .setContentIntent(content)
-                .setOngoing(true)
+                .setOngoing(true).setGroup("pavo_services")
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .addAction(new Notification.Action.Builder(
                         android.graphics.drawable.Icon.createWithResource(

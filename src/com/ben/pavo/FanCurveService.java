@@ -176,7 +176,7 @@ public final class FanCurveService extends Service {
                 .setContentTitle(Loc.s(this, "Pavo fan curve"))
                 .setContentText(Loc.s(this, "Temperature-based fan control is active"))
                 .setContentIntent(open)
-                .setOngoing(true)
+                .setOngoing(true).setGroup("pavo_services")
                 .setOnlyAlertOnce(true)
                 .addAction(new Notification.Action.Builder(
                         Icon.createWithResource(this, R.drawable.ic_perf),
