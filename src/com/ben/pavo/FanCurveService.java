@@ -134,9 +134,9 @@ public final class FanCurveService extends Service {
             if (duty >= 0) {
                 lastDuty = duty;
                 // Take manual control once, then move only the duty. Rewriting
-                // fan_mode while the firmware's fan daemon is awake makes it
-                // re-notify its tile, and fighting it back every second is heard
-                // as the blower stepping up and down.
+                // fan_mode every 1.5 s made the firmware's fan daemon re-notify
+                // its quick-settings tile constantly, and a bad transient mode
+                // in that stream crashes SystemUI.
                 if (manualHeld) PerfTuner.setFanDuty(duty);
                 else {
                     PerfTuner.setFanManual(duty);

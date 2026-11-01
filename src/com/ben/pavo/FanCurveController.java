@@ -21,8 +21,6 @@ final class FanCurveController {
     static final float RELEASE_SEC = 8f;
     /** Target changes below this many percentage points are not worth a write. */
     static final int DEADBAND = 3;
-    /** Recomputed duty is only accepted once the filtered temp leaves this band. */
-    static final float TEMP_DEADBAND = 2.5f;
     /** Downward slew limit, percentage points per second. */
     static final float FALL_LIMIT = 6f;
     /** Upward slew limit, percentage points per second. */
@@ -32,14 +30,12 @@ final class FanCurveController {
     private boolean seeded;
     private float filtered;
     private int applied = -1;
-    private float anchorTemp = Float.NaN;
     private long lastMs;
     private final float[] window = new float[3];
     private int samples;
 
     void reset() {
         primed = false;
-        anchorTemp = Float.NaN;
         filtered = 0f;
         applied = -1;
         lastMs = 0L;
@@ -113,21 +109,7 @@ final class FanCurveController {
         int target = FanCurve.dutyAt(curve, filtered);
         if (applied < 0) {
             applied = target;
-            anchorTemp = filtered;
             return applied;
-        }
-        // Hold the current speed until the heat actually moves: a couple of
-        // degrees of sensor noise used to keep nudging the duty, which is heard
-        // as the blower wandering even when the curve is flat. Only hold once the
-        // speed has caught up with the curve, otherwise a pending ramp would
-        // freeze half way.
-        if (applied == target) {
-            if (!Float.isNaN(anchorTemp)
-                    && Math.abs(filtered - anchorTemp) < TEMP_DEADBAND) {
-                return -1;
-            }
-            anchorTemp = filtered;
-            return -1;
         }
         int delta = target - applied;
         if (Math.abs(delta) < DEADBAND && !(responsive && delta > 0)) return -1;
