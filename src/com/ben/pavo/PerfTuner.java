@@ -432,23 +432,24 @@ final class PerfTuner {
 
     /** Current fan duty as a percentage, or -1 when it cannot be read. */
     static int fanPercent(android.content.Context context) {
-        // Prefer the commanded value in the fan settings: on this device the
-        // "pwm" class node that looks like a fan controller is the display
-        // backlight (gpio5_pwm2), so reading it reported whatever the panel
-        // brightness was - seeding the curve from it dropped the fan to ~12%.
-        int raw = fanSpeed(context);
         DeviceProfile p = profile();
         int period = p.fanPeriod > 0 ? p.fanPeriod : 50000;
-        if (raw >= 0) {
-            return Math.max(0, Math.min(100, Math.round(raw * 100f / period)));
-        }
+        // The duty node is the real blower drive. The fan_speed setting is only
+        // the last value written through the settings path and goes stale while
+        // the vendor provider drives the fan directly, which made the curve
+        // seed from a stale 100% and the live graph disagree with the fan.
         if (p.fanDir != null && !p.fanDir.isEmpty()) {
             int duty = readInt(p.fanDir + "/duty");
             int nodePeriod = readInt(p.fanDir + "/period");
             if (nodePeriod <= 0) nodePeriod = period;
             if (duty >= 0 && nodePeriod > 0) {
-                return Math.max(0, Math.min(100, Math.round(duty * 100f / nodePeriod)));
+                return Math.max(0, Math.min(100,
+                        Math.round(duty * 100f / nodePeriod)));
             }
+        }
+        int raw = fanSpeed(context);
+        if (raw >= 0) {
+            return Math.max(0, Math.min(100, Math.round(raw * 100f / period)));
         }
         return -1;
     }

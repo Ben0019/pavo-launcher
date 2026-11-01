@@ -19,6 +19,7 @@ final class FanEngine {
     private static HandlerThread thread;
     private static Handler handler;
     private static volatile boolean running;
+    private static volatile float controlTemp;
 
     private static int lastDuty = -1;
     private static String lastCurve = "";
@@ -33,6 +34,11 @@ final class FanEngine {
         return running;
     }
 
+    /** Temperature the controller is actually following (after damping). */
+    static float controlTemp() {
+        return controlTemp;
+    }
+
     static void start(Context c) {
         if (c == null) return;
         synchronized (LOCK) {
@@ -43,6 +49,7 @@ final class FanEngine {
                 handler = new Handler(thread.getLooper());
             }
             running = true;
+            controlTemp = 0f;
             startedAt = SystemClock.uptimeMillis();
             lastDuty = -1;
             manualHeld = false;
@@ -62,6 +69,7 @@ final class FanEngine {
         Context context = c;
         synchronized (LOCK) {
             running = false;
+            controlTemp = 0f;
             if (handler != null) handler.removeCallbacks(tick);
         }
         final Context target = context != null ? context.getApplicationContext() : app;
@@ -112,6 +120,7 @@ final class FanEngine {
             // High is a hard maximum: do not ease into it.
             int duty = high ? 100
                     : controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
+            controlTemp = controller.filteredTemp();
             if (warmup) duty = -1;
             if (duty >= 0) {
                 lastDuty = duty;

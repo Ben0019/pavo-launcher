@@ -1423,10 +1423,16 @@ public final class FanActivity extends PavoGlassActivity {
         boolean estimated = measuredRpm <= 0 && fanRunning && actualDuty > 0;
         int displayRpm = measuredRpm > 0 ? measuredRpm
                 : (fanRunning ? PerfTuner.estimatedRpm(actualDuty) : 0);
-        // Follow the selected source so the graph marker and the TEMP stat match
-        // what the controller is actually using.
-        float temp = FanCurve.sourceTemp(state.cpuTemp, state.gpuTemp,
-                prefs.fanTempSource());
+        // Follow the controller's damped temperature so the graph marker,
+        // the curve and the live fan speed agree. The raw junction sensors
+        // jump tens of degrees in a second; plotting them made the fan look
+        // disconnected from the curve.
+        float temp = FanEngine.controlTemp();
+        if (temp <= 0f) temp = curveController.filteredTemp();
+        if (temp <= 0f) {
+            temp = FanCurve.sourceTemp(state.cpuTemp, state.gpuTemp,
+                    prefs.fanTempSource());
+        }
         if (temp > 0) currentTemp = temp;
         backView.setTelemetry(displayRpm, actualDuty, state.cpuTemp, state.gpuTemp);
         if (displayRpm > 0) {
@@ -1438,7 +1444,7 @@ public final class FanActivity extends PavoGlassActivity {
             rpmValue.setContentDescription(fanRunning ? "Fan stopped" : "Fan speed unavailable");
         }
         dutyValue.setText(actualDuty + "%");
-        tempValue.setText(state.cpuTemp > 0 ? Math.round(state.cpuTemp) + "°" : "—");
+        tempValue.setText(temp > 0 ? Math.round(temp) + "°" : "—");
         if (gpuValue != null) {
             gpuValue.setText(state.gpuTemp > 0 ? Math.round(state.gpuTemp) + "°" : "—");
             gpuValue.setTextColor(state.gpuTemp > 0
