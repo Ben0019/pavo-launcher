@@ -1067,6 +1067,12 @@ public final class MainActivity extends Activity {
         }
         installDefaultPrefs();
         prefs = new Prefs(this);
+        Updater.checkDaily(this);
+        if (getIntent() != null
+                && getIntent().getBooleanExtra("pavo_check_updates", false)) {
+            getIntent().removeExtra("pavo_check_updates");
+            Updater.checkAndInstall(this);
+        }
         ThemeColors.initialize(this);
         Loc.applyLocale(this);
         store = new Store(this, prefs);
@@ -1113,6 +1119,10 @@ public final class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (intent != null && intent.getBooleanExtra("pavo_check_updates", false)) {
+            intent.removeExtra("pavo_check_updates");
+            Updater.checkAndInstall(this);
+        }
         setIntent(intent);
         handleShortcutIntent(intent);
     }
@@ -15369,6 +15379,26 @@ public final class MainActivity extends Activity {
         backupNote.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 4));
         panel.addView(backupNote);
 
+        panel.use("Updates");
+        addSection(panel, "Updates");
+        TextView updateButton = new LTextView(this);
+        updateButton.setText("Check for updates");
+        styleTextButton(updateButton, false);
+        updateButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Haptics.click(v);
+                Updater.checkAndInstall(MainActivity.this);
+            }
+        });
+        panel.addView(updateButton);
+        TextView updateHint = new LTextView(this);
+        updateHint.setText("Downloads the latest Pavo release from github.com/Ben0019/pavo-launcher. Silent on PServer, otherwise the system installer asks.");
+        updateHint.setTextColor(0x66FFFFFF);
+        updateHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        updateHint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 4));
+        panel.addView(updateHint);
+
         panel.use("Language");
         addSection(panel, "Language");
         TextView languageButton = new LTextView(this);
@@ -15399,6 +15429,7 @@ public final class MainActivity extends Activity {
                 {"Feedback", "Feedback & haptics"},
                 {"Widgets", "Clock, weather & status"},
                 {"Backup", "Backup & restore"},
+                {"Updates", "App updates"},
                 {"Language", "Language"}
         };
         for (String[] category : settingsSections) {
