@@ -60,7 +60,7 @@ public final class FanCurveService extends Service {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm != null && Build.VERSION.SDK_INT >= 26) {
             NotificationChannel ch = new NotificationChannel(CHANNEL, Loc.s(this, "Fan curve"),
-                    NotificationManager.IMPORTANCE_LOW);
+                    NotificationManager.IMPORTANCE_MIN);
             ch.setDescription("Temperature-based fan curve");
             ch.setShowBadge(false);
             nm.createNotificationChannel(ch);

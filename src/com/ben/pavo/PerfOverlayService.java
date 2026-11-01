@@ -1033,7 +1033,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
         NotificationChannel ch = new NotificationChannel(CHANNEL_ID, Loc.s(this, "Performance overlay"),
-                NotificationManager.IMPORTANCE_LOW);
+                NotificationManager.IMPORTANCE_MIN);
         ch.setDescription("Live CPU, GPU, FPS and battery stats above other apps");
         ch.setShowBadge(false);
         nm.createNotificationChannel(ch);

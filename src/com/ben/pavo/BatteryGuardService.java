@@ -196,7 +196,7 @@ public final class BatteryGuardService extends Service {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
         NotificationChannel ch = new NotificationChannel(CHANNEL,
-                "Device health guard", NotificationManager.IMPORTANCE_LOW);
+                "Device health guard", NotificationManager.IMPORTANCE_MIN);
         ch.setDescription("Automatic charge separation at the configured battery level");
         ch.setShowBadge(false);
         nm.createNotificationChannel(ch);

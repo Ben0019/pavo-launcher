@@ -388,7 +388,7 @@ public final class PerfTuneService extends Service {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
         NotificationChannel channel = new NotificationChannel(CHANNEL,
-                "Performance hold", NotificationManager.IMPORTANCE_LOW);
+                "Performance hold", NotificationManager.IMPORTANCE_MIN);
         channel.setDescription("Keeps Pavo's CPU and GPU clock caps applied.");
         channel.setShowBadge(false);
         nm.createNotificationChannel(channel);
