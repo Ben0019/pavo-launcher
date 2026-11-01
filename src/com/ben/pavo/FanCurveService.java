@@ -71,8 +71,8 @@ public final class FanCurveService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : ACTION_START;
         Prefs prefs = new Prefs(this);
-        // Satisfy startForegroundService() before any early stop below.
-        startForeground(NOTIFICATION_ID, notification(prefs));
+        // Satisfy startService() before any early stop below.
+        
         if (ACTION_STOP.equals(action)) {
             stopForeground(true);
             stopSelf();

@@ -53,7 +53,7 @@ public final class PerAppTuneService extends Service {
         if (context == null) return;
         try {
             Intent intent = new Intent(context, PerAppTuneService.class);
-            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
+            if (Build.VERSION.SDK_INT >= 26) context.startService(intent);
             else context.startService(intent);
         } catch (Throwable ignored) {
         }
@@ -96,11 +96,11 @@ public final class PerAppTuneService extends Service {
             return START_NOT_STICKY;
         }
         if (!store.hasOverrides()) {
-            startForeground(NOTIFICATION_ID, notification("Global tuner settings"));
+            
             stopSelf();
             return START_NOT_STICKY;
         }
-        startForeground(NOTIFICATION_ID, notification("Watching foreground apps"));
+        
         if (tunerVisible) return START_STICKY;
         if (intent != null && ACTION_REFRESH.equals(intent.getAction())) {
             lastAppliedKey = "";
