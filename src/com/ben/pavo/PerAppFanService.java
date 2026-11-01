@@ -51,8 +51,7 @@ public final class PerAppFanService extends Service {
         if (context == null) return;
         try {
             Intent intent = new Intent(context, PerAppFanService.class);
-            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
-            else context.startService(intent);
+            ServiceNotifications.start(context, intent);
         } catch (Throwable ignored) {
         }
     }
@@ -94,12 +93,18 @@ public final class PerAppFanService extends Service {
             return START_NOT_STICKY;
         }
         if (!store.hasOverrides()) {
-            startForeground(NOTIFICATION_ID, notification("Global fan profile"));
+            if (!ServiceNotifications.hosted()) {
+                startForeground(NOTIFICATION_ID, notification("Global fan profile"));
+                ServiceNotifications.hideLater(this);
+            }
             applyGlobalOnce();
             stopSelf();
             return START_NOT_STICKY;
         }
-        startForeground(NOTIFICATION_ID, notification("Watching foreground apps"));
+        if (!ServiceNotifications.hosted()) {
+            startForeground(NOTIFICATION_ID, notification("Watching foreground apps"));
+            ServiceNotifications.hideLater(this);
+        }
         if (tunerVisible) return START_STICKY;
         if (intent != null && ACTION_REFRESH.equals(intent.getAction())) {
             lastKey = "";
@@ -266,7 +271,7 @@ public final class PerAppFanService extends Service {
         if (text.equals(lastNotificationText)) return;
         lastNotificationText = text;
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (nm != null) nm.notify(NOTIFICATION_ID, notification(text));
+        ServiceNotifications.update(this, NOTIFICATION_ID, notification(text));
     }
 
     private Notification notification(String text) {

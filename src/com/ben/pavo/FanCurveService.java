@@ -23,6 +23,10 @@ public final class FanCurveService extends Service {
     private static final String CHANNEL = "aurora_fan_curve";
     private static final int NOTIFICATION_ID = 202;
 
+    private static volatile boolean active;
+
+    static boolean isActive() { return active; }
+
     private HandlerThread thread;
     private Handler handler;
     private volatile boolean running;
@@ -54,6 +58,7 @@ public final class FanCurveService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        active = true;
         running = true;
         thread = new HandlerThread("PavoFanCurve");
         thread.start();
@@ -200,6 +205,7 @@ public final class FanCurveService extends Service {
 
     @Override
     public void onDestroy() {
+        active = false;
         running = false;
         if (handler != null) handler.removeCallbacksAndMessages(null);
         if (thread != null) thread.quitSafely();

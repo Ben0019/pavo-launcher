@@ -35,8 +35,7 @@ public final class BatteryGuardService extends Service {
         if (c == null) return;
         try {
             Intent i = new Intent(c, BatteryGuardService.class);
-            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i);
-            else c.startService(i);
+            ServiceNotifications.start(c, i);
         } catch (Throwable ignored) {
         }
     }
@@ -75,13 +74,16 @@ public final class BatteryGuardService extends Service {
         // startForegroundService() requires startForeground() even when the
         // guard has nothing to do; stopping first makes Android kill the app
         // five seconds later.
-        startForeground(NOTIFICATION_ID, notification(
-                idle ? "Charge guard" : target < 0 ? "Charge speed" : store.limitEnabled()
-                        && (target == store.limitPercent() || !store.autoSeparation())
-                        ? "Charge limit" : "Automatic charge separation",
-                idle ? "Nothing to do" : target < 0
-                        ? "Limited to " + (store.speedMa() / 100f) + " A"
-                        : "Waiting for " + target + "%"));
+        if (!ServiceNotifications.hosted()) {
+            startForeground(NOTIFICATION_ID, notification(
+                    idle ? "Charge guard" : target < 0 ? "Charge speed" : store.limitEnabled()
+                            && (target == store.limitPercent() || !store.autoSeparation())
+                            ? "Charge limit" : "Automatic charge separation",
+                    idle ? "Nothing to do" : target < 0
+                            ? "Limited to " + (store.speedMa() / 100f) + " A"
+                            : "Waiting for " + target + "%"));
+            ServiceNotifications.hideLater(this);
+        }
         if (idle) {
             stopForeground(true);
             stopSelf();
@@ -184,7 +186,7 @@ public final class BatteryGuardService extends Service {
         if (value.equals(lastText)) return;
         lastText = value;
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (nm != null) nm.notify(NOTIFICATION_ID, notification(title, text));
+        ServiceNotifications.update(this, NOTIFICATION_ID, notification(title, text));
     }
 
     private void notifyIfChanged() {

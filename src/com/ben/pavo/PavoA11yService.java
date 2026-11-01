@@ -45,6 +45,10 @@ public final class PavoA11yService extends AccessibilityService {
     private android.content.Context uiContext;
 
     private static PavoA11yService instance;
+    private static volatile boolean connected;
+
+    /** True while the system has this accessibility service bound. */
+    static boolean isConnected() { return connected; }
     private boolean touchMotionRequested;
     private boolean drawerMotionRequested;
     private static volatile boolean drawerOverlayVisible;
@@ -690,7 +694,17 @@ public final class PavoA11yService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        connected = true;
         uiContext = Ui.adaptiveContext(this);
+        // Host the fan loop here: an accessibility binding keeps the process
+        // alive without a foreground service or a persistent notification.
+        Prefs fanPrefs = new Prefs(this);
+        int fanMode = fanPrefs.fanAppMode();
+        if (fanMode == FanActivity.MODE_CURVE || fanMode == PerfTuner.FAN_SMART
+                || fanMode == PerfTuner.FAN_HIGH) {
+            FanControl.start(this);
+        }
+        ServiceNotifications.cancelPersistent(this);
         main.removeCallbacks(profileSync);
         main.postDelayed(profileSync, 1200L);
         if (!new Prefs(this).rootlessRemap()) PavoInputService.ensureStarted(this);
@@ -962,6 +976,8 @@ public final class PavoA11yService extends AccessibilityService {
         drawerMappedDown = null;
         drawerLongFired = false;
         keyHandler.removeCallbacks(drawerLongPress);
+        connected = false;
+        FanControl.stop(this);
         instance = null;
         return super.onUnbind(intent);
     }
@@ -977,6 +993,8 @@ public final class PavoA11yService extends AccessibilityService {
         drawerMappedDown = null;
         drawerLongFired = false;
         keyHandler.removeCallbacks(drawerLongPress);
+        connected = false;
+        FanControl.stop(this);
         instance = null;
         super.onDestroy();
     }

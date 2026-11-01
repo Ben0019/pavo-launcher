@@ -1390,7 +1390,7 @@ public final class MainActivity extends Activity {
                 || prefs.fanAppMode() == PerfTuner.FAN_SMART) {
             // Smart is driven by our own controller too, so it needs the service
             // running from the first launch, not only after Fan Control is opened.
-            FanCurveService.start(this);
+            FanControl.start(this);
         }
         // The charge guard lives in a service as well; re-arm it here so an
         // update or a process kill never lets the pack charge past the limit.

@@ -217,8 +217,7 @@ public final class PavoInputService extends Service {
         if (!shouldRun(c)) return;
         try {
             Intent intent = new Intent(c, PavoInputService.class);
-            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(intent);
-            else c.startService(intent);
+            ServiceNotifications.start(c, intent);
         } catch (Throwable ignored) {
         }
     }
@@ -343,7 +342,10 @@ public final class PavoInputService extends Service {
         running = true;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         createChannel();
-        startForeground(NOTIFICATION_ID, buildNotification("Controller shortcuts starting"));
+        if (!ServiceNotifications.hosted()) {
+            startForeground(NOTIFICATION_ID, buildNotification("Controller shortcuts starting"));
+            ServiceNotifications.hideLater(this);
+        }
         if (!TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()
                 && !TouchMapService.isMapperEnabledForForeground(this)) {
@@ -1341,7 +1343,7 @@ public final class PavoInputService extends Service {
     private void updateNotification(String text) {
         try {
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (nm != null) nm.notify(NOTIFICATION_ID, buildNotification(text));
+            ServiceNotifications.update(this, NOTIFICATION_ID, buildNotification(text));
         } catch (Throwable ignored) {
         }
     }

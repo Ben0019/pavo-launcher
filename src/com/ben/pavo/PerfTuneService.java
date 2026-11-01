@@ -66,11 +66,7 @@ public final class PerfTuneService extends Service {
 
     static void start(Context context) {
         Intent intent = new Intent(context, PerfTuneService.class);
-        if (Build.VERSION.SDK_INT >= 26) {
-            context.startForegroundService(intent);
-        } else {
-            context.startService(intent);
-        }
+        ServiceNotifications.start(context, intent);
     }
 
     static void stop(Context context) {
@@ -93,7 +89,10 @@ public final class PerfTuneService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // Satisfy startForegroundService() before any early stop below.
-        startForeground(NOTIFICATION_ID, notification(false, false));
+        if (!ServiceNotifications.hosted()) {
+            startForeground(NOTIFICATION_ID, notification(false, false));
+            ServiceNotifications.hideLater(this);
+        }
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             new Prefs(this).setPerfHoldEnabled(false);
             stopSelf();
@@ -164,7 +163,8 @@ public final class PerfTuneService extends Service {
                                 NotificationManager nm = (NotificationManager)
                                         getSystemService(NOTIFICATION_SERVICE);
                                 if (nm != null) {
-                                    nm.notify(NOTIFICATION_ID, notification(hot, paused));
+                                    ServiceNotifications.update(PerfTuneService.this, NOTIFICATION_ID,
+                                            notification(hot, paused));
                                 }
                             }
                             schedule(hot || paused ? 1000L : 150L);

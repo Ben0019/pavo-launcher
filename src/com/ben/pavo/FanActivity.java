@@ -119,7 +119,7 @@ public final class FanActivity extends PavoGlassActivity {
         public void run() {
             if (mode != MODE_CURVE) return;
             if (profileStore != null && profileStore.hasOverrides()) startLocalCurve();
-            else FanCurveService.update(FanActivity.this);
+            else FanControl.update(FanActivity.this);
         }
     };
     private final Runnable localCurveTick = new Runnable() {
@@ -224,14 +224,14 @@ public final class FanActivity extends PavoGlassActivity {
         polling = true;
         main.post(poll);
         if (profileStore.hasOverrides()) {
-            FanCurveService.stop(this);
+            FanControl.stop(this);
             PerAppFanService.start(this);
             if (mode == MODE_CURVE) startLocalCurve(); else stopLocalCurve();
         } else {
             stopLocalCurve();
             if (PerAppFanService.isRunning()) PerAppFanService.stop(this);
-            if (managedFanMode()) FanCurveService.start(this);
-            else FanCurveService.stop(this);
+            if (managedFanMode()) FanControl.start(this);
+            else FanControl.stop(this);
         }
         main.postDelayed(new Runnable() {
             @Override
@@ -258,7 +258,7 @@ public final class FanActivity extends PavoGlassActivity {
         if (profileStore != null && profileStore.hasOverrides()) {
             PerAppFanService.refresh(this);
         } else if (managedFanMode()) {
-            FanCurveService.start(this);
+            FanControl.start(this);
         }
         super.onPause();
     }
@@ -777,11 +777,11 @@ public final class FanActivity extends PavoGlassActivity {
             if (profileStore.hasOverrides()) {
                 if (resumed && mode == MODE_CURVE) startLocalCurve();
             } else {
-                FanCurveService.start(this);
+                FanControl.start(this);
             }
             return;
         }
-        if (!profileStore.hasOverrides()) FanCurveService.stop(this);
+        if (!profileStore.hasOverrides()) FanControl.stop(this);
         final int target = mode;
         final int percent = manualPct;
         worker.execute(new Runnable() {
@@ -801,15 +801,15 @@ public final class FanActivity extends PavoGlassActivity {
     private void syncBackgroundServices() {
         if (profileStore == null) return;
         if (profileStore.hasOverrides()) {
-            FanCurveService.stop(this);
+            FanControl.stop(this);
             PerAppFanService.start(this);
             if (resumed && mode == MODE_CURVE) startLocalCurve();
             else stopLocalCurve();
         } else {
             if (PerAppFanService.isRunning()) PerAppFanService.stop(this);
             stopLocalCurve();
-            if (managedFanMode()) FanCurveService.start(this);
-            else FanCurveService.stop(this);
+            if (managedFanMode()) FanControl.start(this);
+            else FanControl.stop(this);
         }
     }
 
@@ -1045,7 +1045,7 @@ public final class FanActivity extends PavoGlassActivity {
                 fanSource = value;
                 styleSourceChips();
                 curveController.reset();
-                FanCurveService.update(FanActivity.this);
+                FanControl.update(FanActivity.this);
             }
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
