@@ -104,6 +104,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private boolean sampling;
     private PerfStats lastSample;
     private int touchSlop;
+    /** Lower threshold for starting a drag, so the panel answers the first few px. */
+    private float dragSlop;
 
     private float downRawX, downRawY;
     private int downX, downY;
@@ -159,7 +161,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 }
                 return;
             }
-            scale += diff * 0.24f;
+            scale += diff * 0.30f;
             applyScaleAt(scale, pinchCenterX, pinchCenterY);
             main.postDelayed(this, 16);
         }
@@ -207,7 +209,10 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                                 sampling = false;
                                 lastSample = stats;
                                 updateSession(stats);
-                                if (running && panel != null) {
+                                // Never re-lay-out the strip while a finger is
+                                // down; the measure + window update can stall
+                                // the first drag frame after a pinch.
+                                if (running && panel != null && !interacting) {
                                     panel.update(stats);
                                     if (panel.horizontal()) {
                                         // The strip's width follows its text; a
@@ -906,6 +911,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
+        dragSlop = Math.max(Ui.dp(uiContext, 3), touchSlop * 0.3f);
 
         createChannel();
         startForeground(NOTIFICATION_ID, buildNotification());
@@ -1376,7 +1382,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                             if (ratio > 0.98f && ratio < 1.02f) return true;
                             // A sub-linear response plus eased motion avoids the twitchy
                             // feel of directly mapping every raw touch delta to window size.
-                            float damped = (float) Math.pow(Math.max(0.01f, ratio), 0.60f);
+                            float exponent = scale < 0.9f ? 0.48f : 0.60f;
+                            float damped = (float) Math.pow(Math.max(0.01f, ratio), exponent);
                             targetScale = clampScale(pinchStartScale * damped);
                             if (!scaleTickerRunning) {
                                 scaleTickerRunning = true;
@@ -1388,7 +1395,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 }
                 float dx = e.getRawX() - downRawX;
                 float dy = e.getRawY() - downRawY;
-                if (Math.hypot(dx, dy) > touchSlop) {
+                if (Math.hypot(dx, dy) > dragSlop) {
                     moved = true;
                     tapCount = 0;
                     longPressed = false;
