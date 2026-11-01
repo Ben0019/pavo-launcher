@@ -241,6 +241,9 @@ public final class MainActivity extends Activity {
     private Runnable clockSingleTap;
     private float clockDownRawX, clockDownRawY;
     private int clockSpanCols = 2, clockSpanRows = 1;
+    private boolean gridMeasured;
+    private int lastPagerW;
+    private int lastPagerH;
     private int gridCols = 6, gridRows = 3;
     private Bitmap clockDragBitmap;
     private TextView batteryText;
@@ -1704,6 +1707,24 @@ public final class MainActivity extends Activity {
         updateHeaderStatus();
 
         pager = new Pager(this);
+        pager.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View v, int left, int top, int right, int bottom,
+                                       int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                int w = right - left;
+                int h = bottom - top;
+                if (w <= 0 || h <= 0) return;
+                if (w == lastPagerW && h == lastPagerH) return;
+                lastPagerW = w;
+                lastPagerH = h;
+                pager.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!isFinishing() && !isDestroyed()) renderHome();
+                    }
+                });
+            }
+        });
         pager.setAnimationStyle(prefs.pageAnimation());
         pager.setListener(new Pager.Listener() {
             @Override
@@ -2501,11 +2522,16 @@ public final class MainActivity extends Activity {
     private void renderHome() {
         updateGridSize();
         int cap = capacity();
-        computeClockSpan();
-        store.normalize(cap);
-        ensureFoldersHaveTwoApps();
-        ensureClockDoesNotOverlapWidgets();
-        ensureWidgetsClear();
+        // Before the pager is measured the fallback capacity can be smaller
+        // than the saved grid. Normalising then reflowed the user's pages and
+        // reset icon placements on every cold start.
+        if (gridMeasured) {
+            computeClockSpan();
+            store.normalize(cap);
+            ensureFoldersHaveTwoApps();
+            ensureClockDoesNotOverlapWidgets();
+            ensureWidgetsClear();
+        }
 
         if (clockBox != null && clockBox.getParent() instanceof ViewGroup) {
             ((ViewGroup) clockBox.getParent()).removeView(clockBox);
@@ -2618,6 +2644,7 @@ public final class MainActivity extends Activity {
     private void updateGridSize() {
         int pw = pager != null ? pager.getWidth() : 0;
         int ph = pager != null ? pager.getHeight() : 0;
+        gridMeasured = pw > 0 && ph > 0;
         DisplayMetrics dm = getResources().getDisplayMetrics();
         if (pw <= 0) pw = dm.widthPixels - Ui.dp(this, 60);
         if (ph <= 0) {
