@@ -71,16 +71,22 @@ public final class BatteryGuardService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (store == null) store = new DeviceHealthStore(this);
         int target = targetLevel(store);
-        if (target < 0 && store.speedMa() >= 2000) {
+        boolean idle = target < 0 && store.speedMa() >= 2000;
+        // startForegroundService() requires startForeground() even when the
+        // guard has nothing to do; stopping first makes Android kill the app
+        // five seconds later.
+        startForeground(NOTIFICATION_ID, notification(
+                idle ? "Charge guard" : target < 0 ? "Charge speed" : store.limitEnabled()
+                        && (target == store.limitPercent() || !store.autoSeparation())
+                        ? "Charge limit" : "Automatic charge separation",
+                idle ? "Nothing to do" : target < 0
+                        ? "Limited to " + (store.speedMa() / 100f) + " A"
+                        : "Waiting for " + target + "%"));
+        if (idle) {
+            stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
         }
-        startForeground(NOTIFICATION_ID, notification(
-                target < 0 ? "Charge speed" : store.limitEnabled()
-                        && (target == store.limitPercent() || !store.autoSeparation())
-                        ? "Charge limit" : "Automatic charge separation",
-                target < 0 ? "Limited to " + (store.speedMa() / 100f) + " A"
-                        : "Waiting for " + target + "%"));
         if (!polling) {
             polling = true;
             main.post(poll);

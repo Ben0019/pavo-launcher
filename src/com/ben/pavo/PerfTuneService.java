@@ -92,6 +92,8 @@ public final class PerfTuneService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        // Satisfy startForegroundService() before any early stop below.
+        startForeground(NOTIFICATION_ID, notification(false, false));
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             new Prefs(this).setPerfHoldEnabled(false);
             stopSelf();
@@ -103,13 +105,13 @@ public final class PerfTuneService extends Service {
         }
         Prefs prefs = new Prefs(this);
         if (!prefs.perfHoldEnabled()) {
+            stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
         }
         // A previous process may have died mid-pulse; never inherit a stuck boost.
         boostActive = false;
         PerfTuner.setSchedBoost(false);
-        startForeground(NOTIFICATION_ID, notification(false, false));
         io.execute(new Runnable() {
             @Override
             public void run() {
