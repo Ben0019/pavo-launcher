@@ -14,7 +14,7 @@ import android.widget.Toast;
  * ever displayed.
  */
 final class LToast {
-    private static final long SETTLE_MS = 700L;
+    private static final long SETTLE_MS = 900L;
     private static final Handler HANDLER = new Handler(Looper.getMainLooper());
 
     private static Context pendingContext;

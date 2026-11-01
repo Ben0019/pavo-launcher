@@ -142,7 +142,7 @@ public final class ScreenRecorderService extends Service {
                             main.post(new Runnable() {
                                 @Override public void run() {
                                     if (message != null && !message.isEmpty()) {
-                                        Toast.makeText(ScreenRecorderService.this, message,
+                                        LToast.makeText(ScreenRecorderService.this, message,
                                                 Toast.LENGTH_LONG).show();
                                     }
                                 }
@@ -307,7 +307,7 @@ public final class ScreenRecorderService extends Service {
         }
         if (overlay != null) overlay.update(paused, deviceAudioOn, micAudioOn, elapsedSeconds());
         updateNotification();
-        Toast.makeText(this, paused ? "Recording paused" : "Recording resumed",
+        LToast.makeText(this, paused ? "Recording paused" : "Recording resumed",
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -315,7 +315,7 @@ public final class ScreenRecorderService extends Service {
         deviceAudioOn = !deviceAudioOn;
         if (engine != null) engine.setDeviceAudioEnabled(deviceAudioOn);
         if (overlay != null) overlay.update(paused, deviceAudioOn, micAudioOn, elapsedSeconds());
-        Toast.makeText(this, deviceAudioOn ? "System audio recording on"
+        LToast.makeText(this, deviceAudioOn ? "System audio recording on"
                 : "System audio recording off", Toast.LENGTH_SHORT).show();
     }
 
@@ -323,7 +323,7 @@ public final class ScreenRecorderService extends Service {
         micAudioOn = !micAudioOn;
         if (engine != null) engine.setMicAudioEnabled(micAudioOn);
         if (overlay != null) overlay.update(paused, deviceAudioOn, micAudioOn, elapsedSeconds());
-        Toast.makeText(this, micAudioOn ? "Microphone recording on"
+        LToast.makeText(this, micAudioOn ? "Microphone recording on"
                 : "Microphone recording off", Toast.LENGTH_SHORT).show();
     }
 
@@ -354,10 +354,10 @@ public final class ScreenRecorderService extends Service {
                             MediaScannerConnection.scanFile(ScreenRecorderService.this,
                                     new String[]{file.getAbsolutePath()},
                                     new String[]{"image/png"}, null);
-                            Toast.makeText(ScreenRecorderService.this, "Screenshot saved",
+                            LToast.makeText(ScreenRecorderService.this, "Screenshot saved",
                                     Toast.LENGTH_SHORT).show();
                         } else {
-                            Toast.makeText(ScreenRecorderService.this,
+                            LToast.makeText(ScreenRecorderService.this,
                                     "Screenshot needs PServer/root", Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -376,7 +376,7 @@ public final class ScreenRecorderService extends Service {
         recording = false;
         saving = false;
         notificationText = "Recording failed";
-        Toast.makeText(this, lastError, Toast.LENGTH_LONG).show();
+        LToast.makeText(this, lastError, Toast.LENGTH_LONG).show();
         cleanup();
         stopSelf();
     }
@@ -418,10 +418,10 @@ public final class ScreenRecorderService extends Service {
                 main.post(new Runnable() {
                     @Override public void run() {
                         if (finalError != null) {
-                            Toast.makeText(ScreenRecorderService.this, finalError,
+                            LToast.makeText(ScreenRecorderService.this, finalError,
                                     Toast.LENGTH_LONG).show();
                         } else {
-                            Toast.makeText(ScreenRecorderService.this,
+                            LToast.makeText(ScreenRecorderService.this,
                                     "Recording saved", Toast.LENGTH_SHORT).show();
                         }
                         finishService();

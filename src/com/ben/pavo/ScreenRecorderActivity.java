@@ -1628,6 +1628,6 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
     }
 
     private void toast(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        LToast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 }
