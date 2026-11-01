@@ -712,20 +712,6 @@ public final class PavoA11yService extends AccessibilityService {
             @Override
             public void run() {
                 RgbService.reapply(app);
-                try {
-                    Thread.sleep(280L);
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-                RgbService.reapply(app);
-                try {
-                    Thread.sleep(620L);
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-                RgbService.reapply(app);
             }
         }, "PavoRgbWake").start();
     }

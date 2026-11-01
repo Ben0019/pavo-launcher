@@ -176,9 +176,13 @@ public final class RgbService extends Service {
             ambientTarget = 0;
             lastAmbientSample = 0L;
         }
-        RgbControl.setEnabled(left, right);
         previewActive = true;
-        if (modeChanged || startedAt == 0L) startedAt = SystemClock.uptimeMillis();
+        if (modeChanged || startedAt == 0L) {
+            // Only touch the enable when the service or mode actually changes.
+            // A redundant enable write during wake made the LEDs blink.
+            RgbControl.setEnabled(left, right);
+            startedAt = SystemClock.uptimeMillis();
+        }
         if (!foreground) {
             if (!ServiceNotifications.hosted()) {
                 startForeground(NOTIFICATION_ID, notification());
