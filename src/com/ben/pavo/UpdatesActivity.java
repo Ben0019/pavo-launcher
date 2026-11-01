@@ -110,7 +110,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
         scrollView.addView(content, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        statusView = text("Checking GitHub…", 11f, MUTED, false);
+        statusView = text(Loc.s(this, "Checking GitHub…"), 11f, MUTED, false);
         statusView.setPadding(0, dp(2), 0, dp(8));
         content.addView(statusView, wrap());
 
@@ -123,11 +123,11 @@ public final class UpdatesActivity extends PavoGlassActivity {
         interval.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams intervalLp = wrap();
         intervalLp.topMargin = dp(14);
-        TextView intervalLabel = text("AUTO CHECK EVERY", 8.5f, MUTED, false);
+        TextView intervalLabel = text(Loc.s(this, "AUTO CHECK EVERY"), 8.5f, MUTED, false);
         intervalLabel.setLetterSpacing(0.12f);
         interval.addView(intervalLabel, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        final TextView intervalValue = text(prefs.updateCheckHours() + " h", 10f, accent, true);
+        final TextView intervalValue = text(String.format(Loc.s(this, "%d h"), prefs.updateCheckHours()), 10f, accent, true);
         interval.addView(intervalValue);
         content.addView(interval, intervalLp);
 
@@ -143,7 +143,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
         intervalBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress,
                                                     boolean fromUser) {
-                intervalValue.setText((progress + 2) + " h");
+                intervalValue.setText(String.format(Loc.s(UpdatesActivity.this, "%d h"), progress + 2));
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {
                 Haptics.key(seekBar);
@@ -156,8 +156,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
         content.addView(intervalBar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(30)));
 
-        TextView hint = text("Updates come from github.com/Ben0019/pavo-launcher. "
-                + "Silent install on PServer, otherwise the system installer asks.",
+        TextView hint = text(Loc.s(this, "Updates come from github.com/Ben0019/pavo-launcher. Silent install on PServer, otherwise the system installer asks."),
                 9f, 0x66FFFFFF, false);
         hint.setPadding(0, dp(2), 0, dp(4));
         content.addView(hint, wrap());
@@ -165,7 +164,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         buttons.setGravity(Gravity.CENTER_VERTICAL);
-        checkButton = button("CHECK AGAIN", false);
+        checkButton = button(Loc.s(this, "CHECK AGAIN"), false);
         checkButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Haptics.click(v);
@@ -182,7 +181,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
                 android.content.res.ColorStateList.valueOf(0x33FFFFFF));
         downloadBar.setVisibility(View.GONE);
         buttons.addView(downloadBar, new LinearLayout.LayoutParams(0, dp(10), 1f));
-        cancelButton = button("CANCEL", false);
+        cancelButton = button(Loc.s(this, "CANCEL"), false);
         cancelButton.setVisibility(View.GONE);
         cancelButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -197,7 +196,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.6f);
         cancelLp.leftMargin = dp(8);
         buttons.addView(cancelButton, cancelLp);
-        installButton = button("INSTALL", true);
+        installButton = button(Loc.s(this, "INSTALL"), true);
         installButton.setVisibility(View.GONE);
         installButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -242,7 +241,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
 
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text("PAVO UPDATES", 12f, accent, false);
+        TextView title = text(Loc.s(this, "Pavo Updates").toUpperCase(java.util.Locale.getDefault()), 12f, accent, false);
         title.setLetterSpacing(0.15f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         TextView sub = text("APP UPDATES  ·  GITHUB.COM/BEN0019/PAVO-LAUNCHER",
@@ -343,29 +342,44 @@ public final class UpdatesActivity extends PavoGlassActivity {
         newer = available;
         Updater.setAvailable(this, available, check == null ? null : check.tag);
         if (check == null) {
-            statusView.setText("Could not reach GitHub");
+            statusView.setText(Loc.s(this, "Could not reach GitHub"));
             statusView.setTextColor(AMBER);
             notesView.setText("");
             return;
         }
         String tag = check.tag.replaceFirst("^v", "");
         if (available) {
-            statusView.setText("Update available: " + tag + " (you have "
-                    + versionName() + ")");
+            statusView.setText(String.format(Loc.s(this, "Update available: %s (you have %s)"), tag, versionName()));
             statusView.setTextColor(GREEN);
             installButton.setVisibility(View.VISIBLE);
         } else {
-            statusView.setText("You're up to date (" + versionName() + ")");
+            statusView.setText(String.format(Loc.s(this, "You're up to date (%s)"), versionName()));
             statusView.setTextColor(GREEN);
         }
-        notesView.setText(prettyNotes(check.body));
+        final String body = check.body == null ? "" : check.body;
+        notesView.setText(prettyNotes(body));
+        final String lang = Loc.languageCode(this);
+        if (lang != null && !lang.toLowerCase(java.util.Locale.US).startsWith("en")
+                && !body.trim().isEmpty()) {
+            worker.execute(new Runnable() {
+                @Override public void run() {
+                    final String translated = Updater.translate(body, lang);
+                    if (translated == null || translated.trim().isEmpty()) return;
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            if (!isFinishing()) notesView.setText(prettyNotes(translated));
+                        }
+                    });
+                }
+            });
+        }
     }
 
     private void install() {
         if (current == null || !newer) return;
         final Updater.Check check = current;
         downloadingTag = check.tag;
-        statusView.setText("Downloading " + check.tag + "…");
+        statusView.setText(String.format(Loc.s(this, "Downloading %s…"), check.tag));
         statusView.setTextColor(MUTED);
         installButton.setVisibility(View.GONE);
         checkButton.setVisibility(View.GONE);
@@ -399,7 +413,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
                     }
                     main.post(new Runnable() {
                         @Override public void run() {
-                            statusView.setText("Installing " + check.tag + "…");
+                            statusView.setText(String.format(Loc.s(UpdatesActivity.this, "Installing %s…"), check.tag));
                             statusView.setTextColor(MUTED);
                             downloadBar.setProgress(100);
                             cancelButton.setVisibility(View.GONE);
@@ -409,7 +423,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
                 } catch (Throwable t) {
                     main.post(new Runnable() {
                         @Override public void run() {
-                            statusView.setText("Update failed: " + t.getMessage());
+                            statusView.setText(String.format(Loc.s(UpdatesActivity.this, "Update failed: %s"), t.getMessage()));
                             statusView.setTextColor(AMBER);
                             restoreIdle();
                         }
@@ -439,8 +453,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
                 } else {
                     downloadBar.setIndeterminate(false);
                     downloadBar.setProgress(pct);
-                    statusView.setText("Downloading " + downloadingTag + " · " + pct
-                            + "% · " + fmtSpeed(speedBps));
+                    statusView.setText(String.format(Loc.s(UpdatesActivity.this, "Downloading %s · %d%% · %s"), downloadingTag, pct, fmtSpeed(speedBps)));
                 }
             }
         });
@@ -469,8 +482,8 @@ public final class UpdatesActivity extends PavoGlassActivity {
         return bps + " B/s";
     }
 
-    private static String prettyNotes(String body) {
-        if (body == null || body.trim().isEmpty()) return "No release notes.";
+    private String prettyNotes(String body) {
+        if (body == null || body.trim().isEmpty()) return Loc.s(this, "No release notes.");
         String text = body.replace("\r", "").trim();
         return text.replaceAll("(?m)^#{1,6}\\s*", "")
                 .replace("**", "")

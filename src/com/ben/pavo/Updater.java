@@ -87,32 +87,32 @@ final class Updater {
     /** Runs a check/install off the main thread; safe to call repeatedly. */
     static void checkAndInstall(final Context context) {
         final Context app = context.getApplicationContext();
-        LToast.makeText(app, "Checking GitHub for updates…", Toast.LENGTH_SHORT).show();
+        LToast.makeText(app, Loc.s(app, "Checking GitHub for updates…"), Toast.LENGTH_SHORT).show();
         IO.execute(new Runnable() {
             @Override
             public void run() {
                 try {
                     Check check = latest();
                     if (check == null) {
-                        toast(app, "Could not read the latest release");
+                        toast(app, Loc.s(app, "Could not read the latest release"));
                         return;
                     }
                     boolean fresh = isNewer(app, check);
                     setAvailable(app, fresh, check.tag);
                     if (!fresh) {
-                        toast(app, "Pavo is up to date (" + versionName(app) + ")");
+                        toast(app, String.format(Loc.s(app, "Pavo is up to date (%s)"), versionName(app)));
                         return;
                     }
-                    toast(app, "Downloading " + check.tag + "…");
+                    toast(app, String.format(Loc.s(app, "Downloading %s…"), check.tag));
                     File apk = download(app, check, null);
                     if (apk == null) {
-                        toast(app, "Download failed");
+                        toast(app, Loc.s(app, "Download failed"));
                         return;
                     }
-                    toast(app, "Installing " + check.tag + "…");
+                    toast(app, String.format(Loc.s(app, "Installing %s…"), check.tag));
                     install(app, apk);
                 } catch (Throwable t) {
-                    toast(app, "Update failed: " + t.getMessage());
+                    toast(app, String.format(Loc.s(app, "Update failed: %s"), t.getMessage()));
                 }
             }
         });
@@ -140,6 +140,36 @@ final class Updater {
         });
     }
 
+    /** Best-effort machine translation of the release notes. */
+    static String translate(String text, String lang) {
+        if (text == null || text.isEmpty() || lang == null || lang.isEmpty()) return null;
+        String code = lang.toLowerCase(java.util.Locale.US);
+        if (code.startsWith("en")) return null;
+        try {
+            String q = "client=dict-chrome-ex&sl=en&tl="
+                    + java.net.URLEncoder.encode(code, "UTF-8")
+                    + "&q=" + java.net.URLEncoder.encode(text, "UTF-8");
+            HttpURLConnection con = (HttpURLConnection) new URL(
+                    "https://clients5.google.com/translate_a/t?" + q).openConnection();
+            con.setConnectTimeout(12000);
+            con.setReadTimeout(25000);
+            con.setRequestProperty("User-Agent", "Pavo-Update");
+            if (con.getResponseCode() != 200) { con.disconnect(); return null; }
+            String raw = readAll(con.getInputStream());
+            con.disconnect();
+            Object parsed = new org.json.JSONTokener(raw).nextValue();
+            if (parsed instanceof JSONArray) {
+                JSONArray arr = (JSONArray) parsed;
+                if (arr.length() == 0) return null;
+                Object first = arr.get(0);
+                return first instanceof String ? (String) first : null;
+            }
+            return parsed instanceof String ? (String) parsed : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
     private static void notifyAvailable(Context context, Check check) {
         NotificationManager nm =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -159,8 +189,8 @@ final class Updater {
                 ? new Notification.Builder(context, CHANNEL)
                 : new Notification.Builder(context);
         b.setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Pavo " + check.tag.replaceFirst("^v", "") + " is available")
-                .setContentText("Tap to download and install")
+                .setContentTitle(String.format(Loc.s(context, "Pavo %s is available"), check.tag.replaceFirst("^v", "")))
+                .setContentText(Loc.s(context, "Tap to download and install"))
                 .setContentIntent(tap)
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true);
