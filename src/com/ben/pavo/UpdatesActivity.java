@@ -138,7 +138,8 @@ public final class UpdatesActivity extends PavoGlassActivity {
         intervalBar.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
         intervalBar.setProgressBackgroundTintList(
                 android.content.res.ColorStateList.valueOf(0x33FFFFFF));
-        intervalBar.setPadding(dp(2), dp(2), dp(2), 0);
+        // Keep the thumb inside the card at both ends of the track.
+        intervalBar.setPadding(dp(13), dp(2), dp(13), 0);
         intervalBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress,
                                                     boolean fromUser) {
