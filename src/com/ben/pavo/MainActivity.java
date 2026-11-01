@@ -157,6 +157,7 @@ public final class MainActivity extends Activity {
     private static final String DISPLAY_PKG = "com.ben.pavo.display";
     private static final String RGB_PKG = "com.ben.pavo.rgb";
     private static final String FAN_PKG = "com.ben.pavo.fan";
+    private static final String UPDATES_PKG = "com.ben.pavo.updates";
     private static final String OVERLAY_PKG = "com.ben.pavo.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.pavo.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
@@ -362,6 +363,7 @@ public final class MainActivity extends Activity {
     private Apps.Entry displayEntry;
     private Apps.Entry rgbEntry;
     private Apps.Entry fanEntry;
+    private Apps.Entry updatesEntry;
     private Apps.Entry overlayEntry;
     private Apps.Entry touchMapEntry;
     private Apps.Entry deviceHealthEntry;
@@ -2291,6 +2293,7 @@ public final class MainActivity extends Activity {
         if (DISPLAY_PKG.equals(pkg)) return displayEntry();
         if (RGB_PKG.equals(pkg)) return rgbEntry();
         if (FAN_PKG.equals(pkg)) return fanEntry();
+        if (UPDATES_PKG.equals(pkg)) return updatesEntry();
         if (OVERLAY_PKG.equals(pkg)) return overlayEntry();
         if (TOUCH_MAP_PKG.equals(pkg)) return touchMapEntry();
         if (DEVICE_HEALTH_PKG.equals(pkg)) return deviceHealthEntry();
@@ -2312,6 +2315,7 @@ public final class MainActivity extends Activity {
         return PERF_LOG_PKG.equals(pkg) || CONTROLLER_MAP_PKG.equals(pkg)
                 || PERF_TUNER_PKG.equals(pkg) || DISPLAY_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
+                || UPDATES_PKG.equals(pkg)
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
@@ -2361,6 +2365,16 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return rgbEntry;
+    }
+
+    private Apps.Entry updatesEntry() {
+        if (updatesEntry == null) {
+            updatesEntry = new Apps.Entry(Loc.s(MainActivity.this, "Pavo Updates"),
+                    UPDATES_PKG, "");
+            updatesEntry.icon = Apps.updateIcon(Ui.dp(this, 72),
+                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
+        }
+        return updatesEntry;
     }
 
     private Apps.Entry fanEntry() {
@@ -6540,6 +6554,10 @@ public final class MainActivity extends Activity {
             startBuiltIn(new Intent(this, FanActivity.class), source);
             return;
         }
+        if (UPDATES_PKG.equals(item.pkg)) {
+            startBuiltIn(new Intent(this, UpdatesActivity.class), source);
+            return;
+        }
         if (OVERLAY_PKG.equals(item.pkg)) {
             startBuiltIn(new Intent(this, OverlayActivity.class), source);
             return;
@@ -10699,6 +10717,12 @@ public final class MainActivity extends Activity {
                 drawerApps.add(fan);
             }
         }
+        Apps.Entry updates = updatesEntry();
+        if (q.isEmpty()
+                || updates.label.toLowerCase(Locale.getDefault()).contains(q)
+                || updates.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
+            drawerApps.add(updates);
+        }
         Apps.Entry touchMap = touchMapEntry();
         if (q.isEmpty()
                 || touchMap.label.toLowerCase(Locale.getDefault()).contains(q)
@@ -10860,6 +10884,11 @@ public final class MainActivity extends Activity {
             if (v.entry != null && FAN_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
                 startBuiltIn(new Intent(MainActivity.this, FanActivity.class), v);
+                return;
+            }
+            if (v.entry != null && UPDATES_PKG.equals(v.entry.pkg)) {
+                Haptics.click(v);
+                startBuiltIn(new Intent(MainActivity.this, UpdatesActivity.class), v);
                 return;
             }
             if (v.entry != null && TOUCH_MAP_PKG.equals(v.entry.pkg)) {

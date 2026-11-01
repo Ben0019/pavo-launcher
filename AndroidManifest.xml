@@ -257,6 +257,18 @@
             android:theme="@style/Theme.Pavo.Transparent" />
 
         <activity
+            android:name=".UpdatesActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Pavo Updates"
+            android:launchMode="singleTask"
+            android:screenOrientation="user"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.pavo.updates"
+            android:theme="@style/Theme.Pavo.Transparent" />
+
+        <activity
             android:name=".FanActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
             android:excludeFromRecents="true"

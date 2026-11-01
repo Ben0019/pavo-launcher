@@ -48,6 +48,7 @@ final class Updater {
         String name;
         String url;
         String digest;
+        String body;
     }
 
     /** Runs a check/install off the main thread; safe to call repeatedly. */
@@ -132,7 +133,7 @@ final class Updater {
         }
     }
 
-    private static Check latest() throws Exception {
+    static Check latest() throws Exception {
         HttpURLConnection con = (HttpURLConnection) new URL(API).openConnection();
         con.setConnectTimeout(12000);
         con.setReadTimeout(15000);
@@ -152,6 +153,7 @@ final class Updater {
                 c.name = json.optString("name", c.tag);
                 c.url = asset.optString("browser_download_url", "");
                 c.digest = asset.optString("digest", "");
+                c.body = json.optString("body", "");
                 return c.url.isEmpty() ? null : c;
             }
             return null;
@@ -160,7 +162,7 @@ final class Updater {
         }
     }
 
-    private static boolean isNewer(Context context, Check check) {
+    static boolean isNewer(Context context, Check check) {
         try {
             PackageInfo pi = context.getPackageManager()
                     .getPackageInfo(context.getPackageName(), 0);
@@ -199,7 +201,7 @@ final class Updater {
         }
     }
 
-    private static File download(Context context, Check check, Progress progress) throws Exception {
+    static File download(Context context, Check check, Progress progress) throws Exception {
         File dir = context.getCacheDir();
         File out = new File(dir, "pavo-update.apk");
         HttpURLConnection con = (HttpURLConnection) new URL(check.url).openConnection();
@@ -237,7 +239,7 @@ final class Updater {
     }
 
     /** Silent install when PServer is available, otherwise the system prompt. */
-    private static void install(Context context, File apk) {
+    static void install(Context context, File apk) {
         if (PServer.available()) {
             // PServer is fire-and-forget; `pm install` replaces the app and the
             // process is killed by the installer, so nothing needs the result.

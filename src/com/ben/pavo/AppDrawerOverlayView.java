@@ -62,6 +62,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static final String CONTROLLER_PKG = "com.ben.pavo.controllermap";
     private static final String RGB_PKG = "com.ben.pavo.rgb";
     private static final String FAN_PKG = "com.ben.pavo.fan";
+    private static final String UPDATES_PKG = "com.ben.pavo.updates";
     private static final String OVERLAY_PKG = "com.ben.pavo.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.pavo.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
@@ -667,6 +668,10 @@ final class AppDrawerOverlayView extends FrameLayout {
                 SCREEN_RECORDER_PKG, "");
         recorder.icon = Apps.screenRecorderIcon(px, accent);
         out.add(recorder);
+        Apps.Entry updates = new Apps.Entry(Loc.s(context, "Pavo Updates"),
+                UPDATES_PKG, "");
+        updates.icon = Apps.updateIcon(px, accent);
+        out.add(updates);
         Apps.Entry ftp = new Apps.Entry(Loc.s(context, "FTP"), FTP_PKG, "");
         ftp.icon = Apps.ftpIcon(px, accent);
         out.add(ftp);
@@ -680,7 +685,8 @@ final class AppDrawerOverlayView extends FrameLayout {
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
-                || SCREEN_RECORDER_PKG.equals(pkg) || FTP_PKG.equals(pkg);
+                || SCREEN_RECORDER_PKG.equals(pkg) || FTP_PKG.equals(pkg)
+                || UPDATES_PKG.equals(pkg);
     }
 
     private void launchEntry(final Apps.Entry e) {
@@ -701,6 +707,8 @@ final class AppDrawerOverlayView extends FrameLayout {
             intent = new Intent(context, OverlayActivity.class);
         } else if (FAN_PKG.equals(e.pkg)) {
             intent = new Intent(context, FanActivity.class);
+        } else if (UPDATES_PKG.equals(e.pkg)) {
+            intent = new Intent(context, UpdatesActivity.class);
         } else if (TOUCH_MAP_PKG.equals(e.pkg)) {
             intent = new Intent(context, TouchMapperActivity.class);
         } else if (DEVICE_HEALTH_PKG.equals(e.pkg)) {

@@ -658,6 +658,42 @@ final class Apps {
     }
 
     /** Floating overlay window plus a drawer grid, for the overlay & drawer app. */
+    static Bitmap updateIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(accent);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1.6f, size * 0.045f));
+        p.setStrokeCap(Paint.Cap.ROUND);
+        float cx = size * 0.5f;
+        float cy = size * 0.52f;
+        float radius = size * 0.25f;
+        RectF arc = new RectF(cx - radius, cy - radius, cx + radius, cy + radius);
+        c.drawArc(arc, 205f, 285f, false, p);
+        p.setStyle(Paint.Style.FILL);
+        float ax = cx + radius * (float) Math.cos(Math.toRadians(-50f));
+        float ay = cy + radius * (float) Math.sin(Math.toRadians(-50f));
+        android.graphics.Path head = new android.graphics.Path();
+        head.moveTo(ax + size * 0.10f, ay - size * 0.01f);
+        head.lineTo(ax - size * 0.07f, ay - size * 0.07f);
+        head.lineTo(ax - size * 0.02f, ay + size * 0.07f);
+        head.close();
+        c.drawPath(head, p);
+        return b;
+    }
+
     static Bitmap ftpIcon(int px, int accent) {
         int size = Math.max(24, px);
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
