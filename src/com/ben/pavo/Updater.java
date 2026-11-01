@@ -42,6 +42,8 @@ final class Updater {
     private static final String KEY_TAG = "tag";
 
     private static volatile boolean available;
+    private static volatile boolean cancelDownload;
+    private static volatile boolean downloadCancelled;
 
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
 
@@ -236,7 +238,17 @@ final class Updater {
         }
     }
 
+    static void cancelDownload() {
+        cancelDownload = true;
+    }
+
+    static boolean wasDownloadCancelled() {
+        return downloadCancelled;
+    }
+
     static File download(Context context, Check check, Progress progress) throws Exception {
+        cancelDownload = false;
+        downloadCancelled = false;
         File dir = context.getCacheDir();
         File out = new File(dir, "pavo-update.apk");
         HttpURLConnection con = (HttpURLConnection) new URL(check.url).openConnection();
@@ -254,6 +266,10 @@ final class Updater {
             long done = 0;
             int n;
             while ((n = in.read(buf)) > 0) {
+                if (cancelDownload) {
+                    downloadCancelled = true;
+                    break;
+                }
                 os.write(buf, 0, n);
                 done += n;
                 if (progress != null) progress.onProgress(done, total);
@@ -262,6 +278,10 @@ final class Updater {
             if (in != null) try { in.close(); } catch (Throwable ignored) {}
             if (os != null) try { os.close(); } catch (Throwable ignored) {}
             con.disconnect();
+        }
+        if (downloadCancelled) {
+            out.delete();
+            return null;
         }
         String want = check.digest != null && check.digest.startsWith("sha256:")
                 ? check.digest.substring(7) : null;

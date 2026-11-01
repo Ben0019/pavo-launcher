@@ -4,6 +4,7 @@ import android.content.pm.PackageInfo;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.os.Looper;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -12,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -40,6 +42,12 @@ public final class UpdatesActivity extends PavoGlassActivity {
     private TextView notesView;
     private TextView checkButton;
     private TextView installButton;
+    private TextView cancelButton;
+    private ProgressBar downloadBar;
+    private String downloadingTag;
+    private long lastProgressAt;
+    private long lastProgressBytes;
+    private long lastProgressTime;
     private TextView closeChip;
     private SeekBar intervalBar;
     private Updater.Check current;
@@ -166,6 +174,28 @@ public final class UpdatesActivity extends PavoGlassActivity {
         buttons.addView(checkButton, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         buttons.addView(new View(this), new LinearLayout.LayoutParams(dp(8), 1));
+        downloadBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        downloadBar.setMax(100);
+        downloadBar.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
+        downloadBar.setProgressBackgroundTintList(
+                android.content.res.ColorStateList.valueOf(0x33FFFFFF));
+        downloadBar.setVisibility(View.GONE);
+        buttons.addView(downloadBar, new LinearLayout.LayoutParams(0, dp(10), 1f));
+        cancelButton = button("CANCEL", false);
+        cancelButton.setVisibility(View.GONE);
+        cancelButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                cancelButton.setEnabled(false);
+                statusView.setText("Cancelling…");
+                statusView.setTextColor(MUTED);
+                Updater.cancelDownload();
+            }
+        });
+        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.6f);
+        cancelLp.leftMargin = dp(8);
+        buttons.addView(cancelButton, cancelLp);
         installButton = button("INSTALL", true);
         installButton.setVisibility(View.GONE);
         installButton.setOnClickListener(new View.OnClickListener() {
@@ -174,8 +204,10 @@ public final class UpdatesActivity extends PavoGlassActivity {
                 install();
             }
         });
-        buttons.addView(installButton, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams installLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        installLp.leftMargin = dp(8);
+        buttons.addView(installButton, installLp);
         LinearLayout.LayoutParams buttonsLp = wrap();
         buttonsLp.topMargin = dp(8);
         column.addView(buttons, buttonsLp);
@@ -230,6 +262,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
         nav.clear();
         nav.add(checkButton);
         nav.add(installButton);
+        nav.add(cancelButton);
         nav.add(intervalBar);
         nav.add(closeChip);
         for (View v : nav) {
@@ -312,20 +345,35 @@ public final class UpdatesActivity extends PavoGlassActivity {
     private void install() {
         if (current == null || !newer) return;
         final Updater.Check check = current;
-        installButton.setEnabled(false);
+        downloadingTag = check.tag;
         statusView.setText("Downloading " + check.tag + "…");
         statusView.setTextColor(MUTED);
+        installButton.setVisibility(View.GONE);
+        checkButton.setVisibility(View.GONE);
+        downloadBar.setVisibility(View.VISIBLE);
+        downloadBar.setProgress(0);
+        cancelButton.setVisibility(View.VISIBLE);
+        cancelButton.setEnabled(true);
+        lastProgressAt = 0L;
+        lastProgressBytes = 0L;
+        lastProgressTime = SystemClock.uptimeMillis();
         worker.execute(new Runnable() {
             @Override public void run() {
                 try {
                     final java.io.File apk = Updater.download(UpdatesActivity.this,
-                            check, null);
+                            check, new Updater.Progress() {
+                                @Override public void onProgress(long done, long total) {
+                                    showProgress(done, total);
+                                }
+                            });
                     if (apk == null) {
+                        final boolean cancelled = Updater.wasDownloadCancelled();
                         main.post(new Runnable() {
                             @Override public void run() {
-                                statusView.setText("Download failed");
-                                statusView.setTextColor(AMBER);
-                                installButton.setEnabled(true);
+                                statusView.setText(cancelled ? "Download cancelled"
+                                        : "Download failed");
+                                statusView.setTextColor(cancelled ? MUTED : AMBER);
+                                restoreIdle();
                             }
                         });
                         return;
@@ -333,6 +381,9 @@ public final class UpdatesActivity extends PavoGlassActivity {
                     main.post(new Runnable() {
                         @Override public void run() {
                             statusView.setText("Installing " + check.tag + "…");
+                            statusView.setTextColor(MUTED);
+                            downloadBar.setProgress(100);
+                            cancelButton.setVisibility(View.GONE);
                         }
                     });
                     Updater.install(UpdatesActivity.this, apk);
@@ -341,12 +392,62 @@ public final class UpdatesActivity extends PavoGlassActivity {
                         @Override public void run() {
                             statusView.setText("Update failed: " + t.getMessage());
                             statusView.setTextColor(AMBER);
-                            installButton.setEnabled(true);
+                            restoreIdle();
                         }
                     });
                 }
             }
         });
+    }
+
+    private void showProgress(long done, long total) {
+        final long now = SystemClock.uptimeMillis();
+        if (now - lastProgressAt < 150L && (total <= 0 || done < total)) return;
+        long dt = Math.max(1L, now - lastProgressTime);
+        long speed = Math.max(0L, (done - lastProgressBytes) * 1000L / dt);
+        lastProgressAt = now;
+        lastProgressTime = now;
+        lastProgressBytes = done;
+        final int pct = total > 0 ? (int) Math.min(100L, done * 100L / total) : 0;
+        final long speedBps = speed;
+        final boolean wait = total <= 0;
+        main.post(new Runnable() {
+            @Override public void run() {
+                if (isFinishing()) return;
+                if (wait) {
+                    downloadBar.setIndeterminate(true);
+                    statusView.setText("Downloading " + downloadingTag + "…");
+                } else {
+                    downloadBar.setIndeterminate(false);
+                    downloadBar.setProgress(pct);
+                    statusView.setText("Downloading " + downloadingTag + " · " + pct
+                            + "% · " + fmtSpeed(speedBps));
+                }
+            }
+        });
+    }
+
+    private void restoreIdle() {
+        downloadBar.setVisibility(View.GONE);
+        downloadBar.setIndeterminate(false);
+        cancelButton.setVisibility(View.GONE);
+        cancelButton.setEnabled(true);
+        checkButton.setVisibility(View.VISIBLE);
+        checkButton.setEnabled(true);
+        if (newer) {
+            installButton.setVisibility(View.VISIBLE);
+            installButton.setEnabled(true);
+        }
+    }
+
+    private static String fmtSpeed(long bps) {
+        if (bps >= 1024L * 1024L) {
+            return String.format(java.util.Locale.US, "%.1f MB/s", bps / (1024f * 1024f));
+        }
+        if (bps >= 1024L) {
+            return String.format(java.util.Locale.US, "%.0f KB/s", bps / 1024f);
+        }
+        return bps + " B/s";
     }
 
     private static String prettyNotes(String body) {
