@@ -59,6 +59,9 @@ public final class PavoA11yService extends AccessibilityService {
     private static volatile long autoAcceptProjectionUntil;
     private static volatile String foregroundPackage;
     private android.content.BroadcastReceiver screenOnReceiver;
+    private volatile boolean wakeWatcherRunning;
+    private Thread wakeWatcher;
+    private long lastRgbWake;
     private static volatile long foregroundAt;
 
     /**
@@ -695,6 +698,69 @@ public final class PavoA11yService extends AccessibilityService {
      * The Odin firmware drops the joystick LED enable when the panel blanks.
      * Re-apply the saved mode when the display comes back.
      */
+    /**
+     * Re-apply the RGB mode as soon as the power manager becomes interactive,
+     * not when the fully drawn screen-on broadcast arrives. The first write is
+     * repeated twice in case the panel's wake sequence clears the LED enable.
+     */
+    private void triggerRgbWake() {
+        long now = SystemClock.uptimeMillis();
+        if (now - lastRgbWake < 700L) return;
+        lastRgbWake = now;
+        final android.content.Context app = getApplicationContext();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                RgbService.reapply(app);
+                try {
+                    Thread.sleep(280L);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                RgbService.reapply(app);
+                try {
+                    Thread.sleep(620L);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                RgbService.reapply(app);
+            }
+        }, "PavoRgbWake").start();
+    }
+
+    private void startWakeWatcher() {
+        if (wakeWatcherRunning) return;
+        wakeWatcherRunning = true;
+        wakeWatcher = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                android.os.PowerManager pm = (android.os.PowerManager)
+                        getSystemService(POWER_SERVICE);
+                boolean last = pm != null && pm.isInteractive();
+                while (wakeWatcherRunning) {
+                    boolean now = pm != null && pm.isInteractive();
+                    if (now && !last) triggerRgbWake();
+                    last = now;
+                    try {
+                        Thread.sleep(60L);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
+        }, "PavoWakeWatch");
+        wakeWatcher.start();
+    }
+
+    private void stopWakeWatcher() {
+        wakeWatcherRunning = false;
+        if (wakeWatcher != null) wakeWatcher.interrupt();
+        wakeWatcher = null;
+    }
+
     private void registerScreenOn() {
         if (screenOnReceiver != null) return;
         screenOnReceiver = new android.content.BroadcastReceiver() {
@@ -706,13 +772,7 @@ public final class PavoA11yService extends AccessibilityService {
                         .equals(intent.getAction())) {
                     return;
                 }
-                final android.content.Context app = getApplicationContext();
-                main.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        RgbService.reapply(app);
-                    }
-                }, 650L);
+                triggerRgbWake();
             }
         };
         try {
@@ -748,6 +808,7 @@ public final class PavoA11yService extends AccessibilityService {
         }
         ServiceNotifications.cancelPersistent(this);
         registerScreenOn();
+        startWakeWatcher();
         main.removeCallbacks(profileSync);
         main.postDelayed(profileSync, 1200L);
         if (!new Prefs(this).rootlessRemap()) PavoInputService.ensureStarted(this);
@@ -1022,6 +1083,7 @@ public final class PavoA11yService extends AccessibilityService {
         connected = false;
         FanControl.stop(this);
         unregisterScreenOn();
+        stopWakeWatcher();
         instance = null;
         return super.onUnbind(intent);
     }
@@ -1040,6 +1102,7 @@ public final class PavoA11yService extends AccessibilityService {
         connected = false;
         FanControl.stop(this);
         unregisterScreenOn();
+        stopWakeWatcher();
         instance = null;
         super.onDestroy();
     }

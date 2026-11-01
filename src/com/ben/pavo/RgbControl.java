@@ -66,6 +66,69 @@ final class RgbControl {
         return applyColors(color, brightness, left, right) && ok;
     }
 
+    /**
+     * Fast wake path: write the sysfs nodes directly (they are world-writable)
+     * so the LEDs come back as soon as the display turns on instead of waiting
+     * for a PServer round trip. Falls back to the normal transport on failure.
+     */
+    static void wakeApply(int color, int brightness, boolean left, boolean right) {
+        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
+        int r = Math.round(Color.red(color) * scale);
+        int g = Math.round(Color.green(color) * scale);
+        int b = Math.round(Color.blue(color) * scale);
+        String v1 = "1-" + r + ":" + g + ":" + b;
+        String v2 = "2-" + r + ":" + g + ":" + b;
+        StringBuilder command = new StringBuilder();
+        if (left) {
+            command.append("echo 1 > ").append(ENABLE_LEFT).append("; ")
+                    .append("echo '").append(v1).append("' > ").append(COLOR_LEFT).append("; ")
+                    .append("echo '").append(v2).append("' > ").append(COLOR_LEFT).append("; ");
+        }
+        if (right) {
+            command.append("echo 1 > ").append(ENABLE_RIGHT).append("; ")
+                    .append("echo '").append(v1).append("' > ").append(COLOR_RIGHT).append("; ")
+                    .append("echo '").append(v2).append("' > ").append(COLOR_RIGHT).append("; ");
+        }
+        boolean ok = true;
+        if (left) {
+            ok &= direct(ENABLE_LEFT, "1");
+            ok &= directColor(COLOR_LEFT, r, g, b);
+        }
+        if (right) {
+            ok &= direct(ENABLE_RIGHT, "1");
+            ok &= directColor(COLOR_RIGHT, r, g, b);
+        }
+        if (ok) return;
+        if (command.length() > 0 && PServer.available()
+                && PServer.run(command.toString())) {
+            return;
+        }
+        setEnabled(left, right);
+        applyColors(color, brightness, left, right);
+    }
+
+    /** Wake path for animated modes: restore the enable only, so the first
+     *  animation frame paints the colour instead of flashing the saved base. */
+    static void wakeEnable(boolean left, boolean right) {
+        boolean ok = true;
+        if (left) ok &= direct(ENABLE_LEFT, "1");
+        if (right) ok &= direct(ENABLE_RIGHT, "1");
+        if (ok) return;
+        StringBuilder command = new StringBuilder();
+        if (left) command.append("echo 1 > ").append(ENABLE_LEFT).append("; ");
+        if (right) command.append("echo 1 > ").append(ENABLE_RIGHT).append("; ");
+        if (command.length() > 0 && PServer.available()
+                && PServer.run(command.toString())) {
+            return;
+        }
+        setEnabled(left, right);
+    }
+
+    private static boolean directColor(String path, int r, int g, int b) {
+        return direct(path, "1-" + r + ":" + g + ":" + b)
+                && direct(path, "2-" + r + ":" + g + ":" + b);
+    }
+
     static boolean off() {
         return setEnabled(false, false);
     }

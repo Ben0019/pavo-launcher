@@ -87,8 +87,12 @@ public final class RgbService extends Service {
         boolean left = prefs.rgbLeft();
         boolean right = prefs.rgbRight();
         if (mode == RgbControl.MODE_STATIC) {
-            RgbControl.applyStatic(color, brightness, left, right);
+            // Static has no animation frame to paint: restore enable + colour.
+            RgbControl.wakeApply(color, brightness, left, right);
         } else {
+            // Animated modes: only restore the enable. Writing the saved base
+            // colour here flashed before the first rainbow/breath frame.
+            RgbControl.wakeEnable(left, right);
             apply(c, mode, color, brightness, speed, left, right);
         }
     }
