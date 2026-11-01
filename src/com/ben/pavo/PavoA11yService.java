@@ -58,6 +58,7 @@ public final class PavoA11yService extends AccessibilityService {
     private static volatile boolean autoAcceptProjection;
     private static volatile long autoAcceptProjectionUntil;
     private static volatile String foregroundPackage;
+    private android.content.BroadcastReceiver screenOnReceiver;
     private static volatile long foregroundAt;
 
     /**
@@ -690,6 +691,47 @@ public final class PavoA11yService extends AccessibilityService {
         }
     };
 
+    /**
+     * The Odin firmware drops the joystick LED enable when the panel blanks.
+     * Re-apply the saved mode when the display comes back.
+     */
+    private void registerScreenOn() {
+        if (screenOnReceiver != null) return;
+        screenOnReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(android.content.Context context,
+                                  android.content.Intent intent) {
+                if (intent == null
+                        || !android.content.Intent.ACTION_SCREEN_ON
+                        .equals(intent.getAction())) {
+                    return;
+                }
+                final android.content.Context app = getApplicationContext();
+                main.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        RgbService.reapply(app);
+                    }
+                }, 650L);
+            }
+        };
+        try {
+            registerReceiver(screenOnReceiver,
+                    new android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_ON));
+        } catch (Throwable ignored) {
+            screenOnReceiver = null;
+        }
+    }
+
+    private void unregisterScreenOn() {
+        if (screenOnReceiver == null) return;
+        try {
+            unregisterReceiver(screenOnReceiver);
+        } catch (Throwable ignored) {
+        }
+        screenOnReceiver = null;
+    }
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
@@ -705,6 +747,7 @@ public final class PavoA11yService extends AccessibilityService {
             FanControl.start(this);
         }
         ServiceNotifications.cancelPersistent(this);
+        registerScreenOn();
         main.removeCallbacks(profileSync);
         main.postDelayed(profileSync, 1200L);
         if (!new Prefs(this).rootlessRemap()) PavoInputService.ensureStarted(this);
@@ -978,6 +1021,7 @@ public final class PavoA11yService extends AccessibilityService {
         keyHandler.removeCallbacks(drawerLongPress);
         connected = false;
         FanControl.stop(this);
+        unregisterScreenOn();
         instance = null;
         return super.onUnbind(intent);
     }
@@ -995,6 +1039,7 @@ public final class PavoA11yService extends AccessibilityService {
         keyHandler.removeCallbacks(drawerLongPress);
         connected = false;
         FanControl.stop(this);
+        unregisterScreenOn();
         instance = null;
         super.onDestroy();
     }

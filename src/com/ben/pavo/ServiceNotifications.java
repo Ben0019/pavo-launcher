@@ -20,6 +20,7 @@ import java.util.List;
  */
 final class ServiceNotifications {
     static final int FAN = 202;
+    static final int RGB = 101;
     static final int OVERLAY = 4211;
     static final int TUNE = 0x4174756E;
     static final int GUARD = 0x42415448;
@@ -28,15 +29,16 @@ final class ServiceNotifications {
     static final int PER_FAN = 0x46414E50;
 
     private static final int[] PERSISTENT = {
-            FAN, OVERLAY, TUNE, GUARD, INPUT, PER_TUNE, PER_FAN
+            FAN, RGB, OVERLAY, TUNE, GUARD, INPUT, PER_TUNE, PER_FAN
     };
 
     private static final int[] HOSTED_IDS = {
-            OVERLAY, TUNE, GUARD, INPUT, PER_TUNE, PER_FAN
+            RGB, OVERLAY, TUNE, GUARD, INPUT, PER_TUNE, PER_FAN
     };
     private static final Class<?>[] HOSTED_SERVICES = {
-            PerfOverlayService.class, PerfTuneService.class, BatteryGuardService.class,
-            PavoInputService.class, PerAppTuneService.class, PerAppFanService.class
+            RgbService.class, PerfOverlayService.class, PerfTuneService.class,
+            BatteryGuardService.class, PavoInputService.class,
+            PerAppTuneService.class, PerAppFanService.class
     };
 
     private ServiceNotifications() {}

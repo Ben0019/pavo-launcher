@@ -75,6 +75,24 @@ public final class RgbService extends Service {
         c.startService(intent);
     }
 
+    /** Re-apply the saved RGB mode after the display comes back on. */
+    static void reapply(Context c) {
+        if (c == null) return;
+        Prefs prefs = new Prefs(c);
+        int mode = prefs.rgbMode();
+        if (mode == RgbControl.MODE_OFF) return;
+        int color = prefs.rgbColor();
+        int brightness = prefs.rgbBrightness();
+        int speed = prefs.rgbSpeed();
+        boolean left = prefs.rgbLeft();
+        boolean right = prefs.rgbRight();
+        if (mode == RgbControl.MODE_STATIC) {
+            RgbControl.applyStatic(color, brightness, left, right);
+        } else {
+            apply(c, mode, color, brightness, speed, left, right);
+        }
+    }
+
     static void stop(Context c) {
         if (c == null) return;
         Intent intent = new Intent(c, RgbService.class);
@@ -158,12 +176,13 @@ public final class RgbService extends Service {
         previewActive = true;
         if (modeChanged || startedAt == 0L) startedAt = SystemClock.uptimeMillis();
         if (!foreground) {
-            startForeground(NOTIFICATION_ID, notification());
+            if (!ServiceNotifications.hosted()) {
+                startForeground(NOTIFICATION_ID, notification());
+                ServiceNotifications.hideLater(this);
+            }
             foreground = true;
         } else {
-            NotificationManager nm =
-                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm != null) nm.notify(NOTIFICATION_ID, notification());
+            ServiceNotifications.update(this, NOTIFICATION_ID, notification());
         }
         if (handler != null) {
             handler.removeCallbacks(tick);
