@@ -144,19 +144,27 @@ public final class FanCurveService extends Service {
                 // fan_mode every 1.5 s made the firmware's fan daemon re-notify
                 // its quick-settings tile constantly, and a bad transient mode
                 // in that stream crashes SystemUI.
-                if (manualHeld) PerfTuner.setFanDuty(duty);
-                else {
-                    PerfTuner.setFanManual(duty);
+                // Ride the firmware's SMART mode. Taking manual mode makes its
+                // daemon flip 4<->6 every few seconds; each flip lets its own
+                // curve write a different speed, which is the audible up/down.
+                boolean modeHeld = PerfTuner.fanMode(FanCurveService.this)
+                        == PerfTuner.FAN_SMART;
+                if (manualHeld && modeHeld) {
+                    PerfTuner.setFanDuty(duty);
+                } else {
+                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
+                    PerfTuner.setFanDuty(duty);
                     manualHeld = true;
                 }
             } else if (!warmup && PerfTuner.fanManualDrifted(FanCurveService.this,
                     controller.applied())) {
                 // The game panel or a preset switched the fan away from the
                 // curve; re-assert it instead of waiting for the temperature.
-                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_MANUAL) {
+                if (PerfTuner.fanMode(FanCurveService.this) == PerfTuner.FAN_SMART) {
                     PerfTuner.setFanDuty(controller.applied());
                 } else {
-                    PerfTuner.setFanManual(controller.applied());
+                    PerfTuner.setFanMode(FanCurveService.this, PerfTuner.FAN_SMART);
+                    PerfTuner.setFanDuty(controller.applied());
                     manualHeld = true;
                 }
             }
