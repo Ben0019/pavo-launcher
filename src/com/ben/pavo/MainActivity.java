@@ -15410,71 +15410,6 @@ public final class MainActivity extends Activity {
         backupNote.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 4));
         panel.addView(backupNote);
 
-        panel.use("Updates");
-        addSection(panel, "Updates");
-        TextView updateButton = new LTextView(this);
-        updateButton.setText("Check for updates");
-        styleTextButton(updateButton, false);
-        updateButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Haptics.click(v);
-                Updater.checkAndInstall(MainActivity.this);
-            }
-        });
-        panel.addView(updateButton);
-        TextView updateHint = new LTextView(this);
-        updateHint.setText("Downloads the latest Pavo release from github.com/Ben0019/pavo-launcher. Silent on PServer, otherwise the system installer asks.");
-        updateHint.setTextColor(0x66FFFFFF);
-        updateHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        updateHint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 4));
-        panel.addView(updateHint);
-
-        LinearLayout updateRow = new LinearLayout(this);
-        updateRow.setOrientation(LinearLayout.HORIZONTAL);
-        updateRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView updateLabel = new LTextView(this);
-        updateLabel.setText("Check every");
-        updateLabel.setTextColor(0xE6FFFFFF);
-        updateLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        updateRow.addView(updateLabel, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        final TextView updateValue = new LTextView(this);
-        updateValue.setText(prefs.updateCheckHours() + " h");
-        updateValue.setTextColor(0x8CFFFFFF);
-        updateValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        updateValue.setTypeface(Typeface.MONOSPACE);
-        updateValue.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        updateValue.setMinWidth(Ui.dp(this, 46));
-        updateRow.addView(updateValue);
-        panel.addView(updateRow);
-        SeekBar updateBar = new SeekBar(this);
-        updateBar.setMax(22);
-        updateBar.setProgress(prefs.updateCheckHours() - 2);
-        updateBar.setProgressTintList(ColorStateList.valueOf(0xFF69D98B));
-        updateBar.setThumbTintList(ColorStateList.valueOf(0xFF69D98B));
-        updateBar.setProgressBackgroundTintList(ColorStateList.valueOf(0x33FFFFFF));
-        updateBar.setPadding(Ui.dp(this, 2), Ui.dp(this, 2), Ui.dp(this, 2), 0);
-        updateBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                updateValue.setText((progress + 2) + " h");
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar bar) {
-                Haptics.key(bar);
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar bar) {
-                Haptics.click(bar);
-                prefs.setUpdateCheckHours(bar.getProgress() + 2);
-            }
-        });
-        panel.addView(updateBar, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 28)));
-
         panel.use("Language");
         addSection(panel, "Language");
         TextView languageButton = new LTextView(this);
@@ -15505,7 +15440,6 @@ public final class MainActivity extends Activity {
                 {"Feedback", "Feedback & haptics"},
                 {"Widgets", "Clock, weather & status"},
                 {"Backup", "Backup & restore"},
-                {"Updates", "App updates"},
                 {"Language", "Language"}
         };
         for (String[] category : settingsSections) {
