@@ -115,6 +115,19 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private static final int TAP_SETTLE_MS = 170;
 
     /** Fires only if a second tap is not followed by a third. */
+    private String pendingPresetToast;
+
+    private final Runnable presetToast = new Runnable() {
+        @Override
+        public void run() {
+            if (pendingPresetToast == null) return;
+            String label = pendingPresetToast;
+            pendingPresetToast = null;
+            LToast.makeText(PerfOverlayService.this, label + " applied",
+                    Toast.LENGTH_SHORT).show();
+        }
+    };
+
     private final Runnable tapAction = new Runnable() {
         @Override
         public void run() {
@@ -629,9 +642,12 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     @Override
                     public void run() {
                         if (container != null) Haptics.key(container);
-                        LToast.makeText(PerfOverlayService.this, next + " applied",
-                                Toast.LENGTH_SHORT).show();
                         if (panel != null) panel.invalidatePreset();
+                        // Debounce: rapid preset taps should confirm once, at the
+                        // end, instead of queueing a toast per tap.
+                        pendingPresetToast = next;
+                        main.removeCallbacks(presetToast);
+                        main.postDelayed(presetToast, 700L);
                     }
                 });
             }
@@ -986,6 +1002,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         main.removeCallbacks(mapperTick);
         main.removeCallbacks(burnInTick);
         main.removeCallbacks(dimTick);
+        main.removeCallbacks(presetToast);
         dimOverlay = null;
         finalizeCurrentLog();
         closeMenu();
