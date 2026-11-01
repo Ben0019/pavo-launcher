@@ -764,9 +764,10 @@ public final class FanActivity extends PavoGlassActivity {
         syncBackgroundServices();
     }
 
-    /** Curve and Smart are both driven by the temperature controller. */
+    /** Curve, Smart and High are all driven by the temperature controller. */
     private boolean managedFanMode() {
-        return mode == MODE_CURVE || mode == PerfTuner.FAN_SMART;
+        return mode == MODE_CURVE || mode == PerfTuner.FAN_SMART
+                || mode == PerfTuner.FAN_HIGH;
     }
 
     private void applyProfileFanMode() {

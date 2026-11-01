@@ -86,7 +86,8 @@ public final class FanCurveService extends Service {
             return START_NOT_STICKY;
         }
         int appMode = prefs.fanAppMode();
-        if (appMode != FanActivity.MODE_CURVE && appMode != PerfTuner.FAN_SMART) {
+        if (appMode != FanActivity.MODE_CURVE && appMode != PerfTuner.FAN_SMART
+                && appMode != PerfTuner.FAN_HIGH) {
             stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
@@ -110,7 +111,8 @@ public final class FanCurveService extends Service {
             Prefs prefs = new Prefs(FanCurveService.this);
             int appMode = prefs.fanAppMode();
             boolean smart = appMode == PerfTuner.FAN_SMART;
-            if (appMode != FanActivity.MODE_CURVE && !smart) {
+            boolean high = appMode == PerfTuner.FAN_HIGH;
+            if (appMode != FanActivity.MODE_CURVE && !smart && !high) {
                 stopSelf();
                 return;
             }
@@ -122,7 +124,10 @@ public final class FanCurveService extends Service {
             // Smart used to be the firmware's own curve, which reacts slowly.
             // Driving the built-in smart curve here makes it as responsive as
             // the user's curve mode.
-            String curve = smart ? FanCurve.SMART : prefs.fanCurve();
+            // High is always full speed, driven by the same controller so it
+            // holds a flat duty instead of being re-written every tick.
+            String curve = high ? FanCurve.flat(100)
+                    : smart ? FanCurve.SMART : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
                 controller.reset();
@@ -130,7 +135,8 @@ public final class FanCurveService extends Service {
                 // the next tick; keep the fan where it is and ease from there.
                 controller.seed(PerfTuner.fanPercent(FanCurveService.this));
             }
-            int duty = controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
+            int duty = controller.next(curve, temp, SystemClock.uptimeMillis(),
+                    smart || high);
             if (warmup) duty = -1;  // start silently, keep the current speed
             if (duty >= 0) {
                 lastDuty = duty;
@@ -154,7 +160,7 @@ public final class FanCurveService extends Service {
                     manualHeld = true;
                 }
             }
-            handler.postDelayed(this, smart ? 500L : 1500L);
+            handler.postDelayed(this, smart || high ? 500L : 1500L);
         }
     };
 
