@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 
 /** Keeps animated joystick LED modes running after the RGB app is closed. */
@@ -33,6 +34,8 @@ public final class RgbService extends Service {
     private static volatile boolean running;
     private static volatile int previewColor;
     private static volatile boolean previewActive;
+    private static final Handler wakeHandler = new Handler(Looper.getMainLooper());
+    private static Runnable pendingWakeReapply;
 
     private HandlerThread thread;
     private Handler handler;
@@ -87,14 +90,50 @@ public final class RgbService extends Service {
         boolean left = prefs.rgbLeft();
         boolean right = prefs.rgbRight();
         if (mode == RgbControl.MODE_STATIC) {
-            // Static has no animation frame to paint: restore enable + colour.
-            RgbControl.wakeApply(color, brightness, left, right);
+            // The panel's wake sequence writes a black LED frame ~0.5 s after
+            // the screen becomes interactive. Painting the static colour
+            // before that left the LEDs dark again, so wait for the panel to
+            // settle and only then restore the colour.
+            scheduleWakeReapply(c.getApplicationContext());
         } else {
             // Animated modes: only restore the enable. Writing the saved base
             // colour here flashed before the first rainbow/breath frame.
             RgbControl.wakeEnable(left, right);
             apply(c, mode, color, brightness, speed, left, right);
         }
+    }
+
+    private static void scheduleWakeReapply(final Context app) {
+        // The wake watcher and the screen-on broadcast can both call this;
+        // keep the first deadline so duplicate triggers cannot push the
+        // restore later.
+        if (pendingWakeReapply != null) return;
+        pendingWakeReapply = new Runnable() {
+            private boolean repeated;
+
+            @Override
+            public void run() {
+                if (!repeated) {
+                    // A second pass covers a late panel write; repainting the
+                    // same colour is invisible when the first one survived.
+                    repeated = true;
+                    wakeHandler.postDelayed(this, 650L);
+                } else {
+                    pendingWakeReapply = null;
+                }
+                try {
+                    PowerManager pm = (PowerManager) app.getSystemService(
+                            Context.POWER_SERVICE);
+                    if (pm != null && !pm.isInteractive()) return;
+                    Prefs prefs = new Prefs(app);
+                    if (prefs.rgbMode() != RgbControl.MODE_STATIC) return;
+                    RgbControl.wakeApply(prefs.rgbColor(), prefs.rgbBrightness(),
+                            prefs.rgbLeft(), prefs.rgbRight());
+                } catch (Throwable ignored) {
+                }
+            }
+        };
+        wakeHandler.postDelayed(pendingWakeReapply, 650L);
     }
 
     static void stop(Context c) {
