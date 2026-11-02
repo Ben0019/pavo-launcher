@@ -299,6 +299,22 @@ final class GlassPanel extends LinearLayout {
         invalidate();
     }
 
+    /**
+     * Force the live-glass renderer to be rebuilt from the current backdrop.
+     * The render effect can become invalid after the display blanks; without
+     * this the card falls back to a transparent tint over the live window.
+     */
+    void resetLiquidRenderer() {
+        frozenForScale = false;
+        liquidFrozen = false;
+        cardRenderer = null;
+        liquidShader = null;
+        if (backdrop == null && frozenBackdrop != null) backdrop = frozenBackdrop;
+        frozenBackdrop = null;
+        opaqueFrost = false;
+        invalidate();
+    }
+
     void unfreezeFromScale() {
         if (!frozenForScale) return;
         frozenForScale = false;

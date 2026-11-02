@@ -511,14 +511,31 @@ abstract class PavoGlassActivity extends Activity {
             wallpaper.setAlpha(1f);
         }
         GlassPanel card = largestGlassPanel(decor);
-        if (card != null && card.getAlpha() < 0.999f) {
-            Motion.cancelGiggle(card);
-            card.animate().cancel();
-            card.setAlpha(1f);
-            card.setScaleX(1f);
-            card.setScaleY(1f);
-            card.setTranslationX(0f);
-            card.setTranslationY(0f);
+        if (card != null) {
+            if (card.getAlpha() < 0.999f) {
+                Motion.cancelGiggle(card);
+                card.animate().cancel();
+                card.setAlpha(1f);
+                card.setScaleX(1f);
+                card.setScaleY(1f);
+                card.setTranslationX(0f);
+                card.setTranslationY(0f);
+            }
+            // Rebuild the live renderer from the existing backdrop. The
+            // RenderEffect goes stale across a display blank, which made the
+            // card fall through to a transparent tint over the home.
+            Backdrop backdrop = card.getBackdrop();
+            if (backdrop != null && backdrop.bitmap != null
+                    && !backdrop.bitmap.isRecycled()) {
+                card.resetLiquidRenderer();
+                card.setFrosted(false);
+                card.setLiquidEffect(true);
+                card.setBackdropScreenAnchored(true);
+                liquidCard = true;
+            } else {
+                card.setLiquidEffect(false);
+                card.setFrosted(true);
+            }
         }
     }
 
