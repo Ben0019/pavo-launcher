@@ -874,17 +874,26 @@ public final class RgbActivity extends PavoGlassActivity {
         prefs.setRgbRight(rightOn);
 
         if (mode == RgbControl.MODE_STATIC) {
-            if (isAnimated(serviceMode)) {
-                RgbService.apply(this, RgbControl.MODE_STATIC,
-                        color, brightness, speed, leftOn, rightOn);
+            ++writeGeneration;
+            if (RgbService.isRunning()) {
+                // Stop the animation without touching the LEDs; the built-in
+                // control applies the static colour from the vendor settings.
+                stopService(new android.content.Intent(this, RgbService.class));
             }
             serviceMode = RgbControl.MODE_STATIC;
-            scheduleStaticWrite();
+            if (!VendorRgb.applyStatic(this, color, brightness, leftOn, rightOn)) {
+                scheduleStaticWrite();
+            } else {
+                VendorRgb.nudge(this, brightness);
+                RgbControl.applyHandle(color, brightness, leftOn, rightOn);
+            }
         } else if (mode == RgbControl.MODE_OFF) {
-            if (serviceMode != RgbControl.MODE_OFF || RgbService.isRunning()) {
-                RgbService.apply(this, RgbControl.MODE_OFF,
-                        color, brightness, speed, leftOn, rightOn);
-                final int generation = ++writeGeneration;
+            final int generation = ++writeGeneration;
+            if (RgbService.isRunning()) {
+                stopService(new android.content.Intent(this, RgbService.class));
+            }
+            serviceMode = RgbControl.MODE_OFF;
+            if (!VendorRgb.off(this)) {
                 staticWriter.execute(new Runnable() {
                     @Override
                     public void run() {
@@ -892,7 +901,6 @@ public final class RgbActivity extends PavoGlassActivity {
                     }
                 });
             }
-            serviceMode = RgbControl.MODE_OFF;
         } else {
             ++writeGeneration;
             RgbService.apply(this, mode, color, brightness, speed, leftOn, rightOn);

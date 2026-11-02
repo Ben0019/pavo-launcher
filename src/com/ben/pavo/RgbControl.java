@@ -133,6 +133,22 @@ final class RgbControl {
         return setEnabled(false, false);
     }
 
+    /**
+     * The vendor static control only paints index 1 (the main stick light).
+     * Write index 2 (the handle ring) directly so both rings stay lit.
+     */
+    static void applyHandle(int color, int brightness, boolean left, boolean right) {
+        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
+        // The vendor main-light writes use 0..25500 units (percent * 100);
+        // match them so the handle rings are as bright as the main light.
+        int r = Math.round(Color.red(color) * scale * 100f);
+        int g = Math.round(Color.green(color) * scale * 100f);
+        int b = Math.round(Color.blue(color) * scale * 100f);
+        String value = "2-" + r + ":" + g + ":" + b;
+        if (left) direct(COLOR_LEFT, value);
+        if (right) direct(COLOR_RIGHT, value);
+    }
+
     /** Write both the main light and handle ring for one stick. */
     private static boolean writeColor(String path, int r, int g, int b) {
         String v1 = "1-" + r + ":" + g + ":" + b;
