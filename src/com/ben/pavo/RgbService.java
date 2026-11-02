@@ -45,6 +45,9 @@ public final class RgbService extends Service {
     private long startedAt;
     private boolean foreground;
     private Runnable pendingStart;
+    private static volatile long pendingScreenHoldUntil;
+    private long screenHoldUntil;
+    private long lastEnableAt;
     private int ambientColor;
     private int ambientTarget;
     private long lastAmbientSample;
@@ -97,10 +100,17 @@ public final class RgbService extends Service {
                 RgbControl.applyHandle(color, brightness, left, right);
             }
         } else {
-            // Animated modes: only restore the enable. Writing the saved base
-            // colour here flashed before the first rainbow/breath frame.
             VendorRgb.disableIfEnabled(c);
-            RgbControl.wakeEnable(left, right);
+            if (mode == RgbControl.MODE_SCREEN) {
+                // The panel wake sequence and the first ambient frames flash
+                // black; hold the LEDs until the screen is settled, then
+                // enable once.
+                pendingScreenHoldUntil = SystemClock.uptimeMillis() + 1500L;
+            } else {
+                // Only restore the enable; writing the saved base colour here
+                // flashed before the first rainbow/breath frame.
+                RgbControl.wakeEnable(left, right);
+            }
             apply(c, mode, color, brightness, speed, left, right);
         }
     }
@@ -182,6 +192,12 @@ public final class RgbService extends Service {
         }
 
         final boolean vendorCleared = VendorRgb.disableIfEnabled(this);
+        if (mode != RgbControl.MODE_SCREEN) screenHoldUntil = 0L;
+        if (mode == RgbControl.MODE_SCREEN
+                && pendingScreenHoldUntil > SystemClock.uptimeMillis()) {
+            screenHoldUntil = pendingScreenHoldUntil;
+        }
+        pendingScreenHoldUntil = 0L;
         if (mode == RgbControl.MODE_SCREEN && (modeChanged || startedAt == 0L)) {
             ambientColor = color;
             ambientTarget = 0;
@@ -189,9 +205,12 @@ public final class RgbService extends Service {
         }
         previewActive = true;
         if (modeChanged || startedAt == 0L) {
-            // Only touch the enable when the service or mode actually changes.
-            // A redundant enable write during wake made the LEDs blink.
-            RgbControl.setEnabled(left, right);
+            if (!(mode == RgbControl.MODE_SCREEN
+                    && screenHoldUntil > SystemClock.uptimeMillis())) {
+                // Only touch the enable when the service or mode actually
+                // changes. During the screen wake hold the tick enables later.
+                RgbControl.setEnabled(left, right);
+            }
             startedAt = SystemClock.uptimeMillis();
         }
         if (!foreground) {
@@ -234,6 +253,17 @@ public final class RgbService extends Service {
             long elapsed = now - startedAt;
             long scaledElapsed = elapsed * speed / 100L;
             long strobeInterval = Math.max(35L, 140L * 100L / speed);
+            if (mode == RgbControl.MODE_SCREEN) {
+                if (now < screenHoldUntil) {
+                    handler.postDelayed(this, 70L);
+                    return;
+                }
+                if (screenHoldUntil != 0L) {
+                    screenHoldUntil = 0L;
+                    RgbControl.setEnabled(left, right);
+                    lastEnableAt = now;
+                }
+            }
             int effective = brightness;
             int out = color;
             if (mode == RgbControl.MODE_BREATH) {
@@ -256,7 +286,13 @@ public final class RgbService extends Service {
                                 handler.post(new Runnable() {
                                     @Override public void run() {
                                         ambientSampling = false;
-                                        if (running && sampled != 0) ambientTarget = sampled;
+                                        int sum = sampled == 0 ? 0
+                                                : android.graphics.Color.red(sampled)
+                                                + android.graphics.Color.green(sampled)
+                                                + android.graphics.Color.blue(sampled);
+                                        if (running && sampled != 0 && sum > 24) {
+                                            ambientTarget = sampled;
+                                        }
                                     }
                                 });
                             } else {
@@ -271,6 +307,12 @@ public final class RgbService extends Service {
                     ambientColor = blend(ambientColor, ambientTarget, blendAmount);
                 }
                 out = ambientColor;
+            }
+            if (mode != RgbControl.MODE_STATIC && mode != RgbControl.MODE_OFF) {
+                // The panel wake code writes black / drops the enable on some
+                // transitions; re-assert it every frame so the LEDs cannot be
+                // left dark behind a continuing animation.
+                RgbControl.setEnabled(left, right);
             }
             previewColor = RgbControl.scaledColor(out, 1f, effective);
             previewActive = true;
