@@ -45,10 +45,10 @@ public final class RgbActivity extends PavoGlassActivity {
     private static final int[] MODE_VALUES = {
             RgbControl.MODE_STATIC, RgbControl.MODE_BREATH,
             RgbControl.MODE_RAINBOW, RgbControl.MODE_STROBE,
-            RgbControl.MODE_SCREEN, RgbControl.MODE_OFF
+            RgbControl.MODE_OFF
     };
     private static final String[] MODE_LABELS = {
-            "STATIC", "BREATH", "RAINBOW", "STROBE", "SCREEN", "OFF"
+            "STATIC", "BREATH", "RAINBOW", "STROBE", "OFF"
     };
 
     private static volatile boolean visible;
@@ -179,6 +179,11 @@ public final class RgbActivity extends PavoGlassActivity {
         prefs = new Prefs(this);
         tight = Ui.widthDp(this) < 700;
         mode = prefs.rgbMode();
+        if (mode == RgbControl.MODE_SCREEN) {
+            // Screen-follow mode has been removed from the app.
+            mode = RgbControl.MODE_STATIC;
+            prefs.setRgbMode(mode);
+        }
         color = prefs.rgbColor();
         brightness = prefs.rgbBrightness();
         speed = prefs.rgbSpeed();
@@ -457,7 +462,6 @@ public final class RgbActivity extends PavoGlassActivity {
         modeRow2Lp.topMargin = dp(5);
         modeBody.addView(modeRow2, modeRow2Lp);
         addModeButton(modeRow2, "STROBE", RgbControl.MODE_STROBE, false);
-        addModeButton(modeRow2, "SCREEN", RgbControl.MODE_SCREEN, false);
         addModeButton(modeRow2, "OFF", RgbControl.MODE_OFF, true);
         outputSection.setMinimumHeight(dp(150));
         modeSection.setMinimumHeight(dp(150));
@@ -933,8 +937,7 @@ public final class RgbActivity extends PavoGlassActivity {
     private boolean isAnimated(int value) {
         return value == RgbControl.MODE_BREATH
                 || value == RgbControl.MODE_RAINBOW
-                || value == RgbControl.MODE_STROBE
-                || value == RgbControl.MODE_SCREEN;
+                || value == RgbControl.MODE_STROBE;
     }
 
     private void updateStatus() {
