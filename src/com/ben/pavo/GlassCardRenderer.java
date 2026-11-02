@@ -80,6 +80,12 @@ final class GlassCardRenderer {
         return true;
     }
 
+    /** Re-record the existing node and rebuild its effect in place. */
+    void refresh() {
+        lastBitmap = null;
+        lastLocX = Integer.MIN_VALUE;
+    }
+
     void unfreeze() {
         frozenSrc = null;
         lastLocX = Integer.MIN_VALUE;

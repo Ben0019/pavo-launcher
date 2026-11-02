@@ -304,6 +304,16 @@ final class GlassPanel extends LinearLayout {
      * The render effect can become invalid after the display blanks; without
      * this the card falls back to a transparent tint over the live window.
      */
+    boolean isFrozenForScale() {
+        return frozenForScale;
+    }
+
+    /** Rebuild the live effect without dropping the renderer (no blank frame). */
+    void refreshLiquidEffect() {
+        if (cardRenderer != null) cardRenderer.refresh();
+        invalidate();
+    }
+
     void resetLiquidRenderer() {
         frozenForScale = false;
         liquidFrozen = false;

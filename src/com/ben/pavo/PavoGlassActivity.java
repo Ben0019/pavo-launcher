@@ -43,6 +43,8 @@ abstract class PavoGlassActivity extends Activity {
     private int returnBottom;
     private boolean returning;
     private boolean returnFinished;
+    private boolean wakeRefreshPending;
+    private android.content.BroadcastReceiver screenReceiver;
     private ValueAnimator returnAnim;
     private final Runnable readableTask = new Runnable() {
         @Override
@@ -111,6 +113,7 @@ abstract class PavoGlassActivity extends Activity {
         // Built-in apps stay fully transparent around their card. Live-glass
         // apps ask the compositor to blur the actual content behind them.
         final View decor = window.getDecorView();
+        installWakeGuard(decor);
         // Do not expose the first layout frame before the captured backdrop and
         // glass effect are attached; otherwise the card visibly changes from a
         // transparent/live surface to the finished material after it opens.
@@ -494,16 +497,59 @@ abstract class PavoGlassActivity extends Activity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (!hasFocus) return;
-        ensureDecorVisible();
         View decor = getWindow() == null ? null : getWindow().getDecorView();
-        if (decor == null) return;
-        // Screen off/on can fire onUserLeaveHint while the window has no focus,
-        // leaving the wallpaper layer and the card faded after the wake.
-        if (returning || returnFinished) {
+        if (decor != null) refreshGlassOnWake(decor);
+    }
+
+    /**
+     * Becomes true on screen-off and is consumed by the first pre-draw after
+     * the display is interactive again. Doing the repair in onPreDraw updates
+     * the glass before the wake frame is presented, avoiding a transparent
+     * flash followed by the rebuilt effect.
+     */
+    private void installWakeGuard(final View decor) {
+        android.os.PowerManager pm = (android.os.PowerManager)
+                getSystemService(POWER_SERVICE);
+        final android.os.PowerManager power = pm;
+        screenReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(android.content.Context context,
+                                  android.content.Intent intent) {
+                if (intent == null) return;
+                if (android.content.Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                    wakeRefreshPending = true;
+                }
+            }
+        };
+        try {
+            android.content.IntentFilter filter = new android.content.IntentFilter();
+            filter.addAction(android.content.Intent.ACTION_SCREEN_OFF);
+            registerReceiver(screenReceiver, filter);
+        } catch (Throwable ignored) {
+            screenReceiver = null;
+        }
+        decor.getViewTreeObserver().addOnPreDrawListener(
+                new ViewTreeObserver.OnPreDrawListener() {
+                    @Override
+                    public boolean onPreDraw() {
+                        if (wakeRefreshPending
+                                && (power == null || power.isInteractive())) {
+                            wakeRefreshPending = false;
+                            refreshGlassOnWake(decor);
+                        }
+                        return true;
+                    }
+                });
+    }
+
+    /** Restore alpha and rebuild the glass in place for the current wake. */
+    private void refreshGlassOnWake(View decor) {
+        ensureDecorVisible();
+        boolean resetReturn = returning || returnFinished;
+        if (resetReturn) {
             returning = false;
             returnFinished = false;
             resetReturnVisuals();
-            return;
         }
         WallpaperView wallpaper = findWallpaper(decor);
         if (wallpaper != null && wallpaper.getAlpha() < 0.999f) {
@@ -511,31 +557,28 @@ abstract class PavoGlassActivity extends Activity {
             wallpaper.setAlpha(1f);
         }
         GlassPanel card = largestGlassPanel(decor);
-        if (card != null) {
-            if (card.getAlpha() < 0.999f) {
-                Motion.cancelGiggle(card);
-                card.animate().cancel();
-                card.setAlpha(1f);
-                card.setScaleX(1f);
-                card.setScaleY(1f);
-                card.setTranslationX(0f);
-                card.setTranslationY(0f);
-            }
-            // Rebuild the live renderer from the existing backdrop. The
-            // RenderEffect goes stale across a display blank, which made the
-            // card fall through to a transparent tint over the home.
-            Backdrop backdrop = card.getBackdrop();
-            if (backdrop != null && backdrop.bitmap != null
-                    && !backdrop.bitmap.isRecycled()) {
-                card.resetLiquidRenderer();
-                card.setFrosted(false);
-                card.setLiquidEffect(true);
-                card.setBackdropScreenAnchored(true);
-                liquidCard = true;
-            } else {
-                card.setLiquidEffect(false);
-                card.setFrosted(true);
-            }
+        if (card == null) return;
+        if (card.getAlpha() < 0.999f) {
+            Motion.cancelGiggle(card);
+            card.animate().cancel();
+            card.setAlpha(1f);
+            card.setScaleX(1f);
+            card.setScaleY(1f);
+            card.setTranslationX(0f);
+            card.setTranslationY(0f);
+        }
+        Backdrop backdrop = card.getBackdrop();
+        if (backdrop != null && backdrop.bitmap != null
+                && !backdrop.bitmap.isRecycled()) {
+            if (card.isFrozenForScale()) card.resetLiquidRenderer();
+            card.refreshLiquidEffect();
+            card.setFrosted(false);
+            card.setLiquidEffect(true);
+            card.setBackdropScreenAnchored(true);
+            liquidCard = true;
+        } else {
+            card.setLiquidEffect(false);
+            card.setFrosted(true);
         }
     }
 
@@ -547,6 +590,11 @@ abstract class PavoGlassActivity extends Activity {
     @Override
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
+        // Locking/screen-off also delivers a leave hint; shrinking the card
+        // then left the glass frozen until the next focus, which could flash.
+        android.os.PowerManager pm = (android.os.PowerManager)
+                getSystemService(POWER_SERVICE);
+        if (pm != null && !pm.isInteractive()) return;
         if (!hasReturnTarget || closing || returning) return;
         returning = true;
         if (!animateCardToIcon(250L, false)) returning = false;
@@ -694,6 +742,18 @@ abstract class PavoGlassActivity extends Activity {
         });
         returnAnim.start();
         return true;
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (screenReceiver != null) {
+            try {
+                unregisterReceiver(screenReceiver);
+            } catch (Throwable ignored) {
+            }
+            screenReceiver = null;
+        }
+        super.onDestroy();
     }
 
     @Override
