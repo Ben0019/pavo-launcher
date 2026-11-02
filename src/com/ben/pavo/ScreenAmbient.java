@@ -1,7 +1,6 @@
 package com.ben.pavo;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.SystemClock;
 
@@ -21,111 +20,6 @@ final class ScreenAmbient {
     private static final Object LOCK = new Object();
 
     private ScreenAmbient() {}
-
-    interface Listener {
-        void onColor(int color);
-    }
-
-    /**
-     * Capture through the accessibility screenshot API (up to ~10 fps and no
-     * root file I/O), falling back to the PServer screencap when accessibility
-     * is unavailable. Bifrost's approach: scale the frame down to 32 px and
-     * average only the top 30% of pixels by brightness/saturation/colourfulness,
-     * which ignores letterboxing and flat backgrounds.
-     */
-    static void sampleAsync(Context c, Listener listener) {
-        if (c == null || listener == null) return;
-        boolean started = PavoA11yService.captureScreen(
-                new PavoA11yService.ScreenCaptureCallback() {
-                    @Override
-                    public void onCaptured(Bitmap bitmap) {
-                        int color = analyze(bitmap);
-                        bitmap.recycle();
-                        listener.onColor(color);
-                    }
-
-                    @Override
-                    public void onFailed() {
-                        new Thread(new Runnable() {
-                            @Override public void run() {
-                                listener.onColor(sample(c));
-                            }
-                        }, "rgb-ambient-fallback").start();
-                    }
-                });
-        if (!started) {
-            new Thread(new Runnable() {
-                @Override public void run() {
-                    listener.onColor(sample(c));
-                }
-            }, "rgb-ambient-fallback").start();
-        }
-    }
-
-    private static int analyze(Bitmap src) {
-        if (src == null || src.getWidth() <= 0 || src.getHeight() <= 0) return 0;
-        int w = Math.min(32, src.getWidth());
-        int h = Math.max(1, Math.round(src.getHeight()
-                * (w / (float) src.getWidth())));
-        Bitmap small;
-        try {
-            small = Bitmap.createScaledBitmap(src, w, h, true);
-        } catch (Throwable t) {
-            return 0;
-        }
-        int count = w * h;
-        if (count <= 0) return 0;
-        int topCount = Math.max(1, Math.round(count * 0.30f));
-        long[] weighted = new long[count];
-        int[] colors = new int[count];
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int idx = y * w + x;
-                int px = small.getPixel(x, y);
-                int r = Color.red(px), g = Color.green(px), b = Color.blue(px);
-                colors[idx] = px;
-                double rn = r / 255.0, gn = g / 255.0, bn = b / 255.0;
-                double brightness = 0.299 * rn + 0.587 * gn + 0.114 * bn;
-                double max = Math.max(rn, Math.max(gn, bn));
-                double min = Math.min(rn, Math.min(gn, bn));
-                double saturation = max == 0.0 ? 0.0 : (max - min) / max;
-                double avg = (rn + gn + bn) / 3.0;
-                double colorfulness = Math.sqrt(
-                        (rn - avg) * (rn - avg)
-                                + (gn - avg) * (gn - avg)
-                                + (bn - avg) * (bn - avg));
-                double bw = 1.0 - (1.0 / (1.0 + Math.pow(brightness * 10.0, 2.0)));
-                double sw = Math.pow(saturation, 0.3) * 4.0;
-                double cw = colorfulness * 5.0;
-                double weight = Math.max(0.01,
-                        bw * 0.15 + sw * 0.55 + cw * 0.30);
-                long wq = Math.min(1_000_000L, Math.round(weight * 100_000L));
-                weighted[idx] = (wq << 20) | idx;
-            }
-        }
-        java.util.Arrays.sort(weighted);
-        int from = Math.max(0, count - topCount);
-        double rSum = 0, gSum = 0, bSum = 0, wSum = 0;
-        for (int i = from; i < count; i++) {
-            int idx = (int) (weighted[i] & 0xFFFFF);
-            int px = colors[idx];
-            double wgt = (weighted[i] >>> 20) / 100_000.0;
-            rSum += Color.red(px) * wgt;
-            gSum += Color.green(px) * wgt;
-            bSum += Color.blue(px) * wgt;
-            wSum += wgt;
-        }
-        small.recycle();
-        if (wSum <= 0.0) return 0;
-        float[] hsv = new float[3];
-        Color.RGBToHSV((int) Math.round(rSum / wSum),
-                (int) Math.round(gSum / wSum),
-                (int) Math.round(bSum / wSum), hsv);
-        if (hsv[2] < 0.04f) return 0;
-        hsv[1] = Math.min(1f, hsv[1] * 1.35f);
-        hsv[2] = Math.min(1f, Math.max(0.32f, hsv[2] * 1.1f));
-        return Color.HSVToColor(hsv);
-    }
 
     /** Returns an RGB colour, or 0 when capture failed. */
     static int sample(Context c) {

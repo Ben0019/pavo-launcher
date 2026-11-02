@@ -83,46 +83,6 @@ public final class PavoA11yService extends AccessibilityService {
         void onFailed();
     }
 
-    interface ScreenCaptureCallback {
-        void onCaptured(Bitmap bitmap);
-        void onFailed();
-    }
-
-    /** Grab the whole display for the screen-follow LED mode. */
-    static boolean captureScreen(ScreenCaptureCallback callback) {
-        final PavoA11yService service = instance;
-        if (service == null || callback == null || Build.VERSION.SDK_INT < 30) return false;
-        try {
-            service.takeScreenshot(android.view.Display.DEFAULT_DISPLAY,
-                    service.getMainExecutor(), new TakeScreenshotCallback() {
-                        @Override
-                        public void onSuccess(ScreenshotResult result) {
-                            Bitmap copy = null;
-                            try {
-                                HardwareBuffer buffer = result.getHardwareBuffer();
-                                Bitmap wrapped = Bitmap.wrapHardwareBuffer(
-                                        buffer, result.getColorSpace());
-                                if (wrapped != null) {
-                                    copy = wrapped.copy(Bitmap.Config.ARGB_8888, false);
-                                }
-                                buffer.close();
-                            } catch (Throwable ignored) {
-                            }
-                            if (copy == null) callback.onFailed();
-                            else callback.onCaptured(copy);
-                        }
-
-                        @Override
-                        public void onFailure(int errorCode) {
-                            callback.onFailed();
-                        }
-                    });
-            return true;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
     /**
      * Capture only the focused application window, excluding Pavo's overlay
      * windows. This lets the performance card refresh its backdrop without

@@ -226,28 +226,25 @@ public final class RgbService extends Service {
                 if ((elapsed / strobeInterval) % 2L != 0L) out = 0;
             } else if (mode == RgbControl.MODE_SCREEN) {
                 if (!RgbActivity.isVisible() && !ambientSampling
-                        && now - lastAmbientSample >= 120L) {
+                        && now - lastAmbientSample >= 260L) {
                     lastAmbientSample = now;
                     ambientSampling = true;
-                    ScreenAmbient.sampleAsync(getApplicationContext(),
-                            new ScreenAmbient.Listener() {
-                                @Override
-                                public void onColor(final int sampled) {
-                                    if (handler != null) {
-                                        handler.post(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                ambientSampling = false;
-                                                if (running && sampled != 0) {
-                                                    ambientTarget = sampled;
-                                                }
-                                            }
-                                        });
-                                    } else {
+                    new Thread(new Runnable() {
+                        @Override public void run() {
+                            final int sampled = ScreenAmbient.sample(
+                                    getApplicationContext());
+                            if (handler != null) {
+                                handler.post(new Runnable() {
+                                    @Override public void run() {
                                         ambientSampling = false;
+                                        if (running && sampled != 0) ambientTarget = sampled;
                                     }
-                                }
-                            });
+                                });
+                            } else {
+                                ambientSampling = false;
+                            }
+                        }
+                    }, "rgb-ambient").start();
                 }
                 if (ambientTarget != 0) {
                     float blendAmount = Math.max(0.04f,
