@@ -64,19 +64,6 @@ final class VendorRgb {
         putBrightness(c, level);
     }
 
-    /** Clear the vendor static enable when an animated mode takes over. */
-    static boolean disableIfEnabled(Context c) {
-        try {
-            String main = Settings.System.getString(c.getContentResolver(), ENABLE);
-            String handle = Settings.System.getString(c.getContentResolver(), HANDLE_ENABLE);
-            boolean mainOn = main != null && !main.trim().equals("0,0");
-            boolean handleOn = handle != null && !handle.trim().equals("0,0,0,0");
-            if (mainOn || handleOn) return off(c);
-        } catch (Throwable ignored) {
-        }
-        return false;
-    }
-
     static boolean off(Context c) {
         if (!available(c)) return false;
         boolean ok = putString(c, ENABLE, "0,0");
