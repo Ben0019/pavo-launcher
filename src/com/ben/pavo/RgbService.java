@@ -98,6 +98,7 @@ public final class RgbService extends Service {
         } else {
             // Animated modes: only restore the enable. Writing the saved base
             // colour here flashed before the first rainbow/breath frame.
+            VendorRgb.disableIfEnabled(c);
             RgbControl.wakeEnable(left, right);
             apply(c, mode, color, brightness, speed, left, right);
         }
@@ -179,6 +180,7 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
 
+        VendorRgb.disableIfEnabled(this);
         if (mode == RgbControl.MODE_SCREEN && (modeChanged || startedAt == 0L)) {
             ambientColor = color;
             ambientTarget = 0;

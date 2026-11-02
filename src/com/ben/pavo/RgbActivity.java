@@ -903,6 +903,10 @@ public final class RgbActivity extends PavoGlassActivity {
             }
         } else {
             ++writeGeneration;
+            // The vendor static control is still enabled from Static/Off;
+            // leaving it on makes it repaint its saved colour on wake and
+            // flashes before the animation's first frame.
+            VendorRgb.disableIfEnabled(this);
             RgbService.apply(this, mode, color, brightness, speed, leftOn, rightOn);
             serviceMode = mode;
         }
