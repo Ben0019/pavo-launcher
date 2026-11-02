@@ -44,6 +44,7 @@ public final class RgbService extends Service {
     private boolean right = true;
     private long startedAt;
     private boolean foreground;
+    private Runnable pendingStart;
     private int ambientColor;
     private int ambientTarget;
     private long lastAmbientSample;
@@ -180,7 +181,7 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
 
-        VendorRgb.disableIfEnabled(this);
+        final boolean vendorCleared = VendorRgb.disableIfEnabled(this);
         if (mode == RgbControl.MODE_SCREEN && (modeChanged || startedAt == 0L)) {
             ambientColor = color;
             ambientTarget = 0;
@@ -204,7 +205,23 @@ public final class RgbService extends Service {
         }
         if (handler != null) {
             handler.removeCallbacks(tick);
-            handler.post(tick);
+            if (pendingStart != null) handler.removeCallbacks(pendingStart);
+            if (vendorCleared) {
+                // Let the vendor observer apply its off write before we take
+                // the LEDs back; otherwise its late write leaves them dark.
+                pendingStart = new Runnable() {
+                    @Override
+                    public void run() {
+                        pendingStart = null;
+                        if (!running) return;
+                        RgbControl.setEnabled(left, right);
+                        handler.post(tick);
+                    }
+                };
+                handler.postDelayed(pendingStart, 260L);
+            } else {
+                handler.post(tick);
+            }
         }
         return START_NOT_STICKY;
     }
