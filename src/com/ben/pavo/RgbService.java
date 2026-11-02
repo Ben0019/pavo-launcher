@@ -87,14 +87,8 @@ public final class RgbService extends Service {
         boolean left = prefs.rgbLeft();
         boolean right = prefs.rgbRight();
         if (mode == RgbControl.MODE_STATIC) {
-            // Let the built-in control restore the static colour from its
-            // settings; fall back to the direct node path if it is unavailable.
-            if (!VendorRgb.applyStatic(c, color, brightness, left, right)) {
-                RgbControl.wakeApply(color, brightness, left, right);
-            } else {
-                VendorRgb.nudge(c, brightness);
-                RgbControl.applyHandle(color, brightness, left, right);
-            }
+            // Static has no animation frame to paint: restore enable + colour.
+            RgbControl.wakeApply(color, brightness, left, right);
         } else {
             // Animated modes: only restore the enable. Writing the saved base
             // colour here flashed before the first rainbow/breath frame.
@@ -173,9 +167,7 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
         if (mode == RgbControl.MODE_STATIC) {
-            if (!VendorRgb.applyStatic(this, color, brightness, left, right)) {
-                RgbControl.applyStatic(color, brightness, left, right);
-            }
+            RgbControl.applyStatic(color, brightness, left, right);
             previewActive = false;
             previewColor = RgbControl.scaledColor(color, 1f, brightness);
             stopForeground(true);

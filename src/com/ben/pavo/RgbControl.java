@@ -53,36 +53,12 @@ final class RgbControl {
         int r = Math.round(Color.red(color) * scale);
         int g = Math.round(Color.green(color) * scale);
         int b = Math.round(Color.blue(color) * scale);
-        boolean ok = writeZones(r, g, b, left, right);
-        writeFailed = !ok;
-        return ok;
-    }
-
-    /**
-     * Write both zones of each stick in one PServer command. The vendor driver
-     * takes 1-... for the main light and 2-... for the handle ring; keeping all
-     * four writes in a single transact avoids the per-zone binder/shell cost
-     * that made fast animations stutter (the same approach Bifrost uses).
-     */
-    private static boolean writeZones(int r, int g, int b, boolean left, boolean right) {
-        StringBuilder command = new StringBuilder(240);
-        if (left) appendZone(command, COLOR_LEFT, 1, r, g, b);
-        if (left) appendZone(command, COLOR_LEFT, 2, r, g, b);
-        if (right) appendZone(command, COLOR_RIGHT, 1, r, g, b);
-        if (right) appendZone(command, COLOR_RIGHT, 2, r, g, b);
-        if (command.length() == 0) return true;
-        if (PServer.available() && PServer.run(command.toString())) return true;
         boolean ok = true;
-        if (left) ok &= directColor(COLOR_LEFT, r, g, b);
-        if (right) ok &= directColor(COLOR_RIGHT, r, g, b);
+        if (left) ok &= writeColor(COLOR_LEFT, r, g, b);
+        if (right) ok &= writeColor(COLOR_RIGHT, r, g, b);
+        if (!ok) writeFailed = true;
+        else writeFailed = false;
         return ok;
-    }
-
-    private static void appendZone(StringBuilder command, String path, int index,
-                                   int r, int g, int b) {
-        if (command.length() > 0) command.append(" && ");
-        command.append("echo ").append(index).append('-').append(r).append(':')
-                .append(g).append(':').append(b).append(" > ").append(path);
     }
 
     static boolean applyStatic(int color, int brightness, boolean left, boolean right) {
@@ -155,27 +131,6 @@ final class RgbControl {
 
     static boolean off() {
         return setEnabled(false, false);
-    }
-
-    /**
-     * The vendor static control only paints index 1 (the main stick light).
-     * Write index 2 (the handle ring) directly so both rings stay lit.
-     */
-    static void applyHandle(int color, int brightness, boolean left, boolean right) {
-        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
-        // The vendor main-light writes use 0..25500 units (percent * 100);
-        // match them so the handle rings are as bright as the main light.
-        int r = Math.round(Color.red(color) * scale * 100f);
-        int g = Math.round(Color.green(color) * scale * 100f);
-        int b = Math.round(Color.blue(color) * scale * 100f);
-        StringBuilder command = new StringBuilder(160);
-        if (left) appendZone(command, COLOR_LEFT, 2, r, g, b);
-        if (right) appendZone(command, COLOR_RIGHT, 2, r, g, b);
-        if (command.length() == 0) return;
-        if (PServer.available() && PServer.run(command.toString())) return;
-        String value = "2-" + r + ":" + g + ":" + b;
-        if (left) direct(COLOR_LEFT, value);
-        if (right) direct(COLOR_RIGHT, value);
     }
 
     /** Write both the main light and handle ring for one stick. */
