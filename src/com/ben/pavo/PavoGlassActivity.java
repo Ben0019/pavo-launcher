@@ -493,7 +493,33 @@ abstract class PavoGlassActivity extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) ensureDecorVisible();
+        if (!hasFocus) return;
+        ensureDecorVisible();
+        View decor = getWindow() == null ? null : getWindow().getDecorView();
+        if (decor == null) return;
+        // Screen off/on can fire onUserLeaveHint while the window has no focus,
+        // leaving the wallpaper layer and the card faded after the wake.
+        if (returning || returnFinished) {
+            returning = false;
+            returnFinished = false;
+            resetReturnVisuals();
+            return;
+        }
+        WallpaperView wallpaper = findWallpaper(decor);
+        if (wallpaper != null && wallpaper.getAlpha() < 0.999f) {
+            wallpaper.animate().cancel();
+            wallpaper.setAlpha(1f);
+        }
+        GlassPanel card = largestGlassPanel(decor);
+        if (card != null && card.getAlpha() < 0.999f) {
+            Motion.cancelGiggle(card);
+            card.animate().cancel();
+            card.setAlpha(1f);
+            card.setScaleX(1f);
+            card.setScaleY(1f);
+            card.setTranslationX(0f);
+            card.setTranslationY(0f);
+        }
     }
 
     /**
