@@ -110,7 +110,7 @@ public final class RgbActivity extends PavoGlassActivity {
         public void run() {
             if (isFinishing() || isDestroyed()) return;
             updatePreview();
-            handler.postDelayed(this, 70L);
+            handler.postDelayed(this, mode == RgbControl.MODE_BREATH ? 16L : 70L);
         }
     };
 

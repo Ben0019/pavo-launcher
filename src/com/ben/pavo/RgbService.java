@@ -53,6 +53,7 @@ public final class RgbService extends Service {
     private boolean left = true;
     private boolean right = true;
     private long startedAt;
+    private long lastEnableAt;
     private boolean foreground;
 
     static boolean isRunning() {
@@ -159,7 +160,7 @@ public final class RgbService extends Service {
     public void onCreate() {
         super.onCreate();
         running = true;
-        thread = new HandlerThread("AuroraRgb");
+        thread = new HandlerThread("AuroraRgb", android.os.Process.THREAD_PRIORITY_DISPLAY);
         thread.start();
         handler = new Handler(thread.getLooper());
         NotificationManager nm =
@@ -323,14 +324,23 @@ public final class RgbService extends Service {
             // Re-assert the enable with every frame: the panel/vendor wake
             // sequence can clear it after the first frame, which left the
             // animated modes dark.
-            RgbControl.setEnabled(left, right);
+            if (now - lastEnableAt >= 250L) {
+                // Re-assert periodically rather than every frame. The wake
+                // path enables before the loop starts, so this only recovers
+                // from a late panel/vendor write.
+                RgbControl.setEnabledFast(left, right);
+                lastEnableAt = now;
+            }
             if (mode == RgbControl.MODE_MULTI) {
                 RgbControl.applyColorsLR(out, outRight, effective, left, right);
             } else {
-                RgbControl.applyColors(out, effective, left, right);
+                RgbControl.applyColorsFast(out, effective, left, right);
             }
-            handler.postDelayed(this, mode == RgbControl.MODE_STROBE
-                    ? strobeInterval : 70L);
+            long frameMs = mode == RgbControl.MODE_STROBE
+                    ? strobeInterval
+                    : (mode == RgbControl.MODE_BREATH ? 12L : 70L);
+            long work = SystemClock.uptimeMillis() - now;
+            handler.postDelayed(this, Math.max(1L, frameMs - work));
         }
     };
 

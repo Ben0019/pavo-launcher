@@ -30,6 +30,9 @@ final class RgbControl {
     private static final String COLOR_RIGHT = "/sys/class/sn3112r/led/brightness";
 
     private static volatile boolean writeFailed;
+    private static final Object FAST_LOCK = new Object();
+    private static final java.util.HashMap<String, FileOutputStream> FAST_STREAMS =
+            new java.util.HashMap<>();
 
     private RgbControl() {}
 
@@ -93,6 +96,68 @@ final class RgbControl {
         float hue = (baseHue + offsetDeg + (elapsedMs % 6000L) * 360f / 6000f) % 360f;
         if (hue < 0f) hue += 360f;
         return Color.HSVToColor(new float[]{hue, 1f, 1f});
+    }
+
+    /** Direct-write animation path: the nodes are world-writable, so this
+     *  avoids a PServer round trip on every frame. Falls back to the normal
+     *  transport if the kernel rejects the write. */
+    static boolean applyColorsFast(int color, int brightness,
+                                   boolean left, boolean right) {
+        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
+        int r = Math.round(Color.red(color) * scale);
+        int g = Math.round(Color.green(color) * scale);
+        int b = Math.round(Color.blue(color) * scale);
+        // Zone 2 is not wired on the Odin 3 ring, so the animation path
+        // writes only the single live zone per stick. That halves the sysfs
+        // round trips and roughly doubles the achievable frame rate.
+        boolean ok = true;
+        if (left) ok &= directFast(COLOR_LEFT, "1-" + r + ":" + g + ":" + b);
+        if (right) ok &= directFast(COLOR_RIGHT, "1-" + r + ":" + g + ":" + b);
+        if (ok) {
+            writeFailed = false;
+            return true;
+        }
+        return applyColors(color, brightness, left, right);
+    }
+
+    /** Direct-write enable for the animation loop. */
+    static boolean setEnabledFast(boolean left, boolean right) {
+        boolean ok = true;
+        if (left) ok &= directFast(ENABLE_LEFT, "1");
+        if (right) ok &= directFast(ENABLE_RIGHT, "1");
+        if (ok) return true;
+        return setEnabled(left, right);
+    }
+
+    /** Keeps the sysfs descriptors open: the animation path writes hundreds
+     *  of frames, and opening/closing every node dominated the frame time. */
+    private static boolean directFast(String path, String value) {
+        synchronized (FAST_LOCK) {
+            try {
+                FileOutputStream out = FAST_STREAMS.get(path);
+                if (out == null) {
+                    out = new FileOutputStream(path);
+                    FAST_STREAMS.put(path, out);
+                }
+                out.write(value.getBytes());
+                out.flush();
+                return true;
+            } catch (Throwable ignored) {
+            }
+            FileOutputStream stale = FAST_STREAMS.remove(path);
+            if (stale != null) {
+                try { stale.close(); } catch (Throwable ignored) {}
+            }
+            try {
+                FileOutputStream out = new FileOutputStream(path);
+                out.write(value.getBytes());
+                out.flush();
+                FAST_STREAMS.put(path, out);
+                return true;
+            } catch (Throwable ignored) {
+                return false;
+            }
+        }
     }
 
     static boolean applyStatic(int color, int brightness, boolean left, boolean right) {
@@ -213,7 +278,10 @@ final class RgbControl {
 
     static int breathFactor(long elapsedMs) {
         double phase = (elapsedMs % 2600L) * 2.0 * Math.PI / 2600.0;
-        return Math.round((0.12f + 0.88f
-                * (float) (0.5 - 0.5 * Math.cos(phase))) * 100f);
+        double perceived = 0.12 + 0.88 * (0.5 - 0.5 * Math.cos(phase));
+        // SN3112 PWM is linear in light output while the eye is not; a gamma
+        // curve keeps the fade visually even instead of hanging bright and
+        // then dropping quickly at the bottom.
+        return (int) Math.round(Math.pow(perceived, 2.2) * 100.0);
     }
 }
