@@ -36,6 +36,7 @@ public final class RgbService extends Service {
     private static volatile boolean previewActive;
     private static final Handler wakeHandler = new Handler(Looper.getMainLooper());
     private static Runnable pendingWakeReapply;
+    private static volatile long wakeHoldUntil;
 
     private HandlerThread thread;
     private Handler handler;
@@ -84,23 +85,11 @@ public final class RgbService extends Service {
             prefs.setRgbMode(mode);
         }
         if (mode == RgbControl.MODE_OFF) return;
-        int color = prefs.rgbColor();
-        int brightness = prefs.rgbBrightness();
-        int speed = prefs.rgbSpeed();
-        boolean left = prefs.rgbLeft();
-        boolean right = prefs.rgbRight();
-        if (mode == RgbControl.MODE_STATIC) {
-            // The panel's wake sequence writes a black LED frame ~0.5 s after
-            // the screen becomes interactive. Painting the static colour
-            // before that left the LEDs dark again, so wait for the panel to
-            // settle and only then restore the colour.
-            scheduleWakeReapply(c.getApplicationContext());
-        } else {
-            // Animated modes: only restore the enable. Writing the saved base
-            // colour here flashed before the first rainbow/breath frame.
-            RgbControl.wakeEnable(left, right);
-            apply(c, mode, color, brightness, speed, left, right);
-        }
+        // The panel's wake sequence writes a black LED frame ~0.5 s after the
+        // screen becomes interactive and can drop the enable with it. Every
+        // mode waits for the panel to settle, then restores itself: static
+        // paints the colour, animated modes re-enable and restart their loop.
+        scheduleWakeReapply(c.getApplicationContext());
     }
 
     private static void scheduleWakeReapply(final Context app) {
@@ -108,6 +97,7 @@ public final class RgbService extends Service {
         // keep the first deadline so duplicate triggers cannot push the
         // restore later.
         if (pendingWakeReapply != null) return;
+        wakeHoldUntil = SystemClock.uptimeMillis() + 650L;
         pendingWakeReapply = new Runnable() {
             private boolean repeated;
 
@@ -126,14 +116,31 @@ public final class RgbService extends Service {
                             Context.POWER_SERVICE);
                     if (pm != null && !pm.isInteractive()) return;
                     Prefs prefs = new Prefs(app);
-                    if (prefs.rgbMode() != RgbControl.MODE_STATIC) return;
-                    RgbControl.wakeApply(prefs.rgbColor(), prefs.rgbBrightness(),
-                            prefs.rgbLeft(), prefs.rgbRight());
+                    int saved = prefs.rgbMode();
+                    if (saved == RgbControl.MODE_SCREEN) saved = RgbControl.MODE_STATIC;
+                    if (saved == RgbControl.MODE_OFF) return;
+                    int c = prefs.rgbColor();
+                    int b = prefs.rgbBrightness();
+                    int sp = prefs.rgbSpeed();
+                    boolean l = prefs.rgbLeft();
+                    boolean r = prefs.rgbRight();
+                    wakeHoldUntil = 0L;
+                    if (saved == RgbControl.MODE_STATIC) {
+                        RgbControl.wakeApply(c, b, l, r);
+                    } else {
+                        RgbControl.wakeEnable(l, r);
+                        apply(app, saved, c, b, sp, l, r);
+                    }
                 } catch (Throwable ignored) {
                 }
             }
         };
         wakeHandler.postDelayed(pendingWakeReapply, 650L);
+    }
+
+    /** Pause painting while the panel is blank; the wake path resumes it. */
+    static void onScreenOff() {
+        wakeHoldUntil = Long.MAX_VALUE;
     }
 
     static void stop(Context c) {
@@ -243,6 +250,12 @@ public final class RgbService extends Service {
         public void run() {
             if (!running || handler == null) return;
             long now = SystemClock.uptimeMillis();
+            if (now < wakeHoldUntil) {
+                // The screen blanked; stop the loop instead of waking the CPU
+                // every frame. The wake path restarts it after the panel has
+                // finished its own LED write.
+                return;
+            }
             long elapsed = now - startedAt;
             long scaledElapsed = elapsed * speed / 100L;
             long strobeInterval = Math.max(35L, 140L * 100L / speed);
@@ -258,6 +271,10 @@ public final class RgbService extends Service {
             }
             previewColor = RgbControl.scaledColor(out, 1f, effective);
             previewActive = true;
+            // Re-assert the enable with every frame: the panel/vendor wake
+            // sequence can clear it after the first frame, which left the
+            // animated modes dark.
+            RgbControl.setEnabled(left, right);
             RgbControl.applyColors(out, effective, left, right);
             handler.postDelayed(this, mode == RgbControl.MODE_STROBE
                     ? strobeInterval : 70L);

@@ -728,6 +728,7 @@ public final class PavoA11yService extends AccessibilityService {
                 while (wakeWatcherRunning) {
                     boolean now = pm != null && pm.isInteractive();
                     if (now && !last) triggerRgbWake();
+                    else if (!now && last) RgbService.onScreenOff();
                     last = now;
                     try {
                         Thread.sleep(60L);
