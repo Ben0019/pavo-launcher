@@ -35,6 +35,8 @@ final class DisplayTuner {
         int rotation;
         boolean naturalLandscape;
         int[] refreshRates = new int[]{60, 120};
+        int[] hdrTypes = new int[0];
+        float nativeAspect = 16f / 9f;
     }
 
     static boolean available() {
@@ -71,6 +73,12 @@ final class DisplayTuner {
                 }
                 s.nativeWidth = maxW;
                 s.nativeHeight = maxH;
+                if (maxW > 0 && maxH > 0) {
+                    s.nativeAspect = Math.max(maxW, maxH) / (float) Math.min(maxW, maxH);
+                }
+                if (display.isHdr() && display.getHdrCapabilities() != null) {
+                    s.hdrTypes = display.getHdrCapabilities().getSupportedHdrTypes();
+                }
                 // mode width/height reflects the panel's natural orientation,
                 // unlike the max/min portrait-safe helpers above.
                 Display.Mode currentMode = display.getMode();
@@ -134,8 +142,21 @@ final class DisplayTuner {
     static void setRefresh(Context context, int hz, boolean auto) {
         String cmd;
         if (auto) {
+            int peak = 0;
+            try {
+                DisplayManager dm = (DisplayManager) context.getSystemService(
+                        Context.DISPLAY_SERVICE);
+                Display display = dm == null ? null : dm.getDisplay(Display.DEFAULT_DISPLAY);
+                if (display != null) {
+                    for (Display.Mode mode : display.getSupportedModes()) {
+                        peak = Math.max(peak, Math.round(mode.getRefreshRate()));
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            if (peak <= 0) peak = 120;
             cmd = "settings put system min_refresh_rate 0; "
-                    + "settings put system peak_refresh_rate 120";
+                    + "settings put system peak_refresh_rate " + peak;
         } else {
             cmd = "settings put system min_refresh_rate " + hz + "; "
                     + "settings put system peak_refresh_rate " + hz;
@@ -228,9 +249,43 @@ final class DisplayTuner {
      * ACCESS_SURFACE_FLINGER.  HDR is a separate framework display command.
      */
     static void setHdrEnabled(boolean enabled) {
-        write(enabled
-                ? "cmd display set-user-disabled-hdr-types"
-                : "cmd display set-user-disabled-hdr-types 2 3");
+        if (enabled) {
+            write("cmd display set-user-disabled-hdr-types");
+            return;
+        }
+        int[] types = supportedHdrTypes();
+        StringBuilder cmd = new StringBuilder("cmd display set-user-disabled-hdr-types");
+        if (types != null && types.length > 0) {
+            for (int type : types) cmd.append(' ').append(type);
+        } else {
+            cmd.append(" 2 3");
+        }
+        write(cmd.toString());
+    }
+
+    private static int[] supportedHdrTypes() {
+        try {
+            Context context = appContext();
+            if (context == null) return null;
+            DisplayManager dm = (DisplayManager) context.getSystemService(
+                    Context.DISPLAY_SERVICE);
+            Display display = dm == null ? null : dm.getDisplay(Display.DEFAULT_DISPLAY);
+            if (display == null || !display.isHdr()) return null;
+            return display.getHdrCapabilities() == null ? null
+                    : display.getHdrCapabilities().getSupportedHdrTypes();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Context appContext() {
+        try {
+            Class<?> thread = Class.forName("android.app.ActivityThread");
+            java.lang.reflect.Method current = thread.getMethod("currentApplication");
+            return (Context) current.invoke(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     /**
@@ -244,7 +299,7 @@ final class DisplayTuner {
         int close = out.indexOf(']', open + 1);
         if (open < 0 || close < 0) return -1;
         String list = out.substring(open + 1, close).trim();
-        return list.contains("2") || list.contains("3") || list.contains("4") ? 1 : 0;
+        return list.isEmpty() ? 0 : 1;
     }
 
     /**

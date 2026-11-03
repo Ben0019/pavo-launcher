@@ -24,34 +24,6 @@ final class DeviceHealthController {
 
     private DeviceHealthController() {}
 
-    /**
-     * Caps the current the charger may deliver. 2000 mA (or more) means "leave
-     * it to the charger" and lifts any ceiling Pavo set before.
-     */
-    static Result setInputLimit(Context c, int milliamps) {
-        if (milliamps >= 2000) {
-            // Lift the ceiling and let the charger/PD contract decide again.
-            runPrivileged("echo 3000000 > /sys/class/power_supply/usb/input_current_limit");
-            return new Result(true, "Charging at the charger's maximum");
-        }
-        int target = milliamps * 1000;
-        String node = "/sys/class/power_supply/usb/input_current_limit";
-        runPrivileged("echo " + target + " > " + node);
-        long end = SystemClock.uptimeMillis() + 1200L;
-        int seen = -1;
-        do {
-            seen = DeviceHealthReader.num(c, node, -1);
-            // A weaker source clamps lower than asked, which is still a success.
-            if (seen > 0 && seen <= target + 60000) {
-                return new Result(true, "Charge speed limited to "
-                        + (milliamps / 100f) + " A");
-            }
-            SystemClock.sleep(80L);
-        } while (SystemClock.uptimeMillis() < end);
-        return new Result(false, "The charger would not accept that limit (stuck at "
-                + (seen / 1000) + " mA)");
-    }
-
     static Result setSeparation(Context c, boolean enabled) {
         int target = enabled ? 0 : 1;
         runPrivileged("settings put system " + SEPARATION_SETTING + " "

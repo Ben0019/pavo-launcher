@@ -95,15 +95,13 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
     private TextView autoHint;
     private SeekBar limitBar;
     private TextView limitHint;
-    private SeekBar speedBar;
-    private TextView speedValue;
 
     private TextView vStatus, vHealth, vCycles, vTemp, vVoltage, vCurrent, vPower;
     private TextView vChargeType, vTimeFull, vTimeEmpty;
     private TextView vDesign, vFull, vCounter, vWear, vSoh, vResistance;
     private TextView vCpu, vGpu, vBatteryTemp;
     private TextView vModel, vAndroid, vBatteryModel, vUsb, vCcLimit;
-    private TextView vConn, vInput, vInputPower, vInputLimit, vPd, vPath, vSpeed;
+    private TextView vConn, vInput, vInputPower, vInputLimit, vPd, vPath;
 
     private boolean resumed;
     private boolean applying;
@@ -643,94 +641,6 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         vPd = row(card, "Power delivery", "--");
         vPath = row(card, "Charge path", "--");
 
-        LinearLayout speedHead = new LinearLayout(this);
-        speedHead.setOrientation(LinearLayout.HORIZONTAL);
-        speedHead.setGravity(Gravity.CENTER_VERTICAL);
-        speedHead.setPadding(0, dp(4), 0, 0);
-        TextView speedLabel = text("Charge speed", 10f, TEXT, false);
-        speedHead.addView(speedLabel, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        speedValue = text(String.format(Locale.US, "%.1f A",
-                store.speedMa() / 1000f), 10.5f, accent(), false);
-        speedHead.addView(speedValue);
-        card.addView(speedHead);
-
-        speedBar = new SeekBar(this);
-        speedBar.setMax(15);
-        speedBar.setProgress(Math.max(0, Math.min(15, store.speedMa() / 100 - 5)));
-        speedBar.setProgressTintList(android.content.res.ColorStateList.valueOf(accent()));
-        speedBar.setThumbTintList(android.content.res.ColorStateList.valueOf(accent()));
-        speedBar.setProgressBackgroundTintList(
-                android.content.res.ColorStateList.valueOf(0x33FFFFFF));
-        speedBar.setPadding(dp(8), 0, dp(8), 0);
-        speedBar.setBackground(navBackground(0x00000000, 10, 0x00000000, 0));
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(28));
-        slp.topMargin = dp(3);
-        card.addView(speedBar, slp);
-        vSpeed = text("Caps the current the charger may deliver. 2.0 A leaves it to the charger.",
-                8.5f, 0x66FFFFFF, false);
-        card.addView(vSpeed);
-
-        speedBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                if (!fromUser) return;
-                speedValue.setText(String.format(Locale.US, "%.1f A",
-                        (5 + progress) / 10f));
-            }
-            @Override public void onStartTrackingTouch(SeekBar bar) {}
-            @Override public void onStopTrackingTouch(SeekBar bar) {
-                final int ma = (5 + bar.getProgress()) * 100;
-                store.setSpeedMa(ma);
-                applySpeed(ma, true);
-            }
-        });
-    }
-
-    private void applySpeed(final int ma, final boolean feedback) {
-        boolean plugged = snap != null && snap.plugged;
-        if (plugged && snap.separated) {
-            // The pack is not charging; applying an input ceiling now would fight
-            // the separation state. The guard applies it once charging resumes.
-            if (ma < 2000) BatteryGuardService.start(DeviceHealthActivity.this);
-            if (feedback) toast(String.format(Locale.US,
-                    "Charge speed %.1f A \u00b7 applies when charging resumes", ma / 1000f));
-            return;
-        }
-        if (!plugged) {
-            // Nothing to limit until a charger is attached; the guard applies it
-            // the moment one appears.
-            if (ma < 2000) BatteryGuardService.start(DeviceHealthActivity.this);
-            else if (!store.autoSeparation() && !store.limitEnabled()) {
-                BatteryGuardService.stop(DeviceHealthActivity.this);
-            }
-            if (feedback) {
-                toast(ma >= 2000 ? "Charging at the charger's maximum"
-                        : String.format(Locale.US, "Charge speed %.1f A · applies when plugged in",
-                        ma / 1000f));
-            }
-            return;
-        }
-        worker.execute(new Runnable() {
-            @Override
-            public void run() {
-                final DeviceHealthController.Result r =
-                        DeviceHealthController.setInputLimit(DeviceHealthActivity.this, ma);
-                if (ma < 2000) BatteryGuardService.start(DeviceHealthActivity.this);
-                else if (!store.autoSeparation() && !store.limitEnabled()) {
-                    BatteryGuardService.stop(DeviceHealthActivity.this);
-                }
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (feedback) toast(r.message);
-                        main.removeCallbacks(poll);
-                        main.post(poll);
-                    }
-                });
-            }
-        });
     }
 
     private void buildChargingSection(LinearLayout right) {
@@ -948,7 +858,6 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         demoChip.setBackground(navBackground(accent(), 8, 0x00000000, 1));
         limitChip.setEnabled(false);
         if (limitBar != null) limitBar.setEnabled(false);
-        if (speedBar != null) speedBar.setEnabled(false);
         sepChip.setEnabled(false);
         autoChip.setEnabled(false);
         autoBar.setEnabled(false);
@@ -969,7 +878,6 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         demoChip.setBackground(navBackground(0x1AFFFFFF, 8, 0x33FFFFFF, 1));
         limitChip.setEnabled(true);
         if (limitBar != null) limitBar.setEnabled(true);
-        if (speedBar != null) speedBar.setEnabled(true);
         sepChip.setEnabled(true);
         autoChip.setEnabled(true);
         autoBar.setEnabled(true);
@@ -1209,7 +1117,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         vWear.setText(s.healthPct >= 0 ? (100 - s.healthPct) + "%" : "--");
         vSoh.setText(s.soh >= 0 ? s.soh + "%" : "--");
         vResistance.setText(s.resistance > 0
-                ? String.format(Locale.US, "%.1f mΩ", s.resistance / 1000f) : "--");
+                ? String.format(Locale.US, "%.1f mΩ", s.resistance) : "--");
 
         vCpu.setText(s.cpuTempC > 0 ? String.format(Locale.US, "%.1f °C", s.cpuTempC) : "--");
         vGpu.setText(s.gpuTempC > 0 ? String.format(Locale.US, "%.1f °C", s.gpuTempC) : "--");
@@ -1250,11 +1158,6 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         vPd.setText(!s.plugged ? "--"
                 : s.pdSupported ? "USB-PD " + s.pdRevision
                 : "Not offered by charger");
-        vSpeed.setText(s.plugged
-                ? String.format(Locale.US,
-                "Caps the current the charger may deliver \u00b7 live limit %.2f A",
-                s.inputLimitA > 0f ? s.inputLimitA : 0f)
-                : "Caps the current the charger may deliver. 2.0 A leaves it to the charger.");
         vPath.setText(!s.plugged ? "Disconnected"
                 : s.separated ? "Separation \u00b7 from cable"
                 : s.charging ? "Battery charging"

@@ -27,6 +27,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.Locale;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -83,6 +85,9 @@ public final class DisplayActivity extends PavoGlassActivity {
     private volatile boolean hdrSynced;
     private int selectedHeight;
     private int selectedAspect;
+    private int[] refreshValues = new int[]{0, 60, 120};
+    private int[] resolutionHeights = new int[]{0};
+    private float nativeAspect = 16f / 9f;
     private boolean tight;
 
     @Override
@@ -182,8 +187,37 @@ public final class DisplayActivity extends PavoGlassActivity {
         body.addView(info);
 
         LinearLayout panelSection = section(body, "PANEL", "Current mode and capability");
+
+        DisplayTuner.Snapshot initial = DisplayTuner.read(this);
+        int[] rates = initial == null ? null : initial.refreshRates;
+        if (rates == null || rates.length == 0) rates = new int[]{60, 120};
+        refreshValues = new int[rates.length + 1];
+        String[] refreshOptions = new String[rates.length + 1];
+        refreshOptions[0] = "Auto";
+        for (int i = 0; i < rates.length; i++) {
+            refreshValues[i + 1] = rates[i];
+            refreshOptions[i + 1] = rates[i] + " Hz";
+        }
+        int nativeShort = 0;
+        if (initial != null) {
+            nativeShort = Math.min(initial.nativeWidth, initial.nativeHeight);
+            if (nativeShort <= 0) nativeShort = Math.min(initial.width, initial.height);
+            if (initial.nativeAspect > 0f) nativeAspect = initial.nativeAspect;
+        }
+        java.util.ArrayList<Integer> rungs = new java.util.ArrayList<>();
+        for (int h : new int[]{1440, 1200, 1080, 900, 720}) {
+            if (h < nativeShort) rungs.add(h);
+        }
+        resolutionHeights = new int[rungs.size() + 1];
+        String[] resolutionOptions = new String[rungs.size() + 1];
+        resolutionOptions[0] = "Native";
+        for (int i = 0; i < rungs.size(); i++) {
+            resolutionHeights[i + 1] = rungs.get(i);
+            resolutionOptions[i + 1] = rungs.get(i) + "p";
+        }
+
         refreshRow = new ChoiceRow(panelSection, "Refresh rate",
-                new String[]{"Auto", "60 Hz", "120 Hz"}, 0, new ChoiceCallback() {
+                refreshOptions, 0, new ChoiceCallback() {
             @Override
             public void onSelected(int index) {
                 if (index == 0) runSystem(new Runnable() {
@@ -193,7 +227,8 @@ public final class DisplayActivity extends PavoGlassActivity {
                     }
                 }, true);
                 else {
-                    final int hz = index == 1 ? 60 : 120;
+                    final int hz = refreshValues[Math.min(index,
+                            refreshValues.length - 1)];
                     runSystem(new Runnable() {
                         @Override
                         public void run() {
@@ -205,8 +240,7 @@ public final class DisplayActivity extends PavoGlassActivity {
         });
         systemRows.add(refreshRow);
         resolutionRow = new ChoiceRow(panelSection, "Resolution",
-                new String[]{"Native", "1200p", "1080p", "900p", "720p"}, 0,
-                new ChoiceCallback() {
+                resolutionOptions, 0, new ChoiceCallback() {
                     @Override
                     public void onSelected(int index) {
                         if (index == 0) {
@@ -217,15 +251,19 @@ public final class DisplayActivity extends PavoGlassActivity {
                                 }
                             }, true);
                         } else {
-                            selectedHeight = resolutionHeight(index);
+                            selectedHeight = resolutionHeights[Math.min(index,
+                                    resolutionHeights.length - 1)];
                             applyResolution();
                         }
                         toastAfterResolution();
                     }
                 });
         systemRows.add(resolutionRow);
+        String detectedAspect = aspectLabel(nativeAspect);
+        String nativeChip = detectedAspect.isEmpty()
+                ? "Native" : "Native " + detectedAspect;
         aspectRow = new ChoiceRow(panelSection, "Aspect ratio",
-                new String[]{"Native", "16:9", "16:10", "3:2", "4:3", "21:9"}, 0,
+                new String[]{nativeChip, "16:9", "16:10", "3:2", "4:3", "21:9"}, 0,
                 new ChoiceCallback() {
                     @Override
                     public void onSelected(int index) {
@@ -479,7 +517,8 @@ public final class DisplayActivity extends PavoGlassActivity {
         title.setGravity(Gravity.CENTER);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView subtitle = text("PANEL  ·  PAVO DISPLAY", 9.5f, MUTED, false);
+        TextView subtitle = text("PANEL  ·  "
+                + DeviceProfile.get(this).name.toUpperCase(), 9.5f, MUTED, false);
         subtitle.setLetterSpacing(0.13f);
         subtitle.setGravity(Gravity.CENTER);
         subtitle.setPadding(0, dp(2), 0, 0);
@@ -976,14 +1015,14 @@ public final class DisplayActivity extends PavoGlassActivity {
         }
     };
 
-    private static int resolutionHeight(int index) {
-        switch (index) {
-            case 1: return 1200;
-            case 2: return 1080;
-            case 3: return 900;
-            case 4: return 720;
-            default: return 0;
+    private static String aspectLabel(float ratio) {
+        if (ratio <= 0f) return "";
+        float[] known = {16f / 9f, 16f / 10f, 3f / 2f, 4f / 3f, 21f / 9f};
+        String[] labels = {"16:9", "16:10", "3:2", "4:3", "21:9"};
+        for (int i = 0; i < known.length; i++) {
+            if (Math.abs(ratio - known[i]) < 0.02f) return labels[i];
         }
+        return String.format(Locale.US, "%.2f:1", ratio);
     }
 
     private void applyResolution() {
@@ -1008,7 +1047,7 @@ public final class DisplayActivity extends PavoGlassActivity {
             case 3: ratio = 3f / 2f; break;
             case 4: ratio = 4f / 3f; break;
             case 5: ratio = 21f / 9f; break;
-            default: ratio = 16f / 9f; break;
+            default: ratio = nativeAspect > 0f ? nativeAspect : 16f / 9f; break;
         }
         final int width = Math.max(height + 1, Math.round(height * ratio));
         runSystem(new Runnable() {
@@ -1031,7 +1070,10 @@ public final class DisplayActivity extends PavoGlassActivity {
     private void bind(DisplayTuner.Snapshot s) {
         if (s == null) return;
         updating = true;
-        info.setText(s.width + " × " + s.height + "  ·  " + s.densityDpi
+        String aspectInfo = aspectLabel(s.nativeAspect);
+        info.setText(s.width + " × " + s.height
+                + (aspectInfo.isEmpty() ? "" : "  ·  " + aspectInfo)
+                + "  ·  " + s.densityDpi
                 + " dpi  ·  " + DisplayTuner.refreshLabel(s.refresh)
                 + "  ·  " + (prefs.panelHdrEnabled() ? s.hdr : "HDR OFF"));
         status.setText(root ? "PSERVER CONNECTED" : "PSERVER REQUIRED");
@@ -1040,29 +1082,34 @@ public final class DisplayActivity extends PavoGlassActivity {
                 dp(10), root ? 0x4469D98B : 0x66FF8A80, dp(1)));
 
         int refreshIndex = 0;
-        if (s.minRefresh >= 120) refreshIndex = 2;
-        else if (s.minRefresh >= 60 && s.peakRefresh <= 60) refreshIndex = 1;
+        int maxRate = refreshValues.length > 1
+                ? refreshValues[refreshValues.length - 1] : 0;
+        if (s.minRefresh > 0 || (s.peakRefresh > 0 && s.peakRefresh < maxRate)) {
+            int target = s.minRefresh > 0 ? s.minRefresh : s.peakRefresh;
+            int bestDelta = Integer.MAX_VALUE;
+            for (int i = 1; i < refreshValues.length; i++) {
+                int delta = Math.abs(refreshValues[i] - target);
+                if (delta < bestDelta) {
+                    bestDelta = delta;
+                    refreshIndex = i;
+                }
+            }
+        }
         refreshRow.selectSilently(refreshIndex);
 
         int shortSide = Math.min(s.width, s.height);
         int longSide = Math.max(s.width, s.height);
-        int res;
-        if (s.width == s.nativeWidth && s.height == s.nativeHeight) {
-            res = 0;
-        } else if (shortSide == 1200) {
-            res = 1;
-        } else if (shortSide == 1080) {
-            res = 2;
-        } else if (shortSide == 900) {
-            res = 3;
-        } else if (shortSide == 720) {
-            res = 4;
-        } else {
-            res = 0;
+        int res = 0;
+        if (!(s.width == s.nativeWidth && s.height == s.nativeHeight)) {
+            for (int i = 1; i < resolutionHeights.length; i++) {
+                if (shortSide == resolutionHeights[i]) {
+                    res = i;
+                    break;
+                }
+            }
         }
         resolutionRow.selectSilently(res);
-        selectedHeight = resolutionHeight(res);
-        if (res == 0) selectedHeight = 0;
+        selectedHeight = resolutionHeights[Math.min(res, resolutionHeights.length - 1)];
 
         int aspect = 0;
         if (!(s.width == s.nativeWidth && s.height == s.nativeHeight)) {

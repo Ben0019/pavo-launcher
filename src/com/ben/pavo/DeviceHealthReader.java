@@ -18,6 +18,98 @@ final class DeviceHealthReader {
 
     private static final Object READ_LOCK = new Object();
 
+    static final class Paths {
+        String battery = BATTERY;
+        String usb = USB;
+    }
+
+    private static volatile Paths cachedPaths;
+
+    /** Finds the battery/charger power supplies instead of assuming /battery and /usb. */
+    static Paths paths(Context c) {
+        Paths cached = cachedPaths;
+        if (cached != null) return cached;
+        synchronized (READ_LOCK) {
+            if (cachedPaths != null) return cachedPaths;
+            Paths found = new Paths();
+            try {
+                File[] entries = new File("/sys/class/power_supply").listFiles();
+                if (entries != null) {
+                    String battery = null;
+                    String usb = null;
+                    int batteryScore = 0;
+                    int usbScore = 0;
+                    for (File dir : entries) {
+                        if (dir == null || !dir.isDirectory()) continue;
+                        String name = dir.getName().toLowerCase(java.util.Locale.US);
+                        String type = directText(new File(dir, "type").getAbsolutePath());
+                        String lower = type == null ? "" : type.toLowerCase(java.util.Locale.US);
+                        int b = 0;
+                        if ("battery".equals(name)) b += 6;
+                        if (lower.contains("battery")) b += 4;
+                        if (new File(dir, "capacity").exists()) b += 2;
+                        if (new File(dir, "charge_full").exists()) b += 1;
+                        if (b > batteryScore) {
+                            batteryScore = b;
+                            battery = dir.getAbsolutePath();
+                        }
+                        int u = 0;
+                        if ("usb".equals(name)) u += 6;
+                        if (lower.contains("usb")) u += 4;
+                        else if (lower.contains("mains") || lower.contains("wireless")) u += 3;
+                        if (new File(dir, "online").exists()) u += 1;
+                        if (u > usbScore) {
+                            usbScore = u;
+                            usb = dir.getAbsolutePath();
+                        }
+                    }
+                    if (battery != null) found.battery = battery + "/";
+                    if (usb != null) found.usb = usb + "/";
+                }
+            } catch (Throwable ignored) {
+            }
+            cachedPaths = found;
+            return found;
+        }
+    }
+
+    static String qcomNode(String name) {
+        return QCOM + name;
+    }
+
+    private static float readVoltageV(int raw) {
+        if (raw == Integer.MIN_VALUE || raw <= 0) return -1f;
+        if (raw >= 100_000) return raw / 1_000_000f;
+        if (raw >= 1_000) return raw / 1_000f;
+        return raw;
+    }
+
+    private static float readCurrentA(int raw) {
+        if (raw == Integer.MIN_VALUE) return 0f;
+        // Linux power_supply reports current in microamperes.  Values below
+        // 1 mA are tiny but still microamperes, so do not rescale them into
+        // amps (which used to turn a 12 mA idle draw into 12 A).
+        return raw / 1_000_000f;
+    }
+
+    private static float readTempC(int raw) {
+        if (raw == Integer.MIN_VALUE) return -1f;
+        int abs = Math.abs(raw);
+        if (abs >= 10_000) return raw / 1_000f;
+        if (abs >= 100) return raw / 10f;
+        return raw;
+    }
+
+    private static long readChargeUah(int raw) {
+        if (raw <= 0) return -1;
+        return raw >= 100_000 ? raw : raw * 1_000L;
+    }
+
+    private static float readResistanceMOhm(int raw) {
+        if (raw <= 0) return -1f;
+        return raw >= 10_000 ? raw / 1_000f : raw;
+    }
+
     private DeviceHealthReader() {}
 
     static final class Snapshot {
@@ -59,7 +151,7 @@ final class DeviceHealthReader {
         int usbChargeNow = -1;
         int chargeControlLimit = -1;
         int chargeControlLimitMax = -1;
-        int resistance = -1;
+        float resistance = -1f;
         int parallelCells = -1;
         float cpuTempC = -1f;
         float gpuTempC = -1f;
@@ -72,7 +164,8 @@ final class DeviceHealthReader {
     static Snapshot readFast(Context c) {
         Snapshot s = new Snapshot();
         s.pserver = false;
-        s.level = directNum(BATTERY + "capacity", -1);
+        Paths p = paths(c);
+        s.level = directNum(p.battery + "capacity", -1);
         if (s.level < 0 && c != null) {
             BatteryManager bm = (BatteryManager) c.getSystemService(Context.BATTERY_SERVICE);
             if (bm != null) {
@@ -80,21 +173,19 @@ final class DeviceHealthReader {
                 if (v >= 0) s.level = v;
             }
         }
-        String status = directText(BATTERY + "status");
+        String status = directText(p.battery + "status");
         s.status = status == null ? "--" : clean(status);
-        int temp = directNum(BATTERY + "temp", Integer.MIN_VALUE);
-        if (temp != Integer.MIN_VALUE) s.tempC = temp / 10f;
-        int voltage = directNum(BATTERY + "voltage_now", Integer.MIN_VALUE);
-        if (voltage != Integer.MIN_VALUE) s.voltageV = voltage / 1_000_000f;
-        int usbOnline = directNum(USB + "online", 0);
+        s.tempC = readTempC(directNum(p.battery + "temp", Integer.MIN_VALUE));
+        s.voltageV = readVoltageV(directNum(p.battery + "voltage_now", Integer.MIN_VALUE));
+        int usbOnline = directNum(p.usb + "online", 0);
         int wirelessOnline = directNum("/sys/class/power_supply/wireless/online", 0);
         s.plugged = usbOnline == 1 || wirelessOnline == 1;
         s.charging = "Charging".equalsIgnoreCase(s.status);
         s.full = "Full".equalsIgnoreCase(s.status) || s.level >= 100;
         int usbChargeNow = directNum(QCOM + "usb_charge_now", -1);
         s.separated = s.plugged && usbChargeNow == 0;
-        s.fullUah = directNum(BATTERY + "charge_full", -1);
-        s.designUah = directNum(BATTERY + "charge_full_design", -1);
+        s.fullUah = readChargeUah(directNum(p.battery + "charge_full", -1));
+        s.designUah = readChargeUah(directNum(p.battery + "charge_full_design", -1));
         if (s.designUah > 0 && s.fullUah > 0) {
             s.healthPct = Math.max(0, Math.min(100,
                     Math.round(s.fullUah * 100f / s.designUah)));
@@ -116,64 +207,57 @@ final class DeviceHealthReader {
     static Snapshot read(Context c) {
         Snapshot s = new Snapshot();
         s.pserver = PServer.available();
+        Paths p = paths(c);
 
-        s.level = num(c, BATTERY + "capacity", -1);
-        String status = text(c, BATTERY + "status");
+        s.level = num(c, p.battery + "capacity", -1);
+        String status = text(c, p.battery + "status");
         s.status = status == null ? "--" : clean(status);
-        s.health = clean(text(c, BATTERY + "health"));
-        s.technology = clean(text(c, BATTERY + "technology"));
-        s.model = clean(text(c, BATTERY + "model_name"));
-        s.chargeType = clean(text(c, BATTERY + "charge_type"));
+        s.health = clean(text(c, p.battery + "health"));
+        s.technology = clean(text(c, p.battery + "technology"));
+        s.model = clean(text(c, p.battery + "model_name"));
+        s.chargeType = clean(text(c, p.battery + "charge_type"));
         s.usbType = clean(text(c, QCOM + "usb_real_type"));
         if (s.usbType == null || s.usbType.isEmpty()) {
             s.usbType = clean(text(c, QCOM + "usb_typec_orientation"));
         }
 
-        s.fullUah = num(c, BATTERY + "charge_full", -1);
-        s.designUah = num(c, BATTERY + "charge_full_design", -1);
-        s.counterUah = num(c, BATTERY + "charge_counter", -1);
-        s.cycleCount = findCycleCount(c, s);
+        s.fullUah = readChargeUah(num(c, p.battery + "charge_full", -1));
+        s.designUah = readChargeUah(num(c, p.battery + "charge_full_design", -1));
+        s.counterUah = readChargeUah(num(c, p.battery + "charge_counter", -1));
+        s.cycleCount = findCycleCount(c, p, s);
         s.soh = num(c, QCOM + "soh", -1);
-        s.resistance = num(c, QCOM + "resistance", -1);
+        s.resistance = readResistanceMOhm(num(c, QCOM + "resistance", -1));
         s.parallelCells = num(c, QCOM + "battery_parallel_cell_count", -1);
 
-        int temp = num(c, BATTERY + "temp", Integer.MIN_VALUE);
-        if (temp != Integer.MIN_VALUE) s.tempC = temp / 10f;
-        int voltage = num(c, BATTERY + "voltage_now", Integer.MIN_VALUE);
-        if (voltage != Integer.MIN_VALUE) s.voltageV = voltage / 1_000_000f;
-        int current = num(c, BATTERY + "current_now", Integer.MIN_VALUE);
-        if (current != Integer.MIN_VALUE) s.currentA = current / 1_000_000f;
+        s.tempC = readTempC(num(c, p.battery + "temp", Integer.MIN_VALUE));
+        s.voltageV = readVoltageV(num(c, p.battery + "voltage_now", Integer.MIN_VALUE));
+        s.currentA = readCurrentA(num(c, p.battery + "current_now", Integer.MIN_VALUE));
         if (s.voltageV > 0f && s.currentA != 0f) {
             s.powerW = Math.abs(s.voltageV * s.currentA);
         }
 
-        s.timeToFullSec = num(c, BATTERY + "time_to_full_now", -1);
-        s.timeToEmptySec = num(c, BATTERY + "time_to_empty_avg", -1);
+        s.timeToFullSec = num(c, p.battery + "time_to_full_now", -1);
+        s.timeToEmptySec = num(c, p.battery + "time_to_empty_avg", -1);
 
-        int inVolt = num(c, USB + "voltage_now", Integer.MIN_VALUE);
-        if (inVolt != Integer.MIN_VALUE) s.inputVoltageV = inVolt / 1_000_000f;
-        int inCur = num(c, USB + "current_now", Integer.MIN_VALUE);
-        if (inCur != Integer.MIN_VALUE) s.inputCurrentA = inCur / 1_000_000f;
-        int inLimit = num(c, USB + "input_current_limit", Integer.MIN_VALUE);
-        if (inLimit != Integer.MIN_VALUE) s.inputLimitA = inLimit / 1_000_000f;
-        s.inputType = clean(text(c, USB + "type"));
+        s.inputVoltageV = readVoltageV(num(c, p.usb + "voltage_now", Integer.MIN_VALUE));
+        s.inputCurrentA = readCurrentA(num(c, p.usb + "current_now", Integer.MIN_VALUE));
+        s.inputLimitA = readCurrentA(num(c, p.usb + "input_current_limit", Integer.MIN_VALUE));
+        s.inputType = clean(text(c, p.usb + "type"));
         s.pdSupported = "yes".equalsIgnoreCase(
                 text(c, "/sys/class/typec/port0-partner/supports_usb_power_delivery"));
         String pdRev = text(c, "/sys/class/typec/port0/usb_power_delivery_revision");
         if (pdRev != null && !pdRev.isEmpty()) s.pdRevision = clean(pdRev);
 
         s.limitPct = num(c, QCOM + "limit_capacity_charge", -1);
-        s.endThreshold = num(c, BATTERY + "charge_control_end_threshold", -1);
-        s.startThreshold = num(c, BATTERY + "charge_control_start_threshold", -1);
+        s.endThreshold = num(c, p.battery + "charge_control_end_threshold", -1);
+        s.startThreshold = num(c, p.battery + "charge_control_start_threshold", -1);
         s.restrictChg = num(c, QCOM + "restrict_chg", -1);
         s.usbChargeNow = num(c, QCOM + "usb_charge_now", -1);
-        s.chargeControlLimit = num(c, BATTERY + "charge_control_limit", -1);
-        s.chargeControlLimitMax = num(c, BATTERY + "charge_control_limit_max", -1);
+        s.chargeControlLimit = num(c, p.battery + "charge_control_limit", -1);
+        s.chargeControlLimitMax = num(c, p.battery + "charge_control_limit_max", -1);
 
-        int usbOnline = num(c, USB + "online", 0);
+        int usbOnline = num(c, p.usb + "online", 0);
         int wirelessOnline = num(c, "/sys/class/power_supply/wireless/online", 0);
-        // Cable presence comes from the USB/wireless power-supply, not from the
-        // battery status (which can stay Full for a while after unplugging).
         s.plugged = usbOnline == 1 || wirelessOnline == 1;
         s.charging = "Charging".equalsIgnoreCase(s.status);
         s.full = "Full".equalsIgnoreCase(s.status) || s.level >= 100;
@@ -186,8 +270,6 @@ final class DeviceHealthReader {
             s.healthPct = Math.max(0, Math.min(100, s.soh));
         }
 
-        // If a vendor node is hidden from the app process, BatteryManager still
-        // gives the essential level/status/plugged state.
         BatteryManager bm = (BatteryManager) c.getSystemService(Context.BATTERY_SERVICE);
         if (bm != null && s.cycleCount < 0) {
             try {
@@ -243,9 +325,9 @@ final class DeviceHealthReader {
         return null;
     }
 
-    private static int findCycleCount(Context c, Snapshot s) {
+    private static int findCycleCount(Context c, Paths p, Snapshot s) {
         String[] paths = {
-                BATTERY + "cycle_count",
+                p.battery + "cycle_count",
                 QCOM + "cycle_count",
                 QCOM + "battery_cycle_count",
                 "/sys/class/power_supply/bms/cycle_count"

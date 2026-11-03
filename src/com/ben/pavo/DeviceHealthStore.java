@@ -11,7 +11,6 @@ final class DeviceHealthStore {
     private static final String KEY_SEPARATED = "separated";
     private static final String KEY_AUTO = "auto_separation";
     private static final String KEY_AUTO_LEVEL = "auto_level";
-    private static final String KEY_SPEED_MA = "speed_ma";
 
     private final SharedPreferences sp;
 
@@ -30,10 +29,6 @@ final class DeviceHealthStore {
 
     boolean autoSeparation() { return sp.getBoolean(KEY_AUTO, false); }
     void setAutoSeparation(boolean v) { sp.edit().putBoolean(KEY_AUTO, v).apply(); }
-
-    /** Charging input ceiling in mA; 2000 means "let the charger decide". */
-    int speedMa() { return clamp(sp.getInt(KEY_SPEED_MA, 2000), 500, 2000); }
-    void setSpeedMa(int v) { sp.edit().putInt(KEY_SPEED_MA, clamp(v, 500, 2000)).apply(); }
 
     int autoLevel() { return clamp(sp.getInt(KEY_AUTO_LEVEL, 80), 50, 100); }
     void setAutoLevel(int v) { sp.edit().putInt(KEY_AUTO_LEVEL, clamp(v, 50, 100)).apply(); }
