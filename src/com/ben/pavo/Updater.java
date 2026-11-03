@@ -389,11 +389,6 @@ final class Updater {
                     + " /data/local/tmp/pavo-update.apk", 120000L);
             return true;
         }
-        if (AnbernicRoot.available()) {
-            // Anbernic firmware exposes a setuid-root helper; the package
-            // service runs the install silently, so no permission prompt.
-            return AnbernicRoot.install(context, apk);
-        }
         if (!canInstall(context)) {
             // Without PServer the package installer only works once the user
             // allows installs from Pavo. Keep the APK so returning from the
