@@ -227,7 +227,7 @@ final class PavoHomeWidgetView extends FrameLayout {
                                     duty = Math.max(0, Math.min(100,
                                             Math.round(s.fan.speedPref / 500f)));
                                 }
-                                if (rpm <= 0) rpm = duty * 180;
+                                if (rpm <= 0) rpm = PerfTuner.estimatedRpm(duty);
                             }
                             ((FanBackView) visual).setTelemetry(rpm, duty,
                                     s.cpuTemp, s.gpuTemp);

@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
+import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -54,8 +55,8 @@ public final class ControllerMapActivity extends PavoGlassActivity {
     private ScrollView scroll;
     private final long[] scrollStickAt = {0L};
     private Switch masterSwitch;
-    private Switch rootlessSwitch;
     private OdinOutlineView outlineView;
+    private TextView controllerText;
     private TextView statusText;
     private TextView hintText;
     private TextView cancelButton;
@@ -80,6 +81,26 @@ public final class ControllerMapActivity extends PavoGlassActivity {
 
     private int captureSource = -1;
     private int focusedSource = -1;
+    private boolean learnPhase;
+    private String lastCatalogKey = "";
+    private InputManager inputManager;
+    private final InputManager.InputDeviceListener inputDeviceListener =
+            new InputManager.InputDeviceListener() {
+                @Override
+                public void onInputDeviceAdded(int deviceId) {
+                    refreshControllerUi();
+                }
+
+                @Override
+                public void onInputDeviceRemoved(int deviceId) {
+                    refreshControllerUi();
+                }
+
+                @Override
+                public void onInputDeviceChanged(int deviceId) {
+                    refreshControllerUi();
+                }
+            };
     private final Runnable captureTimeout = new Runnable() {
         @Override
         public void run() {
@@ -139,14 +160,28 @@ public final class ControllerMapActivity extends PavoGlassActivity {
     protected void onResume() {
         super.onResume();
         hideBars();
+        hidePerformanceOverlay();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                hidePerformanceOverlay();
+            }
+        }, 450L);
         ControllerProfiles.activityOpen = true;
         PavoA11yService.setRemapUiActive(true);
         PavoInputService.setRemapUiActive(true);
         PavoA11yService.setVisualListener(visualListener);
         PavoInputService.setVisualListener(visualListener);
         PavoInputService.ensureStarted(this);
+        if (inputManager == null) {
+            inputManager = (InputManager) getSystemService(INPUT_SERVICE);
+        }
+        if (inputManager != null) {
+            inputManager.registerInputDeviceListener(inputDeviceListener, handler);
+        }
         persist(true);
         if (prefs.controllerRemapEnabled()) ControllerRemapManager.ensureStarted(this);
+        refreshControllerUi();
         handler.removeCallbacks(statusTick);
         handler.post(statusTick);
         refreshHeader();
@@ -154,6 +189,13 @@ public final class ControllerMapActivity extends PavoGlassActivity {
 
     @Override
     protected void onPause() {
+        if (inputManager != null) {
+            try {
+                inputManager.unregisterInputDeviceListener(inputDeviceListener);
+            } catch (Throwable ignored) {
+            }
+        }
+        learnPhase = false;
         ControllerProfiles.activityOpen = false;
         ControllerProfiles.markDirty();
         PavoA11yService.setRemapUiActive(false);
@@ -180,7 +222,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
 
     @Override
     public void onBackPressed() {
-        if (captureSource >= 0 || comboPhase != 0) {
+        if (captureSource >= 0 || comboPhase != 0 || learnPhase) {
             cancelCapture();
             return;
         }
@@ -190,6 +232,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int raw = ControllerMapConfig.rawFor(event);
+        int anyRaw = ControllerButtons.rawForAny(event);
         if (outlineView != null && raw > 0) {
             boolean dpad = raw >= 544 && raw <= 547;
             boolean recentStick = dpad
@@ -201,26 +244,49 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0;
 
+        if (learnPhase) {
+            if (down && anyRaw > 0) {
+                ControllerButtons.learn(this, anyRaw);
+                learnPhase = false;
+                refreshControllerUi();
+                refreshHeader();
+                Haptics.click(rootView);
+                toast(ControllerMapConfig.labelFor(anyRaw) + " added");
+            }
+            return true;
+        }
         if (captureSource >= 0) {
-            if (down && raw > 0) {
-                captureSource(raw);
+            if (down) {
+                int target = raw > 0 ? raw : anyRaw;
+                if (target > 0) {
+                    if (!ControllerMapConfig.isKnown(target)) {
+                        ControllerButtons.learn(this, target);
+                    }
+                    captureSource(target);
+                }
             }
             return true;
         }
         if (comboPhase == 1) {
-            if (down && raw > 0 && !comboKeys.contains(raw)) {
+            int key = raw > 0 ? raw : anyRaw;
+            if (down && key > 0 && !comboKeys.contains(key)) {
+                if (!ControllerMapConfig.isKnown(key)) ControllerButtons.learn(this, key);
                 if (comboKeys.isEmpty()) {
                     handler.removeCallbacks(comboSourceTimeout);
                     handler.postDelayed(comboSourceTimeout, 1400L);
                 }
-                if (comboKeys.size() < 4) comboKeys.add(raw);
+                if (comboKeys.size() < 4) comboKeys.add(key);
                 refreshHeader();
             }
             return true;
         }
         if (comboPhase == 2) {
-            if (down && raw > 0) {
-                comboTarget = raw;
+            int target = raw > 0 ? raw : anyRaw;
+            if (down && target > 0) {
+                if (!ControllerMapConfig.isKnown(target)) {
+                    ControllerButtons.learn(this, target);
+                }
+                comboTarget = target;
                 finishCombo();
             }
             return true;
@@ -275,18 +341,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
                 return true;
             }
             if (focused == masterSwitch) {
-                if (dir == View.FOCUS_DOWN) {
-                    focusFirstRow();
-                    return true;
-                }
-                if (dir == View.FOCUS_UP) {
-                    rootlessSwitch.requestFocus();
-                    return true;
-                }
-            }
-            if (focused == rootlessSwitch) {
-                if (dir == View.FOCUS_DOWN) masterSwitch.requestFocus();
-                else if (dir == View.FOCUS_UP) masterSwitch.requestFocus();
+                if (dir == View.FOCUS_DOWN) focusFirstRow();
                 return true;
             }
             View next = focused.getParent() instanceof ViewGroup
@@ -306,13 +361,14 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         rootView = root;
         int sw = getResources().getDisplayMetrics().widthPixels;
         int sh = getResources().getDisplayMetrics().heightPixels;
+
         GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
         card.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
-        card.setPadding(dp(22), dp(14), dp(22), dp(12));
+        card.setPadding(dp(20), dp(12), dp(20), dp(10));
         FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
-                Math.min(dp(860), sw - dp(32)), sh - dp(32), Gravity.CENTER);
+                Math.min(dp(900), sw - dp(24)), sh - dp(20), Gravity.CENTER);
         root.addView(card, cardLp);
 
         LinearLayout header = new LinearLayout(this);
@@ -324,9 +380,9 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         title.setLetterSpacing(0.04f);
         titles.addView(title);
-        TextView subtitle = text("System-wide remapping  \u00b7  PServer or accessibility",
-                10f, MUTED, false);
-        subtitle.setPadding(0, dp(3), 0, 0);
+        TextView subtitle = text("System-wide remapping  \u00b7  PServer",
+                9.5f, MUTED, false);
+        subtitle.setPadding(0, dp(2), 0, 0);
         titles.addView(subtitle);
         header.addView(titles, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -349,7 +405,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         LinearLayout profileRow = new LinearLayout(this);
         profileRow.setOrientation(LinearLayout.HORIZONTAL);
         profileRow.setGravity(Gravity.CENTER_VERTICAL);
-        profileRow.setPadding(0, dp(8), 0, dp(2));
+        profileRow.setPadding(0, dp(6), 0, dp(3));
 
         profileChip = text("ALL APPS  \u25be", 10f, TEXT, false);
         profileChip.setGravity(Gravity.CENTER);
@@ -365,7 +421,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
 
         profileReset = text("USE GLOBAL", 9f, 0xCCFFFFFF, false);
         profileReset.setGravity(Gravity.CENTER);
-        profileReset.setPadding(dp(10), dp(6), dp(10), dp(6));
+        profileReset.setPadding(dp(9), dp(6), dp(9), dp(6));
         profileReset.setFocusable(true);
         profileReset.setClickable(true);
         profileReset.setOnClickListener(new View.OnClickListener() {
@@ -383,31 +439,96 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         resetLp.leftMargin = dp(6);
         profileRow.addView(profileReset, resetLp);
 
-        TextView profileHint = text("Per-app profiles apply while that app is in front",
-                8.5f, MUTED, false);
+        TextView profileHint = text("Per-app profiles", 8.5f, MUTED, false);
         profileHint.setPadding(dp(8), 0, 0, 0);
         profileRow.addView(profileHint, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
         card.addView(profileRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        LinearLayout hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.HORIZONTAL);
-        hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(0, dp(4), 0, dp(2));
+        View topDivider = new View(this);
+        topDivider.setBackgroundColor(0x22FFFFFF);
+        LinearLayout.LayoutParams tdlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+        tdlp.topMargin = dp(2);
+        card.addView(topDivider, tdlp);
 
-        LinearLayout controlsColumn = new LinearLayout(this);
-        controlsColumn.setOrientation(LinearLayout.VERTICAL);
-        controlsColumn.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.HORIZONTAL);
+        body.setBaselineAligned(false);
+        LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        bodyLp.topMargin = dp(4);
+        card.addView(body, bodyLp);
+
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.VERTICAL);
+        left.setPadding(dp(10), dp(8), dp(8), dp(8));
+        left.setBackground(Ui.rounded(0x300B0E14, dp(16), 0x2EFFFFFF, dp(1)));
+        LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 0.43f);
+        leftLp.rightMargin = dp(5);
+        body.addView(left, leftLp);
+
+        scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.setVerticalScrollBarEnabled(true);
+        scroll.setClipToPadding(false);
+        listContent = new LinearLayout(this);
+        listContent.setOrientation(LinearLayout.VERTICAL);
+        listContent.setPadding(0, dp(2), 0, dp(2));
+        scroll.addView(listContent, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        left.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        LinearLayout right = new LinearLayout(this);
+        right.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 0.57f);
+        rightLp.leftMargin = dp(5);
+        body.addView(right, rightLp);
+
+        outlineView = new OdinOutlineView(this);
+        right.addView(outlineView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        LinearLayout controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.VERTICAL);
+        controls.setPadding(dp(12), dp(8), dp(12), dp(8));
+        controls.setBackground(Ui.rounded(0x300B0E14, dp(16), 0x2EFFFFFF, dp(1)));
+        LinearLayout.LayoutParams controlsLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        controlsLp.topMargin = dp(6);
+        right.addView(controls, controlsLp);
+
+        controllerText = text("Detecting controller\u2026", 8.5f, MUTED, true);
+        controllerText.setGravity(Gravity.END);
+        controls.addView(controllerText, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        statusText = text("", 9.5f, MUTED, true);
+        statusText.setGravity(Gravity.END);
+        statusText.setPadding(0, dp(2), 0, 0);
+        controls.addView(statusText, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        View controlDivider = new View(this);
+        controlDivider.setBackgroundColor(0x22FFFFFF);
+        LinearLayout.LayoutParams ctrlDlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+        ctrlDlp.topMargin = dp(8);
+        ctrlDlp.bottomMargin = dp(4);
+        controls.addView(controlDivider, ctrlDlp);
 
         LinearLayout masterRow = new LinearLayout(this);
         masterRow.setOrientation(LinearLayout.HORIZONTAL);
         masterRow.setGravity(Gravity.CENTER_VERTICAL);
-        masterRow.setPadding(0, dp(1), 0, dp(1));
-        TextView masterLabel = text("Enable remapping", 12.5f, TEXT, false);
+        masterRow.setPadding(0, dp(2), 0, dp(2));
+        TextView masterLabel = text("Enable remapping", 12f, TEXT, false);
         masterLabel.setPadding(0, 0, dp(6), 0);
-        masterRow.addView(masterLabel);
+        masterRow.addView(masterLabel, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         masterSwitch = new Switch(this);
         masterSwitch.setChecked(prefs.controllerRemapEnabled());
         masterSwitch.setShowText(false);
@@ -422,61 +543,17 @@ public final class ControllerMapActivity extends PavoGlassActivity {
             }
         });
         masterRow.addView(masterSwitch);
-        controlsColumn.addView(masterRow);
+        controls.addView(masterRow);
 
-        LinearLayout modeRow = new LinearLayout(this);
-        modeRow.setOrientation(LinearLayout.HORIZONTAL);
-        modeRow.setGravity(Gravity.CENTER_VERTICAL);
-        modeRow.setPadding(0, dp(1), 0, dp(1));
-        TextView modeLabel = text("No-root accessibility", 11.5f, 0xCCFFFFFF, false);
-        modeLabel.setPadding(0, 0, dp(6), 0);
-        modeRow.addView(modeLabel);
-        rootlessSwitch = new Switch(this);
-        rootlessSwitch.setChecked(prefs.rootlessRemap());
-        rootlessSwitch.setShowText(false);
-        rootlessSwitch.setOnCheckedChangeListener(
-                new android.widget.CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(android.widget.CompoundButton buttonView,
-                                         boolean isChecked) {
-                if (updatingSwitch) return;
-                Haptics.click(buttonView);
-                prefs.setRootlessRemap(isChecked);
-                if (prefs.controllerRemapEnabled()) {
-                    ControllerRemapManager.restart(ControllerMapActivity.this,
-                            new ControllerRemapManager.Callback() {
-                                @Override
-                                public void onResult(boolean running) {
-                                    if (isFinishing() || isDestroyed()) return;
-                                    refreshHeader();
-                                    if (!running) toast("Could not start the selected mode");
-                                }
-                            });
-                }
-                refreshHeader();
-            }
-        });
-        modeRow.addView(rootlessSwitch);
-        controlsColumn.addView(modeRow);
-        hero.addView(controlsColumn, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        outlineView = new OdinOutlineView(this);
-        LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(
-                0, dp(138), 1f);
-        olp.leftMargin = dp(8);
-        hero.addView(outlineView, olp);
-        card.addView(hero, new LinearLayout.LayoutParams(
+        hintText = text("", 8.8f, 0x99FFFFFF, false);
+        hintText.setGravity(Gravity.END);
+        hintText.setPadding(0, dp(5), 0, 0);
+        controls.addView(hintText, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        LinearLayout statusRow = new LinearLayout(this);
-        statusRow.setOrientation(LinearLayout.HORIZONTAL);
-        statusRow.setGravity(Gravity.CENTER_VERTICAL);
-        statusText = text("", 10.5f, MUTED, true);
-        statusRow.addView(statusText, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        cancelButton = text("CANCEL", 9.5f, 0xFFFF8A80, false);
-        cancelButton.setPadding(dp(9), dp(5), dp(9), dp(5));
+        cancelButton = text("CANCEL", 9f, 0xFFFF8A80, false);
+        cancelButton.setGravity(Gravity.CENTER);
+        cancelButton.setPadding(dp(9), dp(4), dp(9), dp(4));
         cancelButton.setBackground(Ui.rounded(0x22FF5C6C, dp(10), 0x66FF5C6C, dp(1)));
         cancelButton.setVisibility(View.GONE);
         cancelButton.setFocusable(false);
@@ -486,31 +563,11 @@ public final class ControllerMapActivity extends PavoGlassActivity {
                 cancelCapture();
             }
         });
-        statusRow.addView(cancelButton);
-        card.addView(statusRow);
-
-        hintText = text("", 10.5f, 0x99FFFFFF, false);
-        hintText.setPadding(0, dp(2), 0, dp(8));
-        card.addView(hintText);
-
-        View divider = new View(this);
-        divider.setBackgroundColor(0x22FFFFFF);
-        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
-        dlp.topMargin = dp(3);
-        card.addView(divider, dlp);
-
-        scroll = new ScrollView(this);
-        scroll.setFillViewport(false);
-        scroll.setVerticalScrollBarEnabled(true);
-        scroll.setClipToPadding(false);
-        listContent = new LinearLayout(this);
-        listContent.setOrientation(LinearLayout.VERTICAL);
-        listContent.setPadding(0, dp(8), 0, dp(8));
-        scroll.addView(listContent, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        card.addView(scroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cancelLp.topMargin = dp(4);
+        cancelLp.gravity = Gravity.END;
+        controls.addView(cancelButton, cancelLp);
 
         setContentView(root);
     }
@@ -519,17 +576,19 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         boolean enabled = prefs.controllerRemapEnabled();
         boolean running = ControllerRemapManager.isRunning(this);
         if (enabled) {
-            String mode = prefs.rootlessRemap() ? "no-root accessibility" : "PServer root daemon";
-            statusText.setText(running ? "ACTIVE \u00b7 " + mode
+            statusText.setText(running ? "ACTIVE \u00b7 PSERVER"
                     : "STARTING / UNAVAILABLE");
             statusText.setTextColor(running ? GREEN : 0xFFFFC107);
         } else {
             statusText.setText("OFF \u00b7 mappings are saved but not applied");
             statusText.setTextColor(MUTED);
         }
-        cancelButton.setVisibility(captureSource >= 0 || comboPhase != 0
+        cancelButton.setVisibility(captureSource >= 0 || comboPhase != 0 || learnPhase
                 ? View.VISIBLE : View.GONE);
-        if (captureSource >= 0) {
+        if (learnPhase) {
+            hintText.setText("Press any controller button to add it to the list  \u00b7  CANCEL aborts");
+            hintText.setTextColor(accent);
+        } else if (captureSource >= 0) {
             hintText.setText("Press the target button for "
                     + ControllerMapConfig.labelFor(captureSource) + "  \u00b7  CANCEL aborts");
             hintText.setTextColor(accent);
@@ -541,15 +600,44 @@ public final class ControllerMapActivity extends PavoGlassActivity {
             hintText.setText("Press the shortcut target for " + comboKeyLabels());
             hintText.setTextColor(accent);
         } else {
-            hintText.setText("A edit target  \u00b7  Y turbo  \u00b7  B close  \u00b7  "
-                    + "A mapping to the same button clears it");
+            hintText.setText("A edit  \u00b7  Y turbo  \u00b7  B close  \u00b7  same button clears");
             hintText.setTextColor(0x99FFFFFF);
         }
         if (updatingSwitch) return;
         updatingSwitch = true;
         masterSwitch.setChecked(enabled);
-        if (rootlessSwitch != null) rootlessSwitch.setChecked(prefs.rootlessRemap());
         updatingSwitch = false;
+    }
+
+    private void refreshControllerUi() {
+        if (isFinishing() || isDestroyed()) return;
+        ControllerButtons.Catalog catalog = ControllerButtons.detect(this);
+        if (controllerText != null) {
+            if (catalog.name.isEmpty()) {
+                controllerText.setText("NO CONTROLLER DETECTED  \u00b7  standard buttons");
+                controllerText.setTextColor(0xFFFFC107);
+            } else {
+                controllerText.setText("DETECTED  \u00b7  " + catalog.name.toUpperCase()
+                        + "  \u00b7  " + catalog.raws.size() + " buttons");
+                controllerText.setTextColor(GREEN);
+            }
+        }
+        if (outlineView != null) {
+            // Keep the controller outline on every device; only the button
+            // rows and detected header adapt to the connected hardware.
+            outlineView.setVisibility(View.VISIBLE);
+        }
+        String key = catalog.name + "|" + catalog.raws;
+        boolean changed = !key.equals(lastCatalogKey);
+        lastCatalogKey = key;
+        // Starting/stopping the PServer remapper creates and removes a virtual
+        // controller.  Those device-change callbacks used to rebuild every row,
+        // which looked like the buttons card shaking.  Only rebuild when the
+        // real controller or its button set actually changed.
+        if (changed && captureSource < 0 && comboPhase == 0 && !learnPhase
+                && listContent != null) {
+            rebuildList();
+        }
     }
 
     private void setEnabled(final boolean enabled) {
@@ -681,11 +769,48 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         listContent.removeAllViews();
         focusRows.clear();
 
-        addSection("BUTTONS");
-        for (int source : ControllerMapConfig.BUTTONS) {
+        ControllerButtons.Catalog catalog = ControllerButtons.detect(this);
+        java.util.LinkedHashSet<Integer> sourceSet = new java.util.LinkedHashSet<>(catalog.raws);
+        sourceSet.addAll(config.mappings.keySet());
+        java.util.ArrayList<Integer> sources = new java.util.ArrayList<>(sourceSet);
+        addSection("BUTTONS \u00b7 " + sources.size());
+        if (sources.isEmpty()) {
+            TextView empty = text("No controller buttons detected.", 10.5f, 0x77FFFFFF, false);
+            empty.setPadding(dp(4), dp(2), dp(4), dp(6));
+            listContent.addView(empty);
+        }
+        for (int source : sources) {
             View row = makeMappingRow(source);
             focusRows.add(row);
             listContent.addView(row);
+        }
+        TextView learn = text("+ LEARN BUTTON", 9.5f, accent, false);
+        learn.setGravity(Gravity.CENTER);
+        learn.setPadding(dp(10), dp(7), dp(10), dp(7));
+        learn.setFocusable(true);
+        learn.setFocusableInTouchMode(true);
+        learn.setBackground(Ui.rounded(ThemeColors.withAlpha(0x1B), dp(10),
+                ThemeColors.withAlpha(0x55), dp(1)));
+        learn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (captureSource >= 0 || comboPhase != 0) return;
+                Haptics.click(v);
+                learnPhase = true;
+                refreshHeader();
+            }
+        });
+        LinearLayout.LayoutParams learnLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        learnLp.topMargin = dp(4);
+        learnLp.bottomMargin = dp(2);
+        focusRows.add(learn);
+        listContent.addView(learn, learnLp);
+        if (catalog.fallback) {
+            TextView fallback = text("No controller detected \u2014 showing the standard button set. "
+                    + "Connect one, then use + LEARN for extra buttons.", 9.5f, 0x99FFC857, false);
+            fallback.setPadding(dp(4), dp(3), dp(4), dp(7));
+            listContent.addView(fallback);
         }
 
         LinearLayout combosHead = new LinearLayout(this);
@@ -802,7 +927,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(12), dp(7), dp(9), dp(7));
+        row.setPadding(dp(12), dp(5), dp(9), dp(5));
         row.setBackground(Ui.rounded(0x14FFFFFF, dp(12), 0x26FFFFFF, dp(1)));
         row.setFocusable(true);
         row.setFocusableInTouchMode(true);
@@ -888,7 +1013,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dp(4);
+        lp.bottomMargin = dp(3);
         row.setLayoutParams(lp);
         return row;
     }
@@ -960,6 +1085,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
     }
 
     private void cancelCapture() {
+        learnPhase = false;
         handler.removeCallbacks(captureTimeout);
         handler.removeCallbacks(comboSourceTimeout);
         handler.removeCallbacks(comboTargetTimeout);

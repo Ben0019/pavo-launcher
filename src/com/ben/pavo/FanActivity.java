@@ -230,8 +230,14 @@ public final class FanActivity extends PavoGlassActivity {
         } else {
             stopLocalCurve();
             if (PerAppFanService.isRunning()) PerAppFanService.stop(this);
-            if (managedFanMode()) FanControl.start(this);
-            else FanControl.stop(this);
+            if (managedFanMode()) {
+                FanControl.start(this);
+            } else {
+                // Re-apply OFF/LOW/MANUAL on every resume.  Merely stopping
+                // the controller leaves the blower at its last duty, which is
+                // why OFF sometimes appeared not to work.
+                applyProfileFanMode();
+            }
         }
         main.postDelayed(new Runnable() {
             @Override
@@ -787,7 +793,9 @@ public final class FanActivity extends PavoGlassActivity {
         worker.execute(new Runnable() {
             @Override
             public void run() {
-                if (target == PerfTuner.FAN_MANUAL) {
+                if (target == PerfTuner.FAN_OFF) {
+                    PerfTuner.setFanOff(FanActivity.this);
+                } else if (target == PerfTuner.FAN_MANUAL) {
                     if (!VendorFan.setPercent(percent)) {
                         PerfTuner.setFanManual(percent);
                     }
@@ -1264,7 +1272,7 @@ public final class FanActivity extends PavoGlassActivity {
         }
         int duty = presetDuty(mode);
         if (duty <= 0) return;
-        int estimate = Math.min(10000, Math.max(1200, duty * 180));
+        int estimate = PerfTuner.estimatedRpm(duty);
         backView.setTelemetry(estimate, duty, currentTemp, currentTemp);
     }
 

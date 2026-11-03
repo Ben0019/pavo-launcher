@@ -206,7 +206,6 @@ public final class PavoInputService extends Service {
     static boolean shouldRun(Context c) {
         if (c == null) return false;
         Prefs prefs = new Prefs(c);
-        if (prefs.rootlessRemap()) return false;
         return prefs.controllerRemapEnabled()
                 || !prefs.perfControllerRaw().isEmpty()
                 || !prefs.drawerControllerRaw().isEmpty()
@@ -309,9 +308,6 @@ public final class PavoInputService extends Service {
 
     private static boolean beginCapture(final Context context, final int target) {
         if (context == null) return false;
-        if (new Prefs(context).rootlessRemap()) {
-            return PavoA11yService.beginKeyCapture();
-        }
         ensureStarted(context);
         captureTarget = target;
         capturing = true;

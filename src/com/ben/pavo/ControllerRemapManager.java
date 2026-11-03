@@ -48,7 +48,6 @@ final class ControllerRemapManager {
     }
 
     static boolean isRunning(Context c) {
-        if (new Prefs(c).rootlessRemap()) return RootlessRemap.isActive();
         if (!versionMatches(c)) return false;
         if (running && process != null && process.isAlive()) return true;
         int pid = readPid(c);
@@ -63,7 +62,6 @@ final class ControllerRemapManager {
      */
     static void ensureInputDaemon(Context context) {
         if (context == null) return;
-        if (new Prefs(context).rootlessRemap()) return;
         if (isRunning(context) || starting) return;
         startInternal(context, null, true);
     }
@@ -133,17 +131,10 @@ final class ControllerRemapManager {
         boolean enabled = new Prefs(c).controllerRemapEnabled();
         cfg.save(config, enabled, PavoInputService.isRemapUiActive());
 
-        if (new Prefs(c).rootlessRemap()) {
-            boolean ok = RootlessRemap.start(c);
-            Log.i(TAG, ok ? "rootless accessibility remapper started"
-                    : "rootless remapper unavailable");
-            return ok;
-        }
-
         File binary = binaryFile(c);
         if (!extractBinary(c, binary)) return false;
         killExisting(c);
-        String device = findControllerDevice();
+        String device = findControllerDevice(ControllerButtons.detect(c).name);
         File launcher = writeLauncher(c, device);
         if (launcher == null) return false;
         new File(c.getFilesDir(), PID).delete();
@@ -178,7 +169,6 @@ final class ControllerRemapManager {
                     ControllerMapConfig cfg = new ControllerMapConfig();
                     cfg.load(config);
                     cfg.save(config, false, false);
-                    RootlessRemap.stop();
                     Thread.sleep(60L);
                     killExisting(app);
                 } catch (Throwable t) {
@@ -380,7 +370,7 @@ final class ControllerRemapManager {
     }
 
     /** Parse /proc/bus/input/devices, which is world-readable. */
-    private static String findControllerDevice() {
+    private static String findControllerDevice(String preferredName) {
         try (BufferedReader r = new BufferedReader(new InputStreamReader(
                 new FileInputStream("/proc/bus/input/devices"), StandardCharsets.UTF_8))) {
             String name = null;
@@ -389,7 +379,7 @@ final class ControllerRemapManager {
             while ((line = r.readLine()) != null) {
                 String t = line.trim();
                 if (t.isEmpty()) {
-                    String device = eventNode(name, handlers);
+                    String device = eventNode(name, handlers, preferredName);
                     if (device != null) return device;
                     name = null;
                     handlers = null;
@@ -399,16 +389,25 @@ final class ControllerRemapManager {
                     handlers = t.substring(12).trim();
                 }
             }
-            return eventNode(name, handlers);
+            return eventNode(name, handlers, preferredName);
         } catch (Throwable ignored) {
             return null;
         }
     }
 
-    private static String eventNode(String name, String handlers) {
+    private static String eventNode(String name, String handlers, String preferredName) {
         if (name == null || handlers == null) return null;
         String lower = name.toLowerCase(java.util.Locale.US);
-        if (!lower.contains("odin controller") || lower.contains("virtual")) return null;
+        if (lower.contains("virtual") || lower.contains("pavo")) return null;
+        boolean preferred = preferredName != null && !preferredName.isEmpty()
+                && name.equalsIgnoreCase(preferredName);
+        boolean looksLikeController = lower.contains("controller")
+                || lower.contains("gamepad") || lower.contains("joypad")
+                || lower.contains("odin") || lower.contains("retroid")
+                || lower.contains("xbox") || lower.contains("dualshock")
+                || lower.contains("dualsense") || lower.contains("8bitdo")
+                || lower.contains("gamesir") || lower.contains("flydigi");
+        if (!preferred && !looksLikeController) return null;
         for (String token : handlers.split("\\s+")) {
             if (token.startsWith("event")) return "/dev/input/" + token;
         }

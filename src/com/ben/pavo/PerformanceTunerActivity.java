@@ -257,6 +257,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         contextConfig = localConfig != null ? localConfig : TuneConfig.fromState(local);
         selectedAppPkg = "";
         state = local;
+        updateProfileLabels();
         updateAppSelector();
         applyState(local, false);
         focusFirst();

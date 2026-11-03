@@ -207,7 +207,8 @@ final class FanBackView extends View {
         this.duty = Math.max(0, Math.min(100, duty));
         this.cpuTemp = cpuTemp;
         this.gpuTemp = gpuTemp;
-        float measured = this.rpm > 0 ? this.rpm : (this.duty > 0 ? this.duty * 180f : 0f);
+        float measured = this.rpm > 0 ? this.rpm
+                : (this.duty > 0 ? PerfTuner.estimatedRpm(this.duty) : 0f);
         targetRpm = measured;
         heatColor = HeatColor.ramp(HeatColor.fanSeverity(duty, this.rpm,
                 Math.max(cpuTemp, gpuTemp)));

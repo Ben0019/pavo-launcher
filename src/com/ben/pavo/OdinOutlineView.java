@@ -1076,10 +1076,10 @@ final class OdinOutlineView extends View implements SensorEventListener {
         switch (raw) {
             case 304: out[0] = 311f; out[1] = 46f; return true;
             case 305: out[0] = 296f; out[1] = 61f; return true;
-            case 306: out[0] = 338f; out[1] = 73f; return true;
+            case 306: out[0] = 22f; out[1] = 73f; return true;
             case 307: out[0] = 296f; out[1] = 31f; return true;
             case 308: out[0] = 281f; out[1] = 46f; return true;
-            case 309: out[0] = 22f; out[1] = 73f; return true;
+            case 309: out[0] = 338f; out[1] = 73f; return true;
             case 310: out[0] = 84f; out[1] = 123f; return true;
             case 311: out[0] = 256f; out[1] = 123f; return true;
             case 312: out[0] = 64f; out[1] = 12f; return true;

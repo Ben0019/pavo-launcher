@@ -26,7 +26,6 @@ final class VendorFan {
     private static final int TX_ENABLE = 8;   // a(boolean)
     private static final int TX_SPEED = 9;    // b(int), raw 0..50000
 
-    private static final String STATE_NODE = "/sys/class/gpio5_pwm2/state";
     private static final long RETRY_MS = 30000L;
 
     private static IBinder provider;
@@ -38,6 +37,11 @@ final class VendorFan {
     static synchronized boolean available() {
         if (provider != null && provider.isBinderAlive()) return true;
         provider = null;
+        DeviceProfile profile = DeviceProfile.get(null);
+        if (profile == null || !profile.fanControl
+                || profile.fanDir == null || profile.fanDir.isEmpty()) {
+            return false;
+        }
         long now = SystemClock.uptimeMillis();
         if (failedAt != 0 && now - failedAt < RETRY_MS) return false;
         try {
@@ -98,7 +102,9 @@ final class VendorFan {
         // The firmware can switch the blower off on its own; re-enable it
         // before writing the duty, otherwise the write is silently ignored.
         if (!nodeEnabled()) setEnabled(true);
-        int raw = Math.max(0, Math.min(100, percent)) * 500;
+        int period = DeviceProfile.get(null).fanPeriod;
+        if (period <= 0) period = 50000;
+        int raw = Math.max(0, Math.min(100, percent)) * period / 100;
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
         try {
@@ -119,8 +125,13 @@ final class VendorFan {
 
     /** The firmware can disable the blower on its own; make sure state is 1. */
     private static boolean nodeEnabled() {
+        DeviceProfile profile = DeviceProfile.get(null);
+        if (profile == null || profile.fanDir == null || profile.fanDir.isEmpty()) {
+            return false;
+        }
         try {
-            java.io.FileInputStream in = new java.io.FileInputStream(STATE_NODE);
+            java.io.FileInputStream in = new java.io.FileInputStream(
+                    profile.fanDir + "/state");
             byte[] b = new byte[8];
             int n = in.read(b);
             in.close();

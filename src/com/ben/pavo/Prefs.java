@@ -197,7 +197,6 @@ final class Prefs {
     boolean bluetoothStatusVisible() { return sp.getBoolean("bt_status", true); }
     boolean soundStatusVisible() { return sp.getBoolean("sound_status", true); }
     boolean controllerRemapEnabled() { return sp.getBoolean("remap_enabled", false); }
-    boolean rootlessRemap() { return sp.getBoolean("remap_rootless", false); }
     boolean burnInProtection() { return sp.getBoolean("burn_in_protection", true); }
     boolean autoHidePageDots() { return sp.getBoolean("dots_auto_hide", true); }
     boolean dockDrawerButton() { return sp.getBoolean("dock_drawer_button", true); }
@@ -622,7 +621,6 @@ final class Prefs {
     void setBluetoothStatusVisible(boolean v) { sp.edit().putBoolean("bt_status", v).apply(); }
     void setSoundStatusVisible(boolean v) { sp.edit().putBoolean("sound_status", v).apply(); }
     void setControllerRemapEnabled(boolean v) { sp.edit().putBoolean("remap_enabled", v).apply(); }
-    void setRootlessRemap(boolean v) { sp.edit().putBoolean("remap_rootless", v).apply(); }
     void setBurnInProtection(boolean v) { sp.edit().putBoolean("burn_in_protection", v).apply(); }
     void setAutoHidePageDots(boolean v) { sp.edit().putBoolean("dots_auto_hide", v).apply(); }
     void setDockDrawerButton(boolean v) { sp.edit().putBoolean("dock_drawer_button", v).apply(); }

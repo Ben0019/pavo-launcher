@@ -78,9 +78,21 @@ final class PerfTuner {
     private PerfTuner() {}
 
     /** Some Odin kernels expose PWM duty but report a zero tach value. */
+    /** RPM ceiling reported by the fan node, or a conservative 10k fallback. */
+    static int fanMaxRpm() {
+        DeviceProfile p = profile();
+        return p.fanMaxRpm > 0 ? p.fanMaxRpm : 10000;
+    }
+
+    /**
+     * Estimates RPM from duty when the fan node has no tachometer reading.
+     * The ceiling comes from the node when it exposes one, so a 5k or 15k
+     * blower is scaled correctly instead of assuming one fixed multiplier.
+     */
     static int estimatedRpm(int dutyPercent) {
         if (dutyPercent <= 0) return 0;
-        return Math.max(0, Math.min(100, dutyPercent)) * 180;
+        int duty = Math.max(0, Math.min(100, dutyPercent));
+        return Math.round(duty * fanMaxRpm() / 100f);
     }
 
     static State readState(Context context) {
@@ -559,8 +571,31 @@ final class PerfTuner {
     }
 
     static void setFanMode(Context context, int mode) {
+        if (mode == FAN_OFF) {
+            setFanOff(context);
+            return;
+        }
         Root.write("settings put system fan_mode " + mode
                 + "; settings put global fan_mode " + mode);
+    }
+
+    /**
+     * Turns the blower off through the vendor provider when it is available,
+     * then clears the settings and writes a real zero duty.  Writing only
+     * fan_mode=0 left the fan running whenever the provider loop had already
+     * been cancelled by one of our duty writes.
+     */
+    static void setFanOff(Context context) {
+        VendorFan.setEnabled(false);
+        Root.write("settings put system fan_mode " + FAN_OFF
+                + "; settings put global fan_mode " + FAN_OFF
+                + "; settings put system fan_speed 0"
+                + "; settings put global fan_speed 0");
+        DeviceProfile p = profile();
+        if (p.fanDir != null && !p.fanDir.isEmpty()) {
+            Root.write("echo 0 > " + p.fanDir + "/duty"
+                    + "; echo 0 > " + p.fanDir + "/state");
+        }
     }
 
     static void setFanSpeed(int raw) {

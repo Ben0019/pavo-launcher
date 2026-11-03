@@ -27,6 +27,10 @@ final class RootlessUinput {
     private volatile boolean ready;
 
     synchronized boolean start(Context context) {
+        return start(context, null);
+    }
+
+    synchronized boolean start(Context context, int[] extraCodes) {
         if (process != null && process.isAlive()) return ready;
         stop();
         try {
@@ -38,7 +42,7 @@ final class RootlessUinput {
             input = new BufferedWriter(new OutputStreamWriter(
                     process.getOutputStream(), StandardCharsets.UTF_8));
             drain();
-            input.write(registerJson());
+            input.write(registerJson(extraCodes));
             input.write("\n");
             input.write("{\"id\":1,\"command\":\"delay\",\"duration\":450}\n");
             input.flush();
@@ -112,12 +116,15 @@ final class RootlessUinput {
         }, "AuroraUinputLog").start();
     }
 
-    private static String registerJson() {
-        List<Integer> keys = new ArrayList<>();
+    private static String registerJson(int[] extraCodes) {
+        java.util.LinkedHashSet<Integer> keys = new java.util.LinkedHashSet<>();
         for (int code : ControllerMapConfig.BUTTONS) keys.add(code);
+        if (extraCodes != null) {
+            for (int code : extraCodes) if (code > 0 && code < 1024) keys.add(code);
+        }
         StringBuilder bits = new StringBuilder();
-        for (int i = 0; i < keys.size(); i++) {
-            String label = linuxLabel(keys.get(i));
+        for (int code : keys) {
+            String label = linuxLabel(code);
             if (label == null) continue;
             if (bits.length() > 0) bits.append(',');
             bits.append('"').append(label).append('"');
@@ -164,7 +171,11 @@ final class RootlessUinput {
             case 158: return "KEY_BACK";
             case 114: return "KEY_VOLUMEDOWN";
             case 115: return "KEY_VOLUMEUP";
-            default: return null;
+            default:
+                if (raw >= 704 && raw <= 743) {
+                    return "BTN_TRIGGER_HAPPY" + (raw - 703);
+                }
+                return null;
         }
     }
 }

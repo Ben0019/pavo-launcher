@@ -14795,67 +14795,29 @@ public final class MainActivity extends Activity {
                         }
                     }
                 });
-        addSwitch(panel, "No-root accessibility mode", prefs.rootlessRemap(),
-                new BoolCallback() {
-                    @Override
-                    public void onValue(boolean value) {
-                        prefs.setRootlessRemap(value);
-                        if (value) {
-                            PavoInputService.stop(MainActivity.this);
-                            if (prefs.controllerRemapEnabled()) {
-                                ControllerRemapManager.restart(MainActivity.this, null);
-                            }
-                        } else {
-                            PavoInputService.ensureStarted(MainActivity.this);
-                            ControllerRemapManager.restart(MainActivity.this, null);
-                        }
-                    }
-                });
         final TextView serviceStatus = new LTextView(this);
-        boolean a11yReady = PavoA11yService.isReady();
-        boolean a11yEnabled = accessibilitySettingEnabled();
         boolean inputReady = PavoInputService.isReady();
         boolean inputActive = PavoInputService.isActive();
         serviceStatus.setText(inputReady
                 ? "Controller service: PServer connected"
                 : inputActive
                 ? "Controller service: starting"
-                : a11yReady
-                ? "Accessibility service: connected"
-                : a11yEnabled
-                ? "Accessibility: enabled"
-                : "Controller service unavailable — tap for options");
-        serviceStatus.setTextColor(inputReady || a11yReady || inputActive
-                ? 0xFF69D98B : 0xFFFFC857);
+                : "Controller service unavailable — PServer required");
+        serviceStatus.setTextColor(inputReady ? 0xFF69D98B : 0xFFFFC857);
         serviceStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
         serviceStatus.setPadding(Ui.dp(this, 9), Ui.dp(this, 7),
                 Ui.dp(this, 9), Ui.dp(this, 7));
-        serviceStatus.setBackground(Ui.rounded(inputReady || a11yReady ? 0x1216C784 : 0x14FFC107,
-                Ui.dpf(this, 10), inputReady || a11yReady ? 0x3369D98B : 0x44FFC107,
+        serviceStatus.setBackground(Ui.rounded(inputReady ? 0x1216C784 : 0x14FFC107,
+                Ui.dpf(this, 10), inputReady ? 0x3369D98B : 0x44FFC107,
                 Ui.dpf(this, 1)));
         LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         statusLp.topMargin = Ui.dp(this, 8);
-        serviceStatus.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Haptics.click(v);
-                try {
-                    Intent i = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(i);
-                } catch (Throwable t) {
-                    LToast.makeText(MainActivity.this, "Open Settings → Accessibility",
-                            Toast.LENGTH_LONG).show();
-                }
-            }
-        });
         panel.addView(serviceStatus, statusLp);
-        if (!inputReady && !a11yReady) {
+        if (!inputReady) {
             TextView reconnectHint = new LTextView(this);
-            reconnectHint.setText("Controller shortcuts use PServer automatically. "
-                    + "No-root mode still uses Accessibility. Tap above to open the "
-                    + "relevant settings.");
+            reconnectHint.setText("Controller shortcuts require the PServer service. "
+                    + "Start PServer and reopen this page.");
             reconnectHint.setTextColor(0x66FFFFFF);
             reconnectHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
             reconnectHint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 2));
@@ -14878,8 +14840,7 @@ public final class MainActivity extends Activity {
         panel.addView(openRemap, remapLp);
         TextView remapHint = new LTextView(this);
         remapHint.setText("Maps the Odin controller system-wide, including inside games. "
-                + "PServer launches the remapper with no su, Magisk or KernelSU involved. "
-                + "No-root accessibility mode uses the accessibility filter instead.");
+                + "Uses PServer only.");
         remapHint.setTextColor(0x66FFFFFF);
         remapHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
         remapHint.setPadding(0, Ui.dp(this, 7), 0, Ui.dp(this, 3));

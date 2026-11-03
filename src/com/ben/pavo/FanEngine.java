@@ -75,7 +75,15 @@ final class FanEngine {
         final Context target = context != null ? context.getApplicationContext() : app;
         if (target == null) return;
         // Hand the blower back to the firmware curve instead of leaving it at
-        // whatever duty the loop last wrote.
+        // whatever duty the loop last wrote - but do not override a mode the
+        // user just picked (OFF/LOW/MANUAL are applied separately).  The old
+        // unconditional SMART write raced the OFF write, so OFF sometimes
+        // ended up back on the smart curve.
+        final int selected = new Prefs(target).fanAppMode();
+        if (selected != FanActivity.MODE_CURVE && selected != PerfTuner.FAN_SMART
+                && selected != PerfTuner.FAN_HIGH) {
+            return;
+        }
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {

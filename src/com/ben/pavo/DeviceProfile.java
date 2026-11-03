@@ -46,13 +46,14 @@ final class DeviceProfile {
     final boolean kgsl;
     final String fanDir;
     final int fanPeriod;
+    final int fanMaxRpm;
     final boolean rgb;
     final boolean performanceModes;
     final boolean fanControl;
 
     private DeviceProfile(String name, String manufacturer, String soc, String board,
                           List<Cluster> clusters, String gpuPath, boolean kgsl,
-                          String fanDir, int fanPeriod, boolean rgb,
+                          String fanDir, int fanPeriod, int fanMaxRpm, boolean rgb,
                           boolean performanceModes, boolean fanControl) {
         this.name = name;
         this.manufacturer = manufacturer;
@@ -63,6 +64,7 @@ final class DeviceProfile {
         this.kgsl = kgsl;
         this.fanDir = fanDir;
         this.fanPeriod = fanPeriod;
+        this.fanMaxRpm = fanMaxRpm;
         this.rgb = rgb;
         this.performanceModes = performanceModes;
         this.fanControl = fanControl;
@@ -160,8 +162,15 @@ final class DeviceProfile {
             + "done\n"
             + "[ -d /sys/class/sn3112l ] && echo RGB=1\n"
             + "echo PERFMODE=$(settings get system performance_mode)\n"
-            + "echo FANDIR=$(ls -d /sys/class/gpio*pwm* 2>/dev/null | head -1)\n"
-            + "echo FANPERIOD=$(cat /sys/class/gpio*pwm*/period 2>/dev/null | head -1)\n";
+            + "FANDIR=$(ls -d /sys/class/gpio*pwm* 2>/dev/null | head -1)\n"
+            + "[ -z \"$FANDIR\" ] && for d in /sys/class/hwmon/hwmon*; do\n"
+            + "  [ -f \"$d/pwm1\" ] && FANDIR=$d && break\n"
+            + "done\n"
+            + "echo FANDIR=$FANDIR\n"
+            + "echo FANPERIOD=$(cat $FANDIR/period 2>/dev/null)\n"
+            + "echo FANMAX=$(cat $FANDIR/max_speed $FANDIR/max_rpm $FANDIR/rpm_max"
+            + " $FANDIR/fan_max $FANDIR/speed_max $FANDIR/fan1_max"
+            + " 2>/dev/null | head -1)\n";
 
     private static DeviceProfile parse(String text, Context app) {
         if (text == null || text.trim().isEmpty()) return null;
@@ -169,6 +178,7 @@ final class DeviceProfile {
         String gpu = "";
         String fanDir = "";
         int fanPeriod = 50000;
+        int fanMaxRpm = 0;
         boolean rgb = false;
         boolean perfModes = false;
         List<Cluster> clusters = new ArrayList<>();
@@ -188,6 +198,7 @@ final class DeviceProfile {
             else if (key.equals("PERFMODE")) perfModes = value.matches("-?\\d+");
             else if (key.equals("FANDIR")) fanDir = value;
             else if (key.equals("FANPERIOD")) fanPeriod = parseInt(value, 50000);
+            else if (key.equals("FANMAX")) fanMaxRpm = parseInt(value, 0);
             else if (key.equals("CPU")) {
                 String[] f = value.split("\\|", -1);
                 if (f.length >= 5) {
@@ -202,7 +213,8 @@ final class DeviceProfile {
             }
         }
         if (clusters.isEmpty()) return null;
-        return build(manuf, soc, board, sku, dt, clusters, gpu, fanDir, fanPeriod, rgb, perfModes);
+        return build(manuf, soc, board, sku, dt, clusters, gpu, fanDir, fanPeriod,
+                fanMaxRpm, rgb, perfModes);
     }
 
     /** Fast, unprivileged probe used on first launch and when PServer is absent. */
@@ -251,6 +263,7 @@ final class DeviceProfile {
 
         String fanDir = "";
         int fanPeriod = 50000;
+        int fanMaxRpm = 0;
         File cls = new File("/sys/class");
         File[] nodes = cls.listFiles();
         if (nodes != null) {
@@ -273,13 +286,14 @@ final class DeviceProfile {
                 }
             }
         }
+        fanMaxRpm = readFanMaxRpm(fanDir);
 
         boolean rgb = new File("/sys/class/sn3112l").isDirectory()
                 || new File("/sys/class/sn3112r").isDirectory();
         boolean perfModes = app != null && readPerformanceMode(app) >= 0;
 
         return build(manuf, soc, board, "", dt, clusters, gpu, fanDir, fanPeriod,
-                rgb, perfModes);
+                fanMaxRpm, rgb, perfModes);
     }
 
     private static String n(File f) {
@@ -288,8 +302,8 @@ final class DeviceProfile {
 
     private static DeviceProfile build(String manuf, String soc, String board, String sku,
                                        String dt, List<Cluster> clusters, String gpu,
-                                       String fanDir, int fanPeriod, boolean rgb,
-                                       boolean perfModes) {
+                                       String fanDir, int fanPeriod, int fanMaxRpm,
+                                       boolean rgb, boolean perfModes) {
         clusters.sort(Comparator.comparingInt(c -> c.max));
         for (int i = 0; i < clusters.size(); i++) {
             Cluster c = clusters.get(i);
@@ -303,7 +317,8 @@ final class DeviceProfile {
         String gpuPath = kgsl ? "/sys/class/kgsl/kgsl-3d0"
                 : (gpu == null || gpu.isEmpty() ? "" : gpu);
         return new DeviceProfile(name, manuf, soc, board, clusters, gpuPath, kgsl,
-                fanDir == null ? "" : fanDir, fanPeriod, rgb, perfModes,
+                fanDir == null ? "" : fanDir, fanPeriod,
+                fanMaxRpm > 0 ? fanMaxRpm : readFanMaxRpm(fanDir), rgb, perfModes,
                 !(fanDir == null || fanDir.isEmpty()));
     }
 
@@ -402,6 +417,18 @@ final class DeviceProfile {
         }
     }
 
+    /** Reads an explicit RPM ceiling when the fan node exposes one. */
+    private static int readFanMaxRpm(String dir) {
+        if (dir == null || dir.isEmpty()) return 0;
+        String[] names = {"max_rpm", "max_speed", "rpm_max", "fan_max",
+                "speed_max", "fan1_max", "max_fan_speed"};
+        for (String name : names) {
+            int v = parseInt(readAll(new File(dir, name)), 0);
+            if (v >= 500 && v <= 100_000) return v;
+        }
+        return 0;
+    }
+
     // ------------------------------------------------------------------ cache
 
     private static String encode(DeviceProfile p) {
@@ -414,6 +441,7 @@ final class DeviceProfile {
                 .append(p.kgsl).append('\u0001')
                 .append(p.fanDir).append('\u0001')
                 .append(p.fanPeriod).append('\u0001')
+                .append(p.fanMaxRpm).append('\u0001')
                 .append(p.rgb).append('\u0001')
                 .append(p.performanceModes).append('\u0001');
         for (Cluster c : p.clusters) {
@@ -428,8 +456,10 @@ final class DeviceProfile {
         try {
             String[] f = s.split("\u0001", -1);
             if (f.length < 11) return null;
+            boolean current = f.length >= 12;
+            int clusterIndex = current ? 11 : 10;
             List<Cluster> clusters = new ArrayList<>();
-            for (String part : f[10].split(";")) {
+            for (String part : f[clusterIndex].split(";")) {
                 if (part.isEmpty()) continue;
                 String[] c = part.split(",", -1);
                 if (c.length < 5) continue;
@@ -444,9 +474,12 @@ final class DeviceProfile {
             }
             if (clusters.isEmpty()) return null;
             boolean kgsl = Boolean.parseBoolean(f[5]);
+            int fanMaxRpm = current ? parseInt(f[8], 0) : 0;
+            int rgbIndex = current ? 9 : 8;
             return build(f[1], f[2], f[3], "", "", clusters,
                     kgsl ? "kgsl" : f[4], f[6], parseInt(f[7], 50000),
-                    Boolean.parseBoolean(f[8]), Boolean.parseBoolean(f[9]));
+                    fanMaxRpm, Boolean.parseBoolean(f[rgbIndex]),
+                    Boolean.parseBoolean(f[rgbIndex + 1]));
         } catch (Throwable ignored) {
             return null;
         }

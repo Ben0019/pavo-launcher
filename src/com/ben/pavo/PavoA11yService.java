@@ -192,11 +192,10 @@ public final class PavoA11yService extends AccessibilityService {
     }
 
     static void restartControllerListener() {
-        // The PServer-backed PavoInputService owns the controller in root mode.
-        // In no-root mode the accessibility key filter below is the input path.
+        // The PServer-backed PavoInputService owns controller input.
         final PavoA11yService s = instance;
         if (s == null) return;
-        if (!new Prefs(s).rootlessRemap()) PavoInputService.ensureStarted(s);
+        PavoInputService.ensureStarted(s);
     }
 
     static boolean isFloatingDrawerVisible() {
@@ -376,26 +375,17 @@ public final class PavoA11yService extends AccessibilityService {
 
     static boolean beginKeyCapture() {
         PavoA11yService s = instance;
-        if (s != null && !new Prefs(s).rootlessRemap()) {
-            return PavoInputService.beginKeyCapture(s);
-        }
-        return beginCapture(CAPTURE_PERF);
+        return s != null && PavoInputService.beginKeyCapture(s);
     }
 
     static boolean beginDrawerKeyCapture() {
         PavoA11yService s = instance;
-        if (s != null && !new Prefs(s).rootlessRemap()) {
-            return PavoInputService.beginDrawerKeyCapture(s);
-        }
-        return beginCapture(CAPTURE_DRAWER);
+        return s != null && PavoInputService.beginDrawerKeyCapture(s);
     }
 
     static boolean beginPerfLogKeyCapture() {
         PavoA11yService s = instance;
-        if (s != null && !new Prefs(s).rootlessRemap()) {
-            return PavoInputService.beginPerfLogKeyCapture(s);
-        }
-        return beginCapture(CAPTURE_PERFLOG);
+        return s != null && PavoInputService.beginPerfLogKeyCapture(s);
     }
 
     private static boolean beginCapture(int target) {
@@ -798,7 +788,7 @@ public final class PavoA11yService extends AccessibilityService {
         startWakeWatcher();
         main.removeCallbacks(profileSync);
         main.postDelayed(profileSync, 1200L);
-        if (!new Prefs(this).rootlessRemap()) PavoInputService.ensureStarted(this);
+        PavoInputService.ensureStarted(this);
         if (new Prefs(this).controllerRemapEnabled()
                 && !TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()
@@ -877,55 +867,9 @@ public final class PavoA11yService extends AccessibilityService {
         // the editor so the outline can show them.
         if (visual != null && (raw == 102 || raw == 158)) return true;
 
-        // In PServer/root mode PavoInputService owns controller input.  This
-        // service is only the no-root fallback and the trusted overlay layer.
-        if (!new Prefs(this).rootlessRemap()) return false;
-
-        // Android turns the analogue stick into low-threshold D-pad keys. The
-        // motion-event handler below applies its own dead zone and repeat, so
-        // swallow those duplicates while the drawer owns the controller.
-        boolean syntheticStick = event.getScanCode() == 0
-                && (event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0
-                && isDirectionKey(raw);
-        if (drawerOverlayVisible && syntheticStick) return true;
-
-        if (capturing) {
-            if (down && raw > 0 && SystemClock.uptimeMillis() <= captureDeadline) {
-                String key = RootlessUinput.linuxLabel(raw);
-                if (key != null) {
-                    Prefs prefs = new Prefs(this);
-                    final int target = captureTarget;
-                    if (target == CAPTURE_DRAWER) prefs.setDrawerControllerRaw(key);
-                    else if (target == CAPTURE_PERFLOG) prefs.setPerfLogControllerRaw(key);
-                    else prefs.setPerfControllerRaw(key);
-                    capturing = false;
-                    swallowCaptureUp = key;
-                    keyHandler.removeCallbacks(captureTimeout);
-                    final String label = friendlyKey(key);
-                    main.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            String prefix = target == CAPTURE_DRAWER ? "App drawer shortcut: "
-                                    : target == CAPTURE_PERFLOG ? "Perf Log popup shortcut: "
-                                    : "Controller shortcut: ";
-                            LToast.makeText(PavoA11yService.this, prefix + label,
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-            }
-            return true;
-        }
-        if (swallowCaptureUp != null) {
-            String key = RootlessUinput.linuxLabel(raw);
-            if (key != null && key.equals(swallowCaptureUp) && up) swallowCaptureUp = null;
-            return true;
-        }
-
-        if (remapUiActive || !RootlessRemap.isActive()) return false;
-        if (RootlessRemap.isVirtualEvent(event)) return false;
-        if (raw > 0) handleRootlessShortcut(RootlessRemap.mappedRaw(raw), down, up, repeat);
-        return RootlessRemap.handle(event);
+        // PServer owns controller input; this service is only the trusted
+        // overlay layer.
+        return false;
     }
 
     @Override

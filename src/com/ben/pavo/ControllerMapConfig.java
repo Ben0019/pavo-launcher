@@ -245,7 +245,12 @@ final class ControllerMapConfig {
         if (event == null) return -1;
         int scan = event.getScanCode();
         if (isKnown(scan)) return scan;
-        switch (event.getKeyCode()) {
+        return rawForKeyCode(event.getKeyCode());
+    }
+
+    /** Android key code to Linux evdev code, including extra gamepad buttons. */
+    static int rawForKeyCode(int code) {
+        switch (code) {
             case KeyEvent.KEYCODE_BUTTON_A: return 304;
             case KeyEvent.KEYCODE_BUTTON_B: return 305;
             case KeyEvent.KEYCODE_BUTTON_C: return 306;
@@ -269,7 +274,12 @@ final class ControllerMapConfig {
             case KeyEvent.KEYCODE_BACK: return 158;
             case KeyEvent.KEYCODE_VOLUME_DOWN: return 114;
             case KeyEvent.KEYCODE_VOLUME_UP: return 115;
-            default: return -1;
+            default:
+                if (code >= KeyEvent.KEYCODE_BUTTON_1
+                        && code <= KeyEvent.KEYCODE_BUTTON_16) {
+                    return 704 + (code - KeyEvent.KEYCODE_BUTTON_1);
+                }
+                return -1;
         }
     }
 
@@ -303,7 +313,9 @@ final class ControllerMapConfig {
             case 158: return "Back";
             case 114: return "Volume Down";
             case 115: return "Volume Up";
-            default: return "BTN " + raw;
+            default:
+                if (raw >= 704 && raw <= 743) return "Button " + (raw - 703);
+                return "BTN " + raw;
         }
     }
 }

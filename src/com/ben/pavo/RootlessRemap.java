@@ -55,7 +55,16 @@ final class RootlessRemap {
         if (instance != null && instance.isReady()) return true;
         stop();
         RootlessRemap engine = new RootlessRemap(context);
-        if (!engine.uinput.start(context)) return false;
+        ControllerButtons.Catalog catalog = ControllerButtons.detect(context);
+        java.util.LinkedHashSet<Integer> keys = new java.util.LinkedHashSet<>();
+        keys.addAll(catalog.raws);
+        keys.addAll(engine.config.mappings.keySet());
+        keys.addAll(engine.config.mappings.values());
+        keys.addAll(engine.config.turbo);
+        int[] codes = new int[keys.size()];
+        int n = 0;
+        for (int code : keys) codes[n++] = code;
+        if (!engine.uinput.start(context, codes)) return false;
         engine.active = true;
         instance = engine;
         PavoA11yService.restartControllerListener();
@@ -106,12 +115,12 @@ final class RootlessRemap {
         reloadIfChanged();
         if (!config.enabled || config.capture) return false;
         if (isVirtualDevice(event)) return false;
-        int source = ControllerMapConfig.rawFor(event);
+        int source = ControllerButtons.rawForAny(event);
         if (source <= 0 || source >= MAX_CODE) return false;
         int sourceMask = event.getSource();
         boolean gamepad = (sourceMask & InputDevice.SOURCE_GAMEPAD) != 0
                 || (sourceMask & InputDevice.SOURCE_JOYSTICK) != 0;
-        if (!gamepad && !isOdinDevice(event)) return false;
+        if (!gamepad && !ControllerButtons.isControllerEvent(context, event)) return false;
 
         int action = event.getAction();
         if (action == KeyEvent.ACTION_DOWN) {
@@ -124,20 +133,6 @@ final class RootlessRemap {
             return true;
         }
         return true;
-    }
-
-    private boolean isOdinDevice(KeyEvent event) {
-        try {
-            InputManager im = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
-            if (im == null) return false;
-            InputDevice device = im.getInputDevice(event.getDeviceId());
-            if (device == null) return false;
-            String name = device.getName();
-            return name != null && name.toLowerCase(java.util.Locale.US)
-                    .contains("odin controller");
-        } catch (Throwable ignored) {
-            return false;
-        }
     }
 
     private boolean isVirtualDevice(KeyEvent event) {

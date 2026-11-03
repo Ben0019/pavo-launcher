@@ -1,7 +1,11 @@
 package com.ben.pavo;
 
+import android.content.Context;
 import android.graphics.Color;
+import android.os.SystemClock;
+import android.provider.Settings;
 
+import java.io.File;
 import java.io.FileOutputStream;
 
 /**
@@ -29,12 +33,110 @@ final class RgbControl {
     private static final String COLOR_LEFT = "/sys/class/sn3112l/led/brightness";
     private static final String COLOR_RIGHT = "/sys/class/sn3112r/led/brightness";
 
+    // AYN and Retroid share the vendor com.ro.* settings service.  These keys
+    // are confirmed on the Odin 3 and Retroid Pocket 6 and let the firmware
+    // apply the colour to either the SN3112 or HTR3212 controller.
+    private static final String KEY_COLOR = "joystick_led_light_picker_color";
+    private static final String KEY_ENABLE = "joystick_light_enabled";
+    private static final String KEY_BRIGHTNESS = "led_light_brightness_percent";
+    private static final long SETTINGS_FRAME_MS = 100L;
+
     private static volatile boolean writeFailed;
+    private static volatile Boolean settingsPresent;
+    private static volatile Boolean sysfsPresent;
+    private static String lastEnabled;
+    private static String lastColorPair;
+    private static long lastSettingsAt;
+    private static boolean brightnessSet;
     private static final Object FAST_LOCK = new Object();
     private static final java.util.HashMap<String, FileOutputStream> FAST_STREAMS =
             new java.util.HashMap<>();
 
     private RgbControl() {}
+
+    private static boolean sysfsAvailable() {
+        Boolean cached = sysfsPresent;
+        if (cached != null) return cached;
+        boolean ok = new File(ENABLE_LEFT).exists() || new File(ENABLE_RIGHT).exists()
+                || new File(COLOR_LEFT).exists() || new File(COLOR_RIGHT).exists();
+        sysfsPresent = ok;
+        return ok;
+    }
+
+    /** The shared vendor settings key exists on Odin 3, RP6 and their siblings. */
+    static boolean settingsAvailable() {
+        Boolean cached = settingsPresent;
+        if (cached != null) return cached;
+        Context context = appContext();
+        if (context == null) return false;
+        try {
+            String value = Settings.System.getString(context.getContentResolver(), KEY_COLOR);
+            boolean ok = value != null;
+            settingsPresent = ok;
+            return ok;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static Context appContext() {
+        try {
+            Class<?> thread = Class.forName("android.app.ActivityThread");
+            java.lang.reflect.Method current = thread.getMethod("currentApplication");
+            return (Context) current.invoke(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static boolean settingsWritable() {
+        return settingsAvailable() && PServer.available();
+    }
+
+    private static boolean writeSettings(String key, String value) {
+        return PServer.run("settings put system " + key + " '" + value + "'");
+    }
+
+    private static boolean setEnabledSettings(boolean left, boolean right) {
+        if (!settingsWritable()) return false;
+        String value = (left ? "1" : "0") + "," + (right ? "1" : "0");
+        if (value.equals(lastEnabled)) return true;
+        if (!writeSettings(KEY_ENABLE, value)) return false;
+        lastEnabled = value;
+        return true;
+    }
+
+    /**
+     * Writes one ARGB colour per stick and lets the vendor service drive the
+     * panel driver.  Hardware brightness is pinned to 1.0 and the requested
+     * brightness is baked into the colour, so animated frames only need one
+     * settings write instead of two.
+     */
+    private static boolean applyColorsSettings(int leftColor, int rightColor,
+                                               int brightness, boolean left,
+                                               boolean right) {
+        if (!settingsWritable()) return false;
+        long now = SystemClock.uptimeMillis();
+        String pair = argb(leftColor, brightness) + "," + argb(rightColor, brightness);
+        if (pair.equals(lastColorPair)) return true;
+        if (now - lastSettingsAt < SETTINGS_FRAME_MS) return true;
+        if (!brightnessSet) {
+            if (writeSettings(KEY_BRIGHTNESS, "1.0")) brightnessSet = true;
+        }
+        if (!setEnabledSettings(left, right)) return false;
+        if (!writeSettings(KEY_COLOR, pair)) return false;
+        lastColorPair = pair;
+        lastSettingsAt = now;
+        return true;
+    }
+
+    private static String argb(int color, int brightness) {
+        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
+        return String.format(java.util.Locale.US, "#ff%02x%02x%02x",
+                Math.round(Color.red(color) * scale),
+                Math.round(Color.green(color) * scale),
+                Math.round(Color.blue(color) * scale));
+    }
 
     static String transportLabel() {
         if (writeFailed) return "OFFLINE";
@@ -46,22 +148,29 @@ final class RgbControl {
     }
 
     static boolean setEnabled(boolean left, boolean right) {
-        boolean ok = writeTwo(ENABLE_LEFT, left ? "1" : "0",
-                ENABLE_RIGHT, right ? "1" : "0");
+        boolean ok = false;
+        if (sysfsAvailable()) {
+            ok = writeTwo(ENABLE_LEFT, left ? "1" : "0",
+                    ENABLE_RIGHT, right ? "1" : "0");
+        }
+        if (!ok) ok = setEnabledSettings(left, right);
         writeFailed = !ok;
         return ok;
     }
 
     static boolean applyColors(int color, int brightness, boolean left, boolean right) {
-        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
-        int r = Math.round(Color.red(color) * scale);
-        int g = Math.round(Color.green(color) * scale);
-        int b = Math.round(Color.blue(color) * scale);
-        boolean ok = true;
-        if (left) ok &= writeColor(COLOR_LEFT, r, g, b);
-        if (right) ok &= writeColor(COLOR_RIGHT, r, g, b);
-        if (!ok) writeFailed = true;
-        else writeFailed = false;
+        boolean ok = false;
+        if (sysfsAvailable()) {
+            float scale = Math.max(0f, Math.min(1f, brightness / 100f));
+            int r = Math.round(Color.red(color) * scale);
+            int g = Math.round(Color.green(color) * scale);
+            int b = Math.round(Color.blue(color) * scale);
+            ok = true;
+            if (left) ok &= writeColor(COLOR_LEFT, r, g, b);
+            if (right) ok &= writeColor(COLOR_RIGHT, r, g, b);
+        }
+        if (!ok) ok = applyColorsSettings(color, color, brightness, left, right);
+        writeFailed = !ok;
         return ok;
     }
 
@@ -73,20 +182,24 @@ final class RgbControl {
      */
     static boolean applyColorsLR(int leftColor, int rightColor, int brightness,
                                  boolean left, boolean right) {
-        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
-        boolean ok = true;
-        if (left) {
-            ok &= writeColor(COLOR_LEFT,
-                    Math.round(Color.red(leftColor) * scale),
-                    Math.round(Color.green(leftColor) * scale),
-                    Math.round(Color.blue(leftColor) * scale));
+        boolean ok = false;
+        if (sysfsAvailable()) {
+            float scale = Math.max(0f, Math.min(1f, brightness / 100f));
+            ok = true;
+            if (left) {
+                ok &= writeColor(COLOR_LEFT,
+                        Math.round(Color.red(leftColor) * scale),
+                        Math.round(Color.green(leftColor) * scale),
+                        Math.round(Color.blue(leftColor) * scale));
+            }
+            if (right) {
+                ok &= writeColor(COLOR_RIGHT,
+                        Math.round(Color.red(rightColor) * scale),
+                        Math.round(Color.green(rightColor) * scale),
+                        Math.round(Color.blue(rightColor) * scale));
+            }
         }
-        if (right) {
-            ok &= writeColor(COLOR_RIGHT,
-                    Math.round(Color.red(rightColor) * scale),
-                    Math.round(Color.green(rightColor) * scale),
-                    Math.round(Color.blue(rightColor) * scale));
-        }
+        if (!ok) ok = applyColorsSettings(leftColor, rightColor, brightness, left, right);
         writeFailed = !ok;
         return ok;
     }
@@ -103,6 +216,9 @@ final class RgbControl {
      *  transport if the kernel rejects the write. */
     static boolean applyColorsFast(int color, int brightness,
                                    boolean left, boolean right) {
+        if (!sysfsAvailable()) {
+            return applyColorsSettings(color, color, brightness, left, right);
+        }
         float scale = Math.max(0f, Math.min(1f, brightness / 100f));
         int r = Math.round(Color.red(color) * scale);
         int g = Math.round(Color.green(color) * scale);
@@ -122,6 +238,7 @@ final class RgbControl {
 
     /** Direct-write enable for the animation loop. */
     static boolean setEnabledFast(boolean left, boolean right) {
+        if (!sysfsAvailable()) return setEnabledSettings(left, right);
         boolean ok = true;
         if (left) ok &= directFast(ENABLE_LEFT, "1");
         if (right) ok &= directFast(ENABLE_RIGHT, "1");
@@ -171,6 +288,10 @@ final class RgbControl {
      * for a PServer round trip. Falls back to the normal transport on failure.
      */
     static void wakeApply(int color, int brightness, boolean left, boolean right) {
+        if (!sysfsAvailable()) {
+            applyColorsSettings(color, color, brightness, left, right);
+            return;
+        }
         float scale = Math.max(0f, Math.min(1f, brightness / 100f));
         int r = Math.round(Color.red(color) * scale);
         int g = Math.round(Color.green(color) * scale);
@@ -209,6 +330,10 @@ final class RgbControl {
     /** Wake path for animated modes: restore the enable only, so the first
      *  animation frame paints the colour instead of flashing the saved base. */
     static void wakeEnable(boolean left, boolean right) {
+        if (!sysfsAvailable()) {
+            setEnabledSettings(left, right);
+            return;
+        }
         boolean ok = true;
         if (left) ok &= direct(ENABLE_LEFT, "1");
         if (right) ok &= direct(ENABLE_RIGHT, "1");

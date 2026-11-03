@@ -348,38 +348,6 @@ final class PerfOverlayMenuView extends FrameLayout {
         content.addView(opacityRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        addSection(content, "DEVICE PERFORMANCE MODE");
-        LinearLayout modeRow = new LinearLayout(c);
-        modeRow.setOrientation(LinearLayout.HORIZONTAL);
-        final String[] labels = {"Normal", "Standard", "High"};
-        for (int i = 0; i < labels.length; i++) {
-            final int mode = i;
-            TextView chip = text(labels[i], 9.5f, TEXT, false);
-            chip.setGravity(Gravity.CENTER);
-            chip.setSingleLine(true);
-            chip.setPadding(dp(5), dp(6), dp(5), dp(6));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            lp.rightMargin = i < labels.length - 1 ? dp(4) : 0;
-            chip.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Haptics.click(v);
-                    setPerformanceMode(mode);
-                    listener.onPerformanceMode(mode);
-                }
-            });
-            modeRow.addView(chip, lp);
-            modeChips.add(chip);
-            navItems.add(chip);
-        }
-        content.addView(modeRow, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView modeHint = text("Uses the same Odin performance state as the Quick Settings tile.",
-                9.5f, 0x66FFFFFF, false);
-        modeHint.setPadding(0, dp(4), 0, 0);
-        content.addView(modeHint);
-
         addSection(content, "CONTROLLER SHORTCUT");
         String mappedRaw = prefs.perfControllerRaw();
         String mappedName = PavoA11yService.controllerLabel(prefs);
