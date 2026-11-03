@@ -466,13 +466,13 @@ final class Prefs {
         sp.edit().putString("fan_curve", v == null ? FanCurve.DEFAULT : v).apply();
     }
 
-    int rgbMode() { return clamp(sp.getInt("rgb_mode", RgbControl.MODE_OFF), 0, 5); }
+    int rgbMode() { return clamp(sp.getInt("rgb_mode", RgbControl.MODE_OFF), 0, 6); }
     int rgbColor() { return sp.getInt("rgb_color", 0xFF2BE0D8); }
     int rgbBrightness() { return clamp(sp.getInt("rgb_brightness", 50), 1, 100); }
     int rgbSpeed() { return clamp(sp.getInt("rgb_speed", 100), 10, 300); }
     boolean rgbLeft() { return sp.getBoolean("rgb_left", true); }
     boolean rgbRight() { return sp.getBoolean("rgb_right", true); }
-    void setRgbMode(int v) { sp.edit().putInt("rgb_mode", clamp(v, 0, 5)).apply(); }
+    void setRgbMode(int v) { sp.edit().putInt("rgb_mode", clamp(v, 0, 6)).apply(); }
     void setRgbColor(int v) { sp.edit().putInt("rgb_color", v).apply(); }
     void setRgbBrightness(int v) {
         sp.edit().putInt("rgb_brightness", clamp(v, 1, 100)).apply();

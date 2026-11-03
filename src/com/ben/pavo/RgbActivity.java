@@ -45,10 +45,10 @@ public final class RgbActivity extends PavoGlassActivity {
     private static final int[] MODE_VALUES = {
             RgbControl.MODE_STATIC, RgbControl.MODE_BREATH,
             RgbControl.MODE_RAINBOW, RgbControl.MODE_STROBE,
-            RgbControl.MODE_OFF
+            RgbControl.MODE_MULTI, RgbControl.MODE_OFF
     };
     private static final String[] MODE_LABELS = {
-            "STATIC", "BREATH", "RAINBOW", "STROBE", "OFF"
+            "STATIC", "BREATH", "RAINBOW", "STROBE", "MULTI", "OFF"
     };
 
     private static volatile boolean visible;
@@ -462,6 +462,7 @@ public final class RgbActivity extends PavoGlassActivity {
         modeRow2Lp.topMargin = dp(5);
         modeBody.addView(modeRow2, modeRow2Lp);
         addModeButton(modeRow2, "STROBE", RgbControl.MODE_STROBE, false);
+        addModeButton(modeRow2, "MULTI", RgbControl.MODE_MULTI, false);
         addModeButton(modeRow2, "OFF", RgbControl.MODE_OFF, true);
         outputSection.setMinimumHeight(dp(150));
         modeSection.setMinimumHeight(dp(150));
@@ -824,16 +825,19 @@ public final class RgbActivity extends PavoGlassActivity {
         if (leftPreview == null) return;
         boolean animated = isAnimated(mode);
         int ring;
+        int ringRight;
         if (animated && RgbService.previewActive()) {
             ring = RgbService.previewColor();
+            ringRight = RgbService.previewColorRight();
         } else {
             ring = RgbControl.scaledColor(color, 1f, brightness);
+            ringRight = ring;
         }
         boolean active = mode != RgbControl.MODE_OFF;
         leftPreview.setPowered(active);
         rightPreview.setPowered(active);
         leftPreview.setRingColor(ring);
-        rightPreview.setRingColor(ring);
+        rightPreview.setRingColor(ringRight);
         leftPreview.setTargetEnabled(leftOn);
         rightPreview.setTargetEnabled(rightOn);
         leftLabel.setText("LEFT · " + (leftOn ? "ON" : "OFF"));
@@ -929,7 +933,8 @@ public final class RgbActivity extends PavoGlassActivity {
     private boolean isAnimated(int value) {
         return value == RgbControl.MODE_BREATH
                 || value == RgbControl.MODE_RAINBOW
-                || value == RgbControl.MODE_STROBE;
+                || value == RgbControl.MODE_STROBE
+                || value == RgbControl.MODE_MULTI;
     }
 
     private void updateStatus() {

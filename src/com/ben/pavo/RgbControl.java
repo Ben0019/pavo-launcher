@@ -22,6 +22,7 @@ final class RgbControl {
     static final int MODE_STROBE = 3;
     static final int MODE_OFF = 4;
     static final int MODE_SCREEN = 5;
+    static final int MODE_MULTI = 6;
 
     private static final String ENABLE_LEFT = "/sys/class/sn3112l/led/enable";
     private static final String ENABLE_RIGHT = "/sys/class/sn3112r/led/enable";
@@ -59,6 +60,39 @@ final class RgbControl {
         if (!ok) writeFailed = true;
         else writeFailed = false;
         return ok;
+    }
+
+    /**
+     * Paint a different colour on each stick in one pass. The ring itself is
+     * a single RGB zone on this hardware, so a spatial gradient around one
+     * ring is not possible; the multicolour mode uses the two sticks as two
+     * simultaneous colours instead.
+     */
+    static boolean applyColorsLR(int leftColor, int rightColor, int brightness,
+                                 boolean left, boolean right) {
+        float scale = Math.max(0f, Math.min(1f, brightness / 100f));
+        boolean ok = true;
+        if (left) {
+            ok &= writeColor(COLOR_LEFT,
+                    Math.round(Color.red(leftColor) * scale),
+                    Math.round(Color.green(leftColor) * scale),
+                    Math.round(Color.blue(leftColor) * scale));
+        }
+        if (right) {
+            ok &= writeColor(COLOR_RIGHT,
+                    Math.round(Color.red(rightColor) * scale),
+                    Math.round(Color.green(rightColor) * scale),
+                    Math.round(Color.blue(rightColor) * scale));
+        }
+        writeFailed = !ok;
+        return ok;
+    }
+
+    /** One hue of the multicolour cycle; the two sticks use different offsets. */
+    static int multiColor(long elapsedMs, float baseHue, int offsetDeg) {
+        float hue = (baseHue + offsetDeg + (elapsedMs % 6000L) * 360f / 6000f) % 360f;
+        if (hue < 0f) hue += 360f;
+        return Color.HSVToColor(new float[]{hue, 1f, 1f});
     }
 
     static boolean applyStatic(int color, int brightness, boolean left, boolean right) {

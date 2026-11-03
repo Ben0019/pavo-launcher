@@ -33,6 +33,7 @@ public final class RgbService extends Service {
     private static final int NOTIFICATION_ID = 101;
     private static volatile boolean running;
     private static volatile int previewColor;
+    private static volatile int previewColorRight;
     private static volatile boolean previewActive;
     private static final Handler wakeHandler = new Handler(Looper.getMainLooper());
     private static Runnable pendingWakeReapply;
@@ -42,6 +43,7 @@ public final class RgbService extends Service {
     private Handler handler;
     private int mode = RgbControl.MODE_OFF;
     private int color = 0xFF2BE0D8;
+    private float colorHue;
     private int brightness = 50;
     private int speed = 100;
     private boolean left = true;
@@ -55,6 +57,10 @@ public final class RgbService extends Service {
 
     static int previewColor() {
         return previewColor;
+    }
+
+    static int previewColorRight() {
+        return previewColorRight;
     }
 
     static boolean previewActive() {
@@ -176,6 +182,7 @@ public final class RgbService extends Service {
             new Prefs(this).setRgbMode(RgbControl.MODE_OFF);
             previewActive = false;
             previewColor = 0;
+            previewColorRight = 0;
             stopForeground(true);
             foreground = false;
             stopSelf();
@@ -198,6 +205,9 @@ public final class RgbService extends Service {
         boolean modeChanged = nextMode != mode;
         mode = nextMode;
         color = nextColor;
+        float[] hsv = new float[3];
+        Color.colorToHSV(color, hsv);
+        colorHue = hsv[0];
         brightness = Math.max(1, Math.min(100, nextBrightness));
         speed = Math.max(10, Math.min(300, nextSpeed));
         left = nextLeft;
@@ -216,6 +226,7 @@ public final class RgbService extends Service {
             RgbControl.applyStatic(color, brightness, left, right);
             previewActive = false;
             previewColor = RgbControl.scaledColor(color, 1f, brightness);
+            previewColorRight = previewColor;
             stopForeground(true);
             foreground = false;
             stopSelf();
@@ -261,21 +272,35 @@ public final class RgbService extends Service {
             long strobeInterval = Math.max(35L, 140L * 100L / speed);
             int effective = brightness;
             int out = color;
+            int outRight = out;
             if (mode == RgbControl.MODE_BREATH) {
                 effective = Math.max(1, Math.round(brightness
                         * RgbControl.breathFactor(scaledElapsed) / 100f));
             } else if (mode == RgbControl.MODE_RAINBOW) {
                 out = RgbControl.rainbowColor(scaledElapsed);
+                outRight = out;
             } else if (mode == RgbControl.MODE_STROBE) {
                 if ((elapsed / strobeInterval) % 2L != 0L) out = 0;
+                outRight = out;
+            } else if (mode == RgbControl.MODE_MULTI) {
+                // Two hues at once, one per stick, both cycling. The ring is
+                // a single RGB zone, so this is the closest the hardware can
+                // get to a multi-colour gradient.
+                out = RgbControl.multiColor(scaledElapsed, colorHue, 0);
+                outRight = RgbControl.multiColor(scaledElapsed, colorHue, 120);
             }
             previewColor = RgbControl.scaledColor(out, 1f, effective);
+            previewColorRight = RgbControl.scaledColor(outRight, 1f, effective);
             previewActive = true;
             // Re-assert the enable with every frame: the panel/vendor wake
             // sequence can clear it after the first frame, which left the
             // animated modes dark.
             RgbControl.setEnabled(left, right);
-            RgbControl.applyColors(out, effective, left, right);
+            if (mode == RgbControl.MODE_MULTI) {
+                RgbControl.applyColorsLR(out, outRight, effective, left, right);
+            } else {
+                RgbControl.applyColors(out, effective, left, right);
+            }
             handler.postDelayed(this, mode == RgbControl.MODE_STROBE
                     ? strobeInterval : 70L);
         }
@@ -306,6 +331,7 @@ public final class RgbService extends Service {
             case RgbControl.MODE_BREATH: return "Breathing";
             case RgbControl.MODE_RAINBOW: return "Rainbow";
             case RgbControl.MODE_STROBE: return "Strobe";
+            case RgbControl.MODE_MULTI: return "Multicolor";
             case RgbControl.MODE_STATIC: return "Static";
             default: return "Off";
         }
