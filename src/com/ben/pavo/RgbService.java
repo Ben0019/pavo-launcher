@@ -44,6 +44,10 @@ public final class RgbService extends Service {
     private int mode = RgbControl.MODE_OFF;
     private int color = 0xFF2BE0D8;
     private float colorHue;
+    private int ambientColor;
+    private int ambientTarget;
+    private long lastAmbientSample;
+    private volatile boolean ambientSampling;
     private int brightness = 50;
     private int speed = 100;
     private boolean left = true;
@@ -86,10 +90,6 @@ public final class RgbService extends Service {
         if (c == null) return;
         Prefs prefs = new Prefs(c);
         int mode = prefs.rgbMode();
-        if (mode == RgbControl.MODE_SCREEN) {
-            mode = RgbControl.MODE_STATIC;
-            prefs.setRgbMode(mode);
-        }
         if (mode == RgbControl.MODE_OFF) return;
         // The panel's wake sequence writes a black LED frame ~0.5 s after the
         // screen becomes interactive and can drop the enable with it. Every
@@ -123,7 +123,6 @@ public final class RgbService extends Service {
                     if (pm != null && !pm.isInteractive()) return;
                     Prefs prefs = new Prefs(app);
                     int saved = prefs.rgbMode();
-                    if (saved == RgbControl.MODE_SCREEN) saved = RgbControl.MODE_STATIC;
                     if (saved == RgbControl.MODE_OFF) return;
                     int c = prefs.rgbColor();
                     int b = prefs.rgbBrightness();
@@ -197,11 +196,6 @@ public final class RgbService extends Service {
         boolean nextLeft = intent != null ? intent.getBooleanExtra(EXTRA_LEFT, left) : left;
         boolean nextRight = intent != null
                 ? intent.getBooleanExtra(EXTRA_RIGHT, right) : right;
-        if (nextMode == RgbControl.MODE_SCREEN) {
-            // Screen-follow mode has been removed; fall back to Static.
-            nextMode = RgbControl.MODE_STATIC;
-            new Prefs(this).setRgbMode(nextMode);
-        }
         boolean modeChanged = nextMode != mode;
         mode = nextMode;
         color = nextColor;
@@ -233,6 +227,11 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
 
+        if (mode == RgbControl.MODE_SCREEN && (modeChanged || startedAt == 0L)) {
+            ambientColor = color;
+            ambientTarget = 0;
+            lastAmbientSample = 0L;
+        }
         previewActive = true;
         if (modeChanged || startedAt == 0L) {
             // Only touch the enable when the service or mode actually changes.
@@ -288,6 +287,35 @@ public final class RgbService extends Service {
                 // get to a multi-colour gradient.
                 out = RgbControl.multiColor(scaledElapsed, colorHue, 0);
                 outRight = RgbControl.multiColor(scaledElapsed, colorHue, 120);
+            } else if (mode == RgbControl.MODE_SCREEN) {
+                if (!RgbActivity.isVisible() && !ambientSampling
+                        && now - lastAmbientSample >= 260L) {
+                    lastAmbientSample = now;
+                    ambientSampling = true;
+                    new Thread(new Runnable() {
+                        @Override public void run() {
+                            final int sampled = ScreenAmbient.sample(
+                                    getApplicationContext());
+                            if (handler != null) {
+                                handler.post(new Runnable() {
+                                    @Override public void run() {
+                                        ambientSampling = false;
+                                        if (running && sampled != 0) ambientTarget = sampled;
+                                    }
+                                });
+                            } else {
+                                ambientSampling = false;
+                            }
+                        }
+                    }, "rgb-ambient").start();
+                }
+                if (ambientTarget != 0) {
+                    float blendAmount = Math.max(0.04f,
+                            Math.min(0.82f, 0.38f * speed / 100f));
+                    ambientColor = blend(ambientColor, ambientTarget, blendAmount);
+                }
+                out = ambientColor;
+                outRight = out;
             }
             previewColor = RgbControl.scaledColor(out, 1f, effective);
             previewColorRight = RgbControl.scaledColor(outRight, 1f, effective);
@@ -305,6 +333,14 @@ public final class RgbService extends Service {
                     ? strobeInterval : 70L);
         }
     };
+
+    private static int blend(int from, int to, float amount) {
+        float f = Math.max(0f, Math.min(1f, amount));
+        int r = Math.round(Color.red(from) + (Color.red(to) - Color.red(from)) * f);
+        int g = Math.round(Color.green(from) + (Color.green(to) - Color.green(from)) * f);
+        int b = Math.round(Color.blue(from) + (Color.blue(to) - Color.blue(from)) * f);
+        return Color.rgb(r, g, b);
+    }
 
     private Notification notification() {
         PendingIntent open = PendingIntent.getActivity(this, 0,
@@ -332,6 +368,7 @@ public final class RgbService extends Service {
             case RgbControl.MODE_RAINBOW: return "Rainbow";
             case RgbControl.MODE_STROBE: return "Strobe";
             case RgbControl.MODE_MULTI: return "Multicolor";
+            case RgbControl.MODE_SCREEN: return "Screen";
             case RgbControl.MODE_STATIC: return "Static";
             default: return "Off";
         }

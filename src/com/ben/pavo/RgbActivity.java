@@ -45,10 +45,10 @@ public final class RgbActivity extends PavoGlassActivity {
     private static final int[] MODE_VALUES = {
             RgbControl.MODE_STATIC, RgbControl.MODE_BREATH,
             RgbControl.MODE_RAINBOW, RgbControl.MODE_STROBE,
-            RgbControl.MODE_MULTI, RgbControl.MODE_OFF
+            RgbControl.MODE_MULTI, RgbControl.MODE_SCREEN, RgbControl.MODE_OFF
     };
     private static final String[] MODE_LABELS = {
-            "STATIC", "BREATH", "RAINBOW", "STROBE", "MULTI", "OFF"
+            "STATIC", "BREATH", "RAINBOW", "STROBE", "MULTI", "SCREEN", "OFF"
     };
 
     private static volatile boolean visible;
@@ -179,11 +179,6 @@ public final class RgbActivity extends PavoGlassActivity {
         prefs = new Prefs(this);
         tight = Ui.widthDp(this) < 700;
         mode = prefs.rgbMode();
-        if (mode == RgbControl.MODE_SCREEN) {
-            // Screen-follow mode has been removed from the app.
-            mode = RgbControl.MODE_STATIC;
-            prefs.setRgbMode(mode);
-        }
         color = prefs.rgbColor();
         brightness = prefs.rgbBrightness();
         speed = prefs.rgbSpeed();
@@ -463,6 +458,7 @@ public final class RgbActivity extends PavoGlassActivity {
         modeBody.addView(modeRow2, modeRow2Lp);
         addModeButton(modeRow2, "STROBE", RgbControl.MODE_STROBE, false);
         addModeButton(modeRow2, "MULTI", RgbControl.MODE_MULTI, false);
+        addModeButton(modeRow2, "SCREEN", RgbControl.MODE_SCREEN, false);
         addModeButton(modeRow2, "OFF", RgbControl.MODE_OFF, true);
         outputSection.setMinimumHeight(dp(150));
         modeSection.setMinimumHeight(dp(150));
@@ -568,10 +564,10 @@ public final class RgbActivity extends PavoGlassActivity {
         b.setGravity(Gravity.CENTER);
         b.setSingleLine(true);
         b.setMinHeight(dp(36));
-        // The mode buttons are only a third of the card wide; shrink longer
-        // labels (RAINBOW) instead of clipping the last letter.
-        b.setPadding(dp(5), dp(7), dp(5), dp(7));
-        b.setAutoSizeTextTypeUniformWithConfiguration(7, 9, 1,
+        // Four buttons share the lower row, so keep the horizontal padding
+        // tight and let the label shrink instead of clipping the last letter.
+        b.setPadding(dp(2), dp(7), dp(2), dp(7));
+        b.setAutoSizeTextTypeUniformWithConfiguration(6, 9, 1,
                 TypedValue.COMPLEX_UNIT_SP);
         b.setFocusable(true);
         b.setFocusableInTouchMode(true);
@@ -934,7 +930,8 @@ public final class RgbActivity extends PavoGlassActivity {
         return value == RgbControl.MODE_BREATH
                 || value == RgbControl.MODE_RAINBOW
                 || value == RgbControl.MODE_STROBE
-                || value == RgbControl.MODE_MULTI;
+                || value == RgbControl.MODE_MULTI
+                || value == RgbControl.MODE_SCREEN;
     }
 
     private void updateStatus() {
