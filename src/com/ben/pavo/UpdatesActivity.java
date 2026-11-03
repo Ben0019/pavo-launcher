@@ -53,6 +53,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
     private Updater.Check current;
     private boolean newer;
     private boolean suppress;
+    private boolean awaitingPermission;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +62,26 @@ public final class UpdatesActivity extends PavoGlassActivity {
         prefs = new Prefs(this);
         buildUi();
         runCheck();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!awaitingPermission || !Updater.canInstall(this)) return;
+        awaitingPermission = false;
+        java.io.File pending = Updater.pendingApk();
+        if (pending != null) {
+            statusView.setText(Loc.s(this, "Installing…"));
+            statusView.setTextColor(MUTED);
+            installButton.setVisibility(View.GONE);
+            Updater.install(this, pending, current == null ? null : current.tag);
+            if (Updater.pendingApk() == null) {
+                statusView.setText(Loc.s(this, "Tap the system prompt to finish"));
+                statusView.setTextColor(MUTED);
+            }
+            return;
+        }
+        if (current != null && newer) install();
     }
 
     @Override
@@ -156,7 +177,7 @@ public final class UpdatesActivity extends PavoGlassActivity {
         content.addView(intervalBar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(30)));
 
-        TextView hint = text(Loc.s(this, "Updates come from github.com/Ben0019/pavo-launcher. Silent install on PServer, otherwise the system installer asks."),
+        TextView hint = text(Loc.s(this, "Updates come from github.com/Ben0019/pavo-launcher. Silent install on PServer; otherwise Android asks for install permission once."),
                 9f, 0x66FFFFFF, false);
         hint.setPadding(0, dp(2), 0, dp(4));
         content.addView(hint, wrap());
@@ -377,6 +398,16 @@ public final class UpdatesActivity extends PavoGlassActivity {
 
     private void install() {
         if (current == null || !newer) return;
+        if (!Updater.canInstall(this)) {
+            // No PServer on this firmware: the package installer needs the
+            // per-app "install unknown apps" permission first.
+            awaitingPermission = true;
+            statusView.setText(Loc.s(this,
+                    "Allow Pavo to install apps, then come back"));
+            statusView.setTextColor(AMBER);
+            Updater.openInstallSettings(this);
+            return;
+        }
         final Updater.Check check = current;
         downloadingTag = check.tag;
         statusView.setText(String.format(Loc.s(this, "Downloading %s…"), check.tag));
@@ -419,7 +450,19 @@ public final class UpdatesActivity extends PavoGlassActivity {
                             cancelButton.setVisibility(View.GONE);
                         }
                     });
-                    Updater.install(UpdatesActivity.this, apk);
+                    if (!Updater.install(UpdatesActivity.this, apk, check.tag)) {
+                        // Permission was revoked between the check and commit.
+                        final String tag = check.tag;
+                        main.post(new Runnable() {
+                            @Override public void run() {
+                                awaitingPermission = true;
+                                statusView.setText(Loc.s(UpdatesActivity.this,
+                                        "Allow Pavo to install apps, then come back"));
+                                statusView.setTextColor(AMBER);
+                                restoreIdle();
+                            }
+                        });
+                    }
                 } catch (Throwable t) {
                     main.post(new Runnable() {
                         @Override public void run() {

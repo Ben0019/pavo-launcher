@@ -22,6 +22,12 @@ final class ControllerProfiles {
     static void sync(Context context) {
         if (context == null || activityOpen) return;
         Context c = context.getApplicationContext();
+        // The accessibility service is direct-boot aware and starts before the
+        // user unlocks; credential-encrypted prefs throw until then. The 1.2 s
+        // sync loop retries, so skipping early is safe.
+        android.os.UserManager um =
+                (android.os.UserManager) c.getSystemService(Context.USER_SERVICE);
+        if (um != null && !um.isUserUnlocked()) return;
         ControllerProfileStore store = new ControllerProfileStore(c);
         String pkg = ForegroundApp.read(c);
         if (pkg != null && pkg.equals(c.getPackageName())) pkg = null;

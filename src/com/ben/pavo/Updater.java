@@ -11,6 +11,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
 import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -323,15 +324,85 @@ final class Updater {
         return out;
     }
 
-    /** Silent install when PServer is available, otherwise the system prompt. */
-    static void install(Context context, File apk) {
+    /** APK downloaded by the last update, kept so a permission prompt can resume it. */
+    private static volatile File pendingApk;
+    private static volatile String pendingTag;
+
+    /** True when the app may hand APKs to the package installer on this device. */
+    static boolean canInstall(Context context) {
+        if (Build.VERSION.SDK_INT < 26) return true;
+        try {
+            return context.getPackageManager().canRequestPackageInstalls();
+        } catch (Throwable ignored) {
+            return true;
+        }
+    }
+
+    static File pendingApk() {
+        File apk = pendingApk;
+        return apk != null && apk.isFile() ? apk : null;
+    }
+
+    static String pendingTag() {
+        return pendingTag;
+    }
+
+    static void clearPending() {
+        pendingApk = null;
+        pendingTag = null;
+    }
+
+    /** Opens the per-app "install unknown apps" page for Pavo. */
+    static void openInstallSettings(Context context) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + context.getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        } catch (Throwable t) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+            } catch (Throwable ignored) {
+                toast(context, "Allow app installs for Pavo in system settings");
+            }
+        }
+    }
+
+    /**
+     * Silent install when PServer is available, otherwise the system prompt.
+     * Returns true when an install flow started, false when the user must
+     * grant the "install unknown apps" permission first.
+     */
+    static boolean install(Context context, File apk) {
+        return install(context, apk, null);
+    }
+
+    static boolean install(Context context, File apk, String tag) {
+        if (apk == null || !apk.isFile()) return false;
         if (PServer.available()) {
             // PServer is fire-and-forget; `pm install` replaces the app and the
             // process is killed by the installer, so nothing needs the result.
             PServer.exec("cp " + apk.getAbsolutePath()
                     + " /data/local/tmp/pavo-update.apk; pm install -r"
                     + " /data/local/tmp/pavo-update.apk", 120000L);
-            return;
+            return true;
+        }
+        if (AnbernicRoot.available()) {
+            // Anbernic firmware exposes a setuid-root helper; the package
+            // service runs the install silently, so no permission prompt.
+            return AnbernicRoot.install(context, apk);
+        }
+        if (!canInstall(context)) {
+            // Without PServer the package installer only works once the user
+            // allows installs from Pavo. Keep the APK so returning from the
+            // setting does not force another download.
+            pendingApk = apk;
+            pendingTag = tag;
+            toast(context, "Allow Pavo to install apps, then tap INSTALL");
+            openInstallSettings(context);
+            return false;
         }
         try {
             PackageInstaller installer = context.getPackageManager().getPackageInstaller();
@@ -359,8 +430,12 @@ final class Updater {
             } finally {
                 session.close();
             }
+            pendingApk = null;
+            pendingTag = null;
+            return true;
         } catch (Throwable t) {
             toast(context, "Install failed: " + t.getMessage());
+            return false;
         }
     }
 
