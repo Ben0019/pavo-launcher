@@ -228,6 +228,11 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
 
+        // An explicit mode apply means the user is looking at the LEDs now;
+        // do not leave a stale screen-off hold blocking the animation.
+        if (intent != null && ACTION_APPLY.equals(intent.getAction())) {
+            wakeHoldUntil = 0L;
+        }
         if (mode == RgbControl.MODE_SCREEN && (modeChanged || startedAt == 0L)) {
             ambientColor = color;
             ambientTarget = 0;
@@ -261,10 +266,21 @@ public final class RgbService extends Service {
         public void run() {
             if (!running || handler == null) return;
             long now = SystemClock.uptimeMillis();
+            if (wakeHoldUntil == Long.MAX_VALUE) {
+                // Screen-off pause. Keep a slow poll so a missed wake event
+                // cannot leave the animation stopped forever.
+                PowerManager pm = (PowerManager) getSystemService(
+                        Context.POWER_SERVICE);
+                if (pm == null || !pm.isInteractive()) {
+                    handler.postDelayed(this, 1000L);
+                    return;
+                }
+                wakeHoldUntil = 0L;
+            }
             if (now < wakeHoldUntil) {
-                // The screen blanked; stop the loop instead of waking the CPU
-                // every frame. The wake path restarts it after the panel has
-                // finished its own LED write.
+                // Let the panel finish its wake write, then resume even if the
+                // scheduled wake callback was lost.
+                handler.postDelayed(this, Math.min(100L, wakeHoldUntil - now));
                 return;
             }
             long elapsed = now - startedAt;
