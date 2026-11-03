@@ -708,8 +708,8 @@ public final class PerfLogActivity extends PavoGlassActivity {
             addColored(metrics, Math.round(e.maxGpuTemp) + "\u00b0  ",
                     PerfOverlayView.heat((e.maxGpuTemp - 32f) / 55f), true);
             addColored(metrics, e.avgGpuUsage + "%  ", PerfOverlayView.heat(e.avgGpuUsage / 100f), true);
-            addColored(metrics, "power " + String.format(Locale.US, "%.1f", e.avgPowerW)
-                    + "W / peak " + String.format(Locale.US, "%.1f", e.peakPowerW) + "W",
+            addColored(metrics, "power " + fmtPower(e.avgPowerW)
+                    + " / peak " + fmtPower(e.peakPowerW),
                     PerfOverlayView.heat(e.peakPowerW / 9f), true);
             addColored(metrics, "\nthrottle ", MUTED, false);
             addColored(metrics, e.throttle, throttleColor(e.throttle), true);
@@ -1518,8 +1518,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
 
     private static String fmtPower(float watts) {
         if (watts <= 0f) return "\u2014";
-        if (watts < 1f) return Math.round(watts * 1000f) + " mW";
-        return String.format(Locale.US, "%.1f W", watts);
+        return String.format(Locale.US, "%.2f W", watts);
     }
 
     private TextView text(CharSequence s, float sp, int color, boolean mono) {
