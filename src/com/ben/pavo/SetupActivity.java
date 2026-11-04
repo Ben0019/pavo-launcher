@@ -313,13 +313,13 @@ public final class SetupActivity extends Activity {
             item.granted = granted;
             boolean skipped = prefs.setupSkipped(item.key);
             if (granted) {
-                item.status.setText("GRANTED");
+                item.status.setText(Loc.s(this, "GRANTED"));
                 item.status.setTextColor(GREEN);
             } else if (skipped) {
-                item.status.setText("SKIPPED");
+                item.status.setText(Loc.s(this, "SKIPPED"));
                 item.status.setTextColor(DIM);
             } else {
-                item.status.setText("NEEDED");
+                item.status.setText(Loc.s(this, "NEEDED"));
                 item.status.setTextColor(AMBER);
             }
             item.allow.setVisibility(granted ? View.GONE : View.VISIBLE);
@@ -417,7 +417,7 @@ public final class SetupActivity extends Activity {
 
     private TextView text(String value, float size, int color, boolean medium) {
         TextView v = new TextView(this);
-        v.setText(value);
+        v.setText(Loc.s(this, value));
         v.setTextSize(size);
         v.setTextColor(color);
         if (medium) v.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));

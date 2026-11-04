@@ -105,9 +105,13 @@ def crash_scan(log):
 
 def ensure_language(adb, lang):
     if not lang: return
-    adb.sh(f"sed -i 's|<string name=\"language\">[^<]*</string>|<string name=\"language\">{lang}</string>|' "
-           "/data/data/com.ben.pavo/shared_prefs/pavo.xml", root=True)
-    adb.sh('am force-stop com.ben.pavo', root=True)
+    script = ('sed -i "s|<string name=\\"language\\">[^<]*</string>|'
+              f'<string name=\\"language\\">{lang}</string>|" '
+              '/data/data/com.ben.pavo/shared_prefs/pavo.xml')
+    adb.sh(script + '; am force-stop com.ben.pavo', root=True)
+    out, _, _ = adb.sh('grep -o \'name="language">[^<]*\' '
+                       '/data/data/com.ben.pavo/shared_prefs/pavo.xml', root=True)
+    print('language ->', out)
 
 def run_app(adb, name, label, actions, outdir):
     print(f'\n=== {label} ({name})')
