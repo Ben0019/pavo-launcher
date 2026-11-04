@@ -482,6 +482,25 @@ final class Prefs {
     void setRgbLeft(boolean v) { sp.edit().putBoolean("rgb_left", v).apply(); }
     void setRgbRight(boolean v) { sp.edit().putBoolean("rgb_right", v).apply(); }
 
+    /** UI size: auto, 90, 100, 110 or 120 percent. */
+    String uiScaleMode() {
+        String value = sp.getString("ui_scale_mode", "auto");
+        if ("90".equals(value) || "100".equals(value) || "110".equals(value)
+                || "120".equals(value)) {
+            return value;
+        }
+        return "auto";
+    }
+
+    void setUiScaleMode(String value) {
+        String mode = "auto";
+        if ("90".equals(value) || "100".equals(value) || "110".equals(value)
+                || "120".equals(value)) {
+            mode = value;
+        }
+        sp.edit().putString("ui_scale_mode", mode).apply();
+    }
+
     int drawerOverlayAlpha() { return clamp(sp.getInt("drawer_overlay_alpha", 100), 20, 100); }
     int drawerOverlayWidthScale() {
         return clamp(sp.getInt("drawer_overlay_width_scale", 100), 70, 170);

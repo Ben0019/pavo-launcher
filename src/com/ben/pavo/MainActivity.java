@@ -15327,6 +15327,7 @@ public final class MainActivity extends Activity {
 
         panel.use("Display");
         addSection(panel, "Display");
+        addUiScaleChooser(panel);
         TextView openDisplay = new LTextView(this);
         openDisplay.setText("Open Display app");
         styleTextButton(openDisplay, false);
@@ -15427,6 +15428,7 @@ public final class MainActivity extends Activity {
                 {"Gestures", "Gestures"},
                 {"Feedback", "Feedback & haptics"},
                 {"Widgets", "Clock, weather & status"},
+                {"Display", "Display"},
                 {"Backup", "Backup & restore"},
                 {"Language", "Language"}
         };
@@ -15928,6 +15930,65 @@ public final class MainActivity extends Activity {
         if (position == Prefs.DOCK_RIGHT) return "right";
         if (position == Prefs.DOCK_HIDDEN) return "hidden";
         return "center";
+    }
+
+    private void addUiScaleChooser(LinearLayout parent) {
+        TextView label = new LTextView(this);
+        label.setText("UI size");
+        label.setTextColor(0xE6FFFFFF);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        label.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 4));
+        parent.addView(label);
+
+        final String[] keys = {"auto", "90", "100", "110", "120"};
+        final String[] labels = {"Auto", "90%", "100%", "110%", "120%"};
+        final List<TextView> chips = new ArrayList<>();
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(0, 0, 0, Ui.dp(this, 4));
+        scroll.addView(row);
+
+        for (int i = 0; i < keys.length; i++) {
+            final String key = keys[i];
+            TextView chip = new LTextView(this);
+            chip.setText(labels[i]);
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            chip.setPadding(Ui.dp(this, 13), Ui.dp(this, 7),
+                    Ui.dp(this, 13), Ui.dp(this, 7));
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            clp.rightMargin = Ui.dp(this, 8);
+            row.addView(chip, clp);
+            chips.add(chip);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (key.equals(prefs.uiScaleMode())) return;
+                    prefs.setUiScaleMode(key);
+                    stylePageAnimationChips(chips, keys, key);
+                    LToast.makeText(MainActivity.this,
+                            "UI size applied", Toast.LENGTH_SHORT).show();
+                    v.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            recreate();
+                        }
+                    }, 180L);
+                }
+            });
+        }
+        stylePageAnimationChips(chips, keys, prefs.uiScaleMode());
+        parent.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        TextView hint = new LTextView(this);
+        hint.setText("Auto uses the physical panel size. Larger values increase text and spacing everywhere; reopen built-in apps to apply.");
+        hint.setTextColor(0x66FFFFFF);
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        hint.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 3));
+        parent.addView(hint);
     }
 
     private void addSleepMethodChooser(LinearLayout parent) {

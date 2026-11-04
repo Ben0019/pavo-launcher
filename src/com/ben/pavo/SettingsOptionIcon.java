@@ -67,6 +67,7 @@ final class SettingsOptionIcon extends View {
             case "Drawer": drawDrawer(canvas, s); break;
             case "Widgets": drawWidgets(canvas, s); break;
             case "Performance": drawPerformance(canvas, s); break;
+            case "Display": drawDisplay(canvas, s); break;
             case "Wallpaper": drawWallpaper(canvas, s); break;
             case "Backup": drawBackup(canvas, s); break;
             case "Language": drawLanguage(canvas, s); break;
@@ -216,6 +217,19 @@ final class SettingsOptionIcon extends View {
         path.lineTo(15.5f * s, 11 * s);
         c.drawPath(path, stroke);
         c.drawLine(8 * s, 17.5f * s, 16 * s, 17.5f * s, stroke);
+    }
+
+    private void drawDisplay(Canvas c, float s) {
+        // A landscape display with a stand: the panel controls app.
+        rect.set(2.5f * s, 4 * s, 21.5f * s, 16.5f * s);
+        c.drawRoundRect(rect, 2.6f * s, 2.6f * s, stroke);
+        rect.set(4.8f * s, 6.2f * s, 19.2f * s, 14.3f * s);
+        fill.setAlpha(38);
+        c.drawRoundRect(rect, 1.2f * s, 1.2f * s, fill);
+        fill.setAlpha(0x33);
+        c.drawLine(12 * s, 16.5f * s, 12 * s, 20 * s, stroke);
+        c.drawLine(7.5f * s, 21 * s, 16.5f * s, 21 * s, stroke);
+        c.drawCircle(18.2f * s, 7.6f * s, 0.7f * s, stroke);
     }
 
     private void drawDots(Canvas c, float s) {

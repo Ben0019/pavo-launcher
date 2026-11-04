@@ -19,6 +19,8 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 
+import java.util.Locale;
+
 final class Ui {
     private Ui() {}
 
@@ -76,6 +78,62 @@ final class Ui {
         return Math.max(0.86f, Math.min(1.16f, w / 800f));
     }
 
+    /** Effective UI scale: an explicit percentage or an auto value from the panel size. */
+    static float uiScale(Context c) {
+        if (c == null) return 1f;
+        String mode = new Prefs(c).uiScaleMode();
+        if ("90".equals(mode)) return 0.90f;
+        if ("100".equals(mode)) return 1.00f;
+        if ("110".equals(mode)) return 1.10f;
+        if ("120".equals(mode)) return 1.20f;
+        return autoUiScale(c);
+    }
+
+    private static float autoUiScale(Context c) {
+        try {
+            float inches = knownPanelInches(c);
+            if (inches <= 0f) {
+                android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+                int w = Math.max(dm.widthPixels, dm.heightPixels);
+                int h = Math.min(dm.widthPixels, dm.heightPixels);
+                float xdpi = dm.xdpi > 1f ? dm.xdpi : dm.densityDpi;
+                float ydpi = dm.ydpi > 1f ? dm.ydpi : dm.densityDpi;
+                inches = (float) Math.hypot(w / (double) xdpi, h / (double) ydpi);
+            }
+            if (inches < 3.5f || inches > 20f) return 1f;
+            if (inches <= 5.2f) return 1.14f;
+            if (inches <= 6.2f) return 1.10f;
+            if (inches <= 7.2f) return 1.06f;
+            if (inches <= 8.2f) return 1.02f;
+            return 1f;
+        } catch (Throwable ignored) {
+            return 1f;
+        }
+    }
+
+    /**
+     * The panel size for the handhelds Pavo is tuned for. Some vendor DT
+     * reports an inaccurate xdpi, which made the Odin 3 measure as ~6.9".
+     */
+    private static float knownPanelInches(Context c) {
+        String model = Build.MODEL == null ? "" : Build.MODEL.toLowerCase(Locale.US);
+        if (model.contains("odin3portal") || model.contains("odin 3 portal")
+                || model.contains("odin2portal") || model.contains("odin 2 portal")) {
+            return 7f;
+        }
+        if (model.contains("odin3") || model.contains("odin 3")
+                || model.contains("odin2") || model.contains("odin 2")) {
+            return 6f;
+        }
+        try {
+            String name = DeviceProfile.get(c).name.toLowerCase(Locale.US);
+            if (name.contains("portal")) return 7f;
+            if (name.contains("odin 3") || name.contains("odin 2")) return 6f;
+        } catch (Throwable ignored) {
+        }
+        return 0f;
+    }
+
     static Context adaptiveContext(Context base) {
         if (base == null) return null;
         try {
@@ -118,7 +176,8 @@ final class Ui {
             // overlapping.
             int widthDpi = Math.round(size.x * 160f / 820f);
             scaledDpi = Math.min(scaledDpi, widthDpi);
-            scaledDpi = Math.max(140, Math.min(640, scaledDpi));
+            scaledDpi = Math.round(scaledDpi * uiScale(base));
+            scaledDpi = Math.max(140, Math.min(800, scaledDpi));
             if (scaledDpi != baseDpi) {
                 cfg.densityDpi = scaledDpi;
                 return base.createConfigurationContext(cfg);
