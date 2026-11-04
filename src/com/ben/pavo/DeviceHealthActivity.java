@@ -185,7 +185,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
             levelText.setText(Math.round(level) + "%");
             long design = snap != null && snap.designUah > 0 ? snap.designUah : 7_838_000L;
             long counter = Math.round(design * level / 100f);
-            levelSub.setText("  " + capText(counter) + " / " + capText(design) + " mAh");
+            levelSub.setText("  " + capText(counter) + " / " + capText(design) + Loc.s(DeviceHealthActivity.this, " mAh"));
             statusChip.setText(label);
             statusChip.setTextColor(tone);
             statusChip.setBackground(Ui.rounded(0x1AFFFFFF, dp(11),
@@ -456,7 +456,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         title.setLetterSpacing(0.15f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         TextView sub = text(DeviceProfile.get(this).name.toUpperCase()
-                + "  ·  BATTERY & POWER", 8.5f, MUTED, false);
+                + "  ·  " + Loc.s(this, "BATTERY & POWER"), 8.5f, MUTED, false);
         sub.setLetterSpacing(0.12f);
         titles.addView(title);
         titles.addView(sub);
@@ -664,7 +664,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
             public void onClick(View v) {
                 boolean on = !(store.limitEnabled() && store.limitPercent() < 100);
                 if (on && store.limitPercent() >= 100) {
-                    toast("Set a level below 100% first");
+                    toast(Loc.s(DeviceHealthActivity.this, "Set a level below 100% first"));
                     return;
                 }
                 store.setLimitEnabled(on);
@@ -681,8 +681,9 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(28));
         llp.topMargin = dp(3);
         card.addView(limitBar, llp);
-        limitHint = text("Stops charging at this level and runs from the cable.",
-                8.5f, 0x66FFFFFF, false);
+        limitHint = text(String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                Loc.s(this, "Stops charging at %d%% and runs from the cable."),
+                store.limitPercent()), 8.5f, 0x66FFFFFF, false);
         card.addView(limitHint);
         limitBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -695,8 +696,10 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                     BatteryGuardService.start(DeviceHealthActivity.this);
                 }
                 limitHint.setText(pct >= 100
-                        ? "No ceiling: the battery charges to full."
-                        : "Stops charging at " + pct + "% and runs from the cable.");
+                        ? Loc.s(DeviceHealthActivity.this, "No ceiling: the battery charges to full.")
+                        : String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                                Loc.s(DeviceHealthActivity.this,
+                                        "Stops charging at %d%% and runs from the cable."), pct));
             }
             @Override public void onStartTrackingTouch(SeekBar bar) {}
             @Override public void onStopTrackingTouch(SeekBar bar) {
@@ -705,7 +708,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                     store.setLimitEnabled(false);
                     applyLimit(false, false);
                     syncChips();
-                    toast("Charge limit off \u00b7 charging to full");
+                    toast(Loc.s(DeviceHealthActivity.this, "Charge limit off \u00b7 charging to full"));
                     return;
                 }
                 if (!store.limitEnabled()) {
@@ -718,7 +721,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 }
             }
         });
-        limitNode = text("Charge limit is enforced by charge separation.",
+        limitNode = text(Loc.s(this, "Charge limit is enforced by charge separation."),
                 8.5f, 0x66FFFFFF, false);
         card.addView(limitNode);
 
@@ -774,7 +777,8 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 else BatteryGuardService.stop(DeviceHealthActivity.this);
                 syncChips();
                 if (on) {
-                    toast("Automatic separation at " + store.autoLevel() + "%");
+                    toast(Loc.s(DeviceHealthActivity.this, "Automatic separation at ")
+                            + store.autoLevel() + "%");
                 }
             }
         });
@@ -837,7 +841,8 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 autoValue.setText(value + "%");
                 if (store.autoSeparation()) {
                     BatteryGuardService.start(DeviceHealthActivity.this);
-                    toast("Auto separation target: " + value + "%");
+                    toast(Loc.s(DeviceHealthActivity.this, "Auto separation target: ")
+                            + value + "%");
                 }
             }
         });
@@ -962,7 +967,8 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
             return;
         }
         if (focused == autoBar) {
-            toast("Use left / right to adjust the auto-separation target");
+            toast(Loc.s(DeviceHealthActivity.this,
+                    "Use left / right to adjust the auto-separation target"));
             return;
         }
         focused.performClick();
@@ -1083,7 +1089,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         snap = s;
         int level = Math.max(0, s.level);
         levelText.setText(level + "%");
-        levelSub.setText("  " + capText(s.counterUah) + " / " + capText(s.designUah) + " mAh");
+        levelSub.setText("  " + capText(s.counterUah) + " / " + capText(s.designUah) + Loc.s(this, " mAh"));
         batteryView.setBattery(level, s.charging, s.plugged, s.separated, s.full);
         statusChip.setText(Loc.s(this, statusLabel(s)).toUpperCase(Locale.getDefault()));
         int statusColor = s.charging ? GREEN : s.separated ? AMBER : s.full ? accent() : MUTED;
@@ -1094,7 +1100,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         heroHealth.setText(s.healthPct >= 0 ? s.healthPct + "%" : "--");
         heroHealth.setTextColor(healthColor(s.healthPct));
         heroCycles.setText(s.cycleCount >= 0 ? String.valueOf(s.cycleCount) : "--");
-        heroTemp.setText(s.tempC >= 0 ? String.format(Locale.US, "%.0f°C", s.tempC) : "--");
+        heroTemp.setText(s.tempC >= 0 ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.0f%s", s.tempC, Loc.s(this, "°C")) : "--");
         heroTemp.setTextColor(tempColor(s.tempC));
 
         vStatus.setText(Loc.s(this, statusLabel(s)));
@@ -1103,29 +1109,29 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         vCycles.setText(s.cycleCount >= 0
                 ? s.cycleCount + (s.cycleSource == null ? "" : " · " + s.cycleSource)
                 : "--");
-        vTemp.setText(s.tempC >= 0 ? String.format(Locale.US, "%.1f °C", s.tempC) : "--");
-        vVoltage.setText(s.voltageV > 0 ? String.format(Locale.US, "%.3f V", s.voltageV) : "--");
+        vTemp.setText(s.tempC >= 0 ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.1f %s", s.tempC, Loc.s(this, "°C")) : "--");
+        vVoltage.setText(s.voltageV > 0 ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.3f %s", s.voltageV, Loc.s(this, "V")) : "--");
         vCurrent.setText(formatCurrent(s.currentA));
-        vPower.setText(s.powerW >= 0 ? String.format(Locale.US, "%.2f W", s.powerW) : "--");
+        vPower.setText(s.powerW >= 0 ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.2f %s", s.powerW, Loc.s(this, "W")) : "--");
         vChargeType.setText(s.chargeType == null ? "--" : s.chargeType);
         vTimeFull.setText(formatDuration(s.timeToFullSec));
         vTimeEmpty.setText(formatDuration(s.timeToEmptySec));
 
-        vDesign.setText(capText(s.designUah) + " mAh");
-        vFull.setText(capText(s.fullUah) + " mAh");
-        vCounter.setText(capText(s.counterUah) + " mAh");
+        vDesign.setText(capText(s.designUah) + Loc.s(this, " mAh"));
+        vFull.setText(capText(s.fullUah) + Loc.s(this, " mAh"));
+        vCounter.setText(capText(s.counterUah) + Loc.s(this, " mAh"));
         vWear.setText(s.healthPct >= 0 ? (100 - s.healthPct) + "%" : "--");
         vSoh.setText(s.soh >= 0 ? s.soh + "%" : "--");
         vResistance.setText(s.resistance > 0
-                ? String.format(Locale.US, "%.1f mΩ", s.resistance) : "--");
+                ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.1f %s", s.resistance, Loc.s(this, "mΩ")) : "--");
 
-        vCpu.setText(s.cpuTempC > 0 ? String.format(Locale.US, "%.1f °C", s.cpuTempC) : "--");
-        vGpu.setText(s.gpuTempC > 0 ? String.format(Locale.US, "%.1f °C", s.gpuTempC) : "--");
-        vBatteryTemp.setText(s.tempC >= 0 ? String.format(Locale.US, "%.1f °C", s.tempC) : "--");
+        vCpu.setText(s.cpuTempC > 0 ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.1f %s", s.cpuTempC, Loc.s(this, "°C")) : "--");
+        vGpu.setText(s.gpuTempC > 0 ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.1f %s", s.gpuTempC, Loc.s(this, "°C")) : "--");
+        vBatteryTemp.setText(s.tempC >= 0 ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.1f %s", s.tempC, Loc.s(this, "°C")) : "--");
 
         vModel.setText(String.valueOf(android.os.Build.MANUFACTURER) + " "
                 + String.valueOf(android.os.Build.MODEL));
-        vAndroid.setText("Android " + android.os.Build.VERSION.RELEASE
+        vAndroid.setText(Loc.s(this, "Android ") + android.os.Build.VERSION.RELEASE
                 + "  ·  " + android.os.Build.ID);
         String batteryModel = s.model == null ? "--" : s.model;
         if (batteryModel.toUpperCase(Locale.US).contains("8000MAH")) {
@@ -1138,30 +1144,33 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                 + (s.usbChargeNow == 1 ? "  ·  charging path" : "");
         vUsb.setText(usb);
         vCcLimit.setText(s.chargeControlLimit > 0
-                ? String.format(Locale.US, "%.2f A / %.2f A", s.chargeControlLimit / 1_000_000f,
-                s.chargeControlLimitMax / 1_000_000f)
+                ? String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                "%.2f %s / %.2f %s", s.chargeControlLimit / 1_000_000f,
+                Loc.s(this, "A"), s.chargeControlLimitMax / 1_000_000f,
+                Loc.s(this, "A"))
                 : "--");
 
         String connType = s.inputType == null || "--".equals(s.inputType)
                 ? "USB-C" : s.inputType;
         vConn.setText(s.plugged ? connType : "Not connected");
         vInput.setText(s.inputVoltageV > 0f
-                ? String.format(Locale.US, "%.2f V  ·  %.2f A",
-                s.inputVoltageV, s.inputCurrentA)
+                ? String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                "%.2f %s  ·  %.2f %s", s.inputVoltageV, Loc.s(this, "V"),
+                s.inputCurrentA, Loc.s(this, "A"))
                 : "--");
         vInputPower.setText(s.inputVoltageV > 0f && s.inputCurrentA > 0f
-                ? String.format(Locale.US, "%.1f W",
-                s.inputVoltageV * s.inputCurrentA)
+                ? String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                "%.1f %s", s.inputVoltageV * s.inputCurrentA, Loc.s(this, "W"))
                 : "--");
         vInputLimit.setText(s.inputLimitA > 0f
-                ? String.format(Locale.US, "%.2f A", s.inputLimitA) : "--");
+                ? String.format(Loc.displayLocale(DeviceHealthActivity.this), "%.2f %s", s.inputLimitA, Loc.s(this, "A")) : "--");
         vPd.setText(!s.plugged ? "--"
                 : s.pdSupported ? "USB-PD " + s.pdRevision
-                : "Not offered by charger");
-        vPath.setText(!s.plugged ? "Disconnected"
-                : s.separated ? "Separation \u00b7 from cable"
-                : s.charging ? "Battery charging"
-                : "Connected \u00b7 idle");
+                : Loc.s(this, "Not offered by charger"));
+        vPath.setText(!s.plugged ? Loc.s(this, "Disconnected")
+                : s.separated ? Loc.s(this, "Separation \u00b7 from cable")
+                : s.charging ? Loc.s(this, "Battery charging")
+                : Loc.s(this, "Connected \u00b7 idle"));
 
         updateLimitTexts();
         serverState.setText(s.pserver
@@ -1193,13 +1202,17 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         boolean on = store.limitEnabled() && pct < 100;
         limitValue.setText(pct + "%");
         limitHint.setText(!on
-                ? (pct >= 100 ? "No ceiling: the battery charges to full."
-                        : "Off \u00b7 slide to set a ceiling.")
-                : "Stops charging at " + pct + "% and runs from the cable.");
-        limitNode.setText(!on ? "Charge limit off"
+                ? (pct >= 100
+                        ? Loc.s(this, "No ceiling: the battery charges to full.")
+                        : Loc.s(this, "Off \u00b7 slide to set a ceiling."))
+                : String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                        Loc.s(this, "Stops charging at %d%% and runs from the cable."), pct));
+        limitNode.setText(!on ? Loc.s(this, "Charge limit off")
                 : snap != null && snap.separated
-                        ? "Charge separation active \u00b7 holding " + pct + "%"
-                        : "Guard armed \u00b7 stops at " + pct + "%");
+                        ? String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                                Loc.s(this, "Charge separation active \u00b7 holding %d%%"), pct)
+                        : String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                                Loc.s(this, "Guard armed \u00b7 stops at %d%%"), pct));
     }
 
     private void syncChips() {
@@ -1210,8 +1223,8 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
         setChip(autoChip, store.autoSeparation(), accent());
         sepChip.setEnabled(!store.autoSeparation() || (snap != null && snap.separated));
         autoHint.setText(store.autoSeparation()
-                ? "Active while charging · target " + store.autoLevel() + "%"
-                : "Enables separation automatically when charging reaches this level.");
+                ? Loc.s(this, "Active while charging · target ") + store.autoLevel() + "%"
+                : Loc.s(this, "Enables separation automatically when charging reaches this level."));
     }
 
     private void setChip(TextView chip, boolean on, int color) {
@@ -1259,10 +1272,14 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
                             syncChips();
                         }
                         if (feedback) {
-                            toast(!enabled ? "Charge limit off"
-                                    : pct >= 100 ? "Charge limit at 100% · charges to full"
-                                    : "Charge limit at " + pct
-                                    + "% · running from the cable once reached");
+                            toast(!enabled ? Loc.s(DeviceHealthActivity.this, "Charge limit off")
+                                    : pct >= 100
+                                            ? Loc.s(DeviceHealthActivity.this,
+                                                    "Charge limit at 100% · charges to full")
+                                            : String.format(Loc.displayLocale(DeviceHealthActivity.this),
+                                                    Loc.s(DeviceHealthActivity.this,
+                                                            "Charge limit at %d%% · running from the cable once reached"),
+                                                    pct));
                         }
                         main.removeCallbacks(poll);
                         main.post(poll);
@@ -1320,20 +1337,20 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
 
     private String capText(long uah) {
         if (uah < 0) return "--";
-        return String.format(Locale.US, "%,d", uah / 1000);
+        return String.format(Loc.displayLocale(DeviceHealthActivity.this), "%,d", uah / 1000);
     }
 
     private String formatCurrent(float amps) {
         if (amps == 0f) return "--";
-        return String.format(Locale.US, "%+.0f mA", amps * 1000f);
+        return String.format(Loc.displayLocale(DeviceHealthActivity.this), "%+.0f %s", amps * 1000f, Loc.s(this, "mA"));
     }
 
     private String formatDuration(long seconds) {
         if (seconds <= 0 || seconds > 86_400L * 2) return "--";
         long h = seconds / 3600;
         long m = (seconds % 3600) / 60;
-        if (h > 0) return h + "h " + m + "m";
-        return m + "m";
+        if (h > 0) return h + Loc.s(this, "h") + " " + m + Loc.s(this, "m");
+        return m + Loc.s(this, "m");
     }
 
     private TextView text(String value, float sp, int color, boolean mono) {

@@ -103,6 +103,8 @@ final class ItemView extends LinearLayout {
         label.setEllipsize(android.text.TextUtils.TruncateAt.END);
         label.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
         label.setShadowLayer(Ui.dpf(c, 3), 0, Ui.dpf(c, 1), 0xB3000000);
+        // A little breathing room so scrolling names never touch the next cell.
+        label.setPadding(Ui.dp(c, 3), 0, Ui.dp(c, 3), 0);
         LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         lp.topMargin = Ui.dp(c, 5);
         addView(label, lp);
@@ -157,25 +159,51 @@ final class ItemView extends LinearLayout {
         if (cellHeight <= 0) return;
         boolean labels = labelVisible();
         int padding = Ui.dp(getContext(), 8);
+        int labelWidth = Math.max(1, cellWidth - Ui.dp(getContext(), 4));
         if (cellWidth > 0) {
-            int labelWidth = Math.max(1, cellWidth - Ui.dp(getContext(), 4));
             if (label.getMaxWidth() != labelWidth) label.setMaxWidth(labelWidth);
-            label.setSingleLine(true);
+            String text = label.getText() == null ? "" : label.getText().toString();
+            boolean wrap = !marquee && text.indexOf(' ') >= 0;
+            label.setSingleLine(!wrap);
+            label.setMaxLines(wrap ? 2 : 1);
+            label.setHorizontallyScrolling(marquee);
             label.setEllipsize(marquee ? android.text.TextUtils.TruncateAt.MARQUEE
                     : android.text.TextUtils.TruncateAt.END);
-            if (!marquee && label.getVisibility() == View.VISIBLE && label.getText() != null) {
-                // Long translated app names should shrink a little before they
-                // are ellipsized, so the home grid stays readable.
+            if (!marquee) {
+                label.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);
+                label.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);
+            }
+            if (!marquee && label.getVisibility() == View.VISIBLE && text.length() > 0) {
+                // Multi-word names get two lines. Single words (especially
+                // German compounds) stay on one line and shrink to fit.
                 label.setTextSize(TypedValue.COMPLEX_UNIT_SP, labelSp);
-                float available = Math.max(1f, labelWidth - Ui.dp(getContext(), 2));
-                float textWidth = label.getPaint().measureText(label.getText().toString());
-                if (textWidth > available) {
-                    float size = Math.max(7f, labelSp * available / textWidth);
+                float available = Math.max(1f, labelWidth - Ui.dp(getContext(), 8));
+                float widest;
+                if (wrap) {
+                    widest = 0f;
+                    for (String word : text.split("\\s+")) {
+                        if (word.isEmpty()) continue;
+                        widest = Math.max(widest, label.getPaint().measureText(word));
+                    }
+                } else {
+                    widest = label.getPaint().measureText(text);
+                }
+                if (widest > available) {
+                    float size = Math.max(5.5f, labelSp * available / widest);
                     label.setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
                 }
             }
         }
-        int labelSpace = labels ? Ui.dp(getContext(), 5) + Ui.dp(getContext(), 15) : 0;
+        int labelSpace = 0;
+        if (labels) {
+            if (!marquee && label.getVisibility() == View.VISIBLE) {
+                label.measure(MeasureSpec.makeMeasureSpec(labelWidth, MeasureSpec.EXACTLY),
+                        MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+                labelSpace = Ui.dp(getContext(), 5) + label.getMeasuredHeight();
+            } else {
+                labelSpace = Ui.dp(getContext(), 5) + Ui.dp(getContext(), 15);
+            }
+        }
         int maxIcon = cellHeight - padding - labelSpace;
         if (labels && maxIcon < Ui.dp(getContext(), 26)) {
             label.setVisibility(GONE);
@@ -212,6 +240,9 @@ final class ItemView extends LinearLayout {
             label.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
             label.setMarqueeRepeatLimit(-1);
         } else {
+            label.setSingleLine(false);
+            label.setMaxLines(2);
+            label.setHorizontallyScrolling(false);
             label.setEllipsize(android.text.TextUtils.TruncateAt.END);
         }
         updateMarqueeSelection();

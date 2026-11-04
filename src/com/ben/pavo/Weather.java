@@ -156,7 +156,7 @@ final class Weather {
     }
 
     static String describe(int code) {
-        if (code == 0) return "Clear";
+        if (code == 0) return "Clear sky";
         if (code == 1) return "Mainly clear";
         if (code == 2) return "Partly cloudy";
         if (code == 3) return "Overcast";

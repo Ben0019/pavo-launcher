@@ -193,7 +193,7 @@ final class PerfDetailView extends FrameLayout {
     void update(PerfDetailData d) {
         if (d == null) return;
         appName.setText(d.appLabel == null || d.appLabel.isEmpty()
-                ? "No foreground app" : d.appLabel);
+                ? Loc.s(getContext(), "No foreground app") : d.appLabel);
         packageName.setText(d.pkg == null ? "" : d.pkg);
 
         fpsBig.setText(d.fpsValid ? String.valueOf(d.fps) : "\u2014");
@@ -206,9 +206,9 @@ final class PerfDetailView extends FrameLayout {
             minFps.setTextColor(MUTED);
             maxFps.setTextColor(MUTED);
         } else {
-            avgFps.setText("AVG " + d.avgFps);
-            minFps.setText("MIN " + d.minFps);
-            maxFps.setText("MAX " + d.maxFps);
+            avgFps.setText(Loc.s(getContext(), "AVG ").trim() + " " + d.avgFps);
+            minFps.setText(Loc.s(getContext(), "MIN ").trim() + " " + d.minFps);
+            maxFps.setText(Loc.s(getContext(), "MAX ").trim() + " " + d.maxFps);
             avgFps.setTextColor(PerfOverlayView.fpsColor(d.avgFps));
             minFps.setTextColor(PerfOverlayView.fpsColor(d.minFps));
             maxFps.setTextColor(PerfOverlayView.fpsColor(d.maxFps));
@@ -236,7 +236,7 @@ final class PerfDetailView extends FrameLayout {
         peakPower.setText(String.format(Locale.US, "%.1f W", d.peakPowerW));
         peakPower.setTextColor(PerfOverlayView.heat(d.peakPowerW / 9f));
 
-        throttle.setText(d.throttle);
+        throttle.setText(Loc.s(getContext(), d.throttle));
         if ("NONE".equals(d.throttle)) throttle.setTextColor(0xFF69D98B);
         else if ("THERMAL".equals(d.throttle)) throttle.setTextColor(0xFFFF5C6C);
         else throttle.setTextColor(0xFFFFC857);
@@ -244,9 +244,11 @@ final class PerfDetailView extends FrameLayout {
         runtime.setText(formatDuration(d.runtimeMs));
         runtime.setTextColor(0xD9FFFFFF);
 
-        String batteryText = String.format(Locale.US, "Used %.1f%%", d.batteryUsedPct);
+        String batteryText = String.format(Locale.US,
+                Loc.s(getContext(), "Used %.1f%%"), d.batteryUsedPct);
         if (d.batteryUsedMah > 0) {
-            batteryText += String.format(Locale.US, " · %.0f mAh", d.batteryUsedMah);
+            batteryText += String.format(Locale.US,
+                    Loc.s(getContext(), " · %.0f mAh"), d.batteryUsedMah);
         }
         batteryUsed.setText(batteryText);
         batteryUsed.setTextColor(PerfOverlayView.heat(Math.min(1f, d.batteryUsedPct / 18f)));
@@ -263,7 +265,7 @@ final class PerfDetailView extends FrameLayout {
     }
 
     private TextView fpsChip(LinearLayout parent, String name) {
-        TextView t = text(name + " \u2014", 9.5f, MUTED, true);
+        TextView t = text(Loc.s(getContext(), name + " \u2014"), 9.5f, MUTED, true);
         t.setPadding(dp(7), dp(3), dp(7), dp(3));
         t.setBackground(Ui.rounded(0x18FFFFFF, dp(8)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(

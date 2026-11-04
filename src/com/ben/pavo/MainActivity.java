@@ -2566,6 +2566,8 @@ public final class MainActivity extends Activity {
     /** Clock uses the same frame/drag/trash interaction as other widgets. */
     private void addClockWidget(GridPage gp) {
         if (clockBox == null || gp == null) return;
+        // The preference may have changed after the widget was first built.
+        clockBox.setVisibility(View.VISIBLE);
         WidgetFrame frame = new WidgetFrame(this);
         frame.setResizeEnabled(false);
         frame.setTouchPassthrough(true);
@@ -11599,7 +11601,7 @@ public final class MainActivity extends Activity {
     private void updateClock() {
         Date now = new Date();
         boolean h24 = prefs.clock24();
-        Locale locale = Locale.getDefault();
+        Locale locale = Loc.displayLocale(this);
         timeView.setText(new SimpleDateFormat(h24 ? "HH:mm" : "h:mm", locale).format(now));
         ampmView.setVisibility(h24 ? View.GONE : View.VISIBLE);
         if (!h24) {
@@ -12065,11 +12067,12 @@ public final class MainActivity extends Activity {
     private void updateStats() {
         float cpu = SysStats.cpuPercent();
         long net = SysStats.netBytesPerSec(2000);
-        String cpuValue = cpu < 0 ? "--" : String.format(Locale.US, "%.0f%%", cpu);
-        String netValue = SysStats.fmtRate(net);
-        String text = "CPU " + cpuValue + "  \u00B7  " + netValue;
+        String cpuValue = cpu < 0 ? "--" : Loc.number(this, String.format(Locale.US, "%.0f%%", cpu));
+        String netValue = Loc.number(this, SysStats.fmtRate(net));
+        String cpuLabel = Loc.s(this, "CPU ");
+        String text = cpuLabel + cpuValue + "  \u00B7  " + netValue;
         SpannableString spans = new SpannableString(text);
-        int cpuStart = 4;
+        int cpuStart = cpuLabel.length();
         int cpuEnd = cpuStart + cpuValue.length();
         int netStart = text.length() - netValue.length();
         spans.setSpan(new ForegroundColorSpan(

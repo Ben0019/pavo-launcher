@@ -107,7 +107,7 @@ final class PerfOverlayView extends LinearLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         cpuRow = metricRow();
-        addMetricLabel(cpuRow, "CPU");
+        addMetricLabel(cpuRow, Loc.s(getContext(), "CPU"));
         cpuTemp = metricValue(Gravity.START);
         cpuClock = metricValue(Gravity.START);
         cpuUsage = metricValue(Gravity.END);
@@ -117,7 +117,7 @@ final class PerfOverlayView extends LinearLayout {
         addView(cpuRow, rowParams(8));
 
         gpuRow = metricRow();
-        addMetricLabel(gpuRow, "GPU");
+        addMetricLabel(gpuRow, Loc.s(getContext(), "GPU"));
         gpuTemp = metricValue(Gravity.START);
         gpuClock = metricValue(Gravity.START);
         gpuUsage = metricValue(Gravity.END);
@@ -238,7 +238,10 @@ final class PerfOverlayView extends LinearLayout {
         stripText = new LTextView(c);
         stripText.setSingleLine(true);
         stripText.setIncludeFontPadding(false);
-        stripText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        String lang = Loc.languageCode(c);
+        float stripSp = ("ja".equals(lang) || "zh-CN".equals(lang)) ? 8f
+                : ("ko".equals(lang) || "th".equals(lang)) ? 8.8f : 10f;
+        stripText.setTextSize(TypedValue.COMPLEX_UNIT_SP, stripSp);
         stripText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -258,7 +261,7 @@ final class PerfOverlayView extends LinearLayout {
         Prefs p = new Prefs(getContext());
         boolean any = false;
         if (p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()) {
-            appendSpan(b, "CPU ", MUTED);
+            appendSpan(b, Loc.s(getContext(), "CPU ") + " ", MUTED);
             if (p.perfCpuTemp()) {
                 appendSpan(b, fmtTemp(s.cpuTempC) + " ", s.cpuTempC > 0f
                         ? heat((s.cpuTempC - 32f) / 55f) : 0x55FFFFFF);
@@ -276,7 +279,7 @@ final class PerfOverlayView extends LinearLayout {
         }
         if (p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()) {
             if (any) stripSep(b);
-            appendSpan(b, "GPU ", MUTED);
+            appendSpan(b, Loc.s(getContext(), "GPU ") + " ", MUTED);
             if (p.perfGpuTemp()) {
                 appendSpan(b, fmtTemp(s.gpuTempC) + " ", s.gpuTempC > 0f
                         ? heat((s.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
@@ -882,13 +885,13 @@ final class PerfOverlayView extends LinearLayout {
 
             p.setTextAlign(Paint.Align.RIGHT);
             p.setColor(online ? heat(usage / 100f) : 0x44FFFFFF);
-            canvas.drawText(!online ? "off" : usageKnown
-                            ? Math.round(usage) + "%" : "\u2014",
+            canvas.drawText(Loc.number(getContext(), !online ? "off" : usageKnown
+                            ? Math.round(usage) + "%" : "\u2014"),
                     w - density * 30, baseline, p);
             int clockColor = !online ? 0x44FFFFFF
                     : heat(maxHz > 0 ? hz / (float) maxHz : 0f);
             p.setColor(clockColor);
-            canvas.drawText(online ? fmtHz(hz) : "\u2014", w, baseline, p);
+            canvas.drawText(online ? Loc.number(getContext(), fmtHz(hz)) : "\u2014", w, baseline, p);
         }
     }
 }

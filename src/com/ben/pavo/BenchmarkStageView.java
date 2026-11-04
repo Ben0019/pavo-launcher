@@ -235,13 +235,13 @@ final class BenchmarkStageView extends View {
         int cpuUseColor = 0xFFFFC857;
         int gpuUseColor = 0xFF7CF7C4;
 
-        canvas.drawText("CPU " + (lastCpu > 0 ? lastCpu + "\u00b0" : "--"),
+        canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "CPU ") + (lastCpu > 0 ? lastCpu + "\u00b0" : "--")),
                 dp(8), dp(11), tint(legend, cpuColor));
-        canvas.drawText("GPU " + (lastGpu > 0 ? lastGpu + "\u00b0" : "--"),
+        canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "GPU ") + (lastGpu > 0 ? lastGpu + "\u00b0" : "--")),
                 dp(120), dp(11), tint(legend, gpuColor));
-        canvas.drawText("CPU " + lastCpuUse + "%", dp(8), dp(21),
+        canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "CPU ") + lastCpuUse + "%"), dp(8), dp(21),
                 tint(legend, cpuUseColor));
-        canvas.drawText("GPU " + lastGpuUse + "%", dp(120), dp(21),
+        canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "GPU ") + lastGpuUse + "%"), dp(120), dp(21),
                 tint(legend, gpuUseColor));
 
         float left = plotLeft();
@@ -277,7 +277,7 @@ final class BenchmarkStageView extends View {
             float y = bottom - pct / 100f * height;
             canvas.drawLine(left, y, right, y, grid);
             if (h >= dp(130) || pct % 50 == 0) {
-                canvas.drawText(pct + "%", dp(2), y + dp(2.2f), axis);
+                canvas.drawText(Loc.number(getContext(), pct + "%"), dp(2), y + dp(2.2f), axis);
             }
         }
 
@@ -287,7 +287,7 @@ final class BenchmarkStageView extends View {
         int maxTemp = 100;
         for (int v = minTemp; v <= maxTemp; v += 10) {
             float y = bottom - (v - minTemp) / (float) (maxTemp - minTemp) * height;
-            canvas.drawText(v + "\u00b0", right + dp(4), y + dp(2.2f), axis);
+            canvas.drawText(Loc.number(getContext(), v + "\u00b0"), right + dp(4), y + dp(2.2f), axis);
         }
 
         canvas.save();

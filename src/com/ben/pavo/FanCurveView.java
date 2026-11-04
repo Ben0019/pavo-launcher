@@ -77,7 +77,8 @@ final class FanCurveView extends View {
         setFocusable(true);
         setFocusableInTouchMode(true);
         setDefaultFocusHighlightEnabled(false);
-        setContentDescription("Fan curve. Right stick adjusts speed; D-pad or left stick selects points.");
+        setContentDescription(Loc.s(getContext(),
+                "Fan curve. Right stick adjusts speed; D-pad or left stick selects points."));
         setCurve(curve);
     }
 
@@ -161,7 +162,7 @@ final class FanCurveView extends View {
         for (int t = 30; t <= 100; t += 5) {
             float x = xFor(t);
             c.drawLine(x, plot.bottom, x, plot.bottom + tick, axis);
-            c.drawText(t + "°", x, xLabelY, textPaint);
+            c.drawText(Loc.number(getContext(), t + "°"), x, xLabelY, textPaint);
         }
         // Duty labels every 5 %.
         textPaint.setTextAlign(Paint.Align.RIGHT);
@@ -169,7 +170,7 @@ final class FanCurveView extends View {
         for (int p = 0; p <= 100; p += 5) {
             float y = yFor(p);
             c.drawLine(plot.left - tick, y, plot.left, y, axis);
-            c.drawText(p + "%", yLabelX, y - (fm.ascent + fm.descent) / 2f, textPaint);
+            c.drawText(Loc.number(getContext(), p + "%"), yLabelX, y - (fm.ascent + fm.descent) / 2f, textPaint);
         }
 
         if (points.isEmpty()) return;

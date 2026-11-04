@@ -251,7 +251,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
                 refreshControllerUi();
                 refreshHeader();
                 Haptics.click(rootView);
-                toast(ControllerMapConfig.labelFor(anyRaw) + " added");
+                toast(String.format(Loc.s(this, "%s added"), buttonLabel(anyRaw)));
             }
             return true;
         }
@@ -589,15 +589,20 @@ public final class ControllerMapActivity extends PavoGlassActivity {
             hintText.setText("Press any controller button to add it to the list  \u00b7  CANCEL aborts");
             hintText.setTextColor(accent);
         } else if (captureSource >= 0) {
-            hintText.setText("Press the target button for "
-                    + ControllerMapConfig.labelFor(captureSource) + "  \u00b7  CANCEL aborts");
+            hintText.setText(String.format(Loc.s(this,
+                    "Press the target button for %s  \u00b7  CANCEL aborts"),
+                    buttonLabel(captureSource)));
             hintText.setTextColor(accent);
         } else if (comboPhase == 1) {
-            hintText.setText("Press the buttons to combine"
-                    + (comboKeys.isEmpty() ? "" : "  \u00b7  " + comboKeyLabels()));
+            String combo = comboKeyLabels();
+            hintText.setText(combo.isEmpty()
+                    ? Loc.s(this, "Press the buttons to combine")
+                    : String.format(Loc.s(this, "Press the buttons to combine  \u00b7  %s"),
+                            combo));
             hintText.setTextColor(accent);
         } else if (comboPhase == 2) {
-            hintText.setText("Press the shortcut target for " + comboKeyLabels());
+            hintText.setText(String.format(Loc.s(this,
+                    "Press the shortcut target for %s"), comboKeyLabels()));
             hintText.setTextColor(accent);
         } else {
             hintText.setText("A edit  \u00b7  Y turbo  \u00b7  B close  \u00b7  same button clears");
@@ -617,8 +622,9 @@ public final class ControllerMapActivity extends PavoGlassActivity {
                 controllerText.setText("NO CONTROLLER DETECTED  \u00b7  standard buttons");
                 controllerText.setTextColor(0xFFFFC107);
             } else {
-                controllerText.setText("DETECTED  \u00b7  " + catalog.name.toUpperCase()
-                        + "  \u00b7  " + catalog.raws.size() + " buttons");
+                controllerText.setText(String.format(Loc.s(this,
+                        "DETECTED  \u00b7  %s  \u00b7  %d buttons"),
+                        catalog.name.toUpperCase(), catalog.raws.size()));
                 controllerText.setTextColor(GREEN);
             }
         }
@@ -773,7 +779,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         java.util.LinkedHashSet<Integer> sourceSet = new java.util.LinkedHashSet<>(catalog.raws);
         sourceSet.addAll(config.mappings.keySet());
         java.util.ArrayList<Integer> sources = new java.util.ArrayList<>(sourceSet);
-        addSection("BUTTONS \u00b7 " + sources.size());
+        addSection(String.format(Loc.s(this, "BUTTONS \u00b7 %d"), sources.size()));
         if (sources.isEmpty()) {
             TextView empty = text("No controller buttons detected.", 10.5f, 0x77FFFFFF, false);
             empty.setPadding(dp(4), dp(2), dp(4), dp(6));
@@ -852,7 +858,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
                 row.setFocusable(true);
                 row.setFocusableInTouchMode(true);
                 row.setDefaultFocusHighlightEnabled(false);
-                TextView label = text(combo.label(), 11.5f, 0xE6FFFFFF, true);
+                TextView label = text(comboLabel(combo), 11.5f, 0xE6FFFFFF, true);
                 row.addView(label, new LinearLayout.LayoutParams(
                         0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
                 TextView remove = text("\u00d7", 19f, 0xFFFF8A80, false);
@@ -947,7 +953,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         });
 
         int face = faceColour(source);
-        TextView name = text(ControllerMapConfig.labelFor(source), 12.5f, face, false);
+        TextView name = text(buttonLabel(source), 12.5f, face, false);
         name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         name.setShadowLayer(dp(2.4f), 0f, 0f, (face & 0x00FFFFFF) | 0xA0000000);
         row.addView(name, new LinearLayout.LayoutParams(
@@ -955,7 +961,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
 
         int targetColour = mapped ? faceColour(target) : 0x66FFFFFF;
         TextView targetView = text(mapped
-                ? ("\u2192  " + ControllerMapConfig.labelFor(target)) : "no change",
+                ? ("\u2192  " + buttonLabel(target)) : "no change",
                 11.5f, targetColour, mapped);
         if (mapped) {
             targetView.setShadowLayer(dp(2.0f), 0f, 0f,
@@ -1037,9 +1043,9 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         rebuildList();
         Haptics.click(rootView);
         toast(raw == source
-                ? ControllerMapConfig.labelFor(source) + " cleared"
-                : ControllerMapConfig.labelFor(source) + " \u2192 "
-                        + ControllerMapConfig.labelFor(raw));
+                ? String.format(Loc.s(this, "%s cleared"), buttonLabel(source))
+                : String.format(Loc.s(this, "%s \u2192 %s"),
+                        buttonLabel(source), buttonLabel(raw)));
         refreshHeader();
     }
 
@@ -1106,11 +1112,33 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         }
     }
 
+    private String buttonLabel(int raw) {
+        String value = ControllerMapConfig.labelFor(raw);
+        if (value.startsWith("Button ")) {
+            try {
+                return String.format(Loc.s(this, "Button %d"),
+                        Integer.parseInt(value.substring(7)));
+            } catch (Throwable ignored) {
+            }
+        }
+        return Loc.s(this, value);
+    }
+
+    private String comboLabel(ControllerMapConfig.Combo combo) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < combo.keys.length; i++) {
+            if (i > 0) b.append(" + ");
+            b.append(buttonLabel(combo.keys[i]));
+        }
+        b.append("  \u2192  ").append(buttonLabel(combo.target));
+        return b.toString();
+    }
+
     private String comboKeyLabels() {
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < comboKeys.size(); i++) {
             if (i > 0) b.append(" + ");
-            b.append(ControllerMapConfig.labelFor(comboKeys.get(i)));
+            b.append(buttonLabel(comboKeys.get(i)));
         }
         return b.toString();
     }

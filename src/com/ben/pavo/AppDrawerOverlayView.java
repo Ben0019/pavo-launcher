@@ -271,7 +271,7 @@ final class AppDrawerOverlayView extends FrameLayout {
         searchButton.setColorFilter(0xCCFFFFFF);
         searchButton.setPadding(Ui.dp(c, 5), Ui.dp(c, 5),
                 Ui.dp(c, 5), Ui.dp(c, 5));
-        searchButton.setContentDescription("Search apps");
+        searchButton.setContentDescription(Loc.t(c, "Search apps"));
         searchButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -743,7 +743,8 @@ final class AppDrawerOverlayView extends FrameLayout {
                     try {
                         context.startActivity(builtInIntent);
                     } catch (Throwable t) {
-                        LToast.makeText(context, "Can't open " + e.label,
+                        LToast.makeText(context, String.format(
+                                Loc.s(context, "Can't open %s"), e.label),
                                 Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -978,7 +979,7 @@ final class AppDrawerOverlayView extends FrameLayout {
 
         TextView title = new LTextView(context);
         styleTitle = title;
-        title.setText("DRAWER STYLE  \u283F");
+        title.setText(Loc.s(context, "DRAWER STYLE") + "  \u283F");
         title.setTextColor(accent());
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         title.setLetterSpacing(0.12f);
@@ -1182,7 +1183,9 @@ final class AppDrawerOverlayView extends FrameLayout {
 
     private void updateStyleLabels() {
         if (alphaValue != null) alphaValue.setText(prefs.drawerOverlayAlpha() + "%");
-        if (iconValue != null) iconValue.setText(prefs.drawerOverlayIconDp() + " dp");
+        if (iconValue != null) {
+            iconValue.setText(prefs.drawerOverlayIconDp() + Loc.s(context, " dp"));
+        }
     }
 
     private void adjustAlpha(int delta) {
@@ -1201,7 +1204,9 @@ final class AppDrawerOverlayView extends FrameLayout {
         recomputeWidths();
         applyCardWidth(true);
         updateMetrics();
-        if (iconValue != null) iconValue.setText(value + " dp");
+        if (iconValue != null) {
+            iconValue.setText(value + Loc.s(context, " dp"));
+        }
         if (searchOpen) applyCardWidth(true);
     }
 

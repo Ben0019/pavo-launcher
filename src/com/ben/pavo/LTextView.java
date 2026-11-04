@@ -27,7 +27,11 @@ final class LTextView extends TextView {
 
     @Override
     public void setText(CharSequence text, BufferType type) {
-        super.setText(localize ? Loc.t(getContext(), text) : text, type);
+        CharSequence value = localize ? Loc.t(getContext(), text) : text;
+        if (localize && value instanceof android.text.Spanned) {
+            value = Loc.spanned(getContext(), (android.text.Spanned) value);
+        }
+        super.setText(value, type);
     }
 
     @Override

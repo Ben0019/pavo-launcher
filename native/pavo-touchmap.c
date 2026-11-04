@@ -106,6 +106,7 @@ static int combo_mod_down[COMBO_CODE_MAX + 1];
 static int shortcut_codes[MAX_SHORTCUTS];
 static int shortcut_count;
 static int shortcut_fd = -1;
+static int key_debug;
 static int combo_left_joy_down;
 static int combo_right_joy_down;
 static int combo_stick_index = -1;
@@ -236,12 +237,17 @@ static int shortcut_connect(void) {
 }
 
 static void shortcut_send(int code, int value) {
-    if (!shortcut_connect()) return;
+    if (key_debug) fprintf(stderr, "shortcut %d %d\n", code, value);
+    if (!shortcut_connect()) {
+        fprintf(stderr, "shortcut socket unavailable\n");
+        return;
+    }
     char line[64];
     int n = snprintf(line, sizeof(line), "K %d %d\n", code, value);
     if (n <= 0) return;
     ssize_t sent = send(shortcut_fd, line, (size_t)n, MSG_NOSIGNAL | MSG_DONTWAIT);
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+        fprintf(stderr, "shortcut send failed: %s\n", strerror(errno));
         close(shortcut_fd);
         shortcut_fd = -1;
     }
@@ -1171,6 +1177,7 @@ int main(int argc, char **argv) {
         return 3;
     }
     aim_debug = access("/data/local/tmp/aurora_aim_debug", F_OK) == 0;
+    key_debug = access("/data/local/tmp/aurora_key_debug", F_OK) == 0;
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
     src_fd = open(device, O_RDONLY | O_CLOEXEC);
@@ -1198,7 +1205,8 @@ int main(int argc, char **argv) {
             right_mode == RIGHT_MOUSE ? ", mouse"
                     : (right_mode == RIGHT_AIM ? ", swipe aim"
                     : (right_mode ? ", right stick" : "")));
-    if (shortcut_count) shortcut_connect();
+    fprintf(stderr, "shortcut bridge %s\n",
+            shortcut_connect() ? "connected" : "unavailable");
     if (right_hold_enabled) fprintf(stderr, "R3 gates right stick\n");
     if (r3_stick_enabled) fprintf(stderr, "R3 secondary stick enabled\n");
     if (combo_count) fprintf(stderr, "%d combos loaded\n", combo_count);
@@ -1207,7 +1215,35 @@ int main(int argc, char **argv) {
     struct pollfd pfd;
     pfd.fd = src_fd;
     pfd.events = POLLIN;
+    long long last_beat = 0;
+    long long last_probe = 0;
     while (!stop_requested) {
+        // Refresh the pid file so the launcher can tell a live mapper from a
+        // stale pid left behind by a killed process.
+        long long beat = monotonic_ms();
+        if (beat - last_beat >= 1000) {
+            write_pid();
+            last_beat = beat;
+        }
+        // A launcher restart leaves the shortcut socket half-open: sends keep
+        // "succeeding" while nobody reads them. Probe the peer and reconnect so
+        // the controller shortcuts never go silently dead.
+        if (beat - last_probe >= 2000) {
+            last_probe = beat;
+            {
+                if (shortcut_fd >= 0) {
+                    char probe;
+                    ssize_t pr = recv(shortcut_fd, &probe, 1,
+                            MSG_DONTWAIT | MSG_PEEK);
+                    if (pr == 0 || (pr < 0 && errno != EAGAIN
+                            && errno != EWOULDBLOCK && errno != EINTR)) {
+                        close(shortcut_fd);
+                        shortcut_fd = -1;
+                    }
+                }
+                if (shortcut_fd < 0) shortcut_connect();
+            }
+        }
         if (client_pid > 0 && kill(client_pid, 0) < 0 && errno == ESRCH) {
             fprintf(stderr, "client process gone; exiting\n");
             break;
@@ -1238,12 +1274,16 @@ int main(int argc, char **argv) {
                     if (pass == 1 && ev[i].type != EV_ABS) continue;
                     if (ev[i].type == EV_KEY) {
                         int code = ev[i].code;
-                        if (shortcut_is_reserved(code)) {
-                            if (ev[i].value == 1 || ev[i].value == 0) {
-                                shortcut_send(code, ev[i].value);
-                            }
-                            continue;
+                        if (key_debug && ev[i].value == 1) {
+                            fprintf(stderr, "key %d\n", code);
                         }
+                        // Forward every controller key to the launcher, exactly
+                        // like the pass-through daemon does, so shortcuts behave
+                        // identically while Touch Mapper owns the controller.
+                        if (ev[i].value == 1 || ev[i].value == 0) {
+                            shortcut_send(code, ev[i].value);
+                        }
+                        if (shortcut_is_reserved(code)) continue;
                         if (r3_stick_enabled && code == BTN_THUMBR) {
                             if (ev[i].value == 1) {
                                 if (combo_activate(code)) continue;

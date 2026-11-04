@@ -24,6 +24,7 @@ import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -248,7 +249,7 @@ public final class TouchMapperActivity extends PavoGlassActivity {
 
         LinearLayout editorCard = section();
         LinearLayout.LayoutParams editorLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 1.55f);
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 1.45f);
         editorLp.rightMargin = dp(7);
         body.addView(editorCard, editorLp);
 
@@ -300,13 +301,14 @@ public final class TouchMapperActivity extends PavoGlassActivity {
                 "Drag each controller button onto the matching game control. "
                         + "Taps, holds and overlapping multi-touch are injected.",
                 9.5f, MUTED, false);
+        wrapText(editorHint);
         editorHint.setPadding(0, dp(7), 0, 0);
         editorCard.addView(editorHint);
 
         LinearLayout right = new LinearLayout(this);
         right.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 0.85f);
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
         rightLp.leftMargin = dp(7);
         body.addView(right, rightLp);
 
@@ -317,8 +319,12 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         mapLp.topMargin = dp(8);
         right.addView(buildMappingCard(), mapLp);
 
+        String modes = Loc.s(this, "AIM") + " · " + Loc.s(this, "SWIPE")
+                + " · " + Loc.s(this, "MOUSE") + " · " + Loc.s(this, "JOY")
+                + " · " + Loc.s(this, "MOBA");
         TextView footer = text(
-                "Right stick: AIM · SWIPE · MOUSE · JOY · MOBA  ·  Remapper pauses while active",
+                String.format(Loc.s(this,
+                        "Right stick: %s  ·  Remapper pauses while active."), modes),
                 8.5f, 0x66FFFFFF, false);
         footer.setGravity(Gravity.CENTER);
         footer.setPadding(0, dp(7), 0, 0);
@@ -341,7 +347,8 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         TextView subtitle = text(DeviceProfile.get(this).name.toUpperCase()
-                + "  ·  CONTROLLER TO ON-SCREEN TOUCH", 9.5f, MUTED, false);
+                + "  ·  " + Loc.s(this, "CONTROLLER TO ON-SCREEN TOUCH"),
+                9.5f, MUTED, false);
         subtitle.setLetterSpacing(0.13f);
         subtitle.setGravity(Gravity.CENTER);
         subtitle.setPadding(0, dp(2), 0, 0);
@@ -452,12 +459,16 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         mappingStatus.setLetterSpacing(0.10f);
         top.addView(mappingStatus);
 
-        mappingDetail = text("Ready", 11f, TEXT, false);
+        mappingDetail = text("Ready", 10.5f, TEXT, false);
         mappingDetail.setLineSpacing(dp(2), 1f);
+        wrapText(mappingDetail);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams detailLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         detailLp.topMargin = dp(8);
-        card.addView(mappingDetail, detailLp);
+        content.addView(mappingDetail, detailLp);
 
         LinearLayout inputRow = new LinearLayout(this);
         inputRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -465,7 +476,7 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         inputLp.topMargin = dp(7);
-        card.addView(inputRow, inputLp);
+        content.addView(inputRow, inputLp);
         TextView inputLabel = text("MOVEMENT", 9f, MUTED, true);
         inputLabel.setLetterSpacing(0.12f);
         inputRow.addView(inputLabel, new LinearLayout.LayoutParams(
@@ -486,7 +497,7 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rightLp.topMargin = dp(6);
-        card.addView(rightRow, rightLp);
+        content.addView(rightRow, rightLp);
         TextView rightLabel = text("RIGHT STICK", 9f, MUTED, true);
         rightLabel.setLetterSpacing(0.12f);
         rightRow.addView(rightLabel, new LinearLayout.LayoutParams(
@@ -501,16 +512,17 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         });
         rightRow.addView(rightModeChip);
 
-        rightHint = text("Right stick is unused.", 9f, 0x99FFFFFF, false);
+        rightHint = text("Right stick is unused.", 8.5f, 0x99FFFFFF, false);
         rightHint.setLineSpacing(dp(2), 1f);
+        wrapText(rightHint);
         LinearLayout.LayoutParams rightHintLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rightHintLp.topMargin = dp(3);
-        card.addView(rightHint, rightHintLp);
+        content.addView(rightHint, rightHintLp);
 
         toggle = chip("ENABLE IN GAME", GREEN, 0x2669D98B, 0x5569D98B);
         toggle.setGravity(Gravity.CENTER);
-        toggle.setPadding(dp(12), dp(11), dp(12), dp(11));
+        toggle.setPadding(dp(12), dp(9), dp(12), dp(9));
         toggle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -520,18 +532,20 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         });
         LinearLayout.LayoutParams toggleLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        toggleLp.topMargin = dp(8);
-        card.addView(toggle, toggleLp);
+        toggleLp.topMargin = dp(6);
+        content.addView(toggle, toggleLp);
 
-        TextView help = text(
-                "Each button is an independent finger. Holds and overlapping "
-                        + "movement/action touches work in the game.",
-                9.5f, 0x99FFFFFF, false);
-        help.setLineSpacing(dp(2), 1f);
-        LinearLayout.LayoutParams helpLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        helpLp.topMargin = dp(9);
-        card.addView(help, helpLp);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setVerticalFadingEdgeEnabled(true);
+        scroll.setFadingEdgeLength(dp(14));
+        scroll.addView(content, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        scrollLp.topMargin = dp(2);
+        card.addView(scroll, scrollLp);
         return card;
     }
 
@@ -548,7 +562,8 @@ public final class TouchMapperActivity extends PavoGlassActivity {
                 "The game only sees the virtual touchscreen, not a controller."
         };
         for (String line : lines) {
-            TextView t = text("·  " + line, 9.5f, 0xCCFFFFFF, false);
+            TextView t = text("·  " + Loc.s(this, line), 9.5f, 0xCCFFFFFF, false);
+            wrapText(t);
             t.setLineSpacing(dp(2), 1f);
             t.setPadding(0, dp(5), 0, 0);
             card.addView(t);
@@ -762,18 +777,24 @@ public final class TouchMapperActivity extends PavoGlassActivity {
             if (target.isEmpty()) {
                 mappingDetail.setText("Pick a target game, place the buttons, then enable the mapping.");
             } else if (enabled) {
-                mappingDetail.setText("Enabled for " + appName(target) + "."
-                        + (enabledCount > 1
-                        ? " " + enabledCount + " apps are enabled and switch automatically."
-                        : "")
-                        + "\n\nReturn to the game to use the map.");
+                String detail = String.format(
+                        Loc.s(this, "Enabled for %s."), appName(target));
+                if (enabledCount > 1) {
+                    detail += " " + String.format(
+                            Loc.s(this, "%d apps are enabled and switch automatically."),
+                            enabledCount);
+                }
+                detail += Loc.s(this, "\n\nReturn to the game to use the map.");
+                mappingDetail.setText(detail);
             } else if (enabledCount > 0) {
-                mappingDetail.setText("This app is off, but " + enabledCount
-                        + " other app" + (enabledCount == 1 ? " is" : "s are")
-                        + " still enabled. Enable this app to add it.");
+                String key = enabledCount == 1
+                        ? "This app is off, but %d other app is still enabled. Enable this app to add it."
+                        : "This app is off, but %d other apps are still enabled. Enable this app to add it.";
+                mappingDetail.setText(String.format(Loc.s(this, key), enabledCount));
             } else {
-                mappingDetail.setText("Disabled. Configure the layout, then enable it for "
-                        + appName(target) + ".");
+                mappingDetail.setText(String.format(
+                        Loc.s(this, "Disabled. Configure the layout, then enable it for %s."),
+                        appName(target)));
             }
         }
         if (toggle != null) {
@@ -790,7 +811,7 @@ public final class TouchMapperActivity extends PavoGlassActivity {
             PackageManager pm = getPackageManager();
             return String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)));
         } catch (Throwable ignored) {
-            return "the game";
+            return Loc.s(this, "the game");
         }
     }
 
@@ -885,6 +906,13 @@ public final class TouchMapperActivity extends PavoGlassActivity {
         t.setTypeface(Typeface.create(
                 medium ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
         return t;
+    }
+
+    private static void wrapText(TextView t) {
+        t.setSingleLine(false);
+        t.setHorizontallyScrolling(false);
+        t.setEllipsize(null);
+        t.setMaxLines(Integer.MAX_VALUE);
     }
 
     private int dp(float value) {

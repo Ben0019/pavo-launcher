@@ -5,6 +5,7 @@ import android.content.Context;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileOutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,25 +29,46 @@ final class ForegroundApp {
         // Prefer the focused window. On some Android 15 builds topResumedActivity
         // can still name the previously mapped game while its task is in Recents,
         // which leaves the performance overlay stuck in mapper mode.
-        String command = "cd " + quote(dir)
-                + "; { dumpsys window 2>/dev/null | grep -m1 'mCurrentFocus='; "
+        // PServer truncates commands at roughly 255 bytes. Put the long
+        // multi-snapshot command in a script and invoke it with a short path.
+        // The snapshot is written to a temporary file and renamed, so readers
+        // never observe a half-written or empty file while dumpsys is running.
+        String tmp = FILE + ".new";
+        String body = "#!/system/bin/sh\ncd " + quote(dir)
+                + " || exit 1\n{ dumpsys window 2>/dev/null | grep -m1 'mCurrentFocus='; "
                 + "dumpsys window 2>/dev/null | grep -m1 'mFocusedApp='; "
                 + "dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity; }"
-                + " > " + FILE
-                + "; uid=$(stat -c %u .. 2>/dev/null); [ -n \"$uid\" ] && chown $uid:$uid " + FILE
-                + " 2>/dev/null; chmod 644 " + FILE + " 2>/dev/null";
-        PServer.run(command);
+                + " > " + tmp + " 2>/dev/null\nuid=$(stat -c %u .. 2>/dev/null)\n"
+                + "[ -n \"$uid\" ] && chown $uid:$uid " + tmp + " 2>/dev/null\n"
+                + "chmod 644 " + tmp + " 2>/dev/null\n"
+                + "mv -f " + tmp + " " + FILE + " 2>/dev/null\n";
+        File script = new File(context.getFilesDir(), "top_app.sh");
+        try (FileOutputStream out = new FileOutputStream(script)) {
+            out.write(body.getBytes("UTF-8"));
+        } catch (Throwable ignored) {
+            return;
+        }
+        script.setReadable(true, false);
+        script.setExecutable(true, false);
+        PServer.run("sh " + quote(script.getAbsolutePath()));
     }
 
     static String read(Context context) {
-        // The accessibility service sees activity changes for free and does not
-        // depend on PServer being able to write into app storage.
-        String a11y = PavoA11yService.foregroundPackage();
-        if (a11y != null) return a11y;
-        if (context == null) return null;
-        File file = new File(context.getFilesDir(), FILE);
-        if (!file.isFile()) return null;
-        if (System.currentTimeMillis() - file.lastModified() > 12_000L) return null;
+        // The PServer snapshot names the real focused window, so Pavo's own
+        // overlays and the mapper editor cannot be mistaken for the foreground
+        // app. Accessibility is only a fallback when PServer is unavailable.
+        if (context != null) {
+            File file = new File(context.getFilesDir(), FILE);
+            if (file.isFile()
+                    && System.currentTimeMillis() - file.lastModified() <= 12_000L) {
+                String pkg = parse(file);
+                if (pkg != null) return pkg;
+            }
+        }
+        return PavoA11yService.foregroundPackage();
+    }
+
+    private static String parse(File file) {
         try (BufferedReader r = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = r.readLine()) != null) {

@@ -483,7 +483,22 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     }
 
     private void toggleOverlayPanel() {
-        if (container == null) return;
+        if (container == null) {
+            // The service can be restarted by the system without its window
+            // (for example after the launcher process was killed). Rebuild it
+            // so the controller shortcut still opens the panel.
+            addOverlay();
+            if (container == null) return;
+            if (!running) {
+                running = true;
+                main.removeCallbacks(sampleTick);
+                main.removeCallbacks(mapperTick);
+                main.post(sampleTick);
+                main.post(mapperTick);
+            }
+            ensureOverlayShown();
+            return;
+        }
         if (menu != null) {
             // While the popup is open a short press only dismisses the popup.
             closeMenu();
@@ -1155,7 +1170,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         params.y = prefs.perfOverlayY();
         try {
             windowManager.addView(container, params);
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            android.util.Log.w("AuroraPerf", "addOverlay failed", t);
             container = null;
             panel = null;
             return;

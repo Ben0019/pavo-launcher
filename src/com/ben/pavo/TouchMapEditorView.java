@@ -201,7 +201,7 @@ final class TouchMapEditorView extends View {
                 float y = screenRect.top + screenRect.height() * i / 5f;
                 canvas.drawLine(screenRect.left, y, screenRect.right, y, grid);
             }
-            canvas.drawText("GAME SCREEN · DRAG THE BUTTONS",
+            canvas.drawText(Loc.s(getContext(), "GAME SCREEN · DRAG THE BUTTONS"),
                     screenRect.left + Ui.dp(getContext(), 10),
                     screenRect.top + Ui.dp(getContext(), 17), hint);
         }
@@ -247,7 +247,8 @@ final class TouchMapEditorView extends View {
             label.setTextSize(Math.max(Ui.dp(getContext(), 9), radius * 0.32f));
             label.setColor(withAlpha(0xFFFFFFFF, Math.max(110, a)));
             Paint.FontMetrics fm = label.getFontMetrics();
-            canvas.drawText(t.label, cx, cy - (fm.ascent + fm.descent) / 2f, label);
+            canvas.drawText(localizedText(t.label), cx,
+                    cy - (fm.ascent + fm.descent) / 2f, label);
             if (layoutEditing) {
                 float hx = cx + radius * 0.92f;
                 float hy = cy + radius * 0.92f;
@@ -264,7 +265,8 @@ final class TouchMapEditorView extends View {
                     * (rightJoyHidden ? 0.24f : 1f);
             joystick.draw(canvas, screenRect.left + r3.x * screenRect.width(),
                     screenRect.top + r3.y * screenRect.height(), rr,
-                    0xFFFFC857, alpha, "R3 STICK", selectedJoy == TouchTarget.RIGHT_JOY);
+                    0xFFFFC857, alpha, Loc.s(getContext(), "R3 STICK"),
+                    selectedJoy == TouchTarget.RIGHT_JOY);
         }
         for (TouchCombo c : combos) {
             if (c.hidden && !layoutEditing) continue;
@@ -273,7 +275,7 @@ final class TouchMapEditorView extends View {
             float cr = c.radius * screenRect.height();
             float alpha = c.alpha * (c.hidden ? 0.24f : 1f);
             joystick.draw(canvas, ccx, ccy, cr, 0xFF69D98B, alpha,
-                    c.label(), c == selectedCombo || c == draggedCombo);
+                    comboText(c), c == selectedCombo || c == draggedCombo);
             if (layoutEditing) drawResizeHandle(canvas, ccx, ccy, cr);
         }
     }
@@ -294,7 +296,7 @@ final class TouchMapEditorView extends View {
         if (rightJoyHidden && !layoutEditing) return;
         if (right.mode == RightStick.MOUSE) {
             hint.setTextAlign(Paint.Align.RIGHT);
-            canvas.drawText("MOUSE · R1 CLICK · R2 RIGHT CLICK",
+            canvas.drawText(Loc.s(getContext(), "MOUSE · R1 CLICK · R2 RIGHT CLICK"),
                     screenRect.right - Ui.dp(getContext(), 10),
                     screenRect.top + Ui.dp(getContext(), 18), hint);
             hint.setTextAlign(Paint.Align.LEFT);
@@ -306,7 +308,8 @@ final class TouchMapEditorView extends View {
         if (right.mode == RightStick.AIM) {
             joystick.draw(canvas, cx, cy, r, 0xFF8BE9FF,
                     0.92f * rightJoyAlpha * (rightJoyHidden ? 0.24f : 1f),
-                    "AIM SWIPE", selectedJoy == TouchTarget.RIGHT_JOY);
+                    Loc.s(getContext(), "AIM SWIPE"),
+                    selectedJoy == TouchTarget.RIGHT_JOY);
             float half = right.zone.radius * screenRect.width();
             int arm = Ui.dp(getContext(), 8);
             ring.setColor(draggingRight ? 0xCCFFFFFF : 0xAA8BE9FF);
@@ -323,6 +326,7 @@ final class TouchMapEditorView extends View {
                 : (right.mode == RightStick.JOYSTICK ? 0xFF8BE9FF : 0xFFFFC857);
         String title = right.mode == RightStick.MOBA ? "MOBA STICK"
                 : (right.mode == RightStick.JOYSTICK ? "RIGHT STICK" : "SWIPE");
+        title = Loc.s(getContext(), title);
         float alpha = rightJoyAlpha * (rightJoyHidden ? 0.24f : 1f);
         joystick.draw(canvas, cx, cy, r, color,
                 draggingRight || resizingRight ? 1f : 0.92f * alpha,
@@ -335,7 +339,18 @@ final class TouchMapEditorView extends View {
         float cx = screenRect.left + stick.x * screenRect.width();
         float cy = screenRect.top + stick.y * screenRect.height();
         joystick.draw(canvas, cx, cy, stickRadiusPx(), 0xFF7BE6B0,
-                draggingStick ? 1f : 0.88f, "LEFT STICK", draggingStick);
+                draggingStick ? 1f : 0.88f, Loc.s(getContext(), "LEFT STICK"),
+                draggingStick);
+    }
+
+    private String localizedText(String value) {
+        return value == null ? "" : Loc.s(getContext(), value);
+    }
+
+    private String comboText(TouchCombo combo) {
+        if (combo == null) return "";
+        return localizedText(TouchTarget.labelFor(combo.modifier)) + "+"
+                + localizedText(TouchTarget.labelFor(combo.button));
     }
 
     private void drawResizeHandle(Canvas canvas, float cx, float cy, float r) {

@@ -338,8 +338,8 @@ public final class OverlayActivity extends PavoGlassActivity {
         title.setLetterSpacing(0.04f);
         if (compact) title.setPadding(0, 0, 0, 0);
         titles.addView(title);
-        TextView subtitle = text(DeviceProfile.get(this).name.toUpperCase()
-                + "  ·  LIVE OVERLAY", 10f, MUTED, false);
+        TextView subtitle = text(String.format(Loc.s(this, "%s  ·  LIVE OVERLAY"),
+                DeviceProfile.get(this).name.toUpperCase()), 10f, MUTED, false);
         subtitle.setPadding(0, dp(3), 0, 0);
         titles.addView(subtitle);
         header.addView(titles, new LinearLayout.LayoutParams(
@@ -657,18 +657,22 @@ public final class OverlayActivity extends PavoGlassActivity {
             setChipSelected(columnChips.get(i), columns == i + 1);
         }
         if (shortcutRow != null) {
-            String mapped = PavoA11yService.drawerControllerLabel(prefs);
-            shortcutRow.setText("Shortcut: " + mapped + "  ·  tap to map");
+            String mapped = controllerShortcut(
+                    PavoA11yService.drawerControllerLabel(prefs));
+            shortcutRow.setText(String.format(
+                    Loc.s(this, "Shortcut: %s  ·  tap to map"), mapped));
         }
         if (perfShortcutRow != null) {
-            String mapped = PavoA11yService.controllerLabel(prefs);
-            perfShortcutRow.setText("Shortcut: " + mapped + "  ·  tap to map");
+            String mapped = controllerShortcut(
+                    PavoA11yService.controllerLabel(prefs));
+            perfShortcutRow.setText(String.format(
+                    Loc.s(this, "Shortcut: %s  ·  tap to map"), mapped));
         }
         if (perfComboRow != null) {
-            perfComboRow.setText(comboLabel(prefs.perfCombo(), "Overlay combo"));
+            perfComboRow.setText(comboLabel(prefs.perfCombo()));
         }
         if (drawerComboRow != null) {
-            drawerComboRow.setText(comboLabel(prefs.drawerCombo(), "Drawer combo"));
+            drawerComboRow.setText(comboLabel(prefs.drawerCombo()));
         }
         if (status != null) {
             boolean on = panelShown;
@@ -809,12 +813,26 @@ public final class OverlayActivity extends PavoGlassActivity {
         parent.addView(row);
     }
 
-    private static String comboLabel(String combo, String name) {
-        if (combo == null || combo.isEmpty()) return "Combo: not set  ·  tap to set";
+    /** Translate a controller label, keeping the catalogue's " (default)" suffix. */
+    private String controllerShortcut(String label) {
+        if (label == null) return "";
+        String suffix = "";
+        String defaultSuffix = " (default)";
+        if (label.endsWith(defaultSuffix)) {
+            label = label.substring(0, label.length() - defaultSuffix.length());
+            suffix = Loc.s(this, defaultSuffix);
+        }
+        return Loc.s(this, label) + suffix;
+    }
+
+    private String comboLabel(String combo) {
+        if (combo == null || combo.isEmpty()) {
+            return Loc.s(this, "Combo: not set  ·  tap to set");
+        }
         String pretty = combo.replace("+", " + ")
                 .replace("BTN_", "")
                 .replace("KEY_", "");
-        return "Combo: " + pretty + "  ·  tap to change";
+        return String.format(Loc.s(this, "Combo: %s  ·  tap to change"), pretty);
     }
 
     // --------------------------------------------------------------- widgets
@@ -902,7 +920,8 @@ public final class OverlayActivity extends PavoGlassActivity {
         TextView name = text(label, 9f, MUTED, false);
         header.addView(name, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        final TextView valueView = text(value + suffix, 9.5f, accent, true);
+        final String shownSuffix = Loc.s(this, suffix);
+        final TextView valueView = text(value + shownSuffix, 9.5f, accent, true);
         header.addView(valueView);
 
         SeekBar bar = new SeekBar(this);
@@ -922,7 +941,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 int v = min + progress;
-                valueView.setText(v + suffix);
+                valueView.setText(v + shownSuffix);
                 if (!suppress) {
                     callback.onValue(v);
                     if (fromUser) haptic(seekBar);

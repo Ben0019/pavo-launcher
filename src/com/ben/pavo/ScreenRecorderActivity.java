@@ -898,19 +898,20 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
 
     private void updateBitrateLabel() {
         if (bitrateValue != null) {
-            bitrateValue.setText(String.format(Locale.US, "%.0f Mbps",
-                    bitrateKbps / 1000f));
+            bitrateValue.setText(String.format(Locale.US,
+                    Loc.s(this, "%.0f Mbps"), bitrateKbps / 1000f));
         }
     }
 
     private void updateFormatNote() {
         if (formatNote == null) return;
         int[] dims = resolvedDimensions();
-        String note = dims[0] + " \u00d7 " + dims[1] + "  \u00b7  " + fps + " fps"
-                + "  \u00b7  " + (format == ScreenRecorderConfig.FORMAT_AVI_AVC
+        String audio = format == ScreenRecorderConfig.FORMAT_AVI_AVC
                 ? "PCM audio" : format == ScreenRecorderConfig.FORMAT_WEBM_VP9
-                ? "Opus audio" : "AAC audio");
-        formatNote.setText(note);
+                ? "Opus audio" : "AAC audio";
+        formatNote.setText(String.format(Locale.US,
+                Loc.s(this, "%1$d × %2$d  ·  %3$d fps  ·  %4$s"),
+                dims[0], dims[1], fps, Loc.s(this, audio)));
     }
 
     private void updateSummary() {
@@ -920,12 +921,17 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
                 : deviceAudio && micAudio ? "Device + mic"
                 : deviceAudio ? "Device audio" : "Microphone";
         String touches = showTouches ? "Touch dots on" : "Touch dots off";
-        summaryLine.setText(formatLabel() + "\n"
-                + dims[0] + " \u00d7 " + dims[1] + "  \u00b7  " + fps + " fps  \u00b7  "
-                + Math.round(bitrateKbps / 1000f) + " Mbps\n"
-                + (mode == ScreenRecorderConfig.MODE_SINGLE_APP
-                ? "Single app" : "Entire screen") + "  \u00b7  " + audio + "  \u00b7  "
-                + touches + "\nSaved to Movies/Pavo Recordings");
+        String video = String.format(Locale.US,
+                Loc.s(this, "%1$d × %2$d  ·  %3$d fps  ·  %4$d Mbps"),
+                dims[0], dims[1], fps, Math.round(bitrateKbps / 1000f));
+        String state = String.format(Locale.US, Loc.s(this, "%1$s  ·  %2$s  ·  %3$s"),
+                Loc.s(this, mode == ScreenRecorderConfig.MODE_SINGLE_APP
+                        ? "Single app" : "Entire screen"),
+                Loc.s(this, audio), Loc.s(this, touches));
+        summaryLine.setText(Loc.s(this, formatLabel()) + "\n"
+                + video + "\n"
+                + state + "\n"
+                + Loc.s(this, "Saved to Movies/Pavo Recordings"));
 
     }
 
@@ -962,15 +968,18 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
             recordButton.setEnabled(true);
         }
         if (ScreenRecorderService.isRecording()) {
-            status.setText("Recording \u00b7 " + elapsedText());
+            status.setText(Loc.s(this, "Recording \u00b7 ") + elapsedText());
         } else if (ScreenRecorderService.isSaving()) {
             status.setText("Saving recording\u2026");
         } else if (ScreenRecorderService.lastError() != null) {
-            status.setText(ScreenRecorderService.lastError());
-        } else if (!status.getText().toString().startsWith("Stopping")) {
-            status.setText(mode == ScreenRecorderConfig.MODE_SINGLE_APP
-                    ? "Ready \u00b7 single app \u00b7 " + formatLabel()
-                    : "Ready \u00b7 entire screen \u00b7 " + formatLabel());
+            status.setText(Loc.s(this, ScreenRecorderService.lastError()));
+        } else if (!status.getText().toString().equals(
+                Loc.s(this, "Stopping and saving\u2026"))) {
+            String ready = mode == ScreenRecorderConfig.MODE_SINGLE_APP
+                    ? "Ready \u00b7 single app \u00b7 %1$s"
+                    : "Ready \u00b7 entire screen \u00b7 %1$s";
+            status.setText(String.format(Locale.US, Loc.s(this, ready),
+                    Loc.s(this, formatLabel())));
         }
         String saved = ScreenRecorderService.lastSavedPath();
         if (pathLabel != null) {
@@ -1321,7 +1330,7 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
             list.addView(empty);
         } else {
             final java.text.SimpleDateFormat date = new java.text.SimpleDateFormat(
-                    "MMM d, HH:mm", Locale.US);
+                    "MMM d, HH:mm", Loc.displayLocale(this));
             for (final File file : videos) {
                 LinearLayout row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
@@ -1619,12 +1628,14 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
 
     private String formatBytes(long bytes) {
         if (bytes >= 1024L * 1024L * 1024L) {
-            return String.format(Locale.US, "%.1f GB", bytes / (1024f * 1024f * 1024f));
+            return String.format(Locale.US, Loc.s(this, "%.1f GB"),
+                    bytes / (1024f * 1024f * 1024f));
         }
         if (bytes >= 1024L * 1024L) {
-            return String.format(Locale.US, "%.1f MB", bytes / (1024f * 1024f));
+            return String.format(Locale.US, Loc.s(this, "%.1f MB"),
+                    bytes / (1024f * 1024f));
         }
-        return String.format(Locale.US, "%.0f KB", bytes / 1024f);
+        return String.format(Locale.US, Loc.s(this, "%.0f KB"), bytes / 1024f);
     }
 
     private void toast(String message) {

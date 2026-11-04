@@ -310,7 +310,7 @@ final class ThermalBoardView extends View {
         Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
         label.setColor(0x1AFFFFFF);
         c.drawRoundRect(rect, 3, 3, label);
-        c.drawText("8000mAh  3.85V", 92, 53, smallText);
+        c.drawText(Loc.number(getContext(), "8000mAh  3.85V"), 92, 53, smallText);
         drawQr(c, 92, 58, 30);
         for (int i = 0; i < 9; i++) {
             float y = 58 + i * 8;

@@ -13,6 +13,7 @@ import android.net.LocalSocket;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.util.Log;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
@@ -58,6 +59,9 @@ public final class TouchMapService extends Service {
     private boolean reconfigure;
     private volatile boolean helperActive;
     private boolean remapperStopped;
+    private String lastForegroundLog = "";
+    private boolean pausedForPerf;
+    private boolean perfOpenAtStart;
     private long lastStartAttempt;
     private String notificationText = "";
     private String shownTarget = "";
@@ -65,7 +69,7 @@ public final class TouchMapService extends Service {
     private long inactiveSince;
     private String editorTarget = "";
     private String helperTarget = "";
-    private LocalServerSocket shortcutServer;
+    private volatile LocalServerSocket shortcutServer;
     private Thread shortcutThread;
     private int perfShortcutCode = -1;
     private int drawerShortcutCode = -1;
@@ -254,8 +258,22 @@ public final class TouchMapService extends Service {
             setNotification("PServerBinder unavailable");
             return true;
         }
-        String pkg = foregroundPackage();
+        if (shortcutServer == null) startShortcutBridge();
+        String rawPkg = foregroundPackage();
+        boolean snapshotKnown = rawPkg != null && !rawPkg.isEmpty();
+        if (!snapshotKnown) {
+            // No snapshot at all (PServer busy or between dumpsys writes) means
+            // "unknown", never "the game left". Keep whatever is running and wait
+            // for the next poll instead of tearing down a working controller.
+            inactiveSince = 0L;
+            return false;
+        }
+        String pkg = usablePackage(rawPkg);
         boolean active = pkg != null && store.isAppEnabled(pkg);
+        if (!rawPkg.equals(lastForegroundLog)) {
+            lastForegroundLog = rawPkg;
+            Log.i("AuroraTouchMap", "foreground " + rawPkg + " active=" + active);
+        }
         if (active) {
             inactiveSince = 0L;
             activeTarget = pkg;
@@ -269,19 +287,18 @@ public final class TouchMapService extends Service {
                     || PerfOverlayService.isEditMode()
                     || drawerOpen;
             if (modalOverlay) {
+                Log.i("AuroraTouchMap", "pause: menu=" + PerfOverlayService.isMenuOpen()
+                        + " edit=" + PerfOverlayService.isEditMode()
+                        + " drawer=" + drawerOpen);
                 hideFab();
                 hideOverlay();
                 if (helperActive || TouchMapManager.isRunning(this)) {
                     TouchMapManager.stop(this);
                 }
-                if (drawerOpen) {
-                    // Use the normal-mode raw controller pipeline for the drawer:
-                    // release the mapper, then let the normal pass-through daemon
-                    // supply D-pad, analogue sticks and right-stick scrolling.
-                    ControllerRemapManager.ensureInputDaemon(this);
-                } else if (ControllerRemapManager.isRunning(this)) {
-                    ControllerRemapManager.stop(this);
-                }
+                // Every modal surface (drawer, overlay menu, edit mode) runs on
+                // the normal pass-through pipeline. Without it the controller is
+                // ungrabbed and no shortcut can close the menu again.
+                ControllerRemapManager.ensureInputDaemon(this);
                 helperActive = false;
                 helperTarget = "";
                 lastStartAttempt = 0L;
@@ -295,7 +312,36 @@ public final class TouchMapService extends Service {
                 return false;
             }
             if (perfPanel) {
+                boolean mapping = helperActive || TouchMapManager.isRunning(this);
+                if (!pausedForPerf && mapping && !perfOpenAtStart) {
+                    // Opening the performance overlay hides the virtual controls
+                    // and hands the controller back to the normal pass-through
+                    // daemon, so the overlay can be used. Mapping resumes when it
+                    // is closed.
+                    pausedForPerf = true;
+                    hideFab();
+                    hideOverlay();
+                    TouchMapManager.stop(this);
+                    helperActive = false;
+                    helperTarget = "";
+                    lastStartAttempt = 0L;
+                    remapperStopped = true;
+                    ControllerRemapManager.ensureInputDaemon(this);
+                    setNotification("Mapping paused · overlay open");
+                    return false;
+                }
+                if (pausedForPerf) {
+                    // Still open: stay paused until it is closed again.
+                    hideFab();
+                    hideOverlay();
+                    return false;
+                }
+                // The panel was already open before mapping started; keep
+                // mapping and only hide the guide so the overlay stays usable.
                 hideOverlay();
+            } else {
+                pausedForPerf = false;
+                perfOpenAtStart = false;
             }
             if (!pkg.equals(helperTarget)) {
                 if (helperActive || TouchMapManager.isRunning(this)) {
@@ -327,6 +373,10 @@ public final class TouchMapService extends Service {
             if (!helperActive
                     && System.currentTimeMillis() - lastStartAttempt >= 1200L) {
                 lastStartAttempt = System.currentTimeMillis();
+                Log.i("AuroraTouchMap", "start helper for " + pkg);
+                // If the overlay panel is already open when mapping starts, keep
+                // mapping; only a panel opened later pauses the mapper.
+                perfOpenAtStart = perfPanel;
                 setNotification("Starting touch map for " + appLabel(pkg) + "…");
                 helperActive = TouchMapManager.start(this, layout, stick, useStick, right,
                         combos, rightHold, remapperStopped);
@@ -348,13 +398,15 @@ public final class TouchMapService extends Service {
 
         long now = System.currentTimeMillis();
         if (inactiveSince == 0L) inactiveSince = now;
-        if (now - inactiveSince < 1200L) return false;
+        if (now - inactiveSince < 3000L) return false;
         inactiveSince = 0L;
-        activeTarget = "";
+        pausedForPerf = false;
         hideOverlay();
         hideFab();
         discardEditor();
         if (helperActive || TouchMapManager.isRunning(this)) {
+            Log.i("AuroraTouchMap", "stop helper for " + activeTarget
+                    + " (foreground " + rawPkg + ")");
             TouchMapManager.stop(this);
             helperActive = false;
             helperTarget = "";
@@ -379,12 +431,17 @@ public final class TouchMapService extends Service {
     }
 
     private void startShortcutBridge() {
+        if (shortcutServer != null) return;
         try {
             shortcutServer = new LocalServerSocket(SHORTCUT_SOCKET);
         } catch (Throwable t) {
+            // Retried from the poll loop; a name left over by a dying process
+            // must not disable the controller shortcuts for the whole session.
+            Log.w("AuroraTouchMap", "shortcut bridge unavailable", t);
             shortcutServer = null;
             return;
         }
+        Log.i("AuroraTouchMap", "shortcut bridge listening");
         shortcutThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -456,79 +513,27 @@ public final class TouchMapService extends Service {
     }
 
     private void handleShortcutKey(int code, int value) {
-        refreshShortcutCodes();
-        long timeout = ViewConfiguration.getLongPressTimeout();
-        if (code == perfShortcutCode) {
-            if (value == 1) {
-                if (!perfShortcutDown) {
-                    perfShortcutDown = true;
-                    perfShortcutLongFired = false;
-                    main.removeCallbacks(perfShortcutLongPress);
-                    main.postDelayed(perfShortcutLongPress, timeout);
-                    if (!PerfOverlayService.isOverlayPanelVisible()
-                            && !PerfOverlayService.isMenuOpen()) {
-                        PerfOverlayService.toggleOverlayFromShortcut(TouchMapService.this);
-                        perfShortcutShownOnDown = true;
-                        schedule(0L);
-                    }
-                }
-            } else if (value == 0) {
-                main.removeCallbacks(perfShortcutLongPress);
-                boolean shortTap = perfShortcutDown && !perfShortcutLongFired;
-                boolean shown = perfShortcutShownOnDown;
-                perfShortcutDown = false;
-                perfShortcutLongFired = false;
-                perfShortcutShownOnDown = false;
-                if (shortTap && !shown) {
-                    PerfOverlayService.toggleOverlayFromShortcut(this);
-                    schedule(0L);
-                }
-            }
-            return;
-        }
-        if (code == drawerShortcutCode) {
-            if (value == 1) {
-                if (!drawerShortcutDown) {
-                    drawerShortcutDown = true;
-                    drawerShortcutLongFired = false;
-                    main.removeCallbacks(drawerShortcutLongPress);
-                    main.postDelayed(drawerShortcutLongPress, timeout);
-                    if (!PavoA11yService.isFloatingDrawerVisible()) {
-                        pauseMapperForDrawer();
-                        PavoInputService.toggleFloatingDrawerFromShortcut(TouchMapService.this);
-                        drawerShortcutShownOnDown = true;
-                        schedule(0L);
-                    }
-                }
-            } else if (value == 0) {
-                main.removeCallbacks(drawerShortcutLongPress);
-                boolean shortTap = drawerShortcutDown && !drawerShortcutLongFired;
-                boolean shown = drawerShortcutShownOnDown;
-                drawerShortcutDown = false;
-                drawerShortcutLongFired = false;
-                drawerShortcutShownOnDown = false;
-                if (shortTap && !shown) {
-                    if (!PavoA11yService.isFloatingDrawerVisible()) {
-                        pauseMapperForDrawer();
-                    }
-                    PavoInputService.toggleFloatingDrawerFromShortcut(this);
-                    schedule(0L);
-                }
-            }
-        }
+        // Route controller shortcuts through the normal pass-through handler so
+        // they behave exactly as they do when Touch Mapper is not active.
+        PavoInputService.handleRawKeyFromMapper(this, code, value);
+        if (value == 1) schedule(0L);
     }
 
     private String foregroundPackage() {
         String cached = ForegroundApp.read(this);
         ForegroundApp.request(this);
-        if (cached == null || cached.isEmpty()) return null;
-        if (cached.equals(getPackageName())) return null;
-        if (cached.equals("com.android.systemui")) return null;
-        if (cached.equals("android")) return null;
-        if (cached.equals("com.odin.gameassistant")) return null;
-        if (cached.equals("com.android.launcher3")) return null;
-        if (cached.equals("com.odin.odinlauncher")) return null;
-        return cached;
+        return cached == null || cached.isEmpty() ? null : cached;
+    }
+
+    private String usablePackage(String pkg) {
+        if (pkg == null) return null;
+        if (pkg.equals(getPackageName())) return null;
+        if (pkg.equals("com.android.systemui")) return null;
+        if (pkg.equals("android")) return null;
+        if (pkg.equals("com.odin.gameassistant")) return null;
+        if (pkg.equals("com.android.launcher3")) return null;
+        if (pkg.equals("com.odin.odinlauncher")) return null;
+        return pkg;
     }
 
     private void showOverlay(final String target, final List<TouchTarget> layout,

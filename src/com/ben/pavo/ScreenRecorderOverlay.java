@@ -137,9 +137,10 @@ final class ScreenRecorderOverlay {
         this.micOn = micOn;
         this.seconds = (int) Math.max(0L, elapsedSeconds);
         if (root == null) return;
-        timer.setText((paused ? "PAUSED " : "REC ")
-                + String.format(java.util.Locale.US, "%02d:%02d",
-                seconds / 60, seconds % 60));
+        String clock = String.format(java.util.Locale.US, "%02d:%02d",
+                seconds / 60, seconds % 60);
+        timer.setText(String.format(java.util.Locale.US,
+                Loc.s(context, paused ? "PAUSED %1$s" : "REC %1$s"), clock));
         timer.setTextColor(paused ? 0xFFFFC857 : 0xFFFFD3D5);
         pause.setText(paused ? "RESUME" : "PAUSE");
         pause.setBackground(Ui.rounded(paused ? 0x66FFC857 : 0x33FFFFFF,
@@ -214,7 +215,7 @@ final class ScreenRecorderOverlay {
     }
 
     private TextView label(String value, float sp, int color, boolean mono) {
-        TextView v = new TextView(context);
+        TextView v = new LTextView(context);
         v.setText(value);
         v.setTextColor(color);
         v.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);

@@ -381,7 +381,8 @@ public final class RgbActivity extends PavoGlassActivity {
         hexView.setGravity(Gravity.CENTER);
         hexView.setPadding(0, dp(5), 0, 0);
         colorSection.addView(hexView);
-        rgbView = text("R 43 · G 224 · B 216", 9.5f, MUTED, false);
+        rgbView = text(String.format(Loc.s(this, "R %d · G %d · B %d"), 43, 224, 216),
+                9.5f, MUTED, false);
         rgbView.setGravity(Gravity.CENTER);
         rgbView.setPadding(0, dp(1), 0, dp(4));
         colorSection.addView(rgbView);
@@ -703,8 +704,9 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private void addJoystickPreview(LinearLayout parent, final boolean left) {
         final JoystickPreviewView view = new JoystickPreviewView(this);
-        view.setContentDescription((left ? "Left" : "Right")
-                + " joystick preview. Tap to toggle its RGB ring.");
+        view.setContentDescription(Loc.s(this, left
+                ? "Left joystick preview. Tap to toggle its RGB ring."
+                : "Right joystick preview. Tap to toggle its RGB ring."));
         view.setListener(new JoystickPreviewView.Listener() {
             @Override
             public void onToggle(JoystickPreviewView v) {
@@ -716,7 +718,8 @@ public final class RgbActivity extends PavoGlassActivity {
         box.setGravity(Gravity.CENTER);
         box.setPadding(dp(6), 0, dp(6), 0);
         box.addView(view, new LinearLayout.LayoutParams(dp(46), dp(46)));
-        TextView label = text(left ? "LEFT · ON" : "RIGHT · ON", 8.5f, MUTED, true);
+        TextView label = text(String.format(Loc.s(this, left ? "LEFT · %s" : "RIGHT · %s"),
+                Loc.s(this, "ON")), 8.5f, MUTED, true);
         label.setGravity(Gravity.CENTER);
         label.setPadding(0, dp(4), 0, 0);
         box.addView(label);
@@ -813,8 +816,8 @@ public final class RgbActivity extends PavoGlassActivity {
         if (hexView == null) return;
         String hex = String.format("#%06X", 0xFFFFFF & color);
         hexView.setText(hex);
-        rgbView.setText("R " + Color.red(color) + " · G " + Color.green(color)
-                + " · B " + Color.blue(color));
+        rgbView.setText(String.format(Loc.s(this, "R %d · G %d · B %d"),
+                Color.red(color), Color.green(color), Color.blue(color)));
     }
 
     private void updatePreview() {
@@ -836,8 +839,10 @@ public final class RgbActivity extends PavoGlassActivity {
         rightPreview.setRingColor(ringRight);
         leftPreview.setTargetEnabled(leftOn);
         rightPreview.setTargetEnabled(rightOn);
-        leftLabel.setText("LEFT · " + (leftOn ? "ON" : "OFF"));
-        rightLabel.setText("RIGHT · " + (rightOn ? "ON" : "OFF"));
+        leftLabel.setText(String.format(Loc.s(this, "LEFT · %s"),
+                Loc.s(this, leftOn ? "ON" : "OFF")));
+        rightLabel.setText(String.format(Loc.s(this, "RIGHT · %s"),
+                Loc.s(this, rightOn ? "ON" : "OFF")));
     }
 
     private void syncControls() {

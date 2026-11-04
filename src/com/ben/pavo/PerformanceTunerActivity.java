@@ -31,8 +31,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -225,8 +227,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             thermalView.setTelemetry(rpm, duty, cpu, gpu);
             if (tempLine != null) {
                 tempLine.setTextColor(accent);
-                tempLine.setText("DEMO  ·  CPU " + Math.round(cpu) + "°C  ·  GPU "
-                        + Math.round(gpu) + "°C  ·  FAN " + duty + "%");
+                tempLine.setText(Loc.s(PerformanceTunerActivity.this, "DEMO  ·  CPU ") + Math.round(cpu)
+                        + Loc.s(PerformanceTunerActivity.this, "°C  ·  GPU ") + Math.round(gpu)
+                        + Loc.s(PerformanceTunerActivity.this, "  ·  FAN ") + duty + "%");
             }
             handler.postDelayed(this, 50L);
         }
@@ -396,7 +399,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
 
         LinearLayout.LayoutParams profileLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        profileLp.topMargin = dp(8);
+        profileLp.topMargin = dp(2);
         column.addView(buildProfiles(), profileLp);
 
         LinearLayout body = new LinearLayout(this);
@@ -404,7 +407,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         body.setBaselineAligned(false);
         LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        bodyLp.topMargin = dp(8);
+        bodyLp.topMargin = dp(2);
 
         LinearLayout topRow = new LinearLayout(this);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -417,7 +420,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         bottomRow.setBaselineAligned(false);
         LinearLayout.LayoutParams bottomLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        bottomLp.topMargin = dp(7);
+        bottomLp.topMargin = dp(4);
         body.addView(bottomRow, bottomLp);
 
         DeviceProfile profile = DeviceProfile.get(this);
@@ -458,10 +461,10 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         } else {
             LinearLayout.LayoutParams halfLeft = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-            halfLeft.rightMargin = dp(4);
+            halfLeft.rightMargin = dp(2);
             LinearLayout.LayoutParams halfRight = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-            halfRight.leftMargin = dp(4);
+            halfRight.leftMargin = dp(2);
             efficiencyCard.card.setLayoutParams(halfLeft);
             thermalCardView.setLayoutParams(halfRight);
             performanceCard.card.setLayoutParams(halfLeft);
@@ -485,11 +488,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     }
 
     private View buildHeader() {
-        // Horizontal row so the centred title can never be covered by the
-        // status chips: the title takes the space the two side groups leave.
+        // Two rows: a full-width title row, then the app selector and status
+        // chips. Long translated titles therefore never get clipped.
         LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
 
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
@@ -500,22 +507,28 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         title.setGravity(Gravity.CENTER);
         title.setSingleLine(true);
         title.setAutoSizeTextTypeUniformWithConfiguration(
-                11, 19, 1, TypedValue.COMPLEX_UNIT_SP);
+                10, 16, 1, TypedValue.COMPLEX_UNIT_SP);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         TextView subtitle = text(DeviceProfile.get(this).name.toUpperCase()
-                + "  ·  CPU / GPU / THERMALS", 9.5f, MUTED, false);
+                + "  ·  " + Loc.s(this, "THERMALS"), 9.5f, MUTED, false);
         subtitle.setLetterSpacing(0.13f);
         subtitle.setGravity(Gravity.CENTER);
         subtitle.setSingleLine(true);
+        subtitle.setAutoSizeTextTypeUniformWithConfiguration(
+                6, 10, 1, TypedValue.COMPLEX_UNIT_SP);
         subtitle.setPadding(0, dp(2), 0, 0);
-        titles.addView(subtitle, new LinearLayout.LayoutParams(
+        // The device/thermal subtitle is intentionally omitted: the title row
+        // must stay short enough for the cards to fit without clipping.
+        header.addView(titles, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        header.addView(row, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout leftControls = new LinearLayout(this);
         leftControls.setOrientation(LinearLayout.HORIZONTAL);
         leftControls.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(leftControls, new LinearLayout.LayoutParams(
+        row.addView(leftControls, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         appSelector = new LinearLayout(this);
@@ -557,7 +570,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         appSelectorIcon = new ImageView(this);
         appSelectorIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         appSelector.addView(appSelectorIcon, new LinearLayout.LayoutParams(dp(28), dp(28)));
-        appSelectorLabel = text("ALL APPS", 9f, TEXT, true);
+        appSelectorLabel = text(Loc.s(this, "ALL APPS"), 9f, TEXT, true);
         if (appSelectorLabel instanceof LTextView) ((LTextView) appSelectorLabel).setLocalize(false);
         appSelectorLabel.setSingleLine(true);
         appSelectorLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -589,16 +602,11 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         addFocusable(resetAppChip, true);
         headerFocus.add(resetAppChip);
 
-        LinearLayout.LayoutParams titlesLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        titlesLp.leftMargin = dp(12);
-        titlesLp.rightMargin = dp(12);
-        header.addView(titles, titlesLp);
-
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.HORIZONTAL);
         controls.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(controls, new LinearLayout.LayoutParams(
+        row.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        row.addView(controls, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         profileStatus = text("READING…", 9.5f, accent, true);
@@ -798,7 +806,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
 
     private void updateAppSelector() {
         if (appSelectorIcon == null || appSelectorLabel == null) return;
-        String label = "ALL APPS";
+        String label = Loc.s(this, "ALL APPS");
         Bitmap bitmap = null;
         if (!selectedAppPkg.isEmpty()) {
             try {
@@ -877,9 +885,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         String name = selectedProfile == null || selectedProfile.isEmpty()
                 ? "CUSTOM" : selectedProfile;
         if ("CUSTOM".equals(name) || "STOCK".equals(name)) {
-            profileStatus.setText(name);
+            profileStatus.setText(Loc.s(this, name));
         } else {
-            profileStatus.setText(name + " APPLIED");
+            profileStatus.setText(Loc.s(this, name) + " " + Loc.s(this, "APPLIED"));
         }
         styleProfileStatus(name);
     }
@@ -899,7 +907,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
 
         for (int i = 0; i < profileNames.length; i++) {
             final String name = profileNames[i];
-            TextView chip = text(profileNames[i] + "\n\u2014", 10f, TEXT, true);
+            TextView chip = text(Loc.s(this, profileNames[i]) + "\n\u2014", 10f, TEXT, true);
             chip.setGravity(Gravity.CENTER);
             chip.setLineSpacing(dp(2), 1f);
             chip.setPadding(dp(4), dp(7), dp(4), dp(7));
@@ -911,7 +919,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 }
             });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    0, dp(48), 1f);
+                    0, dp(44), 1f);
             lp.rightMargin = i == profileNames.length - 1 ? 0 : dp(7);
             row.addView(chip, lp);
             profileChips[i] = chip;
@@ -961,7 +969,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     }
 
     private void fanCard(LinearLayout parent) {
-        LinearLayout card = section("FAN", "Mode and precise manual speed");
+        LinearLayout card = section("FAN", "Mode and precise manual duty");
         fanCardView = card;
         parent.addView(card);
 
@@ -1050,7 +1058,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         rootStatus = text("CHECKING ROOT…", 11f, AMBER, true);
         rootStatus.setPadding(0, dp(3), 0, 0);
         card.addView(rootStatus);
-        modeStatus = text("MODE —", 10f, MUTED, false);
+        modeStatus = text(Loc.s(this, "MODE ") + "—", 10f, MUTED, false);
         modeStatus.setPadding(0, dp(3), 0, 0);
         card.addView(modeStatus);
         TextView hint = text("Tuning reset on reboot. Values are limited to the "
@@ -1079,7 +1087,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         footer.addView(hints, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        modeStatus = text("MODE —", tightFooter ? 8f : 8.5f, 0x88FFFFFF, false);
+        modeStatus = text(Loc.s(this, "MODE ") + "—", tightFooter ? 8f : 8.5f, 0x88FFFFFF, false);
         modeStatus.setLetterSpacing(0.06f);
         LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -1105,7 +1113,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     private LinearLayout section(String title, String subtitle) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(12), dp(7), dp(12), dp(7));
+        card.setPadding(dp(8), dp(5), dp(8), dp(5));
         card.setBackground(Ui.rounded(0x300B0E14, dp(16),
                 0x2EFFFFFF, dp(1)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -1168,12 +1176,12 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     // CPU card
     // ------------------------------------------------------------------
 
-    private static String clusterLabel(DeviceProfile.Cluster c) {
+    private String clusterLabel(DeviceProfile.Cluster c) {
         if (c == null) return "";
         int n = c.cores();
         String range = c.cpus.length > 0
                 ? "C" + c.cpus[0] + "–C" + c.cpus[c.cpus.length - 1] : "";
-        return n + " core" + (n == 1 ? "" : "s")
+        return n + Loc.s(this, n == 1 ? " core" : " cores")
                 + (range.isEmpty() ? "" : " · " + range);
     }
 
@@ -1188,6 +1196,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         final TextView governorValue;
         final LinearLayout governorRow;
         final List<TextView> governorChips = new ArrayList<>();
+        final Map<TextView, String> governorCodes = new HashMap<>();
         PerfTuner.Cpu data;
         int[] minFreqs = new int[0];
 
@@ -1218,7 +1227,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             card.addView(govRow, grlp);
             TextView gl = text("GOV", 9f, MUTED, true);
             gl.setLetterSpacing(0.10f);
-            gl.setMinWidth(dp(34));
+            gl.setPadding(0, 0, dp(3), 0);
             govRow.addView(gl);
             governorRow = new LinearLayout(PerformanceTunerActivity.this);
             governorRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -1345,7 +1354,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             data.max = shownMax;
             data.min = shownMin;
             data.governor = governor;
-            current.setText("now " + ghz(cpu.cur) + "  ·  " + cpu.cores + " cores");
+            current.setText(Loc.s(PerformanceTunerActivity.this, "now ") + ghz(cpu.cur)
+                    + "  ·  " + cpu.cores
+                    + Loc.s(PerformanceTunerActivity.this, " cores"));
             updateSliderLabels();
             buildGovernorChips(cpu, governor);
             updating = false;
@@ -1373,14 +1384,22 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                     return;
                 }
                 governorChips.clear();
+                governorCodes.clear();
                 governorRow.removeAllViews();
             }
             for (final String gov : cpu.governors) {
-                TextView chip = modeChip(shortGovernor(gov));
+                String label = governorLabel(gov);
+                TextView chip = modeChip(label);
                 chip.setTag(governorColor(gov));
+                governorCodes.put(chip, shortGovernor(gov));
                 boolean tight = Ui.widthDp(PerformanceTunerActivity.this) < 700;
-                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, tight ? 7.5f : 8.5f);
-                chip.setPadding(dp(tight ? 2 : 4), 0, dp(tight ? 2 : 4), 0);
+                int len = label.length();
+                float sp = len > 12 ? 5.5f : len > 10 ? 6f : len > 8 ? 6.6f : len > 6 ? 7.4f : 8.5f;
+                if (tight) sp = Math.min(sp, 7.5f);
+                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+                chip.setSingleLine(true);
+                chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                chip.setPadding(dp(1), 0, dp(1), 0);
                 chip.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -1398,8 +1417,8 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                     }
                 });
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                        0, dp(23), 1f);
-                lp.rightMargin = dp(3);
+                        0, dp(23), Math.max(1f, label.length()));
+                lp.rightMargin = dp(2);
                 governorRow.addView(chip, lp);
                 governorChips.add(chip);
                 addFocusable(chip, true);
@@ -1412,7 +1431,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             if (data != null && data.governor != null) {
                 String want = shortGovernor(data.governor);
                 for (TextView chip : governorChips) {
-                    if (want.contentEquals(chip.getText())) return chip;
+                    if (want.equals(governorCodes.get(chip))) return chip;
                 }
             }
             return governorChips.get(0);
@@ -1421,15 +1440,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         void updateGovernorStyles(String selected) {
             for (TextView chip : governorChips) {
                 boolean is = selected != null
-                        && shortGovernor(selected).contentEquals(chip.getText());
+                        && shortGovernor(selected).equals(governorCodes.get(chip));
                 int color = chip.getTag() instanceof Integer
                         ? (Integer) chip.getTag() : ramp(0.5f);
-                chip.setTextColor(is ? DARK_TEXT : lighten(color, 0.34f));
+                chip.setTextColor(is ? DARK_TEXT : 0xFFEAF2F6);
                 chip.setBackground(Ui.rounded(
                         is ? color : withAlpha(color, 0x1E), dp(9),
                         is ? 0xFFFFFFFF : withAlpha(color, 0x60), dp(1)));
             }
-            governorValue.setText(selected == null ? "" : selected);
+            governorValue.setText(selected == null ? "" : governorLabel(selected));
         }
     }
 
@@ -1568,7 +1587,8 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             int shownMin = targetMin > 0 ? targetMin : gpu.min;
             maxSeek.setProgress(PerfTuner.closestIndex(gpu.freqs, shownMax));
             minSeek.setProgress(PerfTuner.closestIndex(gpu.freqs, shownMin));
-            current.setText("now " + mhz(gpu.cur) + "  ·  " + gpu.governor);
+            current.setText(Loc.s(PerformanceTunerActivity.this, "now ") + mhz(gpu.cur)
+                    + "  ·  " + gpu.governor);
             updateSliderLabels();
             updating = false;
         }
@@ -1623,16 +1643,16 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         updateProfileStatus();
         if (!demoActive) {
             if (snapshot.cpuTemp > 0 || snapshot.gpuTemp > 0) {
-                tempLine.setText("CPU " + Math.round(snapshot.cpuTemp) + "°C"
-                        + "  ·  GPU " + Math.round(snapshot.gpuTemp) + "°C");
+                tempLine.setText(Loc.s(this, "CPU ") + Math.round(snapshot.cpuTemp) + "°C"
+                        + Loc.s(this, "  ·  GPU ") + Math.round(snapshot.gpuTemp) + "°C");
             } else {
                 tempLine.setText("CPU —  ·  GPU —");
             }
         }
         if (modeStatus != null) {
-            String min = "min " + ghz(cfg.p0Min) + " / " + ghz(cfg.p6Min);
+            String min = Loc.s(this, "min ") + ghz(cfg.p0Min) + " / " + ghz(cfg.p6Min);
             modeStatus.setText(DeviceProfile.get(this).performanceModes
-                    ? "MODE " + cfg.performanceMode + "  ·  " + min : min);
+                    ? Loc.s(this, "MODE ") + cfg.performanceMode + "  ·  " + min : min);
         }
         if (updateRoot) setRootState(snapshot.root);
     }
@@ -1674,15 +1694,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             String duty = fan.period > 0 ? dutyPct + "%" : "—";
             String rpm;
             if (fan.rpm > 0) {
-                rpm = String.format(Locale.US, "%,d RPM", fan.rpm);
+                rpm = String.format(Loc.displayLocale(PerformanceTunerActivity.this), "%,d %s", fan.rpm, Loc.s(this, "RPM"));
             } else if (fan.state != 0 && dutyPct > 0) {
-                rpm = "~" + String.format(Locale.US, "%,d RPM",
-                        PerfTuner.estimatedRpm(dutyPct));
+                rpm = "~" + String.format(Loc.displayLocale(PerformanceTunerActivity.this), "%,d %s",
+                        PerfTuner.estimatedRpm(dutyPct), Loc.s(this, "RPM"));
             } else {
                 rpm = "—";
             }
-            fanDetail.setText("SPEED " + duty + "  ·  " + rpm + "  ·  "
-                    + modeLabel(fan.mode));
+            fanDetail.setText(Loc.s(this, "SPEED") + " " + duty + "  ·  "
+                    + rpm + "  ·  " + modeLabel(fan.mode));
         }
     }
 
@@ -1859,13 +1879,14 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
 
     private String modeLabel(int mode) {
         int index = fanModeIndex(mode);
-        return index >= 0 ? PerfTuner.FAN_MODE_LABELS[index] : "MODE " + mode;
+        return index >= 0 ? PerfTuner.FAN_MODE_LABELS[index]
+                : Loc.s(this, "MODE ") + mode;
     }
 
     private void applyProfile(String name) {
         selectedProfile = name;
         markProfileChips();
-        profileStatus.setText(name + " APPLIED");
+        profileStatus.setText(Loc.s(this, name) + " " + Loc.s(this, "APPLIED"));
         styleProfileStatus(name);
         final PerfProfiles.Spec spec = PerfProfiles.get(name, state);
         if (state != null) {
@@ -1958,12 +1979,13 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             if (spec.p0Max <= 0 && spec.p6Max <= 0) {
                 sub = "\u2014";
             } else if (PerfProfiles.EXTREME.equals(profileNames[i])) {
-                sub = "MAX / MAX";
+                sub = Loc.s(this, "MAX") + " / " + Loc.s(this, "MAX");
             } else {
-                sub = String.format(Locale.US, "%.2f / %.2f GHz",
-                        spec.p0Max / 1000000f, spec.p6Max / 1000000f);
+                sub = String.format(Loc.displayLocale(PerformanceTunerActivity.this), "%.2f / %.2f %s",
+                        spec.p0Max / 1000000f, spec.p6Max / 1000000f,
+                        Loc.s(this, "GHz"));
             }
-            chip.setText(profileNames[i] + "\n" + sub);
+            chip.setText(Loc.s(this, profileNames[i]) + "\n" + sub);
         }
     }
 
@@ -2706,12 +2728,24 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         return Ui.dp(this, value);
     }
 
-    private static String ghz(int khz) {
-        return String.format(Locale.US, "%.2f GHz", khz / 1000000f);
+    private String ghz(int khz) {
+        return String.format(Loc.displayLocale(PerformanceTunerActivity.this), "%.2f %s", khz / 1000000f,
+                Loc.s(this, "GHz"));
     }
 
-    private static String mhz(int hz) {
-        return String.format(Locale.US, "%.0f MHz", hz / 1000000f);
+    private String mhz(int hz) {
+        return String.format(Loc.displayLocale(PerformanceTunerActivity.this), "%.0f %s", hz / 1000000f,
+                Loc.s(this, "MHz"));
+    }
+
+    private String governorLabel(String gov) {
+        String code = shortGovernor(gov);
+        if ("SCHED".equals(code)) return Loc.s(this, "GOV_SCHED");
+        if ("PERF".equals(code)) return Loc.s(this, "GOV_PERF");
+        if ("CONS".equals(code)) return Loc.s(this, "GOV_CONS");
+        if ("POWER".equals(code)) return Loc.s(this, "GOV_POWER");
+        if ("WALT".equals(code)) return Loc.s(this, "WALT");
+        return code;
     }
 
     private static String shortGovernor(String gov) {

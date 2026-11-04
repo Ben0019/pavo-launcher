@@ -1650,6 +1650,20 @@ public final class PavoA11yService extends AccessibilityService {
         }
     }
 
+
+    /**
+     * Pavo's own overlay windows (touch guide, mapper handle, editor, performance
+     * card) also raise window-state events. Those must not replace the real
+     * foreground package, or the touch mapper believes the game went away and
+     * shuts itself down. Only Pavo activities count as foreground.
+     */
+    private boolean ownWindowIsForeground(String name, CharSequence className) {
+        if (!name.equals(getPackageName())) return true;
+        if (className == null) return false;
+        String cls = className.toString();
+        return cls.startsWith("com.ben.pavo.") && cls.endsWith("Activity");
+    }
+
     private static boolean isSystemKey(String key) {
         return "KEY_VOLUMEUP".equals(key) || "KEY_VOLUMEDOWN".equals(key)
                 || "KEY_POWER".equals(key) || "KEY_HOME".equals(key)
@@ -1677,7 +1691,8 @@ public final class PavoA11yService extends AccessibilityService {
                 // so that going Home clears the app that was in front.
                 if (!name.equals("com.android.systemui")
                         && !name.equals("com.odin.gameassistant")
-                        && !name.contains("inputmethod")) {
+                        && !name.contains("inputmethod")
+                        && ownWindowIsForeground(name, event.getClassName())) {
                     foregroundPackage = name;
                     foregroundAt = SystemClock.uptimeMillis();
                 }

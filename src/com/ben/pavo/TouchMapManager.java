@@ -23,6 +23,7 @@ final class TouchMapManager {
     private static final String LOG = "touchmap.log";
 
     private static boolean starting;
+    private static volatile boolean active;
 
     private TouchMapManager() {
     }
@@ -33,12 +34,21 @@ final class TouchMapManager {
 
     static synchronized boolean isRunning(Context c) {
         // /proc is hidepid-protected for this app UID, so the pid file is the
-        // readiness signal. A stale pid is cleaned up by stopBlocking().
+        // readiness signal. The helper refreshes it every second, so an old
+        // timestamp means the process died without cleaning up.
+        File file = pidFile(c);
+        if (!file.isFile()) return false;
+        if (System.currentTimeMillis() - file.lastModified() > 6000L) return false;
         return readPid(c) > 0;
     }
 
     static synchronized boolean isStarting() {
         return starting;
+    }
+
+    /** True while Touch Mapper owns the controller; keeps the pass-through daemon away. */
+    static boolean isActive() {
+        return active;
     }
 
     /**
@@ -59,6 +69,7 @@ final class TouchMapManager {
         }
         if (starting) return isRunning(context);
         starting = true;
+        boolean success = false;
         Context app = context.getApplicationContext();
         try {
             stopBlocking(app);
@@ -69,6 +80,7 @@ final class TouchMapManager {
                 ControllerRemapManager.stop(app);
                 Thread.sleep(200L);
             }
+            active = true;
 
             File binary = new File(app.getFilesDir(), BINARY);
             if (!extract(app, binary)) return false;
@@ -88,6 +100,7 @@ final class TouchMapManager {
             while (System.currentTimeMillis() < end) {
                 if (isRunning(app)) {
                     Log.i(TAG, "virtual touch daemon ready");
+                    success = true;
                     return true;
                 }
                 Thread.sleep(80L);
@@ -98,6 +111,7 @@ final class TouchMapManager {
             Log.w(TAG, "start failed", t);
             return false;
         } finally {
+            if (!success) active = false;
             starting = false;
         }
     }
@@ -108,6 +122,7 @@ final class TouchMapManager {
     }
 
     private static void stopBlocking(Context app) {
+        active = false;
         int pid = readPid(app);
         if (pid > 0) {
             if (PServer.available()) PServer.run("kill -TERM " + pid);
@@ -193,7 +208,6 @@ final class TouchMapManager {
         s.append("nohup setsid ./").append(BINARY)
                 .append(" --config ").append(shellQuote("./" + CONFIG))
                 .append(" --pid ").append(shellQuote("./" + PID))
-                .append(" --client ").append(android.os.Process.myPid())
                 .append(" >").append(shellQuote("./" + LOG))
                 .append(" 2>&1 </dev/null &\n");
         try (FileOutputStream out = new FileOutputStream(launcher)) {

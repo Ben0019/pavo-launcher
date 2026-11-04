@@ -333,8 +333,10 @@ public final class FtpActivity extends PavoGlassActivity {
         body.addView(anonChip, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        userField = field("user", prefs.ftpUser(), android.text.InputType.TYPE_CLASS_TEXT);
-        passField = field("password", prefs.ftpPassword(), android.text.InputType.TYPE_CLASS_TEXT
+        userField = field(Loc.s(this, "user"), prefs.ftpUser(),
+                android.text.InputType.TYPE_CLASS_TEXT);
+        passField = field(Loc.s(this, "password"), prefs.ftpPassword(),
+                android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         userField.setFocusable(true);
         passField.setFocusable(true);
@@ -443,7 +445,7 @@ public final class FtpActivity extends PavoGlassActivity {
     }
 
     private void refreshPermissionChip(TextView chip, String label, String key) {
-        chip.setText(label + "  \u00b7  " + Loc.s(this, prefs.ftpShareWritable(key)
+        chip.setText(Loc.s(this, label) + "  \u00b7  " + Loc.s(this, prefs.ftpShareWritable(key)
                 ? "READ + WRITE" : "READ ONLY"));
     }
 
@@ -494,14 +496,16 @@ public final class FtpActivity extends PavoGlassActivity {
 
     private void updateServerStatus() {
         if (!FtpService.isRunning()) {
-            if (startButton != null && !"Start server".contentEquals(startButton.getText())) {
+            if (startButton != null && !Loc.s(this, "Start server").contentEquals(startButton.getText())) {
                 startButton.setText("Start server");
             }
             return;
         }
         int clients = FtpService.clientCount();
-        serverStatus.setText(clients == 0 ? "Sharing · waiting for clients"
-                : "Sharing · " + clients + (clients == 1 ? " client" : " clients"));
+        serverStatus.setText(clients == 0
+                ? Loc.s(this, "Sharing · waiting for clients")
+                : String.format(Loc.s(this, clients == 1
+                        ? "Sharing · %d client" : "Sharing · %d clients"), clients));
         serverStatus.setTextColor(OK);
         String host = FtpServer.localAddress();
         serverUrl.setText(host == null ? "No network address" : host);
@@ -579,7 +583,7 @@ public final class FtpActivity extends PavoGlassActivity {
         panel.addView(address, wrap());
 
         TextView note = text(anonymous()
-                        ? "Anonymous access · open port " + port
+                        ? String.format(Loc.s(this, "Anonymous access · open port %d"), port)
                         : "User and password are inside the code",
                 9f, MUTED, false);
         panel.addView(note, wrap());
@@ -653,9 +657,9 @@ public final class FtpActivity extends PavoGlassActivity {
 
         LinearLayout fields = new LinearLayout(this);
         fields.setOrientation(LinearLayout.HORIZONTAL);
-        hostField = field("host or IP", prefs.ftpRemoteHost(),
+        hostField = field(Loc.s(this, "host or IP"), prefs.ftpRemoteHost(),
                 android.text.InputType.TYPE_CLASS_TEXT);
-        remotePortField = field("port", String.valueOf(prefs.ftpRemotePort()),
+        remotePortField = field(Loc.s(this, "port"), String.valueOf(prefs.ftpRemotePort()),
                 android.text.InputType.TYPE_CLASS_NUMBER);
         hostField.setFocusable(true);
         remotePortField.setFocusable(true);
@@ -667,8 +671,9 @@ public final class FtpActivity extends PavoGlassActivity {
 
         LinearLayout creds = new LinearLayout(this);
         creds.setOrientation(LinearLayout.HORIZONTAL);
-        remoteUserField = field("user", prefs.ftpRemoteUser(), android.text.InputType.TYPE_CLASS_TEXT);
-        remotePassField = field("password", prefs.ftpRemotePassword(),
+        remoteUserField = field(Loc.s(this, "user"), prefs.ftpRemoteUser(),
+                android.text.InputType.TYPE_CLASS_TEXT);
+        remotePassField = field(Loc.s(this, "password"), prefs.ftpRemotePassword(),
                 android.text.InputType.TYPE_CLASS_TEXT
                         | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         remoteUserField.setFocusable(true);
@@ -753,7 +758,7 @@ public final class FtpActivity extends PavoGlassActivity {
                         @Override
                         public void run() {
                             connectButton.setText("DISCONNECT");
-                            clientStatus.setText("Connected to " + host);
+                            clientStatus.setText(Loc.s(FtpActivity.this, "Connected to ") + host);
                             clientStatus.setTextColor(OK);
                             showEntries(entries);
                             openInFileManager(host, finalPort, user, pass);
@@ -765,7 +770,7 @@ public final class FtpActivity extends PavoGlassActivity {
                     main.post(new Runnable() {
                         @Override
                         public void run() {
-                            clientStatus.setText("Connection failed: " + message);
+                            clientStatus.setText(Loc.s(FtpActivity.this, "Connection failed: ") + message);
                             clientStatus.setTextColor(BAD);
                         }
                     });
@@ -794,7 +799,7 @@ public final class FtpActivity extends PavoGlassActivity {
 
     private void openPath(final String path) {
         if (client == null || !client.isConnected()) return;
-        clientStatus.setText("Reading " + path + "…");
+        clientStatus.setText(Loc.s(this, "Reading ") + path + "…");
         clientStatus.setTextColor(MUTED);
         worker.execute(new Runnable() {
             @Override
@@ -817,7 +822,7 @@ public final class FtpActivity extends PavoGlassActivity {
                     main.post(new Runnable() {
                         @Override
                         public void run() {
-                            clientStatus.setText("Could not read folder: " + message);
+                            clientStatus.setText(Loc.s(FtpActivity.this, "Could not read folder: ") + message);
                             clientStatus.setTextColor(BAD);
                         }
                     });
@@ -867,7 +872,7 @@ public final class FtpActivity extends PavoGlassActivity {
         final File target = new File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 name);
-        clientStatus.setText("Downloading " + name + "…");
+        clientStatus.setText(Loc.s(this, "Downloading ") + name + "…");
         clientStatus.setTextColor(MUTED);
         worker.execute(new Runnable() {
             @Override
@@ -877,7 +882,7 @@ public final class FtpActivity extends PavoGlassActivity {
                     main.post(new Runnable() {
                         @Override
                         public void run() {
-                            clientStatus.setText("Saved to Download/" + name);
+                            clientStatus.setText(Loc.s(FtpActivity.this, "Saved to Download/") + name);
                             clientStatus.setTextColor(OK);
                         }
                     });
@@ -887,7 +892,7 @@ public final class FtpActivity extends PavoGlassActivity {
                     main.post(new Runnable() {
                         @Override
                         public void run() {
-                            clientStatus.setText("Download failed: " + message);
+                            clientStatus.setText(Loc.s(FtpActivity.this, "Download failed: ") + message);
                             clientStatus.setTextColor(BAD);
                         }
                     });

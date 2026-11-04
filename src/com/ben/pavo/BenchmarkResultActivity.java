@@ -195,8 +195,9 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
         if (content == null) return;
         content.removeAllViews();
         if (subtitle != null) {
-            subtitle.setText(results.size() + " "
-                    + tr(results.size() == 1 ? "SAVED RUN" : "SAVED RUNS"));
+            subtitle.setText(String.format(Locale.US,
+                    tr(results.size() == 1 ? "%d SAVED RUN" : "%d SAVED RUNS"),
+                    results.size()));
         }
         if (results.isEmpty()) {
             TextView empty = text("No saved runs yet", 11f, MUTED, true);
@@ -254,7 +255,7 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
             card.addView(top, matchWrap());
 
             TextView meta = text(formatDate(r.timestamp) + "  ·  "
-                            + String.format(Locale.US, "%.1f s", r.durationMs / 1000f)
+                            + String.format(Locale.US, tr("%.1f s"), r.durationMs / 1000f)
                             + "  ·  " + r.threads + "T", 8.5f, MUTED, true);
             meta.setPadding(0, dp(2), 0, 0);
             card.addView(meta);
@@ -282,7 +283,7 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
         BenchmarkResult result = results.get(selectedIndex);
         if (subtitle != null) {
             subtitle.setText(modeText(result.modeLabel()) + "  ·  "
-                    + String.format(Locale.getDefault(), "%.1f s", result.durationMs / 1000f)
+                    + String.format(Locale.getDefault(), tr("%.1f s"), result.durationMs / 1000f)
                     + "  ·  " + result.threads + " " + tr("THREADS") + "  ·  "
                     + formatDate(result.timestamp));
         }
@@ -312,7 +313,8 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
         cards.setPadding(0, dp(4), 0, dp(2));
         content.addView(cards, matchWrap());
         View throttleCard = scoreCard("THROTTLE SCORE", result.throttleLabel(),
-                tr("HELD") + " " + result.primaryHoldSec() + "s  ·  " + tr("SUS")
+                tr("HELD") + " " + String.format(Locale.US, tr("%ds"),
+                        result.primaryHoldSec()) + "  ·  " + tr("SUS")
                         + " " + result.primarySustainedPct() + "%", result.throttleColor());
         View gpuCard = scoreCard("GPU FPS", String.format(Locale.US, "%.0f", result.gpuFps),
                 tr("AVG") + String.format(Locale.US, " %.0f", result.avgFps),
@@ -342,20 +344,26 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(170)));
 
         addSection(content, "TELEMETRY");
-        addRow(content, "CPU TEMP", String.format(Locale.US, "%.0f\u00b0 AVG", result.cpuTempAvg),
-                String.format(Locale.US, "%.0f\u00b0 MAX", result.cpuTempMax));
-        addRow(content, "GPU TEMP", String.format(Locale.US, "%.0f\u00b0 AVG", result.gpuTempAvg),
-                String.format(Locale.US, "%.0f\u00b0 MAX", result.gpuTempMax));
-        addRow(content, "CPU LOAD", result.cpuUseAvg + "% AVG", result.cpuUseMax + "% MAX");
-        addRow(content, "GPU LOAD", result.gpuUseAvg + "% AVG", result.gpuUseMax + "% MAX");
+        addRow(content, "CPU TEMP",
+                String.format(Locale.US, tr("%.0f° AVG"), result.cpuTempAvg),
+                String.format(Locale.US, tr("%.0f° MAX"), result.cpuTempMax));
+        addRow(content, "GPU TEMP",
+                String.format(Locale.US, tr("%.0f° AVG"), result.gpuTempAvg),
+                String.format(Locale.US, tr("%.0f° MAX"), result.gpuTempMax));
+        addRow(content, "CPU LOAD",
+                String.format(Locale.US, tr("%d%% AVG"), result.cpuUseAvg),
+                String.format(Locale.US, tr("%d%% MAX"), result.cpuUseMax));
+        addRow(content, "GPU LOAD",
+                String.format(Locale.US, tr("%d%% AVG"), result.gpuUseAvg),
+                String.format(Locale.US, tr("%d%% MAX"), result.gpuUseMax));
         addRow(content, "THROTTLE", result.throttleLabel(),
                 result.throttlePct + "% " + tr("HOLD"));
         addRow(content, "EVIDENCE", result.evidenceLabel(),
                 result.evidencePct() + "% " + tr("TEST LENGTH"));
         addRow(content, "CPU HOLD", result.cpuHeldPct + "%",
-                result.cpuHoldSec + "s " + tr("AT CLOCK"));
+                String.format(Locale.US, tr("%ds"), result.cpuHoldSec) + " " + tr("AT CLOCK"));
         addRow(content, "GPU HOLD", result.gpuHeldPct + "%",
-                result.gpuHoldSec + "s " + tr("AT CLOCK"));
+                String.format(Locale.US, tr("%ds"), result.gpuHoldSec) + " " + tr("AT CLOCK"));
         addRow(content, "CPU SUSTAINED", result.cpuSustainedPct + "%", "LAST QUARTER");
         addRow(content, "GPU SUSTAINED", result.gpuSustainedPct + "%", "LAST QUARTER");
         addRow(content, "SAMPLES", String.valueOf(result.samples), "LIVE GRAPH");
@@ -363,8 +371,8 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
         addSection(content, "RUN");
         addRow(content, "MODE", modeText(result.modeLabel()),
                 result.threads + " " + tr("THREADS"));
-        addRow(content, "DURATION", String.format(Locale.US, "%.1f s",
-                result.durationMs / 1000f), result.lengthLabel() + " " + tr("SET"));
+        addRow(content, "DURATION", String.format(Locale.US, tr("%.1f s"),
+                result.durationMs / 1000f), formatLength(result.lengthSec) + " " + tr("SET"));
         addRow(content, "TUNING", result.tuneLabel(this), "PSERVER ONLY");
         addRow(content, "STATUS", result.completed ? "COMPLETE" : "STOPPED",
                 formatDate(result.timestamp));
@@ -622,6 +630,12 @@ public final class BenchmarkResultActivity extends PavoGlassActivity {
         if (timestamp <= 0L) return "--";
         return new SimpleDateFormat("MMM d  ·  HH:mm", Locale.getDefault())
                 .format(new Date(timestamp));
+    }
+
+    private String formatLength(int seconds) {
+        if (seconds <= 0) return "--";
+        if (seconds < 60) return String.format(Locale.US, tr("%ds"), seconds);
+        return String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60);
     }
 
     private int dp(float value) {

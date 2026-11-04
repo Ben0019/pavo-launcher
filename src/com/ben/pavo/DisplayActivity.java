@@ -196,7 +196,7 @@ public final class DisplayActivity extends PavoGlassActivity {
         refreshOptions[0] = "Auto";
         for (int i = 0; i < rates.length; i++) {
             refreshValues[i + 1] = rates[i];
-            refreshOptions[i + 1] = rates[i] + " Hz";
+            refreshOptions[i + 1] = String.format(Loc.s(this, "%d Hz"), rates[i]);
         }
         int nativeShort = 0;
         if (initial != null) {
@@ -213,7 +213,7 @@ public final class DisplayActivity extends PavoGlassActivity {
         resolutionOptions[0] = "Native";
         for (int i = 0; i < rungs.size(); i++) {
             resolutionHeights[i + 1] = rungs.get(i);
-            resolutionOptions[i + 1] = rungs.get(i) + "p";
+            resolutionOptions[i + 1] = String.format(Loc.s(this, "%dp"), rungs.get(i));
         }
 
         refreshRow = new ChoiceRow(panelSection, "Refresh rate",
@@ -261,7 +261,8 @@ public final class DisplayActivity extends PavoGlassActivity {
         systemRows.add(resolutionRow);
         String detectedAspect = aspectLabel(nativeAspect);
         String nativeChip = detectedAspect.isEmpty()
-                ? "Native" : "Native " + detectedAspect;
+                ? Loc.s(this, "Native")
+                : String.format(Loc.s(this, "Native %s"), detectedAspect);
         aspectRow = new ChoiceRow(panelSection, "Aspect ratio",
                 new String[]{nativeChip, "16:9", "16:10", "3:2", "4:3", "21:9"}, 0,
                 new ChoiceCallback() {
@@ -517,7 +518,7 @@ public final class DisplayActivity extends PavoGlassActivity {
         title.setGravity(Gravity.CENTER);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView subtitle = text("PANEL  ·  "
+        TextView subtitle = text(Loc.s(this, "PANEL  ·  ")
                 + DeviceProfile.get(this).name.toUpperCase(), 9.5f, MUTED, false);
         subtitle.setLetterSpacing(0.13f);
         subtitle.setGravity(Gravity.CENTER);
@@ -910,8 +911,8 @@ public final class DisplayActivity extends PavoGlassActivity {
         }
 
         private String label(int valueNow) {
-            if (min == 2500) return valueNow + " K";
-            return valueNow + "%";
+            if (min == 2500) return String.format(Loc.s(DisplayActivity.this, "%d K"), valueNow);
+            return String.format(Loc.s(DisplayActivity.this, "%d%%"), valueNow);
         }
 
         @Override
@@ -1015,14 +1016,14 @@ public final class DisplayActivity extends PavoGlassActivity {
         }
     };
 
-    private static String aspectLabel(float ratio) {
+    private String aspectLabel(float ratio) {
         if (ratio <= 0f) return "";
         float[] known = {16f / 9f, 16f / 10f, 3f / 2f, 4f / 3f, 21f / 9f};
         String[] labels = {"16:9", "16:10", "3:2", "4:3", "21:9"};
         for (int i = 0; i < known.length; i++) {
             if (Math.abs(ratio - known[i]) < 0.02f) return labels[i];
         }
-        return String.format(Locale.US, "%.2f:1", ratio);
+        return String.format(Loc.displayLocale(this), Loc.s(this, "%.2f:1"), ratio);
     }
 
     private void applyResolution() {
@@ -1071,11 +1072,14 @@ public final class DisplayActivity extends PavoGlassActivity {
         if (s == null) return;
         updating = true;
         String aspectInfo = aspectLabel(s.nativeAspect);
-        info.setText(s.width + " × " + s.height
-                + (aspectInfo.isEmpty() ? "" : "  ·  " + aspectInfo)
-                + "  ·  " + s.densityDpi
-                + " dpi  ·  " + DisplayTuner.refreshLabel(s.refresh)
-                + "  ·  " + (prefs.panelHdrEnabled() ? s.hdr : "HDR OFF"));
+        String refreshInfo = String.format(Loc.displayLocale(this),
+                Loc.s(this, "%.0f Hz"), s.refresh);
+        String hdrInfo = prefs.panelHdrEnabled() ? s.hdr : Loc.s(this, "HDR OFF");
+        info.setText(aspectInfo.isEmpty()
+                ? String.format(Loc.s(this, "%d × %d  ·  %d dpi  ·  %s  ·  %s"),
+                        s.width, s.height, s.densityDpi, refreshInfo, hdrInfo)
+                : String.format(Loc.s(this, "%d × %d  ·  %s  ·  %d dpi  ·  %s  ·  %s"),
+                        s.width, s.height, aspectInfo, s.densityDpi, refreshInfo, hdrInfo));
         status.setText(root ? "PSERVER CONNECTED" : "PSERVER REQUIRED");
         status.setTextColor(root ? GREEN : RED);
         status.setBackground(Ui.rounded(root ? 0x1816C784 : 0x22FF5C6C,

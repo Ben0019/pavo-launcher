@@ -411,7 +411,7 @@ final class FanBackView extends View {
         c.drawLine(91, 101, 164, 101, detail);
         c.drawLine(91, 113, 130, 113, detail);
         int mah = batteryMah();
-        if (mah > 0) c.drawText(mah + "mAh", 94, 66, text);
+        if (mah > 0) c.drawText(Loc.number(getContext(), mah + "mAh"), 94, 66, text);
         String name = DeviceProfile.get(getContext()).name.toUpperCase();
         float size = text.getTextSize();
         float width = text.measureText(name);
@@ -435,7 +435,7 @@ final class FanBackView extends View {
         for (int x = 231; x < 317; x += 4) {
             c.drawLine(x, 33, x, 44, detail);
         }
-        c.drawText("EXHAUST", 226, 25, text);
+        c.drawText(Loc.s(getContext(), "EXHAUST"), 226, 25, text);
     }
 
     private void drawFan(Canvas c) {
@@ -491,7 +491,7 @@ final class FanBackView extends View {
             c.drawCircle(cx, cy, r + 3f, glow);
         }
         text.setColor(HeatColor.withAlpha(heatColor, 0xB0));
-        c.drawText("FAN", cx - 8, cy + r + 14, text);
+        c.drawText(Loc.s(getContext(), "FAN"), cx - 8, cy + r + 14, text);
     }
 
     private int batteryMah = -1;

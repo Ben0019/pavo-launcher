@@ -1117,7 +1117,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
             }), actionLp(5));
             return;
         }
-        clipboardLabel.setText("FTP  \u00b7  " + ftpHost + "  \u00b7  " + local
+        clipboardLabel.setText("FTP  \u00b7  " + ftpHost + "  \u00b7  " + Loc.s(this, local)
                 + (writable ? "" : "  \u00b7  " + Loc.s(this, "READ ONLY")));
         actionRow.addView(actionButton("SWAP", new Runnable() {
             @Override public void run() { swapPanes(); }
@@ -1306,7 +1306,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
                             client = opened;
                             busy = false;
                             if (client == null) {
-                                status.setText("FTP: " + failure + "  \u00b7  tap to retry");
+                                status.setText("FTP: " + failure + "  \u00b7  "
+                                        + Loc.s(FileManagerActivity.this, "tap to retry"));
                                 path.setText(host);
                                 return;
                             }
@@ -1347,7 +1348,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
                             if (ticket != token || isFinishing()) return;
                             busy = false;
                             if (found == null) {
-                                status.setText("FTP: " + failure + "  \u00b7  tap to retry");
+                                status.setText("FTP: " + failure + "  \u00b7  "
+                                        + Loc.s(FileManagerActivity.this, "tap to retry"));
                                 return;
                             }
                             dir = next;
@@ -1429,7 +1431,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
                         c.download(childPath(entry.name), tmp);
                         if (cached.exists()) cached.delete();
                         if (!tmp.renameTo(cached)) {
-                            throw new java.io.IOException("Could not cache preview");
+                            throw new java.io.IOException(
+                                    Loc.s(FileManagerActivity.this, "Could not cache preview"));
                         }
                         // Previews are a read-only look at the remote file; SAVE
                         // is what copies it into the local pane.
@@ -1770,7 +1773,9 @@ public final class FileManagerActivity extends PavoGlassActivity {
             File out = new File(dest, e.name);
             if (e.dir) {
                 if (!out.isDirectory() && !out.mkdirs()) {
-                    throw new java.io.IOException("Could not create " + e.name);
+                    throw new java.io.IOException(
+                            Loc.s(FileManagerActivity.this, "Could not create folder")
+                                    + ": " + e.name);
                 }
                 for (FtpClient.Entry kid : client.list(path)) downloadTree(path, kid, out);
             } else {
@@ -1808,7 +1813,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
             }
             final File destination = out;
             busy = true;
-            status.setText(Loc.s(FileManagerActivity.this, "Downloading") + "  " + entry.name + "\u2026");
+            status.setText(String.format(Loc.s(FileManagerActivity.this,
+                    "Downloading %s\u2026"), entry.name));
             io.execute(new Runnable() {
                 @Override public void run() {
                     String error = null;
@@ -2816,7 +2822,8 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 try {
                     String base = target.getCanonicalPath() + File.separator;
                     if (!target.exists() && !target.mkdirs()) {
-                        throw new IOException("Could not create folder");
+                        throw new IOException(
+                                Loc.s(FileManagerActivity.this, "Could not create folder"));
                     }
                     try (ZipFile zf = new ZipFile(zip)) {
                         java.util.Enumeration<? extends ZipEntry> it = zf.entries();
@@ -2873,12 +2880,15 @@ public final class FileManagerActivity extends PavoGlassActivity {
     }
 
     private String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.0f KB", bytes / 1024f);
-        if (bytes < 1024L * 1024L * 1024L) {
-            return String.format(Locale.ROOT, "%.1f MB", bytes / (1024f * 1024f));
+        String out;
+        if (bytes < 1024) out = bytes + " B";
+        else if (bytes < 1024 * 1024) out = String.format(Locale.ROOT, "%.0f KB", bytes / 1024f);
+        else if (bytes < 1024L * 1024L * 1024L) {
+            out = String.format(Locale.ROOT, "%.1f MB", bytes / (1024f * 1024f));
+        } else {
+            out = String.format(Locale.ROOT, "%.2f GB", bytes / (1024f * 1024f * 1024f));
         }
-        return String.format(Locale.ROOT, "%.2f GB", bytes / (1024f * 1024f * 1024f));
+        return Loc.number(this, out);
     }
 
     private void openFile(File file) {
@@ -3658,17 +3668,17 @@ public final class FileManagerActivity extends PavoGlassActivity {
     }
 
     private String formatBytes(long bytes) {
-        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024) return Loc.number(this, bytes + " B");
         double v = bytes;
         String[] units = {"B", "KB", "MB", "GB", "TB"};
         int i = 0;
         while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-        return String.format(Locale.getDefault(), "%.1f %s", v, units[i]);
+        return Loc.number(this, String.format(Locale.getDefault(), "%.1f %s", v, units[i]));
     }
 
     private String formatDate(long time) {
-        return new SimpleDateFormat("MMM d, yyyy  HH:mm", Locale.getDefault())
-                .format(new Date(time));
+        return Loc.number(this, new SimpleDateFormat("MMM d, yyyy  HH:mm",
+                Loc.displayLocale(this)).format(new Date(time)));
     }
 
     // ------------------------------------------------------------------

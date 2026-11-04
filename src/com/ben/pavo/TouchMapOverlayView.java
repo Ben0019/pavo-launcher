@@ -135,13 +135,14 @@ final class TouchMapOverlayView extends View {
         if (buttonsHidden) return;
         if (stickEnabled && !leftJoyHidden) {
             joystick.draw(canvas, stick.x * w, stick.y * h, stick.radius * h,
-                    0xFF7BE6B0, 0.86f * leftJoyAlpha, "MOVE", false);
+                    0xFF7BE6B0, 0.86f * leftJoyAlpha, Loc.s(getContext(), "MOVE"), false);
         }
         if (rightJoyHidden) {
             // The right-stick guides are hidden individually.
         } else if (right.mode == RightStick.MOUSE) {
             text.setTextAlign(Paint.Align.RIGHT);
-            canvas.drawText("MOUSE · R1 CLICK", w - Ui.dp(getContext(), 16),
+            canvas.drawText(Loc.s(getContext(), "MOUSE · R1 CLICK"),
+                    w - Ui.dp(getContext(), 16),
                     Ui.dp(getContext(), 26), text);
             text.setTextAlign(Paint.Align.CENTER);
         } else if (right.usesTouchZone() && right.mode != RightStick.AIM) {
@@ -149,7 +150,7 @@ final class TouchMapOverlayView extends View {
                     : (right.mode == RightStick.JOYSTICK ? 0xFF8BE9FF : 0xFFFFC857);
             joystick.draw(canvas, right.zone.x * w, right.zone.y * h,
                     right.zone.radius * h, color, 0.92f * rightJoyAlpha,
-                    RightStick.label(right.mode), false);
+                    Loc.s(getContext(), RightStick.label(right.mode)), false);
         }
         TouchTarget r3 = null;
         for (TouchTarget t : targets) {
@@ -171,19 +172,27 @@ final class TouchMapOverlayView extends View {
             float tr = t.radius * h;
             int color = t.code >= 544 && t.code < 560 ? 0xFFFFC857
                     : TouchTarget.colorFor(t.code);
-            drawGlassCircle(canvas, cx, cy, tr, color, a, t.label);
+            drawGlassCircle(canvas, cx, cy, tr, color, a,
+                    Loc.s(getContext(), t.label));
         }
 
         if (r3 != null && !r3.hidden && !rightJoyHidden) {
             float rr = (right.mode == RightStick.OFF ? 0.16f : right.zone.radius) * h;
             joystick.draw(canvas, r3.x * w, r3.y * h, rr, 0xFFFFC857,
-                    Math.min(r3.alpha, rightJoyAlpha), "R3 STICK", false);
+                    Math.min(r3.alpha, rightJoyAlpha),
+                    Loc.s(getContext(), "R3 STICK"), false);
         }
         for (TouchCombo c : combos) {
             if (c.hidden) continue;
             drawGlassCircle(canvas, c.x * w, c.y * h, c.radius * h,
-                    0xFF69D98B, Math.round(c.alpha * 255f), c.label());
+                    0xFF69D98B, Math.round(c.alpha * 255f), comboText(c));
         }
+    }
+
+    private String comboText(TouchCombo combo) {
+        if (combo == null) return "";
+        return Loc.s(getContext(), TouchTarget.labelFor(combo.modifier)) + "+"
+                + Loc.s(getContext(), TouchTarget.labelFor(combo.button));
     }
 
     private void drawGlassCircle(Canvas canvas, float cx, float cy, float radius,

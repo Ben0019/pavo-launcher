@@ -503,8 +503,10 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         LinearLayout metrics = new LinearLayout(this);
         metrics.setOrientation(LinearLayout.VERTICAL);
         metrics.setPadding(0, dp(5), 0, 0);
-        cpuResult = text("CPU   0%   0.0M ops/s", 10.5f, TEXT, true);
-        gpuResult = text("GPU   0%   0 FPS", 10.5f, TEXT, true);
+        cpuResult = text(String.format(Locale.US,
+                tr("CPU   %d%%  %.1fM ops/s"), 0, 0f), 10.5f, TEXT, true);
+        gpuResult = text(String.format(Locale.US,
+                tr("GPU   %d%%  %.0f FPS"), 0, 0f), 10.5f, TEXT, true);
         cpuResult.setPadding(0, dp(1), 0, dp(1));
         gpuResult.setPadding(0, dp(1), 0, dp(1));
         metrics.addView(cpuResult);
@@ -992,12 +994,22 @@ public final class BenchmarkActivity extends PavoGlassActivity {
 
     private String formatLength(int seconds) {
         int s = Math.max(0, seconds);
-        if (s < 60) return s + "s";
+        if (s < 60) return String.format(Locale.US, tr("%ds"), s);
         return String.format(Locale.US, "%d:%02d", s / 60, s % 60);
     }
 
+    private String governorLabel(String gov) {
+        if (gov == null) return "--";
+        if ("performance".equals(gov)) return Loc.s(this, "GOV_PERF");
+        if ("powersave".equals(gov)) return Loc.s(this, "GOV_POWER");
+        if ("conservative".equals(gov)) return Loc.s(this, "GOV_CONS");
+        if ("schedutil".equals(gov)) return Loc.s(this, "GOV_SCHED");
+        if ("walt".equals(gov)) return Loc.s(this, "WALT");
+        return gov;
+    }
+
     private TextView governorButton(final String initial, final boolean efficiency) {
-        TextView b = text(initial == null ? "--" : initial, 6.8f, 0xE6FFFFFF, false);
+        TextView b = text(initial == null ? "--" : governorLabel(initial), 6.8f, 0xE6FFFFFF, false);
         b.setGravity(Gravity.CENTER);
         b.setIncludeFontPadding(false);
         b.setMinHeight(0);
@@ -1033,10 +1045,10 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         String next = list[(index + 1) % list.length];
         if (efficiency) {
             cpuEffGovernor = next;
-            if (cpuEffGovButton != null) cpuEffGovButton.setText(next);
+            if (cpuEffGovButton != null) cpuEffGovButton.setText(governorLabel(next));
         } else {
             cpuPerfGovernor = next;
-            if (cpuPerfGovButton != null) cpuPerfGovButton.setText(next);
+            if (cpuPerfGovButton != null) cpuPerfGovButton.setText(governorLabel(next));
         }
         applyLiveTuning();
     }
@@ -1506,7 +1518,8 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setPadding(0, dp(2), 0, 0);
         panel.addView(title);
-        TextView sub = text(modeText(result.modeLabel()) + "  ·  " + result.lengthLabel()
+        TextView sub = text(modeText(result.modeLabel()) + "  ·  "
+                        + (result.lengthSec <= 0 ? "--" : formatLength(result.lengthSec))
                         + "  ·  " + result.threads + " " + tr("THREADS"),
                 8.5f, MUTED, true);
         sub.setPadding(0, dp(2), 0, dp(10));
@@ -1519,7 +1532,8 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         cards.setOrientation(narrow ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         View throttleCard = popupScoreCard("THROTTLE SCORE",
                 result.throttleLabel(),
-                tr("HELD") + " " + result.primaryHoldSec() + "s  ·  " + tr("SUS")
+                tr("HELD") + " " + String.format(Locale.US, tr("%ds"),
+                        result.primaryHoldSec()) + "  ·  " + tr("SUS")
                         + " " + result.primarySustainedPct() + "%", result.throttleColor());
         View gpuCard = popupScoreCard("GPU FPS",
                 String.format(Locale.US, "%.0f", result.gpuFps),
@@ -1544,18 +1558,20 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         panel.addView(cards, matchWrap());
 
         addPopupRow(panel, "CPU TEMP",
-                Math.round(result.cpuTempAvg) + "\u00b0 " + tr("AVG"),
-                Math.round(result.cpuTempMax) + "\u00b0 " + tr("MAX"));
+                String.format(Locale.US, tr("%.0f° AVG"), result.cpuTempAvg),
+                String.format(Locale.US, tr("%.0f° MAX"), result.cpuTempMax));
         addPopupRow(panel, "GPU TEMP",
-                Math.round(result.gpuTempAvg) + "\u00b0 " + tr("AVG"),
-                Math.round(result.gpuTempMax) + "\u00b0 " + tr("MAX"));
+                String.format(Locale.US, tr("%.0f° AVG"), result.gpuTempAvg),
+                String.format(Locale.US, tr("%.0f° MAX"), result.gpuTempMax));
         addPopupRow(panel, "CPU HOLD",
-                result.cpuHeldPct + "% " + tr("CLOCK"), result.cpuHoldSec + "s");
+                result.cpuHeldPct + "% " + tr("CLOCK"),
+                String.format(Locale.US, tr("%ds"), result.cpuHoldSec));
         addPopupRow(panel, "GPU HOLD",
-                result.gpuHeldPct + "% " + tr("CLOCK"), result.gpuHoldSec + "s");
+                result.gpuHeldPct + "% " + tr("CLOCK"),
+                String.format(Locale.US, tr("%ds"), result.gpuHoldSec));
         addPopupRow(panel, "FRAME RATE",
                 String.format(Locale.US, "%.0f ", result.avgFps) + tr("AVG"),
-                String.format(Locale.US, "%.0f–%.0f FPS", result.minFps, result.maxFps));
+                String.format(Locale.US, tr("%.0f–%.0f FPS"), result.minFps, result.maxFps));
         addPopupRow(panel, "LOAD", result.cpuUseAvg + "% CPU", result.gpuUseAvg + "% GPU");
         addPopupRow(panel, "TUNING", result.tuneLabel(this), "PSERVER ONLY");
 
@@ -1796,14 +1812,14 @@ public final class BenchmarkActivity extends PavoGlassActivity {
 
     private void updateResults(float cpuScore, float gpuFps, float[] temps) {
         if (cpuResult != null) {
-            cpuResult.setText(String.format(Locale.US, "CPU   %d%%  %.1fM ops/s",
+            cpuResult.setText(String.format(Locale.US, tr("CPU   %d%%  %.1fM ops/s"),
                     lastCpuUsage, cpuScore / 1_000_000f));
             if (temps.length > 0) {
                 cpuResult.append("   " + Math.round(temps[0]) + "\u00b0");
             }
         }
         if (gpuResult != null) {
-            gpuResult.setText(String.format(Locale.US, "GPU   %d%%  %.0f FPS",
+            gpuResult.setText(String.format(Locale.US, tr("GPU   %d%%  %.0f FPS"),
                     lastGpuUsage, gpuFps));
             if (temps.length > 1) {
                 gpuResult.append("   " + Math.round(temps[1]) + "\u00b0");

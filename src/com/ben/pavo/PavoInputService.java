@@ -626,6 +626,24 @@ public final class PavoInputService extends Service {
         handleShortcut(key, down, up, repeat);
     }
 
+    /**
+     * Shortcut bridge for the touch mapper. The mapper forwards every controller
+     * key, so run it through the exact same pipeline the pass-through daemon
+     * uses. This keeps the overlay/drawer shortcuts identical in both modes.
+     */
+    static void handleRawKeyFromMapper(Context c, final int code, final int value) {
+        if (c == null) return;
+        ensureStarted(c);
+        final PavoInputService s = instance;
+        if (s == null) return;
+        s.main.post(new Runnable() {
+            @Override
+            public void run() {
+                s.handleRawKey(code, value);
+            }
+        });
+    }
+
     private void handleRawAxis(int code, int value) {
         if (!drawerOverlayVisible) return;
         if (code == 16) {

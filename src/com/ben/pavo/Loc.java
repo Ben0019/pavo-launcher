@@ -5,6 +5,7 @@ import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Build;
 import android.text.Spanned;
+import android.text.SpannableStringBuilder;
 
 import org.json.JSONObject;
 
@@ -153,20 +154,53 @@ final class Loc {
         if (EN_US.equals(code)) return input;
         if (EN_GB.equals(code)) {
             String uk = british(s);
-            return uk.equals(s) ? input : uk;
+            return digits(c, uk.equals(s) ? s : uk);
         }
         Map<String, String> map = mapFor(c, code);
-        if (map.isEmpty()) return input;
+        if (map.isEmpty()) return digits(c, s);
         String out = map.get(s);
         if (out == null) {
             String trim = s.trim();
             if (!trim.equals(s)) out = map.get(trim);
         }
-        return out == null || out.isEmpty() ? input : out;
+        return digits(c, out == null || out.isEmpty() ? s : out);
+    }
+
+    /** Kept for call sites that build visible numbers; Arabic numerals only. */
+    static String number(Context c, String s) { return digits(c, s); }
+
+    private static String digits(Context c, String s) {
+        // Numbers stay in Arabic numerals in every language. Transliterating
+        // digits into Korean words, kanji or Thai numerals turned hardware
+        // specs into unreadable text ("Two.ZeroZero" instead of "2.00").
+        return s;
     }
 
     static String s(Context c, String input) {
         return input == null ? null : t(c, input).toString();
+    }
+
+    static CharSequence spanned(Context c, Spanned src) {
+        if (src == null) return null;
+        String plain = src.toString();
+        String converted = digits(c, plain);
+        if (converted.equals(plain)) return src;
+        SpannableStringBuilder out = new SpannableStringBuilder(converted);
+        for (Object span : src.getSpans(0, src.length(), Object.class)) {
+            int st = src.getSpanStart(span);
+            int en = src.getSpanEnd(span);
+            int ns = (int) Math.round(st * (double) converted.length() / plain.length());
+            int ne = (int) Math.round(en * (double) converted.length() / plain.length());
+            ns = Math.max(0, Math.min(converted.length(), ns));
+            ne = Math.max(ns, Math.min(converted.length(), ne));
+            out.setSpan(span, ns, ne, src.getSpanFlags(span));
+        }
+        return out;
+    }
+
+    /** Locale used for visible numbers and units, following Pavo's language setting. */
+    static Locale displayLocale(Context c) {
+        return localeFor(languageCode(c));
     }
 
     private static Locale localeFor(String code) {

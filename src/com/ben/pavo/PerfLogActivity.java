@@ -246,7 +246,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
                     capturingPerfLogShortcut = false;
                     handler.removeCallbacks(finishPerfLogCapture);
                     prefs.setPerfLogControllerRaw(mapped);
-                    LToast.makeText(this, "Perf Log popup shortcut: "
+                    LToast.makeText(this, Loc.s(this, "Perf Log popup shortcut: ")
                             + PavoA11yService.perfLogControllerLabel(prefs),
                             Toast.LENGTH_SHORT).show();
                 }
@@ -609,8 +609,9 @@ public final class PerfLogActivity extends PavoGlassActivity {
         card.addView(list, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        emptyView = text("No performance sessions logged yet.\n"
-                + "Keep the performance overlay running while you play.", 14f, MUTED, false);
+        emptyView = text(Loc.s(this, "No performance sessions logged yet.\n")
+                + Loc.s(this, "Keep the performance overlay running while you play."),
+                14f, MUTED, false);
         emptyView.setGravity(Gravity.CENTER);
         emptyView.setVisibility(View.GONE);
         card.addView(emptyView, new LinearLayout.LayoutParams(
@@ -688,7 +689,8 @@ public final class PerfLogActivity extends PavoGlassActivity {
             head.addView(delete);
             row.addView(head);
 
-            SimpleDateFormat fmt = new SimpleDateFormat("MMM d, HH:mm", Locale.US);
+            SimpleDateFormat fmt = new SimpleDateFormat("MMM d, HH:mm",
+                    Loc.displayLocale(PerfLogActivity.this));
             String pkg = e.pkg == null ? "" : e.pkg;
             TextView meta = text(pkg + "  ·  " + fmt.format(new Date(e.startMs))
                     + "  ·  " + formatDuration(e.durationMs), 9.5f, 0x77FFFFFF, true);
@@ -696,24 +698,37 @@ public final class PerfLogActivity extends PavoGlassActivity {
             row.addView(meta);
 
             SpannableStringBuilder metrics = new SpannableStringBuilder();
-            addColored(metrics, "FPS  ", MUTED, false);
-            addColored(metrics, "avg " + e.avgFps, PerfOverlayView.fpsColor(e.avgFps), true);
-            addColored(metrics, "  min " + e.minFps, PerfOverlayView.fpsColor(e.minFps), true);
-            addColored(metrics, "  max " + e.maxFps, PerfOverlayView.fpsColor(e.maxFps), true);
-            addColored(metrics, "\nCPU  ", MUTED, false);
+            addColored(metrics, Loc.s(PerfLogActivity.this, "FPS  ").trim() + "  ",
+                    MUTED, false);
+            addColored(metrics, Loc.s(PerfLogActivity.this, "avg ").trim() + " " + e.avgFps,
+                    PerfOverlayView.fpsColor(e.avgFps), true);
+            addColored(metrics, "  " + Loc.s(PerfLogActivity.this, "  min ").trim()
+                            + " " + e.minFps,
+                    PerfOverlayView.fpsColor(e.minFps), true);
+            addColored(metrics, "  " + Loc.s(PerfLogActivity.this, "  max ").trim()
+                            + " " + e.maxFps,
+                    PerfOverlayView.fpsColor(e.maxFps), true);
+            addColored(metrics, "\n" + Loc.s(PerfLogActivity.this, "\nCPU  ").trim() + "  ",
+                    MUTED, false);
             addColored(metrics, Math.round(e.maxCpuTemp) + "\u00b0  ",
                     PerfOverlayView.heat((e.maxCpuTemp - 32f) / 55f), true);
             addColored(metrics, e.avgCpuUsage + "%  ", PerfOverlayView.heat(e.avgCpuUsage / 100f), true);
-            addColored(metrics, "GPU  ", MUTED, false);
+            addColored(metrics, Loc.s(PerfLogActivity.this, "GPU  ").trim() + "  ",
+                    MUTED, false);
             addColored(metrics, Math.round(e.maxGpuTemp) + "\u00b0  ",
                     PerfOverlayView.heat((e.maxGpuTemp - 32f) / 55f), true);
             addColored(metrics, e.avgGpuUsage + "%  ", PerfOverlayView.heat(e.avgGpuUsage / 100f), true);
-            addColored(metrics, "power " + fmtPower(e.avgPowerW)
-                    + " / peak " + fmtPower(e.peakPowerW),
+            addColored(metrics, Loc.s(PerfLogActivity.this, "power ").trim() + " "
+                            + fmtPower(e.avgPowerW) + " / "
+                            + Loc.s(PerfLogActivity.this, " / peak ").trim() + " "
+                            + fmtPower(e.peakPowerW),
                     PerfOverlayView.heat(e.peakPowerW / 9f), true);
-            addColored(metrics, "\nthrottle ", MUTED, false);
-            addColored(metrics, e.throttle, throttleColor(e.throttle), true);
-            addColored(metrics, "  battery ", MUTED, false);
+            addColored(metrics, "\n" + Loc.s(PerfLogActivity.this, "\nthrottle ").trim() + " ",
+                    MUTED, false);
+            addColored(metrics, Loc.s(PerfLogActivity.this, e.throttle),
+                    throttleColor(e.throttle), true);
+            addColored(metrics, "  " + Loc.s(PerfLogActivity.this, "  battery ").trim() + " ",
+                    MUTED, false);
             addColored(metrics, String.format(Locale.US, "%.1f%%", e.batteryUsedPct),
                     PerfOverlayView.heat(Math.min(1f, e.batteryUsedPct / 18f)), true);
             if (e.batteryEnd >= 0) {
@@ -721,12 +736,16 @@ public final class PerfLogActivity extends PavoGlassActivity {
                         + e.batteryEnd + "%)", 0x99FFFFFF, true);
             }
             if (e.batteryUsedMah > 0) {
-                addColored(metrics, String.format(Locale.US, " (%.0f mAh)", e.batteryUsedMah),
+                addColored(metrics, String.format(Locale.US,
+                                Loc.s(PerfLogActivity.this, " (%.0f mAh)"), e.batteryUsedMah),
                         0xCCFFFFFF, true);
             }
-            addColored(metrics, "\nRAM ", MUTED, false);
+            addColored(metrics, "\n" + Loc.s(PerfLogActivity.this, "\nRAM ").trim() + " ",
+                    MUTED, false);
             addColored(metrics, fmtBytes(e.appRamKb * 1024L), 0xE6FFFFFF, true);
-            addColored(metrics, "  sys " + e.memPercent + "%", MUTED, true);
+            addColored(metrics, "  " + Loc.s(PerfLogActivity.this, "  sys ").trim()
+                            + " " + e.memPercent + "%",
+                    MUTED, true);
             TextView metricView = text(metrics, 10.5f, TEXT, true);
             metricView.setLineSpacing(0f, 1.18f);
             row.addView(metricView);
@@ -740,7 +759,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
             row.addView(graph, glp);
 
             row.setContentDescription((e.appLabel == null ? e.pkg : e.appLabel)
-                    + " — tap for detailed metrics");
+                    + Loc.s(PerfLogActivity.this, " — tap for detailed metrics"));
             row.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -839,7 +858,8 @@ public final class PerfLogActivity extends PavoGlassActivity {
         app.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         app.setPadding(0, dp(4), 0, 0);
         content.addView(app);
-        SimpleDateFormat full = new SimpleDateFormat("MMM d, yyyy · HH:mm:ss", Locale.US);
+        SimpleDateFormat full = new SimpleDateFormat("MMM d, yyyy · HH:mm:ss",
+                Loc.displayLocale(this));
         TextView meta = text((e.pkg == null ? "" : e.pkg) + "\n"
                 + full.format(new Date(e.startMs)) + "  ·  " + formatDuration(e.durationMs),
                 9.5f, DETAIL_LABEL, true);
@@ -856,8 +876,10 @@ public final class PerfLogActivity extends PavoGlassActivity {
         fpsUnit.setPadding(0, 0, 0, dp(8));
         fpsHead.addView(fpsUnit);
         fpsHead.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-        fpsHead.addView(chip("MIN " + e.minFps, PerfOverlayView.fpsColor(e.minFps)));
-        fpsHead.addView(chip("MAX " + e.maxFps, PerfOverlayView.fpsColor(e.maxFps)));
+        fpsHead.addView(chip(Loc.s(this, "MIN ").trim() + " " + e.minFps,
+                PerfOverlayView.fpsColor(e.minFps)));
+        fpsHead.addView(chip(Loc.s(this, "MAX ").trim() + " " + e.maxFps,
+                PerfOverlayView.fpsColor(e.maxFps)));
         content.addView(fpsHead, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -888,7 +910,8 @@ public final class PerfLogActivity extends PavoGlassActivity {
         addDetailCell(power1, "PEAK POWER", fmtPower(e.peakPowerW),
                 PerfOverlayView.heat(e.peakPowerW / 9f));
         LinearLayout power2 = detailRow(content);
-        addDetailCell(power2, "THROTTLE", e.throttle, throttleColor(e.throttle));
+        addDetailCell(power2, "THROTTLE", Loc.s(this, e.throttle),
+                throttleColor(e.throttle));
         addDetailCell(power2, "FPS SAMPLES", String.valueOf(e.fpsSamples), 0xE6FFFFFF);
 
         addDetailSection(content, "BATTERY & MEMORY");
@@ -1218,7 +1241,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
         card.addView(transparencyHint);
 
         addDetailSection(card, "CONTROLLER SHORTCUT");
-        final TextView mapButton = text("Map long press: "
+        final TextView mapButton = text(Loc.s(this, "Map long press: ")
                 + PavoA11yService.perfLogControllerLabel(prefs), 12f, 0xE6FFFFFF, false);
         mapButton.setPadding(dp(12), dp(9), dp(12), dp(9));
         mapButton.setBackground(Ui.rounded(0x18FFFFFF, dp(12), 0x22FFFFFF, dp(1)));
@@ -1705,15 +1728,15 @@ public final class PerfLogActivity extends PavoGlassActivity {
             int cpuUseColor = 0xFFFFC857;
             int gpuUseColor = 0xFF7CF7C4;
 
-            canvas.drawText("FPS " + (lastFps > 0 ? lastFps : "--"),
+            canvas.drawText(Loc.number(getContext(), "FPS " + (lastFps > 0 ? lastFps : "--")),
                     dp(8), dp(11), tint(legend, fpsColor));
-            canvas.drawText("CPU " + (lastCpu > 0 ? lastCpu + "°" : "--"),
+            canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "CPU ") + (lastCpu > 0 ? lastCpu + "°" : "--")),
                     dp(58), dp(11), tint(legend, cpuColor));
-            canvas.drawText("GPU " + (lastGpu > 0 ? lastGpu + "°" : "--"),
+            canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "GPU ") + (lastGpu > 0 ? lastGpu + "°" : "--")),
                     dp(145), dp(11), tint(legend, gpuColor));
-            canvas.drawText("CPU " + lastCpuUse + "%", dp(58), dp(21),
+            canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "CPU ") + lastCpuUse + "%"), dp(58), dp(21),
                     tint(legend, cpuUseColor));
-            canvas.drawText("GPU " + lastGpuUse + "%", dp(145), dp(21),
+            canvas.drawText(Loc.number(getContext(), Loc.s(getContext(), "GPU ") + lastGpuUse + "%"), dp(145), dp(21),
                     tint(legend, gpuUseColor));
 
             float left = plotLeft();
@@ -1734,7 +1757,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
                 float y = bottom - pct / 100f * height;
                 canvas.drawLine(left, y, right, y, grid);
                 if (h >= dp(130) || pct % 50 == 0) {
-                    canvas.drawText(pct + "%", dp(2), y + dp(2.2f), axis);
+                    canvas.drawText(Loc.number(getContext(), pct + "%"), dp(2), y + dp(2.2f), axis);
                 }
             }
 
@@ -1755,7 +1778,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
                         / Math.max(1f, height / dp(8.5f))));
                 for (int v = minTemp; v <= maxTemp; v += labelGap) {
                     float y = bottom - (v - minTemp) / (float) (maxTemp - minTemp) * height;
-                    canvas.drawText(v + "°", right + dp(4), y + dp(2.2f), axis);
+                    canvas.drawText(Loc.number(getContext(), v + "°"), right + dp(4), y + dp(2.2f), axis);
                 }
             }
 

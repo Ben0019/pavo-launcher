@@ -62,6 +62,9 @@ final class ControllerRemapManager {
      */
     static void ensureInputDaemon(Context context) {
         if (context == null) return;
+        // Touch Mapper grabs the controller exclusively; keep the pass-through
+        // daemon out of the way for as long as any touch map is enabled.
+        if (TouchMapManager.isActive() || TouchMapManager.isRunning(context)) return;
         if (isRunning(context) || starting) return;
         startInternal(context, null, true);
     }

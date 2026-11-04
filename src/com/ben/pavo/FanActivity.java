@@ -549,8 +549,8 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
         info.setPadding(dp(2), 0, dp(2), dp(2));
-        TextView rear = text(DeviceProfile.get(this).name.toUpperCase()
-                + "  ·  REAR", 10.5f, accent, true);
+        TextView rear = text(String.format(Loc.s(this, "%s  ·  REAR"),
+                DeviceProfile.get(this).name.toUpperCase()), 10.5f, accent, true);
         rear.setLetterSpacing(0.12f);
         rear.setGravity(Gravity.END);
         info.addView(rear);
@@ -725,7 +725,7 @@ public final class FanActivity extends PavoGlassActivity {
 
     private void updateAppSelector() {
         if (appSelectorIcon == null || appSelectorLabel == null) return;
-        String label = "ALL APPS";
+        String label = Loc.s(this, "ALL APPS");
         Bitmap bitmap = null;
         if (!selectedAppPkg.isEmpty()) {
             try {
@@ -847,8 +847,8 @@ public final class FanActivity extends PavoGlassActivity {
         title.setGravity(Gravity.CENTER);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView sub = text(DeviceProfile.get(this).name.toUpperCase()
-                + "  ·  ACTIVE COOLING", 10f, MUTED, false);
+        TextView sub = text(String.format(Loc.s(this, "%s  ·  ACTIVE COOLING"),
+                DeviceProfile.get(this).name.toUpperCase()), 10f, MUTED, false);
         sub.setGravity(Gravity.CENTER);
         sub.setPadding(0, dp(3), 0, 0);
         titles.addView(sub, new LinearLayout.LayoutParams(
@@ -1341,11 +1341,14 @@ public final class FanActivity extends PavoGlassActivity {
             curveHint.setText("CURVE · right stick speed · D-pad/left stick point · L1/R1 cards");
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (mode == PerfTuner.FAN_MANUAL) {
-            curveHint.setText("MANUAL " + manualPct + "% · right stick speed · D-pad/left stick point · L1/R1");
+            curveHint.setText(String.format(Loc.s(this,
+                    "MANUAL %d%% · right stick speed · D-pad/left stick point · L1/R1"),
+                    manualPct));
             curveHint.setTextColor(MUTED);
         } else {
-            curveHint.setText("SYSTEM " + modeLabel(mode)
-                    + " · right stick speed · D-pad/left stick point · L1/R1");
+            curveHint.setText(String.format(Loc.s(this,
+                    "SYSTEM %s · right stick speed · D-pad/left stick point · L1/R1"),
+                    Loc.s(this, modeLabel(mode))));
             curveHint.setTextColor(MUTED);
         }
     }
@@ -1461,7 +1464,7 @@ public final class FanActivity extends PavoGlassActivity {
         if (srcInfo != null) {
             String cpu = state.cpuTemp > 0 ? Math.round(state.cpuTemp) + "°" : "—";
             String gpu = state.gpuTemp > 0 ? Math.round(state.gpuTemp) + "°" : "—";
-            srcInfo.setText("CPU " + cpu + "  ·  GPU " + gpu);
+            srcInfo.setText(String.format(Loc.s(this, "CPU %s  ·  GPU %s"), cpu, gpu));
         }
         int dutyColor = HeatColor.ramp(HeatColor.fanSeverity(actualDuty, displayRpm, currentTemp));
         int heatColor = HeatColor.ramp(HeatColor.severity(0, currentTemp));

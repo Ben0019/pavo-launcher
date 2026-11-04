@@ -57,7 +57,7 @@ final class DisplayTuner {
                 display.getRealMetrics(metrics);
                 s.densityDpi = metrics.densityDpi;
                 s.refresh = display.getRefreshRate();
-                s.hdr = hdrLabel(display);
+                s.hdr = hdrLabel(context, display);
                 int maxW = 0;
                 int maxH = 0;
                 TreeSet<Integer> rates = new TreeSet<>();
@@ -126,12 +126,14 @@ final class DisplayTuner {
         return s;
     }
 
-    private static String hdrLabel(Display display) {
+    private static String hdrLabel(android.content.Context context, Display display) {
         try {
             if (Build.VERSION.SDK_INT >= 24 && display.isHdr()) {
                 int[] types = display.getHdrCapabilities() == null
                         ? null : display.getHdrCapabilities().getSupportedHdrTypes();
-                return types == null || types.length == 0 ? "HDR" : "HDR · " + types.length + " types";
+                return types == null || types.length == 0 ? Loc.s(context, "HDR")
+                        : Loc.s(context, "HDR") + " · " + types.length
+                        + " " + Loc.s(context, " types");
             }
         } catch (Throwable ignored) {
         }

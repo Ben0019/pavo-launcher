@@ -334,7 +334,7 @@ final class TouchMapOverlayEditor extends FrameLayout {
 
         handle = new TouchMapFabView(c);
         handle.setEditing(true);
-        handle.setContentDescription("Close Touch Mapper editor");
+        handle.setContentDescription(Loc.s(context, "Close Touch Mapper editor"));
         handle.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -629,14 +629,16 @@ final class TouchMapOverlayEditor extends FrameLayout {
         String title = null;
         if (selectedKind == 1) {
             TouchTarget t = selectedTarget();
-            if (t != null) title = shortLabel(t.code).toUpperCase() + "  •  BUTTON";
+            if (t != null) title = String.format(
+                    Loc.s(context, "%s  •  BUTTON"),
+                    Loc.s(context, shortLabel(t.code)));
         } else if (selectedKind == 2) {
-            title = "LEFT JOY";
+            title = Loc.s(context, "LEFT JOY");
         } else if (selectedKind == 3) {
-            title = "RIGHT JOY";
+            title = Loc.s(context, "RIGHT JOY");
         } else if (selectedKind == 4) {
             TouchCombo c = selectedCombo();
-            if (c != null) title = c.label().toUpperCase();
+            if (c != null) title = comboLabel(c).toUpperCase();
         }
         if (title == null) {
             layoutToolTitle.setText("TAP A BUTTON TO ADJUST");
@@ -832,7 +834,7 @@ final class TouchMapOverlayEditor extends FrameLayout {
         StringBuilder label = new StringBuilder();
         for (int code : pendingCombo) {
             if (label.length() > 0) label.append('+');
-            label.append(TouchTarget.labelFor(code));
+            label.append(Loc.s(context, TouchTarget.labelFor(code)));
         }
         TextView p = chip(label.toString(), GREEN, 0x2669D98B, 0x5569D98B);
         p.setOnClickListener(new OnClickListener() {
@@ -917,7 +919,7 @@ final class TouchMapOverlayEditor extends FrameLayout {
                     rowLp.topMargin = dp(2);
                     comboList.addView(row, rowLp);
                 }
-                TextView chip = chip(c.label() + "  ×", 0xFFFFB3B8,
+                TextView chip = chip(comboLabel(c) + "  ×", 0xFFFFB3B8,
                         0x18FF8A80, 0x55FF8A80);
                 chip.setOnClickListener(new OnClickListener() {
                     @Override
@@ -933,8 +935,9 @@ final class TouchMapOverlayEditor extends FrameLayout {
             }
         }
         if (comboStatus != null) {
-            comboStatus.setText(combos.size() + " COMBO"
-                    + (combos.size() == 1 ? "" : "S") + "  ·  AUTO-SAVE");
+            comboStatus.setText(String.format(Loc.s(context, combos.size() == 1
+                    ? "%d COMBO  ·  AUTO-SAVE" : "%d COMBOS  ·  AUTO-SAVE"),
+                    combos.size()));
         }
     }
 
@@ -1028,7 +1031,7 @@ final class TouchMapOverlayEditor extends FrameLayout {
             final int code = t.code;
             if (count % 5 == 0) row = newGridRow(currentList);
             int color = t.hidden ? 0xFFA8B0BC : TouchTarget.colorFor(code);
-            TextView chip = gridChip(shortLabel(code) + "  ×", color,
+            TextView chip = gridChip(Loc.s(context, shortLabel(code)) + "  ×", color,
                     withAlpha(color, 0x28), withAlpha(color, 0x99));
             chip.setAlpha(t.hidden ? 0.62f : 1f);
             chip.setOnClickListener(new OnClickListener() {
@@ -1043,7 +1046,7 @@ final class TouchMapOverlayEditor extends FrameLayout {
         }
         if (useStick) {
             if (count % 5 == 0) row = newGridRow(currentList);
-            TextView chip = gridChip("L JOY  ×", GREEN,
+            TextView chip = gridChip(Loc.s(context, "L JOY") + "  ×", GREEN,
                     withAlpha(GREEN, 0x26), withAlpha(GREEN, 0x99));
             chip.setOnClickListener(new OnClickListener() {
                 @Override
@@ -1057,7 +1060,7 @@ final class TouchMapOverlayEditor extends FrameLayout {
         }
         if (right.mode != RightStick.OFF) {
             if (count % 5 == 0) row = newGridRow(currentList);
-            TextView chip = gridChip("R JOY  ×", GREEN,
+            TextView chip = gridChip(Loc.s(context, "R JOY") + "  ×", GREEN,
                     withAlpha(GREEN, 0x26), withAlpha(GREEN, 0x99));
             chip.setOnClickListener(new OnClickListener() {
                 @Override
@@ -1170,6 +1173,12 @@ final class TouchMapOverlayEditor extends FrameLayout {
     private String shortLabel(int code) {
         if (code == TouchTarget.R3_STICK) return "R3 STK";
         return TouchTarget.labelFor(code);
+    }
+
+    private String comboLabel(TouchCombo combo) {
+        if (combo == null) return "";
+        return Loc.s(context, TouchTarget.labelFor(combo.modifier)) + "+"
+                + Loc.s(context, TouchTarget.labelFor(combo.button));
     }
 
     private void addLeftJoy() {
@@ -1312,7 +1321,9 @@ final class TouchMapOverlayEditor extends FrameLayout {
         store.saveRightJoyAppearance(target, rightJoyHidden, rightJoyAlpha);
         if (show) {
             updateStatus("●  SAVED");
-            LToast.makeText(context, "Touch map saved for " + appLabel, Toast.LENGTH_SHORT).show();
+            LToast.makeText(context, String.format(
+                    Loc.s(context, "Touch map saved for %s"), appLabel),
+                    Toast.LENGTH_SHORT).show();
         }
     }
 
