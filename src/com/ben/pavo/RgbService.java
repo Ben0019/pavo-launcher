@@ -55,6 +55,9 @@ public final class RgbService extends Service {
     private int ambientTargetLeft;
     private int ambientTargetRight;
     private long lastAmbientSample;
+    private long lastAmbientTick;
+    private final AmbientSpring leftSpring = new AmbientSpring();
+    private final AmbientSpring rightSpring = new AmbientSpring();
     private volatile boolean ambientSampling;
     private int brightness = 50;
     private int speed = 100;
@@ -270,12 +273,15 @@ public final class RgbService extends Service {
                 // the unrelated static colour chosen for the stick.
                 ambientLeft = 0xFF000000;
                 ambientTargetLeft = 0;
+                leftSpring.snap(0xFF000000);
             }
             if (rightMode == RgbControl.MODE_SCREEN) {
                 ambientRight = 0xFF000000;
                 ambientTargetRight = 0;
+                rightSpring.snap(0xFF000000);
             }
             lastAmbientSample = 0L;
+            lastAmbientTick = 0L;
         }
         previewActive = true;
         long now = SystemClock.uptimeMillis();
@@ -397,36 +403,89 @@ public final class RgbService extends Service {
                 lastEnableAt = now;
             }
             RgbControl.applyColorsLR(litLeft, litRight, 100, leftOn, rightOn);
-            long frameMs = (leftMode == RgbControl.MODE_STROBE
-                    || rightMode == RgbControl.MODE_STROBE) ? strobeInterval
-                    : ((leftMode == RgbControl.MODE_BREATH
-                    || rightMode == RgbControl.MODE_BREATH) ? 12L : 70L);
+            long frameMs;
+            if (leftMode == RgbControl.MODE_STROBE
+                    || rightMode == RgbControl.MODE_STROBE) {
+                frameMs = strobeInterval;
+            } else if (leftMode == RgbControl.MODE_BREATH
+                    || rightMode == RgbControl.MODE_BREATH) {
+                frameMs = 12L;
+            } else if (leftMode == RgbControl.MODE_SCREEN
+                    || rightMode == RgbControl.MODE_SCREEN
+                    || leftMode == RgbControl.MODE_RAINBOW
+                    || rightMode == RgbControl.MODE_RAINBOW
+                    || leftMode == RgbControl.MODE_MULTI
+                    || rightMode == RgbControl.MODE_MULTI) {
+                // 30 fps keeps fast hue cycles and screen-follow gliding
+                // instead of stepping between large colour jumps.
+                frameMs = 33L;
+            } else {
+                frameMs = 70L;
+            }
             long work = SystemClock.uptimeMillis() - now;
             handler.postDelayed(this, Math.max(1L, frameMs - work));
         }
     };
 
     private void blendAmbient() {
-        // Speed doubles as the follow weight: low is calm and smooth, high
-        // tracks scene changes closely. A large jump (cut to a new scene)
-        // snaps regardless, so slow settings do not smear transitions.
-        float base = 0.12f + 0.56f
-                * Math.max(0f, Math.min(1f, (speed - 10f) / 290f));
+        // A critically damped spring keeps colour in motion between the 5 Hz
+        // screen samples. Unlike a fixed per-frame mix it has no hard snap,
+        // so even the fastest setting glides instead of stepping.
+        long now = SystemClock.uptimeMillis();
+        long elapsed = lastAmbientTick == 0L ? 33L : now - lastAmbientTick;
+        lastAmbientTick = now;
+        float dt = Math.max(0.008f, Math.min(0.080f, elapsed / 1000f));
+        float t = Math.max(0f, Math.min(1f, (speed - 10f) / 290f));
+        // ~1.1 s settle at the slow end, ~0.29 s at maximum.
+        float omega = 3.5f + 10.5f * t;
         if (ambientTargetLeft != 0) {
-            ambientLeft = blend(ambientLeft, ambientTargetLeft,
-                    followAmount(base, ambientLeft, ambientTargetLeft));
+            leftSpring.update(ambientTargetLeft, omega, dt);
+            ambientLeft = leftSpring.color();
         }
         if (ambientTargetRight != 0) {
-            ambientRight = blend(ambientRight, ambientTargetRight,
-                    followAmount(base, ambientRight, ambientTargetRight));
+            rightSpring.update(ambientTargetRight, omega, dt);
+            ambientRight = rightSpring.color();
         }
     }
 
-    private static float followAmount(float base, int from, int to) {
-        float delta = (Math.abs(Color.red(from) - Color.red(to))
-                + Math.abs(Color.green(from) - Color.green(to))
-                + Math.abs(Color.blue(from) - Color.blue(to))) / 765f;
-        return delta > 0.22f ? Math.max(base, 0.72f) : base;
+    /** Exact critically damped spring per colour channel, no overshoot. */
+    private static final class AmbientSpring {
+        private float r, g, b;
+        private float vr, vg, vb;
+
+        void snap(int color) {
+            r = Color.red(color);
+            g = Color.green(color);
+            b = Color.blue(color);
+            vr = vg = vb = 0f;
+        }
+
+        void update(int target, float omega, float dt) {
+            float tr = Color.red(target);
+            float tg = Color.green(target);
+            float tb = Color.blue(target);
+            float e = (float) Math.exp(-omega * dt);
+            float d = r - tr;
+            float c = vr + omega * d;
+            r = tr + (d + c * dt) * e;
+            vr = (c - omega * (d + c * dt)) * e;
+            d = g - tg;
+            c = vg + omega * d;
+            g = tg + (d + c * dt) * e;
+            vg = (c - omega * (d + c * dt)) * e;
+            d = b - tb;
+            c = vb + omega * d;
+            b = tb + (d + c * dt) * e;
+            vb = (c - omega * (d + c * dt)) * e;
+        }
+
+        int color() {
+            return Color.rgb(channel(r), channel(g), channel(b));
+        }
+
+        private static int channel(float value) {
+            return Math.max(0, Math.min(255, Math.round(value)));
+        }
     }
 
     private void sampleAmbient(long now) {
