@@ -67,7 +67,11 @@ public final class RgbService extends Service {
     private final ScreenStream.Listener streamListener =
             new ScreenStream.Listener() {
                 @Override public void onColors(int left, int right) {
-                    if (SystemClock.uptimeMillis() < ambientSettleUntil) return;
+                    // Skip the black panel/lock-screen frame during wake, but
+                    // accept the first real colour immediately so the ring
+                    // lights with the screen instead of holding a stale one.
+                    if (SystemClock.uptimeMillis() < ambientSettleUntil
+                            && isDark(left) && isDark(right)) return;
                     if (leftMode == RgbControl.MODE_SCREEN && left != 0) {
                         ambientTargetLeft = left;
                     }
@@ -159,7 +163,7 @@ public final class RgbService extends Service {
         // Hold the last screen colour through the panel wake. The first
         // frames can be the black lock screen or a black panel frame; letting
         // them through made the ring flash off before recovering.
-        ambientSettleUntil = now + 1800L;
+        ambientSettleUntil = now + 1200L;
         // The panel's wake sequence writes a black LED frame ~0.5 s after the
         // screen becomes interactive and can drop the enable with it. Every
         // mode waits for the panel to settle, then restores itself: static
@@ -521,6 +525,11 @@ public final class RgbService extends Service {
             handler.postDelayed(this, Math.max(1L, frameMs - work));
         }
     };
+
+    private static boolean isDark(int color) {
+        return Math.max(Color.red(color),
+                Math.max(Color.green(color), Color.blue(color))) < 12;
+    }
 
     private void blendAmbient() {
         // A critically damped spring keeps colour in motion between the 5 Hz
