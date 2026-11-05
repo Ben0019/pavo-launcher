@@ -142,7 +142,7 @@ final class ScreenAmbient {
         private double avgG;
         private double avgB;
         private double satSum;
-        private double valSum;
+        private double valAreaSum;
         private double weightSum;
         private int count;
 
@@ -153,6 +153,7 @@ final class ScreenAmbient {
             count++;
             int max = Math.max(r, Math.max(g, b));
             int min = Math.min(r, Math.min(g, b));
+            valAreaSum += max / 255f;
             if (max == 0) return;
             float val = max / 255f;
             if (val <= 0.05f) return;
@@ -175,12 +176,17 @@ final class ScreenAmbient {
             int bin = (int) (hue / 10f) % 36;
             hueBins[bin] += weight;
             satSum += sat * weight;
-            valSum += val * weight;
             weightSum += weight;
         }
 
         int color() {
             if (count == 0) return 0;
+            // Brightness follows the whole region, not only its saturated
+            // accent. A bright scene lifts the LEDs; a dark scene dims them.
+            float meanVal = (float) (valAreaSum / count);
+            if (meanVal < 0.02f) return 0xFF000000;
+            float ledVal = clamp(0.035f + 0.965f
+                    * (float) Math.pow(meanVal, 0.85f), 0.035f, 1f);
             int avg = Color.rgb(
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
@@ -205,19 +211,24 @@ final class ScreenAmbient {
                         : best * 10f + 5f;
                 if (hue < 0f) hue += 360f;
                 float sat = clamp((float) (satSum / weightSum) * 1.25f, 0.45f, 1f);
-                float val = clamp((float) (valSum / weightSum) * 1.12f, 0.28f, 1f);
-                int dominant = Color.HSVToColor(new float[]{hue, sat, val});
+                int dominant = Color.HSVToColor(new float[]{hue, sat, 1f});
                 // Keep a little of the actual average so the LED still reads
                 // like the region rather than only its brightest accent.
-                return applySaturation(blend(dominant, avg, 0.22f),
+                int base = applySaturation(blend(dominant, avg, 0.22f),
                         SCREEN_VIVIDNESS);
+                return withValue(base, ledVal);
             }
             Color.RGBToHSV(Color.red(avg), Color.green(avg), Color.blue(avg), hsv);
-            if (hsv[2] < 0.03f) return 0xFF000000;
-            // Grey and white content stays grey/white; just lift it slightly.
-            hsv[2] = Math.min(1f, hsv[2] * 1.08f);
-            return applySaturation(Color.HSVToColor(hsv), SCREEN_VIVIDNESS);
+            return withValue(Color.HSVToColor(hsv), ledVal);
         }
+    }
+
+    /** Replaces only the HSV value so brightness follows the region. */
+    private static int withValue(int color, float value) {
+        float[] hsv = new float[3];
+        Color.colorToHSV(color, hsv);
+        hsv[2] = value;
+        return Color.HSVToColor(hsv);
     }
 
     /** Applies the fixed SCREEN vividness without touching brightness. */
