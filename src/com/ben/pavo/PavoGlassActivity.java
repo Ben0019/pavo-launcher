@@ -36,6 +36,8 @@ abstract class PavoGlassActivity extends Activity {
     /** The close froze a liquid card so it could shrink to the icon. */
     private boolean returnWasLiquid;
     private boolean perfOverlayHidden;
+    private int perfOverlayHideAttempts;
+    private boolean hudHideAllowed;
     private boolean hasReturnTarget;
     private int returnLeft;
     private int returnTop;
@@ -467,9 +469,22 @@ abstract class PavoGlassActivity extends Activity {
 
     /** Hide the global performance HUD while one of the built-in apps is visible. */
     protected final void hidePerformanceOverlay() {
-        if (!PerfOverlayService.hasAnyOverlayVisible()) return;
-        PerfOverlayService.hideForApp();
-        perfOverlayHidden = true;
+        if (PerfOverlayService.hasAnyOverlayVisible()) {
+            PerfOverlayService.hideForApp();
+            perfOverlayHidden = true;
+            perfOverlayHideAttempts = 0;
+            return;
+        }
+        // The overlay service can start a moment after the activity resumes;
+        // retry briefly so a late HUD cannot sit on top of the app's controls.
+        if (!hudHideAllowed || perfOverlayHideAttempts >= 8 || getWindow() == null) return;
+        perfOverlayHideAttempts++;
+        getWindow().getDecorView().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                hidePerformanceOverlay();
+            }
+        }, 350L);
     }
 
     /**
@@ -485,6 +500,7 @@ abstract class PavoGlassActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        hudHideAllowed = true;
         if (returning || returnFinished) {
             returning = false;
             returnFinished = false;
@@ -758,6 +774,8 @@ abstract class PavoGlassActivity extends Activity {
 
     @Override
     protected void onStop() {
+        hudHideAllowed = false;
+        perfOverlayHideAttempts = 0;
         restorePerformanceOverlay();
         super.onStop();
     }

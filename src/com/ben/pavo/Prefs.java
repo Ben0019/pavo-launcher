@@ -514,6 +514,17 @@ final class Prefs {
     void setRgbLeftColor(int v) { sp.edit().putInt("rgb_left_color", v).apply(); }
     void setRgbRightColor(int v) { sp.edit().putInt("rgb_right_color", v).apply(); }
 
+    /**
+     * True when both sticks share one colour and mode. Upgrades from the
+     * single-mode build default to linked; a build that already stored
+     * per-stick settings keeps them separate.
+     */
+    boolean rgbLinked() {
+        return sp.getBoolean("rgb_linked", !sp.contains("rgb_left_mode"));
+    }
+
+    void setRgbLinked(boolean v) { sp.edit().putBoolean("rgb_linked", v).apply(); }
+
     /** UI size: auto, 90, 100, 110 or 120 percent. */
     String uiScaleMode() {
         String value = sp.getString("ui_scale_mode", "auto");

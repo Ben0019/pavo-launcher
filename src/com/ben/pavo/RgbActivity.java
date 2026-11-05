@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -18,10 +19,14 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,7 +64,9 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private Prefs prefs;
     private ColorWheelView wheel;
-    private TextView hexView;
+    private EditText hexView;
+    private String lastValidHex = "#2BE0D8";
+    private long lastHexCommitAt;
     private TextView rgbView;
     private TextView status;
     private SeekBar hueBar;
@@ -77,6 +84,10 @@ public final class RgbActivity extends PavoGlassActivity {
     private final int[] modes = {RgbControl.MODE_OFF, RgbControl.MODE_OFF};
     private final int[] colors = {0xFF2BE0D8, 0xFF2BE0D8};
     private boolean editingLeft = true;
+    private boolean linked;
+    private TextView bothChip;
+    private TextView eachChip;
+    private boolean lastLinked;
     private int brightness;
     private int speed;
     private boolean suppress;
@@ -190,9 +201,14 @@ public final class RgbActivity extends PavoGlassActivity {
         colors[1] = prefs.rgbRightColor();
         brightness = prefs.rgbBrightness();
         speed = prefs.rgbSpeed();
+        linked = prefs.rgbLinked();
         // Start on a stick that is actually lit, so the wheel shows a useful
         // colour instead of the stored colour of a disabled stick.
         editingLeft = modes[0] != RgbControl.MODE_OFF || modes[1] == RgbControl.MODE_OFF;
+        if (linked) {
+            modes[1] = modes[0];
+            colors[1] = colors[0];
+        }
         serviceRunning = anyAnimated();
         buildUi();
         hideBars();
@@ -391,10 +407,56 @@ public final class RgbActivity extends PavoGlassActivity {
         wheelLp.topMargin = dp(6);
         colorSection.addView(wheelBox, wheelLp);
 
-        hexView = text("#2BE0D8", 15f, TEXT, true);
+        // A real EditText so the code can be typed, deleted, copied, pasted
+        // and cut with the normal selection handles and keyboard.
+        LinearLayout hexRow = new LinearLayout(this);
+        hexRow.setGravity(Gravity.CENTER);
+        hexView = new EditText(this);
+        hexView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        hexView.setTextColor(TEXT);
+        hexView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         hexView.setGravity(Gravity.CENTER);
-        hexView.setPadding(0, dp(5), 0, 0);
-        colorSection.addView(hexView);
+        hexView.setSingleLine(true);
+        hexView.setInputType(InputType.TYPE_CLASS_TEXT
+                | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+                | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        hexView.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        hexView.setBackground(Ui.rounded(0x14FFFFFF, dp(8), 0x22FFFFFF, dp(1)));
+        hexView.setPadding(dp(12), dp(5), dp(12), dp(5));
+        hexView.setText("#2BE0D8");
+        hexView.setSelectAllOnFocus(true);
+        hexView.setTextIsSelectable(true);
+        hexView.setFocusableInTouchMode(true);
+        hexView.setDefaultFocusHighlightEnabled(false);
+        hexView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_DONE
+                        || actionId == EditorInfo.IME_ACTION_GO
+                        || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                    if (event == null || event.getAction() == KeyEvent.ACTION_DOWN) {
+                        commitHex();
+                        hideHexKeyboard();
+                        hexView.clearFocus();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+        hexView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if (hasFocus) Haptics.tick(v);
+                else commitHex();
+            }
+        });
+        LinearLayout.LayoutParams hexLp = new LinearLayout.LayoutParams(
+                dp(132), ViewGroup.LayoutParams.WRAP_CONTENT);
+        hexLp.topMargin = dp(5);
+        hexRow.addView(hexView, hexLp);
+        colorSection.addView(hexRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         rgbView = text(String.format(Loc.s(this, "R %d · G %d · B %d"), 43, 224, 216),
                 9.5f, MUTED, false);
         rgbView.setGravity(Gravity.CENTER);
@@ -527,6 +589,22 @@ public final class RgbActivity extends PavoGlassActivity {
         header.addView(titles, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
+        LinearLayout linkToggle = new LinearLayout(this);
+        linkToggle.setOrientation(LinearLayout.HORIZONTAL);
+        linkToggle.setGravity(Gravity.CENTER);
+        linkToggle.setPadding(dp(2), dp(2), dp(2), dp(2));
+        linkToggle.setBackground(Ui.rounded(0x14FFFFFF, dp(11),
+                0x22FFFFFF, dp(1)));
+        bothChip = linkChip("BOTH", true);
+        eachChip = linkChip("EACH", false);
+        linkToggle.addView(bothChip);
+        linkToggle.addView(eachChip);
+        LinearLayout.LayoutParams toggleLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        toggleLp.rightMargin = dp(8);
+        toggleLp.gravity = Gravity.CENTER_VERTICAL;
+        header.addView(linkToggle, toggleLp);
+
         status = text("PSERVER", 10f, GREEN, true);
         status.setGravity(Gravity.CENTER);
         status.setPadding(dp(12), dp(6), dp(12), dp(6));
@@ -549,6 +627,91 @@ public final class RgbActivity extends PavoGlassActivity {
         });
         header.addView(close);
         return header;
+    }
+
+    private TextView linkChip(String key, final boolean both) {
+        final TextView chip = text(key, 9.5f, 0xE6FFFFFF, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setSingleLine(true);
+        chip.setFocusable(true);
+        chip.setFocusableInTouchMode(true);
+        chip.setClickable(true);
+        chip.setDefaultFocusHighlightEnabled(false);
+        chip.setPadding(dp(8), dp(5), dp(8), dp(5));
+        chip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Haptics.click(v);
+                setLinked(both);
+            }
+        });
+        // This window is controller-first, so a plain tap can stop at the
+        // focus change; mirror the mode buttons and click on ACTION_UP.
+        chip.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        v.setPressed(true);
+                        v.requestFocus();
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        v.setPressed(false);
+                        chip.performClick();
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        v.setPressed(false);
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        });
+        chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if (hasFocus) Haptics.tick(v);
+                styleLinkChips();
+            }
+        });
+        return chip;
+    }
+
+    private void styleLinkChips() {
+        styleLinkChip(bothChip, linked);
+        styleLinkChip(eachChip, !linked);
+    }
+
+    private void styleLinkChip(TextView chip, boolean selected) {
+        if (chip == null) return;
+        if (selected) {
+            chip.setTextColor(0xFF071018);
+            chip.setBackground(chip.isFocused()
+                    ? Ui.rounded(accent, dp(8), 0xCCFFFFFF, dp(1))
+                    : Ui.rounded(accent, dp(8)));
+        } else if (chip.isFocused()) {
+            chip.setTextColor(0xFFFFFFFF);
+            chip.setBackground(Ui.rounded(0x26FFFFFF, dp(8), accent, dp(1)));
+        } else {
+            chip.setTextColor(0xE6FFFFFF);
+            chip.setBackground(null);
+        }
+    }
+
+    /** Switch between one shared setting and independent per-stick settings. */
+    private void setLinked(boolean value) {
+        if (linked == value) return;
+        linked = value;
+        if (linked) {
+            // The stick being edited becomes the source for both.
+            int index = editIndex();
+            modes[1 - index] = modes[index];
+            colors[1 - index] = colors[index];
+        }
+        styleLinkChips();
+        syncEditControls();
+        updatePreview();
+        applyNow();
     }
 
     private LinearLayout section(LinearLayout parent, String title, String hint) {
@@ -786,6 +949,7 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private void setEditMode(int value) {
         modes[editIndex()] = value;
+        if (linked) modes[1 - editIndex()] = value;
     }
 
     private int editColor() {
@@ -794,6 +958,7 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private void setEditColor(int value) {
         colors[editIndex()] = value;
+        if (linked) colors[1 - editIndex()] = value;
     }
 
     private void updateFromWheel() {
@@ -857,12 +1022,80 @@ public final class RgbActivity extends PavoGlassActivity {
     }
 
     private void updateColorText() {
-        if (hexView == null) return;
         int value = editColor();
         String hex = String.format("#%06X", 0xFFFFFF & value);
+        // Remember the last good value so an invalid edit can be rolled back.
+        lastValidHex = hex;
+        if (hexView == null) return;
+        if (!hexView.hasFocus()) hexView.setText(hex);
+        if (rgbView != null) {
+            rgbView.setText(String.format(Loc.s(this, "R %d · G %d · B %d"),
+                    Color.red(value), Color.green(value), Color.blue(value)));
+        }
+    }
+
+    private void commitHex() {
+        if (hexView == null) return;
+        long now = SystemClock.uptimeMillis();
+        if (now - lastHexCommitAt < 150L) return;
+        lastHexCommitAt = now;
+        int parsed = parseHexColor(hexView.getText().toString());
+        if (parsed == Integer.MIN_VALUE) {
+            Haptics.key(hexView);
+            Toast.makeText(this, Loc.s(this, "Invalid color code"),
+                    Toast.LENGTH_SHORT).show();
+            // Ignoring the warning restores the last colour that worked.
+            hexView.setText(lastValidHex);
+            hexView.setSelection(hexView.getText().length());
+            return;
+        }
+        String hex = String.format("#%06X", 0xFFFFFF & parsed);
+        lastValidHex = hex;
         hexView.setText(hex);
-        rgbView.setText(String.format(Loc.s(this, "R %d · G %d · B %d"),
-                Color.red(value), Color.green(value), Color.blue(value)));
+        hexView.setSelection(hex.length());
+        if (parsed == editColor()) return;
+        setEditColor(parsed);
+        float[] hsv = new float[3];
+        Color.colorToHSV(parsed, hsv);
+        suppress = true;
+        wheel.setHueSaturation(hsv[0], hsv[1]);
+        hueBar.setProgress(Math.round(hsv[0]));
+        satBar.setProgress(Math.round(hsv[1] * 100f));
+        suppress = false;
+        updateColorText();
+        updatePreview();
+        scheduleApply();
+    }
+
+    /** Accepts #RRGGBB, RRGGBB or the #RGB shorthand. */
+    private static int parseHexColor(String raw) {
+        if (raw == null) return Integer.MIN_VALUE;
+        String s = raw.trim();
+        if (s.startsWith("#")) s = s.substring(1);
+        if (s.length() == 3) {
+            StringBuilder expanded = new StringBuilder(6);
+            for (int i = 0; i < 3; i++) {
+                char c = s.charAt(i);
+                expanded.append(c).append(c);
+            }
+            s = expanded.toString();
+        }
+        if (s.length() != 6) return Integer.MIN_VALUE;
+        for (int i = 0; i < 6; i++) {
+            if (Character.digit(s.charAt(i), 16) < 0) return Integer.MIN_VALUE;
+        }
+        try {
+            return 0xFF000000 | Integer.parseInt(s, 16);
+        } catch (NumberFormatException ignored) {
+            return Integer.MIN_VALUE;
+        }
+    }
+
+    private void hideHexKeyboard() {
+        if (hexView == null) return;
+        InputMethodManager imm =
+                (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(hexView.getWindowToken(), 0);
     }
 
     private void updatePreview() {
@@ -898,11 +1131,18 @@ public final class RgbActivity extends PavoGlassActivity {
             rightLabel.setText(rightText);
             lastRightText = rightText;
         }
-        if (!labelStyleSet || lastLabelEditing != editingLeft) {
-            styleStickLabel(leftLabel, editingLeft);
-            styleStickLabel(rightLabel, !editingLeft);
+        if (!labelStyleSet || lastLabelEditing != editingLeft || lastLinked != linked) {
+            if (linked) {
+                // Both sticks carry the shared setting, so mark both.
+                styleStickLabel(leftLabel, true);
+                styleStickLabel(rightLabel, true);
+            } else {
+                styleStickLabel(leftLabel, editingLeft);
+                styleStickLabel(rightLabel, !editingLeft);
+            }
             labelStyleSet = true;
             lastLabelEditing = editingLeft;
+            lastLinked = linked;
         }
     }
 
@@ -923,6 +1163,7 @@ public final class RgbActivity extends PavoGlassActivity {
         brightnessBar.setProgress(Math.max(0, Math.min(99, brightness - 1)));
         speedBar.setProgress(Math.max(0, Math.min(290, speed - 10)));
         suppress = false;
+        styleLinkChips();
         updatePreview();
         updateStatus();
     }
@@ -960,19 +1201,20 @@ public final class RgbActivity extends PavoGlassActivity {
         prefs.setRgbRightColor(colors[1]);
         prefs.setRgbBrightness(brightness);
         prefs.setRgbSpeed(speed);
+        prefs.setRgbLinked(linked);
 
         boolean animated = anyAnimated();
         if (animated) {
             ++writeGeneration;
             RgbService.apply(this, modes[0], colors[0], modes[1], colors[1],
-                    brightness, speed);
+                    brightness, speed, linked);
             serviceRunning = true;
         } else {
             // Hand a running animation back to the service so it can stop its
             // loop, then paint the static frame on the writer thread.
             if (serviceRunning) {
                 RgbService.apply(this, modes[0], colors[0], modes[1], colors[1],
-                        brightness, speed);
+                        brightness, speed, linked);
                 serviceRunning = false;
             }
             scheduleStaticWrite();

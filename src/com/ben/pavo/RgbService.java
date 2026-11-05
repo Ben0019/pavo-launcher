@@ -28,6 +28,7 @@ public final class RgbService extends Service {
     static final String EXTRA_RIGHT_COLOR = "right_color";
     static final String EXTRA_BRIGHTNESS = "brightness";
     static final String EXTRA_SPEED = "speed";
+    static final String EXTRA_LINKED = "linked";
 
     private static final String CHANNEL = "aurora_rgb";
     private static final int NOTIFICATION_ID = 101;
@@ -76,7 +77,8 @@ public final class RgbService extends Service {
     }
 
     static void apply(Context c, int leftMode, int leftColor,
-                      int rightMode, int rightColor, int brightness, int speed) {
+                      int rightMode, int rightColor, int brightness, int speed,
+                      boolean linked) {
         if (c == null) return;
         Intent intent = new Intent(c, RgbService.class);
         intent.setAction(ACTION_APPLY);
@@ -86,6 +88,7 @@ public final class RgbService extends Service {
         intent.putExtra(EXTRA_RIGHT_COLOR, rightColor);
         intent.putExtra(EXTRA_BRIGHTNESS, brightness);
         intent.putExtra(EXTRA_SPEED, speed);
+        intent.putExtra(EXTRA_LINKED, linked);
         c.startService(intent);
     }
 
@@ -148,7 +151,7 @@ public final class RgbService extends Service {
                         RgbControl.wakeApply(lc, rc, b, l, r);
                     } else {
                         RgbControl.wakeEnable(l, r);
-                        apply(app, lm, lc, rm, rc, b, sp);
+                        apply(app, lm, lc, rm, rc, b, sp, prefs.rgbLinked());
                     }
                 } catch (Throwable ignored) {
                 }
@@ -212,6 +215,7 @@ public final class RgbService extends Service {
         int nextBrightness = intent != null
                 ? intent.getIntExtra(EXTRA_BRIGHTNESS, brightness) : brightness;
         int nextSpeed = intent != null ? intent.getIntExtra(EXTRA_SPEED, speed) : speed;
+        boolean linked = intent != null && intent.getBooleanExtra(EXTRA_LINKED, false);
         boolean leftChanged = nextLM != leftMode;
         boolean rightChanged = nextRM != rightMode;
         boolean anyChanged = leftChanged || rightChanged;
@@ -263,8 +267,15 @@ public final class RgbService extends Service {
         }
         previewActive = true;
         long now = SystemClock.uptimeMillis();
-        if (leftChanged || !started) leftStart = now;
-        if (rightChanged || !started) rightStart = now;
+        if (linked && anyChanged) {
+            // Linked sticks must animate in step; reset both phases when
+            // either side adopts a new mode.
+            leftStart = now;
+            rightStart = now;
+        } else {
+            if (leftChanged || !started) leftStart = now;
+            if (rightChanged || !started) rightStart = now;
+        }
         if (anyChanged || !started) {
             // Only touch the enable when the service or a mode actually
             // changes. A redundant enable write during wake made the LEDs blink.
