@@ -54,6 +54,10 @@ public final class RgbService extends Service {
     private int ambientRight;
     private int ambientTargetLeft;
     private int ambientTargetRight;
+    private int[] ambientLeftColors = {0, 0};
+    private int[] ambientRightColors = {0, 0};
+    private int ambientPhase;
+    private long nextAmbientPhaseAt;
     private long lastAmbientSample;
     private volatile boolean ambientSampling;
     private int brightness = 50;
@@ -267,12 +271,16 @@ public final class RgbService extends Service {
                 && (anyChanged || !started)) {
             if (leftMode == RgbControl.MODE_SCREEN) {
                 ambientLeft = leftColor;
+                ambientLeftColors = new int[]{leftColor, leftColor};
                 ambientTargetLeft = 0;
             }
             if (rightMode == RgbControl.MODE_SCREEN) {
                 ambientRight = rightColor;
+                ambientRightColors = new int[]{rightColor, rightColor};
                 ambientTargetRight = 0;
             }
+            ambientPhase = 0;
+            nextAmbientPhaseAt = 0L;
             lastAmbientSample = 0L;
         }
         previewActive = true;
@@ -341,6 +349,16 @@ public final class RgbService extends Service {
             if (leftMode == RgbControl.MODE_SCREEN
                     || rightMode == RgbControl.MODE_SCREEN) {
                 sampleAmbient(now);
+                if (now >= nextAmbientPhaseAt) {
+                    ambientPhase ^= 1;
+                    nextAmbientPhaseAt = now + 1000L;
+                    if (leftMode == RgbControl.MODE_SCREEN) {
+                        ambientTargetLeft = ambientLeftColors[ambientPhase];
+                    }
+                    if (rightMode == RgbControl.MODE_SCREEN) {
+                        ambientTargetRight = ambientRightColors[ambientPhase];
+                    }
+                }
                 blendAmbient();
             }
 
@@ -417,13 +435,23 @@ public final class RgbService extends Service {
                         @Override public void run() {
                             ambientSampling = false;
                             if (!running || sampled == null) return;
-                            if (leftMode == RgbControl.MODE_SCREEN
-                                    && sampled[0] != 0) {
-                                ambientTargetLeft = sampled[0];
+                            boolean changed = colorDistance(
+                                    ambientLeftColors[0], sampled[0]) > 90
+                                    || colorDistance(ambientRightColors[0], sampled[2]) > 90;
+                            ambientLeftColors = new int[]{sampled[0], sampled[1]};
+                            ambientRightColors = new int[]{sampled[2], sampled[3]};
+                            if (changed) {
+                                // A new scene should show its dominant colour
+                                // immediately instead of waiting for the other
+                                // palette entry.
+                                ambientPhase = 0;
+                                nextAmbientPhaseAt = SystemClock.uptimeMillis() + 1000L;
                             }
-                            if (rightMode == RgbControl.MODE_SCREEN
-                                    && sampled[1] != 0) {
-                                ambientTargetRight = sampled[1];
+                            if (leftMode == RgbControl.MODE_SCREEN) {
+                                ambientTargetLeft = ambientLeftColors[ambientPhase];
+                            }
+                            if (rightMode == RgbControl.MODE_SCREEN) {
+                                ambientTargetRight = ambientRightColors[ambientPhase];
                             }
                         }
                     });
@@ -444,6 +472,12 @@ public final class RgbService extends Service {
         if (ambientTargetRight != 0) {
             ambientRight = blend(ambientRight, ambientTargetRight, blendAmount);
         }
+    }
+
+    private static int colorDistance(int a, int b) {
+        return Math.abs(Color.red(a) - Color.red(b))
+                + Math.abs(Color.green(a) - Color.green(b))
+                + Math.abs(Color.blue(a) - Color.blue(b));
     }
 
     private static int blend(int from, int to, float amount) {
