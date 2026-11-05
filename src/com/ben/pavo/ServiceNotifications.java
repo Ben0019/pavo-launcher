@@ -106,9 +106,20 @@ final class ServiceNotifications {
             @Override
             public void run() {
                 try {
+                    // With accessibility hosting the process, no keeper row
+                    // is needed. Drop this one as soon as the startForeground
+                    // contract is satisfied.
+                    if (PavoA11yService.isConnected()) {
+                        Thread.sleep(300L);
+                        service.stopForeground(Service.STOP_FOREGROUND_REMOVE);
+                        HIDDEN.add(id);
+                        return;
+                    }
                     Thread.sleep(delayMs);
                 } catch (InterruptedException ignored) {
                     Thread.currentThread().interrupt();
+                    return;
+                } catch (Throwable ignored) {
                     return;
                 }
                 if (!otherForeground(service)) return;

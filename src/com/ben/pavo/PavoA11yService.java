@@ -717,8 +717,11 @@ public final class PavoA11yService extends AccessibilityService {
                 boolean last = pm != null && pm.isInteractive();
                 while (wakeWatcherRunning) {
                     boolean now = pm != null && pm.isInteractive();
-                    if (now && !last) triggerRgbWake();
-                    else if (!now && last) RgbService.onScreenOff();
+                    if (now && !last) {
+                        triggerRgbWake();
+                    } else if (!now && last) {
+                        RgbService.onScreenOff();
+                    }
                     last = now;
                     try {
                         Thread.sleep(60L);
@@ -783,7 +786,12 @@ public final class PavoA11yService extends AccessibilityService {
                 || fanMode == PerfTuner.FAN_HIGH) {
             FanControl.start(this);
         }
-        ServiceNotifications.cancelPersistent(this);
+        new Thread(new Runnable() {
+            @Override public void run() {
+                ServiceNotifications.restartHosted(getApplicationContext());
+                ServiceNotifications.cancelPersistent(getApplicationContext());
+            }
+        }, "PavoHostRestart").start();
         registerScreenOn();
         startWakeWatcher();
         main.removeCallbacks(profileSync);

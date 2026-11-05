@@ -42,6 +42,7 @@ public final class RgbService extends Service {
     private static Runnable pendingWakeReapply;
     private static volatile long wakeHoldUntil;
     private static volatile long lastWakeReapplyAt;
+    private static volatile long wakeReapplyAt;
     private static volatile long ambientSettleUntil;
 
     private HandlerThread thread;
@@ -132,7 +133,16 @@ public final class RgbService extends Service {
         // for one wake. A single restore is enough; extra enable writes make
         // the ring blink, so fold them into one sequence.
         long now = SystemClock.uptimeMillis();
-        if (now - lastWakeReapplyAt < 3000L) return;
+        if (now - lastWakeReapplyAt < 3000L) {
+            return;
+        }
+        if (pendingWakeReapply != null) {
+            if (now - wakeReapplyAt < 4000L) {
+                return;
+            }
+            wakeHandler.removeCallbacks(pendingWakeReapply);
+            pendingWakeReapply = null;
+        }
         lastWakeReapplyAt = now;
         // Hold the last screen colour through the panel wake. The first
         // frames can be the black lock screen or a black panel frame; letting
@@ -150,12 +160,14 @@ public final class RgbService extends Service {
         // keep the first deadline so duplicate triggers cannot push the
         // restore later.
         if (pendingWakeReapply != null) return;
-        wakeHoldUntil = SystemClock.uptimeMillis() + 650L;
+        wakeReapplyAt = SystemClock.uptimeMillis();
+        wakeHoldUntil = wakeReapplyAt + 650L;
         pendingWakeReapply = new Runnable() {
             private boolean repeated;
 
             @Override
             public void run() {
+                boolean secondPass = repeated;
                 if (!repeated) {
                     // A second pass covers a late panel write; repainting the
                     // same colour is invisible when the first one survived.
@@ -182,7 +194,9 @@ public final class RgbService extends Service {
                     if (!isAnimated(lm) && !isAnimated(rm)) {
                         RgbControl.wakeApply(lc, rc, b, l, r);
                     } else {
-                        RgbControl.wakeEnable(l, r);
+                        // Enable once, on the settled second pass. Writing it
+                        // on both passes made the ring flash on and off.
+                        if (secondPass) RgbControl.wakeEnable(l, r);
                         apply(app, lm, lc, rm, rc, b, sp, prefs.rgbLinked());
                     }
                 } catch (Throwable ignored) {
@@ -396,6 +410,7 @@ public final class RgbService extends Service {
                     return;
                 }
                 wakeHoldUntil = 0L;
+                reapply(getApplicationContext());
             }
             if (now < wakeHoldUntil) {
                 // Let the panel finish its wake write, then resume even if the
