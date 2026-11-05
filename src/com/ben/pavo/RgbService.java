@@ -53,12 +53,24 @@ public final class RgbService extends Service {
     private float rightHue;
     private int ambientLeft;
     private int ambientRight;
-    private int ambientTargetLeft;
-    private int ambientTargetRight;
+    private volatile int ambientTargetLeft;
+    private volatile int ambientTargetRight;
     private long lastAmbientSample;
     private long lastAmbientTick;
+    private long lastStreamAttempt;
     private final AmbientSpring leftSpring = new AmbientSpring();
     private final AmbientSpring rightSpring = new AmbientSpring();
+    private final ScreenStream.Listener streamListener =
+            new ScreenStream.Listener() {
+                @Override public void onColors(int left, int right) {
+                    if (leftMode == RgbControl.MODE_SCREEN && left != 0) {
+                        ambientTargetLeft = left;
+                    }
+                    if (rightMode == RgbControl.MODE_SCREEN && right != 0) {
+                        ambientTargetRight = right;
+                    }
+                }
+            };
     private volatile boolean ambientSampling;
     private int brightness = 50;
     private int speed = 100;
@@ -173,6 +185,7 @@ public final class RgbService extends Service {
     /** Pause painting while the panel is blank; the wake path resumes it. */
     static void onScreenOff() {
         wakeHoldUntil = Long.MAX_VALUE;
+        ScreenStream.stop();
     }
 
     static void stop(Context c) {
@@ -204,6 +217,7 @@ public final class RgbService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : ACTION_APPLY;
         if (ACTION_STOP.equals(action)) {
+            ScreenStream.stop();
             RgbControl.off();
             Prefs stopPrefs = new Prefs(this);
             stopPrefs.setRgbLeftMode(RgbControl.MODE_OFF);
@@ -244,6 +258,7 @@ public final class RgbService extends Service {
         boolean rightOn = rightMode != RgbControl.MODE_OFF;
 
         if (!leftOn && !rightOn) {
+            ScreenStream.stop();
             RgbControl.off();
             previewActive = false;
             previewColor = 0;
@@ -254,6 +269,7 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
         if (!isAnimated(leftMode) && !isAnimated(rightMode)) {
+            ScreenStream.stop();
             RgbControl.applyStaticLR(leftColor, rightColor, brightness, leftOn, rightOn);
             previewActive = false;
             previewColor = RgbControl.scaledColor(leftColor, 1f, brightness);
@@ -288,6 +304,17 @@ public final class RgbService extends Service {
         }
         previewActive = true;
         long now = SystemClock.uptimeMillis();
+        boolean screenMode = leftMode == RgbControl.MODE_SCREEN
+                || rightMode == RgbControl.MODE_SCREEN;
+        if (!screenMode) {
+            ScreenStream.stop();
+        } else if (anyChanged || !started
+                || (intent != null && ACTION_APPLY.equals(action))) {
+            // A fresh SCREEN session (or a wake) gets one new chance at the
+            // fast raw-frame stream even if an earlier attempt failed.
+            ScreenStream.resetFailures();
+            lastStreamAttempt = 0L;
+        }
         if (wakeSettlePending) {
             wakeSettlePending = false;
             // The panel's wake write can clear the enable a little later.
@@ -361,6 +388,11 @@ public final class RgbService extends Service {
 
             if (leftMode == RgbControl.MODE_SCREEN
                     || rightMode == RgbControl.MODE_SCREEN) {
+                if (!ScreenStream.isActive()
+                        && now - lastStreamAttempt >= 5000L) {
+                    lastStreamAttempt = now;
+                    ScreenStream.start(getApplicationContext(), streamListener);
+                }
                 sampleAmbient(now);
                 blendAmbient();
             }
@@ -499,8 +531,8 @@ public final class RgbService extends Service {
     }
 
     private void sampleAmbient(long now) {
-        if (RgbActivity.isVisible() || ambientSampling
-                || now - lastAmbientSample < 200L) return;
+        if (ScreenStream.isActive() || RgbActivity.isVisible()
+                || ambientSampling || now - lastAmbientSample < 200L) return;
         lastAmbientSample = now;
         ambientSampling = true;
         new Thread(new Runnable() {
@@ -581,6 +613,7 @@ public final class RgbService extends Service {
     @Override
     public void onDestroy() {
         running = false;
+        ScreenStream.stop();
         previewActive = false;
         previewColor = 0;
         if (handler != null) handler.removeCallbacksAndMessages(null);

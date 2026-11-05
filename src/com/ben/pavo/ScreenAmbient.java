@@ -106,6 +106,34 @@ final class ScreenAmbient {
         }
     }
 
+    /**
+     * Samples one raw frame. Used by {@link ScreenStream}; {@code bpp} is 3
+     * for RGB888 frames and 4 for the RGBA frames written by screencap.
+     */
+    static int[] sampleFrame(byte[] data, int w, int h, int bpp, int step, int yStep) {
+        if (data == null || w <= 0 || h <= 0 || bpp < 3) return null;
+        RegionStats left = new RegionStats();
+        RegionStats right = new RegionStats();
+        int half = w / 2;
+        for (int y = 0; y < h; y += yStep) {
+            int row = y * w * bpp;
+            for (int x = 0; x < w; x += step) {
+                int offset = row + x * bpp;
+                if (offset + 2 >= data.length) break;
+                int r = data[offset] & 0xFF;
+                int g = data[offset + 1] & 0xFF;
+                int b = data[offset + 2] & 0xFF;
+                if (x < half) {
+                    left.add(r, g, b);
+                } else {
+                    right.add(r, g, b);
+                }
+            }
+        }
+        if (left.count == 0 || right.count == 0) return null;
+        return new int[]{left.color(), right.color()};
+    }
+
     /** Aggregated colours for one half of the display. */
     private static final class RegionStats {
         private final float[] hueBins = new float[36];
