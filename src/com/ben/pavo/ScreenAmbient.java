@@ -192,12 +192,13 @@ final class ScreenAmbient {
             // neon/UI colours still glow, instead of averaging them into the
             // black background.
             float sceneVal = 0.55f * meanVal + 0.45f * accentVal;
-            if (sceneVal < 0.03f) return 0xFF000000;
-            // Black point, white point and a smooth S-curve make the change
-            // obvious: dark scenes drop near off, bright scenes run near full.
-            float t = clamp((sceneVal - 0.05f) / 0.75f, 0f, 1f);
+            if (sceneVal < 0.04f) return 0xFF000000;
+            // Aggressive black/white points: the S-curve reaches full much
+            // sooner and drops dark scenes harder, so scene changes read as
+            // obvious brightness swings.
+            float t = clamp((sceneVal - 0.075f) / 0.60f, 0f, 1f);
             float shaped = t * t * (3f - 2f * t);
-            float ledVal = 0.03f + 0.97f * shaped;
+            float ledVal = 0.025f + 0.975f * shaped;
             int avg = Color.rgb(
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
