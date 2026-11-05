@@ -26,12 +26,29 @@ final class DeviceHealthController {
 
     static Result setSeparation(Context c, boolean enabled) {
         int target = enabled ? 0 : 1;
+        // The vendor clears the hardware separation when the display sleeps
+        // but leaves the settings value at 1. Rewriting the same value does
+        // nothing, so force a 0 -> 1 transition to re-arm it.
+        if (enabled) {
+            runPrivileged("settings put system " + SEPARATION_SETTING + " 0");
+            SystemClock.sleep(160L);
+        }
         runPrivileged("settings put system " + SEPARATION_SETTING + " "
                 + (enabled ? "1" : "0"));
-        if (waitForNode(c, USB_CHARGE_NODE, target, 1500L)) {
+        if (waitForNode(c, USB_CHARGE_NODE, target, 2000L)) {
             return new Result(true, enabled
                     ? "Charge separation enabled · running from charger"
                     : "Charge separation disabled");
+        }
+        if (enabled) {
+            // A second transition covers a slow vendor service after wake.
+            runPrivileged("settings put system " + SEPARATION_SETTING + " 0");
+            SystemClock.sleep(300L);
+            runPrivileged("settings put system " + SEPARATION_SETTING + " 1");
+            if (waitForNode(c, USB_CHARGE_NODE, 0, 2500L)) {
+                return new Result(true,
+                        "Charge separation enabled · running from charger");
+            }
         }
         return new Result(false, "Odin charge separation did not respond");
     }

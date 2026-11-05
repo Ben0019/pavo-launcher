@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,10 +28,13 @@ public final class BatteryGuardService extends Service {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private PowerManager.WakeLock wakeLock;
+    private boolean wakeLockHeld;
     private DeviceHealthStore store;
     private boolean autoApplied;
     private boolean polling;
     private int unpluggedPolls;
+    private String lastStatus;
 
     static void start(Context c) {
         if (c == null) return;
@@ -64,6 +68,12 @@ public final class BatteryGuardService extends Service {
     public void onCreate() {
         super.onCreate();
         store = new DeviceHealthStore(this);
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        if (pm != null) {
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                    "Pavo:ChargeGuard");
+            wakeLock.setReferenceCounted(false);
+        }
         createChannel();
     }
 
@@ -82,9 +92,11 @@ public final class BatteryGuardService extends Service {
                 idle ? "Charge guard" : store.limitEnabled()
                         && (target == store.limitPercent() || !store.autoSeparation())
                         ? "Charge limit" : "Automatic charge separation",
-                idle ? "Nothing to do" : "Waiting for " + target + "%"));
-        ServiceNotifications.hideLater(this);
+                idle ? "Nothing to do" : target + "%"));
+        // Keep the foreground row: without it the guard is frozen when the
+        // display sleeps and the battery charges past the configured limit.
         if (idle) {
+            setWakeLock(false);
             stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
@@ -113,6 +125,7 @@ public final class BatteryGuardService extends Service {
                         @Override
                         public void run() {
                             if (threshold < 0) {
+                                setWakeLock(false);
                                 if (!store.separated()) {
                                     DeviceHealthController.setSeparation(
                                             BatteryGuardService.this, false);
@@ -141,6 +154,10 @@ public final class BatteryGuardService extends Service {
 
     private void apply(DeviceHealthReader.Snapshot snap, int threshold) {
         if (snap.level < 0) return;
+        // The main looper cannot run while the CPU is suspended. Hold a
+        // partial wake lock only while charging, so the 5 s guard survives
+        // display-off and deep sleep without draining the battery outdoors.
+        setWakeLock(snap.plugged);
         // Debounce cable loss: separation itself flips some charger nodes for a
         // moment, and releasing on the first bad sample lets the battery creep up.
         if (snap.plugged) unpluggedPolls = 0;
@@ -150,13 +167,16 @@ public final class BatteryGuardService extends Service {
         if (atLimit && snap.separated) {
             if (!autoApplied) android.util.Log.i("BatteryGuard", "separation holding at " + snap.level + "%");
             autoApplied = true;
+            updateStatus("Charge separation active", snap.level + "%");
         } else if (atLimit && !snap.separated) {
             android.util.Log.i("BatteryGuard", "separating at " + snap.level + "% (target " + threshold + "%)");
             DeviceHealthController.Result r = DeviceHealthController.setSeparation(this, true);
             if (r.ok) {
                 autoApplied = true;
+                updateStatus("Charge separation active", snap.level + "%");
                 toastState("Charge separation active", " · " + snap.level + "%");
             } else {
+                updateStatus("Charge separation unavailable", snap.level + "%");
                 toastState("Charge separation unavailable", "");
             }
         } else if (release && (autoApplied || (snap.separated && !snap.plugged))) {
@@ -164,11 +184,35 @@ public final class BatteryGuardService extends Service {
             DeviceHealthController.Result r = DeviceHealthController.setSeparation(this, false);
             if (r.ok) {
                 autoApplied = false;
+                updateStatus("Charging normally", threshold + "%");
                 toastState("Charging normally", " · " + threshold + "%");
             }
         }
     }
 
+
+    private void updateStatus(String title, String text) {
+        String value = title + "|" + text;
+        if (value.equals(lastStatus)) return;
+        lastStatus = value;
+        NotificationManager nm =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (nm != null) nm.notify(NOTIFICATION_ID, notification(title, text));
+    }
+
+    private void setWakeLock(boolean hold) {
+        if (wakeLock == null || hold == wakeLockHeld) return;
+        try {
+            if (hold) {
+                wakeLock.acquire();
+                wakeLockHeld = true;
+            } else {
+                wakeLock.release();
+                wakeLockHeld = false;
+            }
+        } catch (Throwable ignored) {
+        }
+    }
 
     private String lastToast = "";
 
@@ -192,7 +236,7 @@ public final class BatteryGuardService extends Service {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
         NotificationChannel ch = new NotificationChannel(CHANNEL,
-                "Device health guard", NotificationManager.IMPORTANCE_DEFAULT);
+                "Device health guard", NotificationManager.IMPORTANCE_LOW);
         ch.setDescription("Automatic charge separation at the configured battery level");
         ch.setShowBadge(false);
         nm.createNotificationChannel(ch);
@@ -204,6 +248,7 @@ public final class BatteryGuardService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 22, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder b = new Notification.Builder(this, CHANNEL)
+                .setOnlyAlertOnce(true)
                 .setSmallIcon(R.drawable.ic_perf)
                 .setContentTitle(Loc.s(this, title))
                 .setContentText(Loc.s(this, text))
@@ -216,6 +261,7 @@ public final class BatteryGuardService extends Service {
     @Override
     public void onDestroy() {
         polling = false;
+        setWakeLock(false);
         main.removeCallbacksAndMessages(null);
         if (autoApplied) {
             DeviceHealthController.setSeparation(this, false);

@@ -12,7 +12,9 @@ public final class DeviceHealthBootReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         if (!Intent.ACTION_BOOT_COMPLETED.equals(action)
                 && !Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action)
-                && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
+                && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)
+                && !Intent.ACTION_POWER_CONNECTED.equals(action)
+                && !Intent.ACTION_POWER_DISCONNECTED.equals(action)) {
             return;
         }
         // A package update kills the guard; re-arm it immediately instead of
