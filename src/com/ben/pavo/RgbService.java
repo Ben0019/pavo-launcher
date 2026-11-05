@@ -31,7 +31,6 @@ public final class RgbService extends Service {
     static final String EXTRA_BRIGHTNESS = "brightness";
     static final String EXTRA_SPEED = "speed";
     static final String EXTRA_LINKED = "linked";
-    static final String EXTRA_SOUND = "sound";
 
     private static final String CHANNEL = "aurora_rgb";
     private static final int NOTIFICATION_ID = 101;
@@ -62,11 +61,6 @@ public final class RgbService extends Service {
     private long lastEnableAt;
     private boolean foreground;
     private boolean started;
-    private boolean sound;
-    private SoundLevel soundLevel;
-    private float smoothedGain;
-    private float soundPeak;
-    private long lastSoundAt;
 
     static boolean isRunning() {
         return running;
@@ -86,7 +80,7 @@ public final class RgbService extends Service {
 
     static void apply(Context c, int leftMode, int leftColor,
                       int rightMode, int rightColor, int brightness, int speed,
-                      boolean linked, boolean sound) {
+                      boolean linked) {
         if (c == null) return;
         Intent intent = new Intent(c, RgbService.class);
         intent.setAction(ACTION_APPLY);
@@ -97,7 +91,6 @@ public final class RgbService extends Service {
         intent.putExtra(EXTRA_BRIGHTNESS, brightness);
         intent.putExtra(EXTRA_SPEED, speed);
         intent.putExtra(EXTRA_LINKED, linked);
-        intent.putExtra(EXTRA_SOUND, sound);
         c.startService(intent);
     }
 
@@ -156,13 +149,11 @@ public final class RgbService extends Service {
                     boolean l = lm != RgbControl.MODE_OFF;
                     boolean r = rm != RgbControl.MODE_OFF;
                     wakeHoldUntil = 0L;
-                    boolean sound = prefs.rgbSound();
-                    if (!isAnimated(lm) && !isAnimated(rm) && !sound) {
+                    if (!isAnimated(lm) && !isAnimated(rm)) {
                         RgbControl.wakeApply(lc, rc, b, l, r);
                     } else {
                         RgbControl.wakeEnable(l, r);
-                        apply(app, lm, lc, rm, rc, b, sp,
-                                prefs.rgbLinked(), prefs.rgbSound());
+                        apply(app, lm, lc, rm, rc, b, sp, prefs.rgbLinked());
                     }
                 } catch (Throwable ignored) {
                 }
@@ -206,8 +197,6 @@ public final class RgbService extends Service {
         String action = intent != null ? intent.getAction() : ACTION_APPLY;
         if (ACTION_STOP.equals(action)) {
             RgbControl.off();
-            sound = false;
-            stopSound();
             Prefs stopPrefs = new Prefs(this);
             stopPrefs.setRgbLeftMode(RgbControl.MODE_OFF);
             stopPrefs.setRgbRightMode(RgbControl.MODE_OFF);
@@ -229,7 +218,6 @@ public final class RgbService extends Service {
                 ? intent.getIntExtra(EXTRA_BRIGHTNESS, brightness) : brightness;
         int nextSpeed = intent != null ? intent.getIntExtra(EXTRA_SPEED, speed) : speed;
         boolean linked = intent != null && intent.getBooleanExtra(EXTRA_LINKED, false);
-        boolean nextSound = intent != null ? intent.getBooleanExtra(EXTRA_SOUND, sound) : sound;
         boolean leftChanged = nextLM != leftMode;
         boolean rightChanged = nextRM != rightMode;
         boolean anyChanged = leftChanged || rightChanged;
@@ -249,8 +237,6 @@ public final class RgbService extends Service {
 
         if (!leftOn && !rightOn) {
             RgbControl.off();
-            sound = false;
-            stopSound();
             previewActive = false;
             previewColor = 0;
             previewColorRight = 0;
@@ -259,9 +245,7 @@ public final class RgbService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        sound = nextSound;
-        if (!sound) stopSound();
-        if (!isAnimated(leftMode) && !isAnimated(rightMode) && !sound) {
+        if (!isAnimated(leftMode) && !isAnimated(rightMode)) {
             RgbControl.applyStaticLR(leftColor, rightColor, brightness, leftOn, rightOn);
             previewActive = false;
             previewColor = RgbControl.scaledColor(leftColor, 1f, brightness);
@@ -272,7 +256,6 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
 
-        startSound();
         // An explicit mode apply means the user is looking at the LEDs now;
         // do not leave a stale screen-off hold blocking the animation.
         if (intent != null && ACTION_APPLY.equals(intent.getAction())) {
@@ -301,21 +284,14 @@ public final class RgbService extends Service {
             RgbControl.setEnabled(leftOn, rightOn);
             started = true;
         }
-        if (sound) {
-            // A game launch can push Pavo out of memory; a foreground row
-            // keeps the audio-reactive loop alive while it plays.
-            startForeground(NOTIFICATION_ID, notification());
-            foreground = true;
-        } else {
-            if (foreground) {
-                stopForeground(STOP_FOREGROUND_REMOVE);
-                foreground = false;
-            }
+        if (!foreground) {
             if (!ServiceNotifications.hosted()) {
                 startForeground(NOTIFICATION_ID, notification());
                 ServiceNotifications.hideLater(this);
-                foreground = true;
             }
+            foreground = true;
+        } else {
+            ServiceNotifications.update(this, NOTIFICATION_ID, notification());
         }
         if (handler != null) {
             handler.removeCallbacks(tick);
@@ -388,32 +364,6 @@ public final class RgbService extends Service {
                 outRight = ambientColor;
             }
 
-            if (sound) {
-                float level = soundLevel == null ? 0f : soundLevel.level();
-                // Follow the track's recent peak so quiet music still uses the
-                // full brightness range; the slow decay avoids pumping.
-                if (level > 0.02f) {
-                    soundPeak = Math.max(level, soundPeak * 0.995f);
-                } else {
-                    soundPeak = Math.max(0.06f, soundPeak * 0.99f);
-                }
-                float normalized = level <= 0.02f ? 0f
-                        : Math.min(1f, level / Math.max(0.08f, soundPeak));
-                float shaped = (float) Math.pow(normalized, 1.55f);
-                long dt = lastSoundAt == 0L ? 33L : now - lastSoundAt;
-                lastSoundAt = now;
-                if (dt < 1L) dt = 1L;
-                if (dt > 100L) dt = 100L;
-                float tau = shaped > smoothedGain ? 25f : 110f;
-                float alpha = 1f - (float) Math.exp(-dt / (double) tau);
-                smoothedGain += (shaped - smoothedGain) * alpha;
-                float gain = smoothedGain;
-                effectiveLeft = Math.max(0, Math.min(100,
-                        Math.round(effectiveLeft * gain)));
-                effectiveRight = Math.max(0, Math.min(100,
-                        Math.round(effectiveRight * gain)));
-            }
-
             // Bake each stick's brightness into its colour so one pass can
             // paint different modes (a dim breathing left, a bright static
             // right) at the same time.
@@ -439,10 +389,6 @@ public final class RgbService extends Service {
                     || rightMode == RgbControl.MODE_STROBE) ? strobeInterval
                     : ((leftMode == RgbControl.MODE_BREATH
                     || rightMode == RgbControl.MODE_BREATH) ? 12L : 70L);
-            if (sound && leftMode != RgbControl.MODE_STROBE
-                    && rightMode != RgbControl.MODE_STROBE) {
-                frameMs = Math.min(frameMs, 33L);
-            }
             long work = SystemClock.uptimeMillis() - now;
             handler.postDelayed(this, Math.max(1L, frameMs - work));
         }
@@ -506,36 +452,9 @@ public final class RgbService extends Service {
     private String modeSummary() {
         String l = Loc.s(this, modeName(leftMode));
         String r = Loc.s(this, modeName(rightMode));
-        String summary = l.equals(r) ? l : l + " + " + r;
-        return sound ? Loc.s(this, "SOUND") + " · " + summary : summary;
+        return l.equals(r) ? l : l + " + " + r;
     }
 
-    private void startSound() {
-        if (!sound) {
-            stopSound();
-            return;
-        }
-        if (soundLevel == null) soundLevel = new SoundLevel();
-        if (handler != null) {
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (running && sound && soundLevel != null) {
-                        soundLevel.start();
-                    }
-                }
-            });
-        } else {
-            soundLevel.start();
-        }
-    }
-
-    private void stopSound() {
-        smoothedGain = 0f;
-        soundPeak = 0f;
-        lastSoundAt = 0L;
-        if (soundLevel != null) soundLevel.stop();
-    }
 
     static String modeName(int mode) {
         switch (mode) {
@@ -553,8 +472,6 @@ public final class RgbService extends Service {
     @Override
     public void onDestroy() {
         running = false;
-        sound = false;
-        stopSound();
         previewActive = false;
         previewColor = 0;
         if (handler != null) handler.removeCallbacksAndMessages(null);

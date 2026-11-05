@@ -86,10 +86,8 @@ public final class RgbActivity extends PavoGlassActivity {
     private final int[] colors = {0xFF2BE0D8, 0xFF2BE0D8};
     private boolean editingLeft = true;
     private boolean linked;
-    private boolean sound;
     private TextView bothChip;
     private TextView eachChip;
-    private TextView soundChip;
     private boolean lastLinked;
     private int brightness;
     private int speed;
@@ -141,7 +139,7 @@ public final class RgbActivity extends PavoGlassActivity {
         public void run() {
             if (isFinishing() || isDestroyed()) return;
             updatePreview();
-            handler.postDelayed(this, anyBreath() ? 16L : (sound ? 33L : 70L));
+            handler.postDelayed(this, anyBreath() ? 16L : 70L);
         }
     };
 
@@ -216,7 +214,6 @@ public final class RgbActivity extends PavoGlassActivity {
         brightness = prefs.rgbBrightness();
         speed = prefs.rgbSpeed();
         linked = prefs.rgbLinked();
-        sound = prefs.rgbSound();
         lastModes[0] = modes[0] != RgbControl.MODE_OFF
                 ? modes[0] : prefs.rgbLeftLastMode();
         lastModes[1] = modes[1] != RgbControl.MODE_OFF
@@ -618,12 +615,10 @@ public final class RgbActivity extends PavoGlassActivity {
         linkToggle.setPadding(dp(2), dp(2), dp(2), dp(2));
         linkToggle.setBackground(Ui.rounded(0x14FFFFFF, dp(11),
                 0x22FFFFFF, dp(1)));
-        bothChip = linkChip("BOTH", 0);
-        eachChip = linkChip("EACH", 1);
-        soundChip = linkChip("SOUND", 2);
+        bothChip = linkChip("BOTH", true);
+        eachChip = linkChip("EACH", false);
         linkToggle.addView(bothChip);
         linkToggle.addView(eachChip);
-        linkToggle.addView(soundChip);
         LinearLayout.LayoutParams toggleLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         toggleLp.rightMargin = dp(8);
@@ -654,7 +649,7 @@ public final class RgbActivity extends PavoGlassActivity {
         return header;
     }
 
-    private TextView linkChip(String key, final int action) {
+    private TextView linkChip(String key, final boolean both) {
         final TextView chip = text(key, 9.5f, 0xE6FFFFFF, true);
         chip.setGravity(Gravity.CENTER);
         chip.setSingleLine(true);
@@ -667,8 +662,7 @@ public final class RgbActivity extends PavoGlassActivity {
             @Override
             public void onClick(View v) {
                 Haptics.click(v);
-                if (action == 2) setSound(!sound);
-                else setLinked(action == 0);
+                setLinked(both);
             }
         });
         // This window is controller-first, so a plain tap can stop at the
@@ -706,15 +700,6 @@ public final class RgbActivity extends PavoGlassActivity {
     private void styleLinkChips() {
         styleLinkChip(bothChip, linked);
         styleLinkChip(eachChip, !linked);
-        styleLinkChip(soundChip, sound);
-    }
-
-    private void setSound(boolean value) {
-        if (sound == value) return;
-        sound = value;
-        styleLinkChips();
-        updatePreview();
-        applyNow();
     }
 
     private void styleLinkChip(TextView chip, boolean selected) {
@@ -1183,7 +1168,7 @@ public final class RgbActivity extends PavoGlassActivity {
         if (leftPreview == null) return;
         int ring;
         int ringRight;
-        if ((anyAnimated() || sound) && RgbService.previewActive()) {
+        if (anyAnimated() && RgbService.previewActive()) {
             ring = RgbService.previewColor();
             ringRight = RgbService.previewColorRight();
         } else {
@@ -1289,24 +1274,21 @@ public final class RgbActivity extends PavoGlassActivity {
         prefs.setRgbBrightness(brightness);
         prefs.setRgbSpeed(speed);
         prefs.setRgbLinked(linked);
-        prefs.setRgbSound(sound);
         prefs.setRgbLeftLastMode(lastModes[0]);
         prefs.setRgbRightLastMode(lastModes[1]);
 
-        boolean anyOn = modes[0] != RgbControl.MODE_OFF
-                || modes[1] != RgbControl.MODE_OFF;
-        boolean activeLoop = anyAnimated() || (sound && anyOn);
-        if (activeLoop) {
+        boolean animated = anyAnimated();
+        if (animated) {
             ++writeGeneration;
             RgbService.apply(this, modes[0], colors[0], modes[1], colors[1],
-                    brightness, speed, linked, sound);
+                    brightness, speed, linked);
             serviceRunning = true;
         } else {
             // Hand a running animation back to the service so it can stop its
             // loop, then paint the static frame on the writer thread.
             if (serviceRunning) {
                 RgbService.apply(this, modes[0], colors[0], modes[1], colors[1],
-                        brightness, speed, linked, sound);
+                        brightness, speed, linked);
                 serviceRunning = false;
             }
             scheduleStaticWrite();
