@@ -525,6 +525,10 @@ final class Prefs {
 
     void setRgbLinked(boolean v) { sp.edit().putBoolean("rgb_linked", v).apply(); }
 
+    boolean rgbSound() { return sp.getBoolean("rgb_sound", false); }
+
+    void setRgbSound(boolean v) { sp.edit().putBoolean("rgb_sound", v).apply(); }
+
     /** Last non-off mode, restored when a stick is toggled back on. */
     int rgbLeftLastMode() {
         return clamp(sp.getInt("rgb_left_last_mode", RgbControl.MODE_STATIC), 0, 6);
