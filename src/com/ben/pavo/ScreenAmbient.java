@@ -143,6 +143,7 @@ final class ScreenAmbient {
         private double avgB;
         private double satSum;
         private double valAreaSum;
+        private double accentValSum;
         private double weightSum;
         private int count;
 
@@ -176,6 +177,7 @@ final class ScreenAmbient {
             int bin = (int) (hue / 10f) % 36;
             hueBins[bin] += weight;
             satSum += sat * weight;
+            accentValSum += val * weight;
             weightSum += weight;
         }
 
@@ -184,10 +186,16 @@ final class ScreenAmbient {
             // Brightness follows the whole region, not only its saturated
             // accent. A bright scene lifts the LEDs; a dark scene dims them.
             float meanVal = (float) (valAreaSum / count);
-            if (meanVal < 0.03f) return 0xFF000000;
+            float accentVal = weightSum > count * 0.004
+                    ? (float) (accentValSum / weightSum) : meanVal;
+            // Blend the whole-scene level with the bright accent so dark
+            // neon/UI colours still glow, instead of averaging them into the
+            // black background.
+            float sceneVal = 0.55f * meanVal + 0.45f * accentVal;
+            if (sceneVal < 0.03f) return 0xFF000000;
             // Black point, white point and a smooth S-curve make the change
             // obvious: dark scenes drop near off, bright scenes run near full.
-            float t = clamp((meanVal - 0.045f) / 0.72f, 0f, 1f);
+            float t = clamp((sceneVal - 0.05f) / 0.75f, 0f, 1f);
             float shaped = t * t * (3f - 2f * t);
             float ledVal = 0.03f + 0.97f * shaped;
             int avg = Color.rgb(
