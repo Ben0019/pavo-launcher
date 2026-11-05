@@ -65,6 +65,7 @@ public final class RgbService extends Service {
     private boolean sound;
     private SoundLevel soundLevel;
     private float smoothedGain;
+    private float soundPeak;
     private long lastSoundAt;
 
     static boolean isRunning() {
@@ -389,12 +390,21 @@ public final class RgbService extends Service {
 
             if (sound) {
                 float level = soundLevel == null ? 0f : soundLevel.level();
-                float shaped = (float) Math.pow(Math.max(0f, Math.min(1f, level)), 1.15f);
+                // Follow the track's recent peak so quiet music still uses the
+                // full brightness range; the slow decay avoids pumping.
+                if (level > 0.02f) {
+                    soundPeak = Math.max(level, soundPeak * 0.995f);
+                } else {
+                    soundPeak = Math.max(0.06f, soundPeak * 0.99f);
+                }
+                float normalized = level <= 0.02f ? 0f
+                        : Math.min(1f, level / Math.max(0.08f, soundPeak));
+                float shaped = (float) Math.pow(normalized, 1.55f);
                 long dt = lastSoundAt == 0L ? 33L : now - lastSoundAt;
                 lastSoundAt = now;
                 if (dt < 1L) dt = 1L;
                 if (dt > 100L) dt = 100L;
-                float tau = shaped > smoothedGain ? 35f : 180f;
+                float tau = shaped > smoothedGain ? 25f : 110f;
                 float alpha = 1f - (float) Math.exp(-dt / (double) tau);
                 smoothedGain += (shaped - smoothedGain) * alpha;
                 float gain = smoothedGain;
@@ -522,6 +532,7 @@ public final class RgbService extends Service {
 
     private void stopSound() {
         smoothedGain = 0f;
+        soundPeak = 0f;
         lastSoundAt = 0L;
         if (soundLevel != null) soundLevel.stop();
     }
