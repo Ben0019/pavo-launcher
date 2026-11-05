@@ -179,7 +179,10 @@ final class DeviceHealthReader {
         s.voltageV = readVoltageV(directNum(p.battery + "voltage_now", Integer.MIN_VALUE));
         int usbOnline = directNum(p.usb + "online", 0);
         int wirelessOnline = directNum("/sys/class/power_supply/wireless/online", 0);
-        s.plugged = usbOnline == 1 || wirelessOnline == 1;
+        // Charge separation switches "usb/online" to 0 even though the cable is
+        // still attached, so VBUS voltage is the reliable cable-presence signal.
+        long vbusUv = directNum(p.usb + "voltage_now", 0);
+        s.plugged = usbOnline == 1 || wirelessOnline == 1 || vbusUv > 4_000_000L;
         s.charging = "Charging".equalsIgnoreCase(s.status);
         s.full = "Full".equalsIgnoreCase(s.status) || s.level >= 100;
         int usbChargeNow = directNum(QCOM + "usb_charge_now", -1);
@@ -258,7 +261,8 @@ final class DeviceHealthReader {
 
         int usbOnline = num(c, p.usb + "online", 0);
         int wirelessOnline = num(c, "/sys/class/power_supply/wireless/online", 0);
-        s.plugged = usbOnline == 1 || wirelessOnline == 1;
+        long vbusUv = num(c, p.usb + "voltage_now", 0);
+        s.plugged = usbOnline == 1 || wirelessOnline == 1 || vbusUv > 4_000_000L;
         s.charging = "Charging".equalsIgnoreCase(s.status);
         s.full = "Full".equalsIgnoreCase(s.status) || s.level >= 100;
         s.separated = s.plugged && s.usbChargeNow == 0;

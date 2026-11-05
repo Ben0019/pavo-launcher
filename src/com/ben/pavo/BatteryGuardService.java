@@ -21,7 +21,7 @@ import java.util.concurrent.Executors;
  * vendor charging path is restricted and the device runs from the charger.
  */
 public final class BatteryGuardService extends Service {
-    private static final String CHANNEL = "aurora_device_health_guard";
+    private static final String CHANNEL = "aurora_device_health_guard_v3";
     private static final int NOTIFICATION_ID = 0x42415448; // "BATH"
     private static final long POLL_MS = 5000L;
 
@@ -30,6 +30,7 @@ public final class BatteryGuardService extends Service {
     private DeviceHealthStore store;
     private boolean autoApplied;
     private boolean polling;
+    private int unpluggedPolls;
 
     static void start(Context c) {
         if (c == null) return;
@@ -138,53 +139,59 @@ public final class BatteryGuardService extends Service {
     }
 
     private void apply(DeviceHealthReader.Snapshot snap, int threshold) {
-        if (snap.level < 0) {
-            update("Waiting for battery data", "");
-            return;
-        }
+        if (snap.level < 0) return;
+        // Debounce cable loss: separation itself flips some charger nodes for a
+        // moment, and releasing on the first bad sample lets the battery creep up.
+        if (snap.plugged) unpluggedPolls = 0;
+        else unpluggedPolls++;
         boolean atLimit = snap.plugged && snap.level >= threshold;
-        boolean release = !snap.plugged || snap.level <= threshold - 3;
+        boolean release = unpluggedPolls >= 3 || snap.level <= threshold - 3;
         if (atLimit && snap.separated) {
+            if (!autoApplied) android.util.Log.i("BatteryGuard", "separation holding at " + snap.level + "%");
             autoApplied = true;
-            update("Charge separation active", snap.level + "% · running from charger");
         } else if (atLimit && !snap.separated) {
+            android.util.Log.i("BatteryGuard", "separating at " + snap.level + "% (target " + threshold + "%)");
             DeviceHealthController.Result r = DeviceHealthController.setSeparation(this, true);
             if (r.ok) {
                 autoApplied = true;
-                update("Charge separation active",
-                        snap.level + "% · running from charger");
+                toastState("Charge separation active", " · " + snap.level + "%");
             } else {
-                update("Charge separation unavailable", r.message);
+                toastState("Charge separation unavailable", "");
             }
         } else if (release && (autoApplied || (snap.separated && !snap.plugged))) {
+            if (unpluggedPolls >= 3) android.util.Log.i("BatteryGuard", "cable removed; releasing separation");
             DeviceHealthController.Result r = DeviceHealthController.setSeparation(this, false);
-            if (r.ok) autoApplied = false;
-            update("Charging normally", snap.level + "% · target " + threshold + "%");
-        } else {
-            notifyIfChanged();
+            if (r.ok) {
+                autoApplied = false;
+                toastState("Charging normally", " · " + threshold + "%");
+            }
         }
     }
 
-    private String lastText = "";
 
-    private void update(String title, String text) {
-        String value = title + "|" + text;
-        if (value.equals(lastText)) return;
-        lastText = value;
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        ServiceNotifications.update(this, NOTIFICATION_ID, notification(title, text));
-    }
+    private String lastToast = "";
 
-    private void notifyIfChanged() {
-        update(store.limitEnabled() ? "Charge limit" : "Automatic charge separation",
-                "Target " + targetLevel(store) + "%");
+    private void toastState(String key, String suffix) {
+        // Translate the key first: whole sentences with a level appended would
+        // miss the catalogue and fall back to English.
+        final String text = Loc.s(this, key) + (suffix == null ? "" : suffix);
+        if (text.equals(lastToast)) return;
+        lastToast = text;
+        main.post(new Runnable() {
+            @Override
+            public void run() {
+                android.util.Log.i("BatteryGuard", "toast: " + text);
+                android.widget.Toast.makeText(getApplicationContext(), text,
+                        android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void createChannel() {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
         NotificationChannel ch = new NotificationChannel(CHANNEL,
-                "Device health guard", NotificationManager.IMPORTANCE_MIN);
+                "Device health guard", NotificationManager.IMPORTANCE_DEFAULT);
         ch.setDescription("Automatic charge separation at the configured battery level");
         ch.setShowBadge(false);
         nm.createNotificationChannel(ch);
