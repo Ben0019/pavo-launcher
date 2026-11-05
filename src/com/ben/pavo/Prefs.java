@@ -525,6 +525,23 @@ final class Prefs {
 
     void setRgbLinked(boolean v) { sp.edit().putBoolean("rgb_linked", v).apply(); }
 
+    /** Last non-off mode, restored when a stick is toggled back on. */
+    int rgbLeftLastMode() {
+        return clamp(sp.getInt("rgb_left_last_mode", RgbControl.MODE_STATIC), 0, 6);
+    }
+
+    int rgbRightLastMode() {
+        return clamp(sp.getInt("rgb_right_last_mode", RgbControl.MODE_STATIC), 0, 6);
+    }
+
+    void setRgbLeftLastMode(int v) {
+        sp.edit().putInt("rgb_left_last_mode", clamp(v, 0, 6)).apply();
+    }
+
+    void setRgbRightLastMode(int v) {
+        sp.edit().putInt("rgb_right_last_mode", clamp(v, 0, 6)).apply();
+    }
+
     /** UI size: auto, 90, 100, 110 or 120 percent. */
     String uiScaleMode() {
         String value = sp.getString("ui_scale_mode", "auto");

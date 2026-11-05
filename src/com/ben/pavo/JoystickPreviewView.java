@@ -18,7 +18,7 @@ import android.view.View;
 final class JoystickPreviewView extends View {
 
     interface Listener {
-        void onToggle(JoystickPreviewView view);
+        void onTap(JoystickPreviewView view);
     }
 
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -35,6 +35,18 @@ final class JoystickPreviewView extends View {
     private boolean targetOn = true;
     private boolean powered = true;
     private Listener listener;
+    private boolean longPressFired;
+    private float downX;
+    private float downY;
+    private final Runnable longPressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isPressed() && !longPressFired) {
+                longPressFired = true;
+                performLongClick();
+            }
+        }
+    };
 
     JoystickPreviewView(Context c) {
         super(c);
@@ -98,7 +110,7 @@ final class JoystickPreviewView extends View {
     @Override
     public boolean performClick() {
         boolean handled = super.performClick();
-        if (listener != null) listener.onToggle(this);
+        if (listener != null) listener.onTap(this);
         return handled;
     }
 
@@ -108,12 +120,30 @@ final class JoystickPreviewView extends View {
             case MotionEvent.ACTION_DOWN:
                 setPressed(true);
                 requestFocus();
+                longPressFired = false;
+                downX = event.getX();
+                downY = event.getY();
+                removeCallbacks(longPressRunnable);
+                postDelayed(longPressRunnable,
+                        android.view.ViewConfiguration.getLongPressTimeout());
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                float slop = android.view.ViewConfiguration.get(getContext())
+                        .getScaledTouchSlop();
+                if (Math.abs(event.getX() - downX) > slop
+                        || Math.abs(event.getY() - downY) > slop) {
+                    removeCallbacks(longPressRunnable);
+                    setPressed(false);
+                }
                 return true;
             case MotionEvent.ACTION_UP:
+                removeCallbacks(longPressRunnable);
+                boolean wasPressed = isPressed();
                 setPressed(false);
-                performClick();
+                if (!longPressFired && wasPressed) performClick();
                 return true;
             case MotionEvent.ACTION_CANCEL:
+                removeCallbacks(longPressRunnable);
                 setPressed(false);
                 return true;
             default:

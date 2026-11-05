@@ -82,6 +82,7 @@ public final class RgbActivity extends PavoGlassActivity {
     // its own mode and colour, so one can breathe while the other stays
     // static.
     private final int[] modes = {RgbControl.MODE_OFF, RgbControl.MODE_OFF};
+    private final int[] lastModes = {RgbControl.MODE_STATIC, RgbControl.MODE_STATIC};
     private final int[] colors = {0xFF2BE0D8, 0xFF2BE0D8};
     private boolean editingLeft = true;
     private boolean linked;
@@ -102,6 +103,17 @@ public final class RgbActivity extends PavoGlassActivity {
     private int writeGeneration;
     private long lastApplyAt;
     private long lastStickNavAt;
+    private View controllerPressTarget;
+    private boolean controllerLongPressFired;
+    private final Runnable controllerLongPressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (controllerPressTarget != null) {
+                controllerLongPressFired = true;
+                controllerPressTarget.performLongClick();
+            }
+        }
+    };
     private int lastStickNavDir;
     private boolean colorStickActive;
     private float colorStickX;
@@ -202,6 +214,12 @@ public final class RgbActivity extends PavoGlassActivity {
         brightness = prefs.rgbBrightness();
         speed = prefs.rgbSpeed();
         linked = prefs.rgbLinked();
+        lastModes[0] = modes[0] != RgbControl.MODE_OFF
+                ? modes[0] : prefs.rgbLeftLastMode();
+        lastModes[1] = modes[1] != RgbControl.MODE_OFF
+                ? modes[1] : prefs.rgbRightLastMode();
+        if (lastModes[0] == RgbControl.MODE_OFF) lastModes[0] = RgbControl.MODE_STATIC;
+        if (lastModes[1] == RgbControl.MODE_OFF) lastModes[1] = RgbControl.MODE_STATIC;
         // Start on a stick that is actually lit, so the wheel shows a useful
         // colour instead of the stored colour of a disabled stick.
         editingLeft = modes[0] != RgbControl.MODE_OFF || modes[1] == RgbControl.MODE_OFF;
@@ -422,8 +440,8 @@ public final class RgbActivity extends PavoGlassActivity {
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         hexView.setImeOptions(EditorInfo.IME_ACTION_DONE);
         hexView.setBackground(Ui.rounded(0x14FFFFFF, dp(8), 0x22FFFFFF, dp(1)));
-        hexView.setPadding(dp(12), dp(5), dp(12), dp(5));
-        hexView.setText("#2BE0D8");
+        hexView.setPadding(dp(12), dp(6), dp(12), dp(6));
+        hexView.setMinHeight(dp(34));
         hexView.setSelectAllOnFocus(true);
         hexView.setTextIsSelectable(true);
         hexView.setFocusableInTouchMode(true);
@@ -454,6 +472,8 @@ public final class RgbActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams hexLp = new LinearLayout.LayoutParams(
                 dp(132), ViewGroup.LayoutParams.WRAP_CONTENT);
         hexLp.topMargin = dp(5);
+        // Keep the rounded field clear of the RGB values underneath.
+        hexLp.bottomMargin = dp(8);
         hexRow.addView(hexView, hexLp);
         colorSection.addView(hexRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -885,13 +905,17 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private void addJoystickPreview(LinearLayout parent, final boolean left) {
         final JoystickPreviewView view = new JoystickPreviewView(this);
-        view.setContentDescription(Loc.s(this, left
-                ? "Left joystick. Tap to edit its color and mode."
-                : "Right joystick. Tap to edit its color and mode."));
         view.setListener(new JoystickPreviewView.Listener() {
             @Override
-            public void onToggle(JoystickPreviewView v) {
-                selectTarget(left);
+            public void onTap(JoystickPreviewView v) {
+                onStickTap(left);
+            }
+        });
+        view.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                toggleStick(left);
+                return true;
             }
         });
         LinearLayout box = new LinearLayout(this);
@@ -925,6 +949,44 @@ public final class RgbActivity extends PavoGlassActivity {
     // ------------------------------------------------------------------
 
     /** Tap chooses which stick the colour wheel and mode buttons edit. */
+    private void onStickTap(boolean left) {
+        if (linked) toggleStick(left);
+        else selectTarget(left);
+    }
+
+    /** Turn both sticks off, or restore both to their last modes. */
+    private void toggleStick(boolean left) {
+        if (linked) {
+            boolean anyOn = modes[0] != RgbControl.MODE_OFF
+                    || modes[1] != RgbControl.MODE_OFF;
+            if (anyOn) {
+                if (modes[0] != RgbControl.MODE_OFF) lastModes[0] = modes[0];
+                if (modes[1] != RgbControl.MODE_OFF) lastModes[1] = modes[1];
+                modes[0] = RgbControl.MODE_OFF;
+                modes[1] = RgbControl.MODE_OFF;
+            } else {
+                int restore = lastModes[0] != RgbControl.MODE_OFF
+                        ? lastModes[0] : lastModes[1];
+                if (restore == RgbControl.MODE_OFF) restore = RgbControl.MODE_STATIC;
+                modes[0] = restore;
+                modes[1] = restore;
+            }
+        } else {
+            int index = left ? 0 : 1;
+            if (modes[index] != RgbControl.MODE_OFF) {
+                lastModes[index] = modes[index];
+                modes[index] = RgbControl.MODE_OFF;
+            } else {
+                modes[index] = lastModes[index] != RgbControl.MODE_OFF
+                        ? lastModes[index] : RgbControl.MODE_STATIC;
+            }
+        }
+        Haptics.click(left ? leftPreview : rightPreview);
+        styleModeButtons();
+        updatePreview();
+        applyNow();
+    }
+
     private void selectTarget(boolean left) {
         Haptics.click(left ? leftPreview : rightPreview);
         if (editingLeft == left) return;
@@ -949,6 +1011,10 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private void setEditMode(int value) {
         modes[editIndex()] = value;
+        if (value != RgbControl.MODE_OFF) {
+            lastModes[editIndex()] = value;
+            if (linked) lastModes[1 - editIndex()] = value;
+        }
         if (linked) modes[1 - editIndex()] = value;
     }
 
@@ -1140,6 +1206,12 @@ public final class RgbActivity extends PavoGlassActivity {
                 styleStickLabel(leftLabel, editingLeft);
                 styleStickLabel(rightLabel, !editingLeft);
             }
+            leftPreview.setContentDescription(Loc.s(this, linked
+                    ? "Left joystick. Tap to turn both joysticks on or off."
+                    : "Left joystick. Tap to edit; long-press to turn it on or off."));
+            rightPreview.setContentDescription(Loc.s(this, linked
+                    ? "Right joystick. Tap to turn both joysticks on or off."
+                    : "Right joystick. Tap to edit; long-press to turn it on or off."));
             labelStyleSet = true;
             lastLabelEditing = editingLeft;
             lastLinked = linked;
@@ -1202,6 +1274,8 @@ public final class RgbActivity extends PavoGlassActivity {
         prefs.setRgbBrightness(brightness);
         prefs.setRgbSpeed(speed);
         prefs.setRgbLinked(linked);
+        prefs.setRgbLeftLastMode(lastModes[0]);
+        prefs.setRgbRightLastMode(lastModes[1]);
 
         boolean animated = anyAnimated();
         if (animated) {
@@ -1395,9 +1469,18 @@ public final class RgbActivity extends PavoGlassActivity {
                 || code == KeyEvent.KEYCODE_NUMPAD_ENTER) {
             View focused = getCurrentFocus();
             if (focused == leftPreview || focused == rightPreview) {
-                if (event.getAction() == KeyEvent.ACTION_DOWN
-                        && event.getRepeatCount() == 0) {
-                    focused.performClick();
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (event.getRepeatCount() == 0) {
+                        controllerPressTarget = focused;
+                        controllerLongPressFired = false;
+                        handler.removeCallbacks(controllerLongPressRunnable);
+                        handler.postDelayed(controllerLongPressRunnable,
+                                android.view.ViewConfiguration.getLongPressTimeout());
+                    }
+                } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                    handler.removeCallbacks(controllerLongPressRunnable);
+                    if (!controllerLongPressFired) focused.performClick();
+                    controllerPressTarget = null;
                 }
                 return true;
             }
