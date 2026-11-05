@@ -9,6 +9,8 @@ import android.content.Context;
 import android.graphics.Color;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
+import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -62,6 +64,8 @@ public final class RgbService extends Service {
     private boolean started;
     private boolean sound;
     private SoundLevel soundLevel;
+    private long silentMs;
+    private long loudMs;
 
     static boolean isRunning() {
         return running;
@@ -296,14 +300,21 @@ public final class RgbService extends Service {
             RgbControl.setEnabled(leftOn, rightOn);
             started = true;
         }
-        if (!foreground) {
+        if (sound) {
+            // A game launch can push Pavo out of memory; a foreground row
+            // keeps the audio-reactive loop alive while it plays.
+            startForeground(NOTIFICATION_ID, notification());
+            foreground = true;
+        } else {
+            if (foreground) {
+                stopForeground(STOP_FOREGROUND_REMOVE);
+                foreground = false;
+            }
             if (!ServiceNotifications.hosted()) {
                 startForeground(NOTIFICATION_ID, notification());
                 ServiceNotifications.hideLater(this);
+                foreground = true;
             }
-            foreground = true;
-        } else {
-            ServiceNotifications.update(this, NOTIFICATION_ID, notification());
         }
         if (handler != null) {
             handler.removeCallbacks(tick);
@@ -377,11 +388,31 @@ public final class RgbService extends Service {
             }
 
             if (sound) {
+                float output = soundLevel == null ? 0f : soundLevel.outputLevel();
+                if (output > 0.04f) {
+                    loudMs += 33L;
+                    silentMs = 0L;
+                    if (loudMs >= 800L && soundLevel != null) {
+                        soundLevel.dropMic();
+                    }
+                } else {
+                    silentMs += 33L;
+                    loudMs = 0L;
+                    // Some games bypass the output Visualizer (AAudio MMAP);
+                    // fall back to the microphone after a short silence.
+                    if (silentMs >= 2500L && soundLevel != null) {
+                        soundLevel.ensureMic();
+                        silentMs = 0L;
+                    }
+                }
                 float level = soundLevel == null ? 0f : soundLevel.level();
                 float shaped = (float) Math.pow(Math.max(0f, Math.min(1f, level)), 1.4f);
-                float gain = 0.12f + 0.88f * shaped;
-                effectiveLeft = Math.max(1, Math.round(effectiveLeft * gain));
-                effectiveRight = Math.max(1, Math.round(effectiveRight * gain));
+                // Silence is fully dark; peaks reach the user's brightness.
+                float gain = shaped;
+                effectiveLeft = Math.max(0, Math.min(100,
+                        Math.round(effectiveLeft * gain)));
+                effectiveRight = Math.max(0, Math.min(100,
+                        Math.round(effectiveRight * gain)));
             }
 
             // Bake each stick's brightness into its colour so one pass can
@@ -490,7 +521,9 @@ public final class RgbService extends Service {
             handler.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (running && sound && soundLevel != null) soundLevel.start();
+                    if (running && sound && soundLevel != null) {
+                        soundLevel.start();
+                    }
                 }
             });
         } else {

@@ -75,14 +75,15 @@ public final class BatteryGuardService extends Service {
         // startForegroundService() requires startForeground() even when the
         // guard has nothing to do; stopping first makes Android kill the app
         // five seconds later.
-        if (!ServiceNotifications.hosted()) {
-            startForeground(NOTIFICATION_ID, notification(
-                    idle ? "Charge guard" : store.limitEnabled()
-                            && (target == store.limitPercent() || !store.autoSeparation())
-                            ? "Charge limit" : "Automatic charge separation",
-                    idle ? "Nothing to do" : "Waiting for " + target + "%"));
-            ServiceNotifications.hideLater(this);
-        }
+        // startForegroundService() may have been used even if accessibility
+        // connected in the meantime; always satisfy the contract or Android
+        // kills the whole process (taking the RGB service with it).
+        startForeground(NOTIFICATION_ID, notification(
+                idle ? "Charge guard" : store.limitEnabled()
+                        && (target == store.limitPercent() || !store.autoSeparation())
+                        ? "Charge limit" : "Automatic charge separation",
+                idle ? "Nothing to do" : "Waiting for " + target + "%"));
+        ServiceNotifications.hideLater(this);
         if (idle) {
             stopForeground(true);
             stopSelf();

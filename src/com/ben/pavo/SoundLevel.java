@@ -1,19 +1,25 @@
 package com.ben.pavo;
 
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.media.audiofx.Visualizer;
+import android.os.Process;
 
 /**
  * Smoothed level of the device's audio output, used to pulse the joystick
  * brightness with music and game sound. The Visualizer is attached to the
- * global output mix (session 0), so it follows whatever is playing.
+ * global output mix (session 0).
  */
 final class SoundLevel {
-    private static final String TAG = "PavoSound";
     private static final float RELEASE = 0.55f;
 
     private volatile float level;
+    private volatile float micLevel;
     private Visualizer visualizer;
-    private boolean running;
+    private volatile AudioRecord mic;
+    private Thread micThread;
+    private volatile boolean running;
 
     synchronized boolean start() {
         if (running) return true;
@@ -59,8 +65,88 @@ final class SoundLevel {
         }
     }
 
+    synchronized void ensureMic() {
+        if (running && micThread == null) startMic();
+    }
+
+    synchronized void dropMic() {
+        if (mic != null) {
+            try { mic.stop(); } catch (Throwable ignored) {}
+        }
+        mic = null;
+        if (micThread != null) {
+            final Thread thread = micThread;
+            micThread = null;
+            try { thread.join(120L); } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        micLevel = 0f;
+    }
+
+    private void startMic() {
+        try {
+            int min = AudioRecord.getMinBufferSize(16000,
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+            if (min <= 0) return;
+            AudioRecord candidate = new AudioRecord(MediaRecorder.AudioSource.UNPROCESSED,
+                    16000, AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT, Math.max(min, 16000));
+            if (candidate.getState() != AudioRecord.STATE_INITIALIZED) {
+                candidate.release();
+                candidate = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                        16000, AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT, Math.max(min, 16000));
+            }
+            final AudioRecord record = candidate;
+            if (record.getState() != AudioRecord.STATE_INITIALIZED) {
+                record.release();
+                return;
+            }
+            mic = record;
+            micThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
+                    short[] buffer = new short[1024];
+                    try {
+                        record.startRecording();
+                        while (running && mic == record) {
+                            int read = record.read(buffer, 0, buffer.length);
+                            if (read <= 0) continue;
+                            float sum = 0f;
+                            for (int i = 0; i < read; i++) {
+                                float sample = buffer[i] / 32768f;
+                                sum += sample * sample;
+                            }
+                            float rms = (float) Math.sqrt(sum / read);
+                            float target = Math.max(0f,
+                                    Math.min(1f, (rms - 0.0045f) * 450f));
+                            float next = target > micLevel ? target : micLevel * RELEASE;
+                            micLevel = Math.max(0f, Math.min(1f, next));
+                        }
+                    } catch (Throwable ignored) {
+                    } finally {
+                        try {
+                            if (record.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                                record.stop();
+                            }
+                        } catch (Throwable ignored) {
+                        }
+                        try { record.release(); } catch (Throwable ignored) {}
+                    }
+                }
+            }, "PavoMicLevel");
+            micThread.start();
+        } catch (Throwable t) {
+            mic = null;
+            micThread = null;
+        }
+    }
+
     synchronized void stop() {
         running = false;
+        micLevel = 0f;
         level = 0f;
         if (visualizer != null) {
             try {
@@ -73,9 +159,23 @@ final class SoundLevel {
             }
             visualizer = null;
         }
+        if (mic != null) {
+            try { mic.stop(); } catch (Throwable ignored) {}
+        }
+        mic = null;
+        if (micThread != null) {
+            try { micThread.join(200L); } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            micThread = null;
+        }
+    }
+
+    float outputLevel() {
+        return level;
     }
 
     float level() {
-        return level;
+        return Math.max(level, micLevel);
     }
 }
