@@ -50,8 +50,10 @@ public final class RgbService extends Service {
     private int rightColor = 0xFF2BE0D8;
     private float leftHue;
     private float rightHue;
-    private int ambientColor;
-    private int ambientTarget;
+    private int ambientLeft;
+    private int ambientRight;
+    private int ambientTargetLeft;
+    private int ambientTargetRight;
     private long lastAmbientSample;
     private volatile boolean ambientSampling;
     private int brightness = 50;
@@ -263,8 +265,14 @@ public final class RgbService extends Service {
         }
         if ((leftMode == RgbControl.MODE_SCREEN || rightMode == RgbControl.MODE_SCREEN)
                 && (anyChanged || !started)) {
-            ambientColor = leftMode == RgbControl.MODE_SCREEN ? leftColor : rightColor;
-            ambientTarget = 0;
+            if (leftMode == RgbControl.MODE_SCREEN) {
+                ambientLeft = leftColor;
+                ambientTargetLeft = 0;
+            }
+            if (rightMode == RgbControl.MODE_SCREEN) {
+                ambientRight = rightColor;
+                ambientTargetRight = 0;
+            }
             lastAmbientSample = 0L;
         }
         previewActive = true;
@@ -330,6 +338,12 @@ public final class RgbService extends Service {
             int outLeft = leftColor;
             int outRight = rightColor;
 
+            if (leftMode == RgbControl.MODE_SCREEN
+                    || rightMode == RgbControl.MODE_SCREEN) {
+                sampleAmbient(now);
+                blendAmbient();
+            }
+
             if (leftMode == RgbControl.MODE_BREATH) {
                 effectiveLeft = Math.max(1, Math.round(brightness
                         * RgbControl.breathFactor(leftElapsed * speed / 100L) / 100f));
@@ -341,9 +355,7 @@ public final class RgbService extends Service {
                 outLeft = RgbControl.multiColor(
                         leftElapsed * speed / 100L, leftHue, 0);
             } else if (leftMode == RgbControl.MODE_SCREEN) {
-                sampleAmbient(now);
-                if (ambientTarget != 0) blendAmbient();
-                outLeft = ambientColor;
+                outLeft = ambientLeft;
             }
 
             if (rightMode == RgbControl.MODE_BREATH) {
@@ -359,9 +371,7 @@ public final class RgbService extends Service {
                 outRight = RgbControl.multiColor(rightElapsed * speed / 100L, rightHue,
                         leftMode == RgbControl.MODE_MULTI ? 120 : 0);
             } else if (rightMode == RgbControl.MODE_SCREEN) {
-                sampleAmbient(now);
-                if (ambientTarget != 0) blendAmbient();
-                outRight = ambientColor;
+                outRight = ambientRight;
             }
 
             // Bake each stick's brightness into its colour so one pass can
@@ -401,12 +411,14 @@ public final class RgbService extends Service {
         ambientSampling = true;
         new Thread(new Runnable() {
             @Override public void run() {
-                final int sampled = ScreenAmbient.sample(getApplicationContext());
+                final int[] sampled = ScreenAmbient.sampleLR(getApplicationContext());
                 if (handler != null) {
                     handler.post(new Runnable() {
                         @Override public void run() {
                             ambientSampling = false;
-                            if (running && sampled != 0) ambientTarget = sampled;
+                            if (!running || sampled == null) return;
+                            if (sampled[0] != 0) ambientTargetLeft = sampled[0];
+                            if (sampled[1] != 0) ambientTargetRight = sampled[1];
                         }
                     });
                 } else {
@@ -418,7 +430,12 @@ public final class RgbService extends Service {
 
     private void blendAmbient() {
         float blendAmount = Math.max(0.04f, Math.min(0.82f, 0.38f * speed / 100f));
-        ambientColor = blend(ambientColor, ambientTarget, blendAmount);
+        if (ambientTargetLeft != 0) {
+            ambientLeft = blend(ambientLeft, ambientTargetLeft, blendAmount);
+        }
+        if (ambientTargetRight != 0) {
+            ambientRight = blend(ambientRight, ambientTargetRight, blendAmount);
+        }
     }
 
     private static int blend(int from, int to, float amount) {
