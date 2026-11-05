@@ -20,6 +20,17 @@ import java.io.IOException;
 final class ScreenAmbient {
 
     private static final Object LOCK = new Object();
+    /** Precomputed perceptual weights remove two pow() calls per pixel. */
+    private static final float[] SAT_WEIGHT = new float[64];
+    private static final float[] VAL_WEIGHT = new float[64];
+
+    static {
+        for (int i = 0; i < 64; i++) {
+            float v = i / 63f;
+            SAT_WEIGHT[i] = (float) Math.pow(v, 1.35);
+            VAL_WEIGHT[i] = (float) Math.pow(v, 1.15);
+        }
+    }
 
     private ScreenAmbient() {}
 
@@ -62,14 +73,20 @@ final class ScreenAmbient {
                 int format = littleInt(header, 8);
                 if (w <= 0 || h <= 0 || format != 1) return null;
 
-                int step = Math.max(3, w / 320);
-                int yStep = Math.max(1, step / 2);
+                // ~50k samples per capture is far more than the colour vote
+                // needs. Reading only the sampled rows keeps the worker short
+                // enough to sustain the 5 Hz cadence.
+                int step = Math.max(6, w / 200);
+                int yStep = Math.max(2, step / 2);
                 byte[] row = new byte[w * 4];
                 RegionStats left = new RegionStats();
                 RegionStats right = new RegionStats();
                 for (int y = 0; y < h; y++) {
+                    if ((y % yStep) != 0) {
+                        if (!skipFully(in, row.length)) return null;
+                        continue;
+                    }
                     if (!readFully(in, row, row.length)) return null;
-                    if ((y % yStep) != 0) continue;
                     for (int x = 0; x < w; x += step) {
                         int o = x * 4;
                         int r = row[o] & 0xFF;
@@ -106,16 +123,32 @@ final class ScreenAmbient {
             avgG += g;
             avgB += b;
             count++;
-            Color.RGBToHSV(r, g, b, hsv);
-            float weight = (float) (Math.pow(hsv[1], 1.35)
-                    * Math.pow(hsv[2], 1.15));
-            if (hsv[2] > 0.05f && weight > 0.006f) {
-                int bin = (int) (hsv[0] / 10f) % 36;
-                hueBins[bin] += weight;
-                satSum += hsv[1] * weight;
-                valSum += hsv[2] * weight;
-                weightSum += weight;
+            int max = Math.max(r, Math.max(g, b));
+            int min = Math.min(r, Math.min(g, b));
+            if (max == 0) return;
+            float val = max / 255f;
+            if (val <= 0.05f) return;
+            float sat = (max - min) / (float) max;
+            float weight = SAT_WEIGHT[(int) (sat * 63f + 0.5f)]
+                    * VAL_WEIGHT[(int) (val * 63f + 0.5f)];
+            if (weight <= 0.006f) return;
+            int delta = max - min;
+            float hue;
+            if (delta == 0) {
+                hue = 0f;
+            } else if (max == r) {
+                hue = 60f * ((g - b) / (float) delta);
+            } else if (max == g) {
+                hue = 60f * (2f + (b - r) / (float) delta);
+            } else {
+                hue = 60f * (4f + (r - g) / (float) delta);
             }
+            if (hue < 0f) hue += 360f;
+            int bin = (int) (hue / 10f) % 36;
+            hueBins[bin] += weight;
+            satSum += sat * weight;
+            valSum += val * weight;
+            weightSum += weight;
         }
 
         int color() {
@@ -179,6 +212,21 @@ final class ScreenAmbient {
 
     private static float clamp(float v, float min, float max) {
         return Math.max(min, Math.min(max, v));
+    }
+
+    private static boolean skipFully(FileInputStream in, long length)
+            throws IOException {
+        while (length > 0) {
+            long skipped = in.skip(length);
+            if (skipped > 0) {
+                length -= skipped;
+            } else if (in.read() < 0) {
+                return false;
+            } else {
+                length--;
+            }
+        }
+        return true;
     }
 
     private static boolean readFully(FileInputStream in, byte[] buffer, int length)

@@ -41,6 +41,7 @@ public final class RgbService extends Service {
     private static final Handler wakeHandler = new Handler(Looper.getMainLooper());
     private static Runnable pendingWakeReapply;
     private static volatile long wakeHoldUntil;
+    private static volatile boolean wakeSettlePending;
 
     private HandlerThread thread;
     private Handler handler;
@@ -66,6 +67,7 @@ public final class RgbService extends Service {
     private long lastEnableAt;
     private boolean foreground;
     private boolean started;
+    private long enableSettleUntil;
 
     static boolean isRunning() {
         return running;
@@ -158,6 +160,7 @@ public final class RgbService extends Service {
                         RgbControl.wakeApply(lc, rc, b, l, r);
                     } else {
                         RgbControl.wakeEnable(l, r);
+                        wakeSettlePending = true;
                         apply(app, lm, lc, rm, rc, b, sp, prefs.rgbLinked());
                     }
                 } catch (Throwable ignored) {
@@ -285,6 +288,15 @@ public final class RgbService extends Service {
         }
         previewActive = true;
         long now = SystemClock.uptimeMillis();
+        if (wakeSettlePending) {
+            wakeSettlePending = false;
+            // The panel's wake write can clear the enable a little later.
+            // Re-assert for a short window after a wake, then stop: this
+            // driver's enable write costs ~80 ms, so a permanent retry was
+            // visible as a stutter in every animation.
+            enableSettleUntil = now + 1500L;
+            lastEnableAt = now;
+        }
         if (linked && anyChanged) {
             // Linked sticks must animate in step; reset both phases when
             // either side adopts a new mode.
@@ -298,6 +310,7 @@ public final class RgbService extends Service {
             // Only touch the enable when the service or a mode actually
             // changes. A redundant enable write during wake made the LEDs blink.
             RgbControl.setEnabled(leftOn, rightOn);
+            lastEnableAt = now;
             started = true;
         }
         if (!foreground) {
@@ -395,10 +408,7 @@ public final class RgbService extends Service {
             // Re-assert the enable with every frame: the panel/vendor wake
             // sequence can clear it after the first frame, which left the
             // animated modes dark.
-            if (now - lastEnableAt >= 250L) {
-                // Re-assert periodically rather than every frame. The wake
-                // path enables before the loop starts, so this only recovers
-                // from a late panel/vendor write.
+            if (now < enableSettleUntil && now - lastEnableAt >= 250L) {
                 RgbControl.setEnabledFast(leftOn, rightOn);
                 lastEnableAt = now;
             }
@@ -416,9 +426,9 @@ public final class RgbService extends Service {
                     || rightMode == RgbControl.MODE_RAINBOW
                     || leftMode == RgbControl.MODE_MULTI
                     || rightMode == RgbControl.MODE_MULTI) {
-                // 30 fps keeps fast hue cycles and screen-follow gliding
+                // 60 fps keeps fast hue cycles and screen-follow gliding
                 // instead of stepping between large colour jumps.
-                frameMs = 33L;
+                frameMs = 16L;
             } else {
                 frameMs = 70L;
             }
@@ -432,12 +442,12 @@ public final class RgbService extends Service {
         // screen samples. Unlike a fixed per-frame mix it has no hard snap,
         // so even the fastest setting glides instead of stepping.
         long now = SystemClock.uptimeMillis();
-        long elapsed = lastAmbientTick == 0L ? 33L : now - lastAmbientTick;
+        long elapsed = lastAmbientTick == 0L ? 16L : now - lastAmbientTick;
         lastAmbientTick = now;
         float dt = Math.max(0.008f, Math.min(0.080f, elapsed / 1000f));
         float t = Math.max(0f, Math.min(1f, (speed - 10f) / 290f));
-        // ~1.1 s settle at the slow end, ~0.29 s at maximum.
-        float omega = 3.5f + 10.5f * t;
+        // ~1.1 s settle at the slow end, ~0.22 s at maximum.
+        float omega = 3.5f + 14.5f * t;
         if (ambientTargetLeft != 0) {
             leftSpring.update(ambientTargetLeft, omega, dt);
             ambientLeft = leftSpring.color();
