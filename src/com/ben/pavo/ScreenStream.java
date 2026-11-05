@@ -171,7 +171,7 @@ final class ScreenStream {
                 if (now - lastPaint < FRAME_INTERVAL_MS) continue;
                 lastPaint = now;
                 int[] colors = ScreenAmbient.sampleFrame(
-                        frame, WIDTH, HEIGHT, BPP, 1, 2);
+                        frame, WIDTH, HEIGHT, BPP, 1, 1);
                 if (colors == null || !running) continue;
                 delivering = true;
                 painted++;

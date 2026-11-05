@@ -145,6 +145,12 @@ final class ScreenAmbient {
         private double valAreaSum;
         private double accentValSum;
         private double weightSum;
+        private double hiR;
+        private double hiG;
+        private double hiB;
+        private int hiCount;
+        private int hiAchromatic;
+        private double hiValSum;
         private int count;
 
         void add(int r, int g, int b) {
@@ -157,6 +163,14 @@ final class ScreenAmbient {
             valAreaSum += max / 255f;
             if (max == 0) return;
             float val = max / 255f;
+            if (val >= 0.5f) {
+                hiR += r;
+                hiG += g;
+                hiB += b;
+                hiValSum += val;
+                hiCount++;
+                if ((max - min) / (float) max < 0.15f) hiAchromatic++;
+            }
             if (val <= 0.05f) return;
             float sat = (max - min) / (float) max;
             float weight = SAT_WEIGHT[(int) (sat * 63f + 0.5f)]
@@ -186,12 +200,13 @@ final class ScreenAmbient {
             // Brightness follows the whole region, not only its saturated
             // accent. A bright scene lifts the LEDs; a dark scene dims them.
             float meanVal = (float) (valAreaSum / count);
-            float accentVal = weightSum > count * 0.004
+            float accentVal = weightSum > count * 0.001f
                     ? (float) (accentValSum / weightSum) : meanVal;
-            // Blend the whole-scene level with the bright accent so dark
-            // neon/UI colours still glow, instead of averaging them into the
-            // black background.
-            float sceneVal = 0.55f * meanVal + 0.45f * accentVal;
+            float hiVal = hiCount > 0
+                    ? (float) (hiValSum / hiCount) : meanVal;
+            // Blend the whole-scene level with the brightest accent/highlight
+            // so coloured or white text on black is not averaged away.
+            float sceneVal = 0.55f * meanVal + 0.45f * Math.max(accentVal, hiVal);
             if (sceneVal < 0.04f) return 0xFF000000;
             // Aggressive black/white points: the S-curve reaches full much
             // sooner and drops dark scenes harder, so scene changes read as
@@ -203,7 +218,16 @@ final class ScreenAmbient {
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
                     (int) Math.round(avgB / count));
-            if (weightSum > count * 0.004) {
+            boolean whiteText = hiCount > 4
+                    && hiAchromatic * 1.0f / hiCount > 0.6f;
+            if (whiteText) {
+                int hi = Color.rgb(
+                        (int) Math.round(hiR / hiCount),
+                        (int) Math.round(hiG / hiCount),
+                        (int) Math.round(hiB / hiCount));
+                return withValue(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
+            }
+            if (weightSum > count * 0.001f) {
                 int best = 0;
                 for (int i = 1; i < hueBins.length; i++) {
                     if (hueBins[i] > hueBins[best]) best = i;
@@ -229,6 +253,13 @@ final class ScreenAmbient {
                 int base = applySaturation(blend(dominant, avg, 0.22f),
                         SCREEN_VIVIDNESS);
                 return withValue(base, ledVal);
+            }
+            if (hiCount > 4) {
+                int hi = Color.rgb(
+                        (int) Math.round(hiR / hiCount),
+                        (int) Math.round(hiG / hiCount),
+                        (int) Math.round(hiB / hiCount));
+                return withValue(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
             }
             Color.RGBToHSV(Color.red(avg), Color.green(avg), Color.blue(avg), hsv);
             return withValue(Color.HSVToColor(hsv), ledVal);
