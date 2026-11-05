@@ -23,6 +23,9 @@ final class ScreenAmbient {
 
     private ScreenAmbient() {}
 
+    /** Mild vividness lift so dim scenes still read as colour, not grey. */
+    private static final float SCREEN_VIVIDNESS = 1.12f;
+
     /** Returns {left, right} RGB colours, or null when capture failed. */
     static int[] sampleLR(Context c) {
         if (c == null) return null;
@@ -145,14 +148,25 @@ final class ScreenAmbient {
                 int dominant = Color.HSVToColor(new float[]{hue, sat, val});
                 // Keep a little of the actual average so the LED still reads
                 // like the region rather than only its brightest accent.
-                return blend(dominant, avg, 0.22f);
+                return applySaturation(blend(dominant, avg, 0.22f),
+                        SCREEN_VIVIDNESS);
             }
             Color.RGBToHSV(Color.red(avg), Color.green(avg), Color.blue(avg), hsv);
             if (hsv[2] < 0.03f) return 0xFF000000;
             // Grey and white content stays grey/white; just lift it slightly.
             hsv[2] = Math.min(1f, hsv[2] * 1.08f);
-            return Color.HSVToColor(hsv);
+            return applySaturation(Color.HSVToColor(hsv), SCREEN_VIVIDNESS);
         }
+    }
+
+    /** Applies the fixed SCREEN vividness without touching brightness. */
+    private static int applySaturation(int color, float factor) {
+        if (factor < 0f) factor = 0f;
+        if (Math.abs(factor - 1f) < 0.001f) return color;
+        float[] hsv = new float[3];
+        Color.colorToHSV(color, hsv);
+        hsv[1] = Math.max(0f, Math.min(1f, hsv[1] * factor));
+        return Color.HSVToColor(hsv);
     }
 
     private static int blend(int from, int to, float amount) {

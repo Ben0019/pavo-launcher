@@ -266,11 +266,13 @@ public final class RgbService extends Service {
         if ((leftMode == RgbControl.MODE_SCREEN || rightMode == RgbControl.MODE_SCREEN)
                 && (anyChanged || !started)) {
             if (leftMode == RgbControl.MODE_SCREEN) {
-                ambientLeft = leftColor;
+                // Fade in from the previous screen colour rather than from
+                // the unrelated static colour chosen for the stick.
+                ambientLeft = 0xFF000000;
                 ambientTargetLeft = 0;
             }
             if (rightMode == RgbControl.MODE_SCREEN) {
-                ambientRight = rightColor;
+                ambientRight = 0xFF000000;
                 ambientTargetRight = 0;
             }
             lastAmbientSample = 0L;
@@ -405,23 +407,37 @@ public final class RgbService extends Service {
     };
 
     private void blendAmbient() {
-        // Quick but eased: a scene change settles in about 0.25 s.
+        // Speed doubles as the follow weight: low is calm and smooth, high
+        // tracks scene changes closely. A large jump (cut to a new scene)
+        // snaps regardless, so slow settings do not smear transitions.
+        float base = 0.12f + 0.56f
+                * Math.max(0f, Math.min(1f, (speed - 10f) / 290f));
         if (ambientTargetLeft != 0) {
-            ambientLeft = blend(ambientLeft, ambientTargetLeft, 0.38f);
+            ambientLeft = blend(ambientLeft, ambientTargetLeft,
+                    followAmount(base, ambientLeft, ambientTargetLeft));
         }
         if (ambientTargetRight != 0) {
-            ambientRight = blend(ambientRight, ambientTargetRight, 0.38f);
+            ambientRight = blend(ambientRight, ambientTargetRight,
+                    followAmount(base, ambientRight, ambientTargetRight));
         }
+    }
+
+    private static float followAmount(float base, int from, int to) {
+        float delta = (Math.abs(Color.red(from) - Color.red(to))
+                + Math.abs(Color.green(from) - Color.green(to))
+                + Math.abs(Color.blue(from) - Color.blue(to))) / 765f;
+        return delta > 0.22f ? Math.max(base, 0.72f) : base;
     }
 
     private void sampleAmbient(long now) {
         if (RgbActivity.isVisible() || ambientSampling
-                || now - lastAmbientSample < 260L) return;
+                || now - lastAmbientSample < 200L) return;
         lastAmbientSample = now;
         ambientSampling = true;
         new Thread(new Runnable() {
             @Override public void run() {
-                final int[] sampled = ScreenAmbient.sampleLR(getApplicationContext());
+                final int[] sampled = ScreenAmbient.sampleLR(
+                        getApplicationContext());
                 if (handler != null) {
                     handler.post(new Runnable() {
                         @Override public void run() {
