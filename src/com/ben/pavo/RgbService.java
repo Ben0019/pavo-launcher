@@ -64,8 +64,8 @@ public final class RgbService extends Service {
     private boolean started;
     private boolean sound;
     private SoundLevel soundLevel;
-    private long silentMs;
-    private long loudMs;
+    private float smoothedGain;
+    private long lastSoundAt;
 
     static boolean isRunning() {
         return running;
@@ -388,27 +388,16 @@ public final class RgbService extends Service {
             }
 
             if (sound) {
-                float output = soundLevel == null ? 0f : soundLevel.outputLevel();
-                if (output > 0.04f) {
-                    loudMs += 33L;
-                    silentMs = 0L;
-                    if (loudMs >= 800L && soundLevel != null) {
-                        soundLevel.dropMic();
-                    }
-                } else {
-                    silentMs += 33L;
-                    loudMs = 0L;
-                    // Some games bypass the output Visualizer (AAudio MMAP);
-                    // fall back to the microphone after a short silence.
-                    if (silentMs >= 2500L && soundLevel != null) {
-                        soundLevel.ensureMic();
-                        silentMs = 0L;
-                    }
-                }
                 float level = soundLevel == null ? 0f : soundLevel.level();
-                float shaped = (float) Math.pow(Math.max(0f, Math.min(1f, level)), 1.4f);
-                // Silence is fully dark; peaks reach the user's brightness.
-                float gain = shaped;
+                float shaped = (float) Math.pow(Math.max(0f, Math.min(1f, level)), 1.15f);
+                long dt = lastSoundAt == 0L ? 33L : now - lastSoundAt;
+                lastSoundAt = now;
+                if (dt < 1L) dt = 1L;
+                if (dt > 100L) dt = 100L;
+                float tau = shaped > smoothedGain ? 35f : 180f;
+                float alpha = 1f - (float) Math.exp(-dt / (double) tau);
+                smoothedGain += (shaped - smoothedGain) * alpha;
+                float gain = smoothedGain;
                 effectiveLeft = Math.max(0, Math.min(100,
                         Math.round(effectiveLeft * gain)));
                 effectiveRight = Math.max(0, Math.min(100,
@@ -532,6 +521,8 @@ public final class RgbService extends Service {
     }
 
     private void stopSound() {
+        smoothedGain = 0f;
+        lastSoundAt = 0L;
         if (soundLevel != null) soundLevel.stop();
     }
 
