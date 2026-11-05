@@ -77,9 +77,7 @@ final class ScreenAmbient {
                     }
                 }
                 if (left.count == 0 || right.count == 0) return null;
-                int[] lp = left.palette();
-                int[] rp = right.palette();
-                return new int[]{lp[0], lp[1], rp[0], rp[1]};
+                return new int[]{left.color(), right.color()};
             } catch (Throwable ignored) {
                 return null;
             } finally {
@@ -117,70 +115,45 @@ final class ScreenAmbient {
             }
         }
 
-        int[] palette() {
-            if (count == 0) return new int[]{0, 0};
+        int color() {
+            if (count == 0) return 0;
             int avg = Color.rgb(
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
                     (int) Math.round(avgB / count));
             if (weightSum > count * 0.004) {
-                int best = bestBin(-1, 0);
-                int first = clusterColor(best, avg);
-                int secondBin = bestBin(best, 4);
-                int second = secondBin >= 0
-                        && hueBins[secondBin] >= hueBins[best] * 0.10f
-                        ? clusterColor(secondBin, avg) : first;
-                return new int[]{first, second};
+                int best = 0;
+                for (int i = 1; i < hueBins.length; i++) {
+                    if (hueBins[i] > hueBins[best]) best = i;
+                }
+                double hx = 0.0, hy = 0.0, clusterWeight = 0.0;
+                for (int d = -1; d <= 1; d++) {
+                    int bin = (best + d + hueBins.length) % hueBins.length;
+                    float weight = hueBins[bin];
+                    if (weight <= 0f) continue;
+                    double angle = Math.toRadians(bin * 10.0 + 5.0);
+                    hx += Math.cos(angle) * weight;
+                    hy += Math.sin(angle) * weight;
+                    clusterWeight += weight;
+                }
+                float hue = clusterWeight > 0.0
+                        ? (float) Math.toDegrees(Math.atan2(hy, hx))
+                        : best * 10f + 5f;
+                if (hue < 0f) hue += 360f;
+                float sat = clamp((float) (satSum / weightSum) * 1.25f, 0.45f, 1f);
+                float val = clamp((float) (valSum / weightSum) * 1.12f, 0.28f, 1f);
+                int dominant = Color.HSVToColor(new float[]{hue, sat, val});
+                // Keep a little of the actual average so the LED still reads
+                // like the region rather than only its brightest accent.
+                return blend(dominant, avg, 0.22f);
             }
             Color.RGBToHSV(Color.red(avg), Color.green(avg), Color.blue(avg), hsv);
-            int value;
-            if (hsv[2] < 0.03f) {
-                value = 0xFF000000;
-            } else {
-                // Grey and white content stays grey/white; just lift it slightly.
-                hsv[2] = Math.min(1f, hsv[2] * 1.08f);
-                value = Color.HSVToColor(hsv);
-            }
-            return new int[]{value, value};
+            if (hsv[2] < 0.03f) return 0xFF000000;
+            // Grey and white content stays grey/white; just lift it slightly.
+            hsv[2] = Math.min(1f, hsv[2] * 1.08f);
+            return Color.HSVToColor(hsv);
         }
 
-        private int bestBin(int exclude, int minDistance) {
-            int best = -1;
-            for (int i = 0; i < hueBins.length; i++) {
-                if (hueBins[i] <= 0f) continue;
-                if (exclude >= 0 && angularDistance(i, exclude) < minDistance) continue;
-                if (best < 0 || hueBins[i] > hueBins[best]) best = i;
-            }
-            return best;
-        }
-
-        private int clusterColor(int best, int avg) {
-            double hx = 0.0, hy = 0.0, clusterWeight = 0.0;
-            for (int d = -1; d <= 1; d++) {
-                int bin = (best + d + hueBins.length) % hueBins.length;
-                float weight = hueBins[bin];
-                if (weight <= 0f) continue;
-                double angle = Math.toRadians(bin * 10.0 + 5.0);
-                hx += Math.cos(angle) * weight;
-                hy += Math.sin(angle) * weight;
-                clusterWeight += weight;
-            }
-            float hue = clusterWeight > 0.0
-                    ? (float) Math.toDegrees(Math.atan2(hy, hx))
-                    : best * 10f + 5f;
-            if (hue < 0f) hue += 360f;
-            float sat = clamp((float) (satSum / weightSum) * 1.25f, 0.45f, 1f);
-            float val = clamp((float) (valSum / weightSum) * 1.12f, 0.28f, 1f);
-            int dominant = Color.HSVToColor(new float[]{hue, sat, val});
-            // Keep a little of the actual average so the LED still reads
-            // like the region rather than only its brightest accent.
-            return blend(dominant, avg, 0.22f);
-        }
-
-        private static int angularDistance(int a, int b) {
-            int d = Math.abs(a - b) % 36;
-            return Math.min(d, 36 - d);
-        }
     }
 
     private static int blend(int from, int to, float amount) {

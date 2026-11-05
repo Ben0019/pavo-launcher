@@ -54,10 +54,6 @@ public final class RgbService extends Service {
     private int ambientRight;
     private int ambientTargetLeft;
     private int ambientTargetRight;
-    private int[] ambientLeftColors = {0, 0};
-    private int[] ambientRightColors = {0, 0};
-    private int ambientPhase;
-    private long nextAmbientPhaseAt;
     private long lastAmbientSample;
     private volatile boolean ambientSampling;
     private int brightness = 50;
@@ -271,16 +267,12 @@ public final class RgbService extends Service {
                 && (anyChanged || !started)) {
             if (leftMode == RgbControl.MODE_SCREEN) {
                 ambientLeft = leftColor;
-                ambientLeftColors = new int[]{leftColor, leftColor};
                 ambientTargetLeft = 0;
             }
             if (rightMode == RgbControl.MODE_SCREEN) {
                 ambientRight = rightColor;
-                ambientRightColors = new int[]{rightColor, rightColor};
                 ambientTargetRight = 0;
             }
-            ambientPhase = 0;
-            nextAmbientPhaseAt = 0L;
             lastAmbientSample = 0L;
         }
         previewActive = true;
@@ -349,16 +341,6 @@ public final class RgbService extends Service {
             if (leftMode == RgbControl.MODE_SCREEN
                     || rightMode == RgbControl.MODE_SCREEN) {
                 sampleAmbient(now);
-                if (now >= nextAmbientPhaseAt) {
-                    ambientPhase ^= 1;
-                    nextAmbientPhaseAt = now + 1600L;
-                    if (leftMode == RgbControl.MODE_SCREEN) {
-                        ambientTargetLeft = ambientLeftColors[ambientPhase];
-                    }
-                    if (rightMode == RgbControl.MODE_SCREEN) {
-                        ambientTargetRight = ambientRightColors[ambientPhase];
-                    }
-                }
                 blendAmbient();
             }
 
@@ -435,13 +417,13 @@ public final class RgbService extends Service {
                         @Override public void run() {
                             ambientSampling = false;
                             if (!running || sampled == null) return;
-                            ambientLeftColors = new int[]{sampled[0], sampled[1]};
-                            ambientRightColors = new int[]{sampled[2], sampled[3]};
-                            if (leftMode == RgbControl.MODE_SCREEN) {
-                                ambientTargetLeft = ambientLeftColors[ambientPhase];
+                            if (leftMode == RgbControl.MODE_SCREEN
+                                    && sampled[0] != 0) {
+                                ambientTargetLeft = sampled[0];
                             }
-                            if (rightMode == RgbControl.MODE_SCREEN) {
-                                ambientTargetRight = ambientRightColors[ambientPhase];
+                            if (rightMode == RgbControl.MODE_SCREEN
+                                    && sampled[1] != 0) {
+                                ambientTargetRight = sampled[1];
                             }
                         }
                     });
@@ -453,7 +435,9 @@ public final class RgbService extends Service {
     }
 
     private void blendAmbient() {
-        float blendAmount = Math.max(0.04f, Math.min(0.82f, 0.38f * speed / 100f));
+        // Screen changes should read quickly; Speed still tunes the snap.
+        float blendAmount = Math.max(0.30f,
+                Math.min(0.90f, 0.45f + 0.45f * speed / 100f));
         if (ambientTargetLeft != 0) {
             ambientLeft = blend(ambientLeft, ambientTargetLeft, blendAmount);
         }
