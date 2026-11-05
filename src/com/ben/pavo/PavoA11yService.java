@@ -786,12 +786,8 @@ public final class PavoA11yService extends AccessibilityService {
                 || fanMode == PerfTuner.FAN_HIGH) {
             FanControl.start(this);
         }
-        new Thread(new Runnable() {
-            @Override public void run() {
-                ServiceNotifications.restartHosted(getApplicationContext());
-                ServiceNotifications.cancelPersistent(getApplicationContext());
-            }
-        }, "PavoHostRestart").start();
+        ServiceNotifications.cancelPersistent(this);
+        RgbService.dropForegroundRow();
         registerScreenOn();
         startWakeWatcher();
         main.removeCallbacks(profileSync);

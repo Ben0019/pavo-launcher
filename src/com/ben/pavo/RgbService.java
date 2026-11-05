@@ -35,6 +35,7 @@ public final class RgbService extends Service {
     private static final String CHANNEL = "aurora_rgb";
     private static final int NOTIFICATION_ID = 101;
     private static volatile boolean running;
+    private static volatile RgbService instance;
     private static volatile int previewColor;
     private static volatile int previewColorRight;
     private static volatile boolean previewActive;
@@ -85,6 +86,17 @@ public final class RgbService extends Service {
 
     static boolean isRunning() {
         return running;
+    }
+
+    /** Drop the row when accessibility starts hosting the process. */
+    static void dropForegroundRow() {
+        RgbService service = instance;
+        if (service == null) return;
+        try {
+            service.stopForeground(STOP_FOREGROUND_REMOVE);
+            service.foreground = false;
+        } catch (Throwable ignored) {
+        }
     }
 
     static int previewColor() {
@@ -226,6 +238,7 @@ public final class RgbService extends Service {
     public void onCreate() {
         super.onCreate();
         running = true;
+        instance = this;
         thread = new HandlerThread("AuroraRgb", android.os.Process.THREAD_PRIORITY_DISPLAY);
         thread.start();
         handler = new Handler(thread.getLooper());
@@ -654,6 +667,7 @@ public final class RgbService extends Service {
     @Override
     public void onDestroy() {
         running = false;
+        instance = null;
         ScreenStream.stop();
         if (screenReceiver != null) {
             try {

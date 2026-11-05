@@ -470,16 +470,19 @@ public final class PavoInputService extends Service {
 
     private synchronized void closeSocket() {
         socketReady = false;
+        // Close the raw socket first. Closing the BufferedReader first can
+        // block the main thread while the reader thread is parked in
+        // readLine(), which produced an ANR when the service was stopped.
+        try {
+            if (socket != null) socket.close();
+        } catch (Throwable ignored) {
+        }
         try {
             if (reader != null) reader.close();
         } catch (Throwable ignored) {
         }
         try {
             if (writer != null) writer.close();
-        } catch (Throwable ignored) {
-        }
-        try {
-            if (socket != null) socket.close();
         } catch (Throwable ignored) {
         }
         reader = null;
