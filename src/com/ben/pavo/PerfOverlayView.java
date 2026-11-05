@@ -72,7 +72,7 @@ final class PerfOverlayView extends LinearLayout {
         setWillNotDraw(false);
         setClickable(false);
         setClipChildren(false);
-        setPadding(dp(14), dp(10), dp(14), dp(11));
+        setPadding(dp(16), dp(12), dp(16), dp(13));
         corner = dp(22);
         if (frostNoise == null) frostNoise = makeFrostNoise();
         noisePaint.setAlpha(13);
@@ -80,7 +80,7 @@ final class PerfOverlayView extends LinearLayout {
         LinearLayout header = new LinearLayout(c);
         header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        titleView = label(presetName(), 9.5f, presetColor());
+        titleView = label(presetName(), 11f, presetColor());
         TextView title = titleView;
         title.setLetterSpacing(0.10f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -92,14 +92,14 @@ final class PerfOverlayView extends LinearLayout {
         header.addView(headerSpacer, new LinearLayout.LayoutParams(
                 0, 1, 1f));
 
-        lockIcon = text("🔒", 11f, 0xFFFFD27F, false);
+        lockIcon = text("🔒", 12.5f, 0xFFFFD27F, false);
         lockIcon.setPadding(dp(4), 0, dp(6), 0);
         lockIcon.setContentDescription("Overlay locked");
         lockIcon.setVisibility(View.GONE);
         header.addView(lockIcon);
 
-        battery = text("--%", 10.5f, TEXT, true);
-        battery.setPadding(dp(7), dp(2), dp(7), dp(2));
+        battery = text("--%", 12f, TEXT, true);
+        battery.setPadding(dp(8), dp(3), dp(8), dp(3));
         battery.setBackground(Ui.rounded(0x22FFFFFF, dp(9)));
         header.addView(battery);
 
@@ -114,7 +114,7 @@ final class PerfOverlayView extends LinearLayout {
         cpuRow.addView(cpuTemp, weight(0.9f));
         cpuRow.addView(cpuClock, weight(1.05f));
         cpuRow.addView(cpuUsage, weight(0.85f));
-        addView(cpuRow, rowParams(8));
+        addView(cpuRow, rowParams(10));
 
         gpuRow = metricRow();
         addMetricLabel(gpuRow, Loc.s(getContext(), "GPU"));
@@ -124,7 +124,7 @@ final class PerfOverlayView extends LinearLayout {
         gpuRow.addView(gpuTemp, weight(0.9f));
         gpuRow.addView(gpuClock, weight(1.05f));
         gpuRow.addView(gpuUsage, weight(0.85f));
-        addView(gpuRow, rowParams(3));
+        addView(gpuRow, rowParams(4));
 
         netRow = metricRow();
         addMetricLabel(netRow, "NET");
@@ -132,7 +132,7 @@ final class PerfOverlayView extends LinearLayout {
         netDown = metricValue(Gravity.END);
         netRow.addView(netUp, weight(1.3f));
         netRow.addView(netDown, weight(1.3f));
-        addView(netRow, rowParams(3));
+        addView(netRow, rowParams(4));
 
         ramRow = metricRow();
         addMetricLabel(ramRow, "RAM");
@@ -140,7 +140,7 @@ final class PerfOverlayView extends LinearLayout {
         ramAmount = metricValue(Gravity.END);
         ramRow.addView(ramUsage, weight(1.0f));
         ramRow.addView(ramAmount, weight(1.4f));
-        addView(ramRow, rowParams(3));
+        addView(ramRow, rowParams(4));
 
         battRow = metricRow();
         addMetricLabel(battRow, "BATT");
@@ -148,30 +148,30 @@ final class PerfOverlayView extends LinearLayout {
         battPower = metricValue(Gravity.END);
         battRow.addView(battTemp, weight(1.0f));
         battRow.addView(battPower, weight(1.4f));
-        addView(battRow, rowParams(3));
+        addView(battRow, rowParams(4));
 
         fpsBlock = new LinearLayout(c);
         fpsBlock.setOrientation(VERTICAL);
         fpsRow = metricRow();
         addMetricLabel(fpsRow, "FPS");
-        fpsValue = text("--", 19f, TEXT, true);
+        fpsValue = text("--", 22f, TEXT, true);
         fpsValue.setGravity(Gravity.CENTER_VERTICAL);
         fpsRow.addView(fpsValue, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView fpsUnit = label("fps", 8.5f, MUTED);
+        TextView fpsUnit = label("fps", 9.5f, MUTED);
         fpsUnit.setPadding(dp(5), 0, 0, 0);
         fpsRow.addView(fpsUnit);
         fpsBlock.addView(fpsRow);
         graph = new FpsGraphView(c);
         LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(42));
-        glp.topMargin = dp(4);
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
+        glp.topMargin = dp(5);
         fpsBlock.addView(graph, glp);
-        addView(fpsBlock, rowParams(8));
+        addView(fpsBlock, rowParams(10));
 
         coresBox = new LinearLayout(c);
         coresBox.setOrientation(VERTICAL);
-        TextView coresLabel = label("CORES", 8.5f, MUTED);
+        TextView coresLabel = label("CORES", 9.5f, MUTED);
         coresLabel.setLetterSpacing(0.16f);
         coresLabel.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         coresBox.addView(coresLabel, new LinearLayout.LayoutParams(
@@ -184,19 +184,19 @@ final class PerfOverlayView extends LinearLayout {
                 CoreView cv = new CoreView(c, index);
                 cores[index] = cv;
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                        0, dp(18), 1f);
+                        0, dp(22), 1f);
                 if (col == 0) lp.rightMargin = dp(8);
                 row.addView(cv, lp);
             }
             LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            rlp.topMargin = dp(2);
+            rlp.topMargin = dp(3);
             coresBox.addView(row, rlp);
         }
-        addView(coresBox, rowParams(8));
+        addView(coresBox, rowParams(10));
         coresBox.setVisibility(View.GONE);
 
-        editDoneBar = text("DONE", 10f, 0xFF061015, false);
+        editDoneBar = text("DONE", 11f, 0xFF061015, false);
         editDoneBar.setGravity(Gravity.CENTER);
         editDoneBar.setSingleLine(true);
         editDoneBar.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -553,14 +553,14 @@ final class PerfOverlayView extends LinearLayout {
     }
 
     private void addMetricLabel(LinearLayout row, String text) {
-        TextView v = label(text, 8.5f, MUTED);
+        TextView v = label(text, 9.5f, MUTED);
         v.setLetterSpacing(0.12f);
-        row.addView(v, new LinearLayout.LayoutParams(dp(32),
+        row.addView(v, new LinearLayout.LayoutParams(dp(38),
                 ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
     private TextView metricValue(int gravity) {
-        TextView v = text("--", 10.5f, TEXT, true);
+        TextView v = text("--", 12.5f, TEXT, true);
         v.setGravity(gravity | Gravity.CENTER_VERTICAL);
         return v;
     }
@@ -844,7 +844,7 @@ final class PerfOverlayView extends LinearLayout {
             super(c);
             this.index = index;
             density = c.getResources().getDisplayMetrics().density;
-            textSize = 8.5f * c.getResources().getDisplayMetrics().scaledDensity;
+            textSize = 10f * c.getResources().getDisplayMetrics().scaledDensity;
             setWillNotDraw(false);
         }
 
@@ -870,8 +870,8 @@ final class PerfOverlayView extends LinearLayout {
             p.setColor(online ? 0xFFC2CAD6 : 0xFF8B95A3);
             canvas.drawText("C" + index, 0, baseline, p);
 
-            float left = density * 18;
-            float right = w - density * 58;
+            float left = density * 22;
+            float right = w - density * 68;
             if (right < left + density * 8) right = left + density * 8;
             bar.set(left, center - density * 2.2f, right, center + density * 2.2f);
             p.setColor(0x22FFFFFF);
@@ -887,7 +887,7 @@ final class PerfOverlayView extends LinearLayout {
             p.setColor(online ? heat(usage / 100f) : 0xFF8B95A3);
             canvas.drawText(Loc.number(getContext(), !online ? "off" : usageKnown
                             ? Math.round(usage) + "%" : "\u2014"),
-                    w - density * 30, baseline, p);
+                    w - density * 34, baseline, p);
             int clockColor = !online ? 0xFF8B95A3
                     : heat(maxHz > 0 ? hz / (float) maxHz : 0f);
             p.setColor(clockColor);

@@ -1110,7 +1110,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void addOverlay() {
         if (container != null) return;
-        baseWidthPx = Ui.dp(uiContext, BASE_WIDTH_DP);
+        baseWidthPx = Ui.dp(uiContext, prefs.perfOverlayHorizontal()
+                ? BASE_WIDTH_DP : BASE_WIDTH_DP + 30);
 
         container = new FrameLayout(uiContext);
         container.setClipChildren(false);
