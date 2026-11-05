@@ -35,8 +35,6 @@ public final class BatteryGuardService extends Service {
     private boolean polling;
     private int unpluggedPolls;
     private String lastStatus;
-    private volatile boolean rowHidden;
-    private long rowToken;
 
     static void start(Context c) {
         if (c == null) return;
@@ -105,8 +103,7 @@ public final class BatteryGuardService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        rowHidden = false;
-        hideRowLater();
+        ServiceNotifications.hideLater(this, NOTIFICATION_ID);
         if (!polling) {
             polling = true;
             main.post(poll);
@@ -197,38 +194,12 @@ public final class BatteryGuardService extends Service {
     }
 
 
-    private void hideRowLater() {
-        final long token = ++rowToken;
-        new Thread(new Runnable() {
-            @Override public void run() {
-                try {
-                    Thread.sleep(8000L);
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-                if (!polling || token != rowToken) return;
-                if (!ServiceNotifications.otherForeground(
-                        BatteryGuardService.this)) {
-                    return;
-                }
-                rowHidden = true;
-                try {
-                    stopForeground(Service.STOP_FOREGROUND_REMOVE);
-                } catch (Throwable ignored) {
-                }
-            }
-        }, "PavoGuardRow").start();
-    }
-
     private void updateStatus(String title, String text) {
-        if (rowHidden) return;
         String value = title + "|" + text;
         if (value.equals(lastStatus)) return;
         lastStatus = value;
-        NotificationManager nm =
-                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (nm != null) nm.notify(NOTIFICATION_ID, notification(title, text));
+        ServiceNotifications.update(this, NOTIFICATION_ID,
+                notification(title, text));
     }
 
     private void setWakeLock(boolean hold) {

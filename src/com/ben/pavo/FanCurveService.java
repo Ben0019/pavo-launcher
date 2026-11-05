@@ -79,6 +79,7 @@ public final class FanCurveService extends Service {
         Prefs prefs = new Prefs(this);
         // Satisfy startForegroundService() before any early stop below.
         startForeground(NOTIFICATION_ID, notification(prefs));
+        ServiceNotifications.hideLater(this, NOTIFICATION_ID);
         if (ACTION_STOP.equals(action)) {
             stopForeground(true);
             stopSelf();

@@ -340,7 +340,7 @@ public final class PavoInputService extends Service {
         createChannel();
         if (!ServiceNotifications.hosted()) {
             startForeground(NOTIFICATION_ID, buildNotification("Controller shortcuts starting"));
-            ServiceNotifications.hideLater(this);
+            ServiceNotifications.hideLater(this, NOTIFICATION_ID);
         }
         if (!TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()

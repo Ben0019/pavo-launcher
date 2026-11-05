@@ -930,7 +930,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         createChannel();
         if (!ServiceNotifications.hosted()) {
             startForeground(NOTIFICATION_ID, buildNotification());
-            ServiceNotifications.hideLater(this);
+            ServiceNotifications.hideLater(this, NOTIFICATION_ID);
         }
 
         if (!Settings.canDrawOverlays(this) || !prefs.perfOverlay()) {

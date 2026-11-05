@@ -9,7 +9,10 @@ import android.content.Intent;
 import android.service.notification.StatusBarNotification;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Keeps the six background loops quiet while {@link PavoA11yService} is bound.
@@ -42,6 +45,10 @@ final class ServiceNotifications {
             PerAppTuneService.class, PerAppFanService.class
     };
 
+    /** Rows that have been dropped; further updates must not re-post them. */
+    private static final Set<Integer> HIDDEN =
+            Collections.synchronizedSet(new HashSet<Integer>());
+
     private ServiceNotifications() {}
 
     /** Start without a foreground-service contract when a11y keeps us alive. */
@@ -62,37 +69,32 @@ final class ServiceNotifications {
      * came up; doing it immediately makes the system think startForeground()
      * was never called and kills the app with an ANR.
      */
-    static void hideLater(final Service service) {
+    static void hideLater(final Service service, final int id) {
         if (service == null) return;
+        HIDDEN.remove(id);
         new Thread(new Runnable() {
             @Override
             public void run() {
                 // Stay past the startForeground() contract window, then drop
-                // the row as soon as the accessibility service is bound. It
-                // may connect a few seconds after this service started.
+                // the row. The service stays alive in the launcher/home
+                // process; update() suppresses later re-posts.
                 try {
                     Thread.sleep(7000L);
                 } catch (InterruptedException ignored) {
                     Thread.currentThread().interrupt();
                     return;
                 }
-                for (int i = 0; i < 24; i++) {
-                    if (PavoA11yService.isConnected()) {
-                        try {
-                            service.stopForeground(Service.STOP_FOREGROUND_REMOVE);
-                        } catch (Throwable ignored) {
-                        }
-                        return;
-                    }
-                    try {
-                        Thread.sleep(5000L);
-                    } catch (InterruptedException ignored) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
+                try {
+                    service.stopForeground(Service.STOP_FOREGROUND_REMOVE);
+                } catch (Throwable ignored) {
                 }
+                HIDDEN.add(id);
             }
         }, "PavoQuietRow").start();
+    }
+
+    static boolean isHidden(int id) {
+        return HIDDEN.contains(id);
     }
 
     /** True when this service must not call startForeground(). */
@@ -131,7 +133,8 @@ final class ServiceNotifications {
 
     /** Post or update a persistent notification, unless notifications are off. */
     static void update(Context context, int id, Notification notification) {
-        if (context == null || notification == null || PavoA11yService.isConnected()) return;
+        if (context == null || notification == null
+                || PavoA11yService.isConnected() || HIDDEN.contains(id)) return;
         NotificationManager nm = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(id, notification);

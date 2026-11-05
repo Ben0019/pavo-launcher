@@ -91,7 +91,7 @@ public final class PerfTuneService extends Service {
         // Satisfy startForegroundService() before any early stop below.
         if (!ServiceNotifications.hosted()) {
             startForeground(NOTIFICATION_ID, notification(false, false));
-            ServiceNotifications.hideLater(this);
+            ServiceNotifications.hideLater(this, NOTIFICATION_ID);
         }
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             new Prefs(this).setPerfHoldEnabled(false);

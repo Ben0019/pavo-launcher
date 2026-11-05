@@ -95,7 +95,7 @@ public final class PerAppFanService extends Service {
         if (!store.hasOverrides()) {
             if (!ServiceNotifications.hosted()) {
                 startForeground(NOTIFICATION_ID, notification("Global fan profile"));
-                ServiceNotifications.hideLater(this);
+                ServiceNotifications.hideLater(this, NOTIFICATION_ID);
             }
             applyGlobalOnce();
             stopSelf();
@@ -103,7 +103,7 @@ public final class PerAppFanService extends Service {
         }
         if (!ServiceNotifications.hosted()) {
             startForeground(NOTIFICATION_ID, notification("Watching foreground apps"));
-            ServiceNotifications.hideLater(this);
+            ServiceNotifications.hideLater(this, NOTIFICATION_ID);
         }
         if (tunerVisible) return START_STICKY;
         if (intent != null && ACTION_REFRESH.equals(intent.getAction())) {

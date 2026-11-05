@@ -97,14 +97,14 @@ public final class PerAppTuneService extends Service {
         if (!store.hasOverrides()) {
             if (!ServiceNotifications.hosted()) {
                 startForeground(NOTIFICATION_ID, notification("Global tuner settings"));
-                ServiceNotifications.hideLater(this);
+                ServiceNotifications.hideLater(this, NOTIFICATION_ID);
             }
             stopSelf();
             return START_NOT_STICKY;
         }
         if (!ServiceNotifications.hosted()) {
             startForeground(NOTIFICATION_ID, notification("Watching foreground apps"));
-            ServiceNotifications.hideLater(this);
+            ServiceNotifications.hideLater(this, NOTIFICATION_ID);
         }
         if (tunerVisible) return START_STICKY;
         if (intent != null && ACTION_REFRESH.equals(intent.getAction())) {

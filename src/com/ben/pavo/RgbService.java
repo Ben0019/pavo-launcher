@@ -370,7 +370,7 @@ public final class RgbService extends Service {
         if (!foreground) {
             if (!ServiceNotifications.hosted()) {
                 startForeground(NOTIFICATION_ID, notification());
-                ServiceNotifications.hideLater(this);
+                ServiceNotifications.hideLater(this, NOTIFICATION_ID);
             }
             foreground = true;
         } else {
