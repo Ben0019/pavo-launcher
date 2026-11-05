@@ -31,4 +31,16 @@ final class FanControl {
         FanEngine.stop(c);
         if (FanCurveService.isActive()) FanCurveService.stop(c);
     }
+
+    /** Called when the accessibility host goes away: keep the curve running. */
+    static void fallback(Context c) {
+        if (c == null) return;
+        FanEngine.stop(c);
+        Prefs prefs = new Prefs(c);
+        int mode = prefs.fanAppMode();
+        if (mode == FanActivity.MODE_CURVE || mode == PerfTuner.FAN_SMART
+                || mode == PerfTuner.FAN_HIGH) {
+            if (!FanCurveService.isActive()) FanCurveService.start(c);
+        }
+    }
 }

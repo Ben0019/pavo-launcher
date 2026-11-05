@@ -1016,7 +1016,7 @@ public final class PavoA11yService extends AccessibilityService {
         drawerLongFired = false;
         keyHandler.removeCallbacks(drawerLongPress);
         connected = false;
-        FanControl.stop(this);
+        FanControl.fallback(this);
         unregisterScreenOn();
         stopWakeWatcher();
         instance = null;
@@ -1035,7 +1035,7 @@ public final class PavoA11yService extends AccessibilityService {
         drawerLongFired = false;
         keyHandler.removeCallbacks(drawerLongPress);
         connected = false;
-        FanControl.stop(this);
+        FanControl.fallback(this);
         unregisterScreenOn();
         stopWakeWatcher();
         instance = null;

@@ -26,6 +26,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -162,10 +163,41 @@ public final class SetupActivity extends Activity {
                 "Used for the controller remap overlay and touch helpers.",
                 null, new Runnable() {
                     @Override public void run() {
+                        if (!A11ySetup.isEnabled(SetupActivity.this)
+                                && A11ySetup.rootEnable(SetupActivity.this)) {
+                            LToast.makeText(SetupActivity.this,
+                                    Loc.s(SetupActivity.this,
+                                            "Accessibility: enabled"),
+                                    Toast.LENGTH_SHORT).show();
+                            list.postDelayed(new Runnable() {
+                                @Override public void run() {
+                                    refresh();
+                                }
+                            }, 1500L);
+                            return;
+                        }
                         safeStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
                                 Settings.ACTION_SETTINGS);
                     }
                 });
+        TextView restricted = text(
+                "If Pavo is greyed out: App info → ⋮ → Allow restricted settings, then enable Pavo.",
+                8.5f, DIM, false);
+        restricted.setPadding(dp(12), 0, dp(12), dp(5));
+        list.addView(restricted);
+        TextView appInfo = button("App info", false);
+        appInfo.setGravity(Gravity.CENTER);
+        appInfo.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                safeStart(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:" + getPackageName())),
+                        Settings.ACTION_SETTINGS);
+            }
+        });
+        LinearLayout.LayoutParams ailp = wrapSmall();
+        ailp.leftMargin = dp(12);
+        ailp.bottomMargin = dp(8);
+        list.addView(appInfo, ailp);
         addItem("battery", "Ignore battery optimisation",
                 "Keeps fan control and FTP hosting alive with the screen off.",
                 null, new Runnable() {
