@@ -161,7 +161,10 @@ public final class RgbService extends Service {
         // restore later.
         if (pendingWakeReapply != null) return;
         wakeReapplyAt = SystemClock.uptimeMillis();
-        wakeHoldUntil = wakeReapplyAt + 650L;
+        // The first pass paints, the second enables. Keeping the pair inside
+        // ~650 ms matches the old visible startup while still enabling only
+        // once, after the panel's ~500 ms wake write.
+        wakeHoldUntil = wakeReapplyAt + 300L;
         pendingWakeReapply = new Runnable() {
             private boolean repeated;
 
@@ -172,7 +175,7 @@ public final class RgbService extends Service {
                     // A second pass covers a late panel write; repainting the
                     // same colour is invisible when the first one survived.
                     repeated = true;
-                    wakeHandler.postDelayed(this, 650L);
+                    wakeHandler.postDelayed(this, 350L);
                 } else {
                     pendingWakeReapply = null;
                 }
@@ -194,8 +197,8 @@ public final class RgbService extends Service {
                     if (!isAnimated(lm) && !isAnimated(rm)) {
                         RgbControl.wakeApply(lc, rc, b, l, r);
                     } else {
-                        // Enable once, on the settled second pass. Writing it
-                        // on both passes made the ring flash on and off.
+                        // Enable once at ~650 ms: after the panel's wake write,
+                        // but at the old visible startup time.
                         if (secondPass) RgbControl.wakeEnable(l, r);
                         apply(app, lm, lc, rm, rc, b, sp, prefs.rgbLinked());
                     }
@@ -203,7 +206,7 @@ public final class RgbService extends Service {
                 }
             }
         };
-        wakeHandler.postDelayed(pendingWakeReapply, 650L);
+        wakeHandler.postDelayed(pendingWakeReapply, 300L);
     }
 
     /** Pause painting while the panel is blank; the wake path resumes it. */
