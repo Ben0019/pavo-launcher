@@ -978,6 +978,10 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!ServiceNotifications.hosted()) {
+            startForeground(NOTIFICATION_ID, buildNotification());
+            ServiceNotifications.hideLater(this, NOTIFICATION_ID);
+        }
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             prefs.setPerfOverlay(false);
             stopSelf();

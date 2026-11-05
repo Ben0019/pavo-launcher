@@ -41,7 +41,8 @@ public final class RgbService extends Service {
     private static final Handler wakeHandler = new Handler(Looper.getMainLooper());
     private static Runnable pendingWakeReapply;
     private static volatile long wakeHoldUntil;
-    private static volatile boolean wakeSettlePending;
+    private static volatile long lastWakeReapplyAt;
+    private static volatile long ambientSettleUntil;
 
     private HandlerThread thread;
     private Handler handler;
@@ -64,6 +65,7 @@ public final class RgbService extends Service {
     private final ScreenStream.Listener streamListener =
             new ScreenStream.Listener() {
                 @Override public void onColors(int left, int right) {
+                    if (SystemClock.uptimeMillis() < ambientSettleUntil) return;
                     if (leftMode == RgbControl.MODE_SCREEN && left != 0) {
                         ambientTargetLeft = left;
                     }
@@ -77,10 +79,8 @@ public final class RgbService extends Service {
     private int speed = 100;
     private long leftStart;
     private long rightStart;
-    private long lastEnableAt;
     private boolean foreground;
     private boolean started;
-    private long enableSettleUntil;
 
     static boolean isRunning() {
         return running;
@@ -128,6 +128,16 @@ public final class RgbService extends Service {
         Prefs prefs = new Prefs(c);
         if (prefs.rgbLeftMode() == RgbControl.MODE_OFF
                 && prefs.rgbRightMode() == RgbControl.MODE_OFF) return;
+        // SCREEN_ON, USER_PRESENT and the accessibility watcher can all fire
+        // for one wake. A single restore is enough; extra enable writes make
+        // the ring blink, so fold them into one sequence.
+        long now = SystemClock.uptimeMillis();
+        if (now - lastWakeReapplyAt < 3000L) return;
+        lastWakeReapplyAt = now;
+        // Hold the last screen colour through the panel wake. The first
+        // frames can be the black lock screen or a black panel frame; letting
+        // them through made the ring flash off before recovering.
+        ambientSettleUntil = now + 1800L;
         // The panel's wake sequence writes a black LED frame ~0.5 s after the
         // screen becomes interactive and can drop the enable with it. Every
         // mode waits for the panel to settle, then restores itself: static
@@ -173,7 +183,6 @@ public final class RgbService extends Service {
                         RgbControl.wakeApply(lc, rc, b, l, r);
                     } else {
                         RgbControl.wakeEnable(l, r);
-                        wakeSettlePending = true;
                         apply(app, lm, lc, rm, rc, b, sp, prefs.rgbLinked());
                     }
                 } catch (Throwable ignored) {
@@ -342,15 +351,6 @@ public final class RgbService extends Service {
             ScreenStream.resetFailures();
             lastStreamAttempt = 0L;
         }
-        if (wakeSettlePending) {
-            wakeSettlePending = false;
-            // The panel's wake write can clear the enable a little later.
-            // Re-assert for a short window after a wake, then stop: this
-            // driver's enable write costs ~80 ms, so a permanent retry was
-            // visible as a stutter in every animation.
-            enableSettleUntil = now + 1500L;
-            lastEnableAt = now;
-        }
         if (linked && anyChanged) {
             // Linked sticks must animate in step; reset both phases when
             // either side adopts a new mode.
@@ -364,13 +364,11 @@ public final class RgbService extends Service {
             // Only touch the enable when the service or a mode actually
             // changes. A redundant enable write during wake made the LEDs blink.
             RgbControl.setEnabled(leftOn, rightOn);
-            lastEnableAt = now;
             started = true;
         }
         if (!foreground) {
             if (!ServiceNotifications.hosted()) {
                 startForeground(NOTIFICATION_ID, notification());
-                ServiceNotifications.hideLater(this, NOTIFICATION_ID);
             }
             foreground = true;
         } else {
@@ -468,10 +466,6 @@ public final class RgbService extends Service {
             // Re-assert the enable with every frame: the panel/vendor wake
             // sequence can clear it after the first frame, which left the
             // animated modes dark.
-            if (now < enableSettleUntil && now - lastEnableAt >= 250L) {
-                RgbControl.setEnabledFast(leftOn, rightOn);
-                lastEnableAt = now;
-            }
             RgbControl.applyColorsLR(litLeft, litRight, 100, leftOn, rightOn);
             long frameMs;
             if (leftMode == RgbControl.MODE_STROBE
@@ -560,7 +554,8 @@ public final class RgbService extends Service {
 
     private void sampleAmbient(long now) {
         if (ScreenStream.isActive() || RgbActivity.isVisible()
-                || ambientSampling || now - lastAmbientSample < 200L) return;
+                || ambientSampling || now < ambientSettleUntil
+                || now - lastAmbientSample < 200L) return;
         lastAmbientSample = now;
         ambientSampling = true;
         new Thread(new Runnable() {

@@ -93,6 +93,34 @@ final class ServiceNotifications {
         }, "PavoQuietRow").start();
     }
 
+    /**
+     * Drop this row only when another Pavo service is still foreground.
+     * Used by the charge guard and fan loop so one keeper row always remains
+     * to keep the process unfrozen with the display off.
+     */
+    static void hideLaterIfHosted(final Service service, final int id,
+                                  final long delayMs) {
+        if (service == null) return;
+        HIDDEN.remove(id);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                if (!otherForeground(service)) return;
+                try {
+                    service.stopForeground(Service.STOP_FOREGROUND_REMOVE);
+                } catch (Throwable ignored) {
+                }
+                HIDDEN.add(id);
+            }
+        }, "PavoQuietRow").start();
+    }
+
     static boolean isHidden(int id) {
         return HIDDEN.contains(id);
     }

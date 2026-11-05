@@ -372,6 +372,13 @@ public final class PavoInputService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        // Every startForegroundService() call needs a fresh startForeground()
+        // inside the five-second window, even when the earlier row was hidden.
+        if (!ServiceNotifications.hosted()) {
+            startForeground(NOTIFICATION_ID,
+                    buildNotification("Controller shortcuts"));
+            ServiceNotifications.hideLater(this, NOTIFICATION_ID);
+        }
         if (!shouldRun(this)) {
             stopSelf();
             return START_NOT_STICKY;

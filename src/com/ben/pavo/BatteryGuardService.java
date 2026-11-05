@@ -103,7 +103,7 @@ public final class BatteryGuardService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        ServiceNotifications.hideLater(this, NOTIFICATION_ID);
+        ServiceNotifications.hideLaterIfHosted(this, NOTIFICATION_ID, 8000L);
         if (!polling) {
             polling = true;
             main.post(poll);
