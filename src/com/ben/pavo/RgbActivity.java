@@ -71,17 +71,23 @@ public final class RgbActivity extends PavoGlassActivity {
     private TextView leftLabel;
     private TextView rightLabel;
 
-    private int mode;
-    private int color;
+    // Index 0 is the left stick, index 1 the right stick. Each stick keeps
+    // its own mode and colour, so one can breathe while the other stays
+    // static.
+    private final int[] modes = {RgbControl.MODE_OFF, RgbControl.MODE_OFF};
+    private final int[] colors = {0xFF2BE0D8, 0xFF2BE0D8};
+    private boolean editingLeft = true;
     private int brightness;
     private int speed;
-    private boolean leftOn;
-    private boolean rightOn;
     private boolean suppress;
     private boolean tight;
     private boolean firstApply;
     private boolean initialFocusDone;
-    private int serviceMode = -1;
+    private boolean serviceRunning;
+    private String lastLeftText = "";
+    private String lastRightText = "";
+    private boolean labelStyleSet;
+    private boolean lastLabelEditing = true;
     private int writeGeneration;
     private long lastApplyAt;
     private long lastStickNavAt;
@@ -110,7 +116,7 @@ public final class RgbActivity extends PavoGlassActivity {
         public void run() {
             if (isFinishing() || isDestroyed()) return;
             updatePreview();
-            handler.postDelayed(this, mode == RgbControl.MODE_BREATH ? 16L : 70L);
+            handler.postDelayed(this, anyBreath() ? 16L : 70L);
         }
     };
 
@@ -136,7 +142,7 @@ public final class RgbActivity extends PavoGlassActivity {
             float hue = (float) Math.toDegrees(Math.atan2(y, x));
             if (hue < 0f) hue += 360f;
             wheel.setHueSaturation(hue, magnitude);
-            color = wheel.color();
+            setEditColor(wheel.color());
             updateFromWheel();
             scheduleApply();
             long now = SystemClock.uptimeMillis();
@@ -178,13 +184,16 @@ public final class RgbActivity extends PavoGlassActivity {
         accent = ThemeColors.accent();
         prefs = new Prefs(this);
         tight = Ui.widthDp(this) < 700;
-        mode = prefs.rgbMode();
-        color = prefs.rgbColor();
+        modes[0] = prefs.rgbLeftMode();
+        modes[1] = prefs.rgbRightMode();
+        colors[0] = prefs.rgbLeftColor();
+        colors[1] = prefs.rgbRightColor();
         brightness = prefs.rgbBrightness();
         speed = prefs.rgbSpeed();
-        leftOn = prefs.rgbLeft();
-        rightOn = prefs.rgbRight();
-        serviceMode = mode == RgbControl.MODE_OFF ? RgbControl.MODE_OFF : -1;
+        // Start on a stick that is actually lit, so the wheel shows a useful
+        // colour instead of the stored colour of a disabled stick.
+        editingLeft = modes[0] != RgbControl.MODE_OFF || modes[1] == RgbControl.MODE_OFF;
+        serviceRunning = anyAnimated();
         buildUi();
         hideBars();
         syncControls();
@@ -198,7 +207,8 @@ public final class RgbActivity extends PavoGlassActivity {
         hidePerformanceOverlay();
         if (!firstApply) {
             firstApply = true;
-            if (mode != RgbControl.MODE_OFF) applyNow();
+            if (modes[0] != RgbControl.MODE_OFF
+                    || modes[1] != RgbControl.MODE_OFF) applyNow();
         }
         handler.removeCallbacks(previewPoll);
         handler.post(previewPoll);
@@ -334,6 +344,10 @@ public final class RgbActivity extends PavoGlassActivity {
         TextView jt = text("JOYSTICKS", 10.5f, accent, true);
         jt.setLetterSpacing(0.12f);
         joystickTitle.addView(jt);
+        TextView editHint = text(Loc.s(this, "EDIT"), 8.5f, MUTED, false);
+        editHint.setLetterSpacing(0.08f);
+        editHint.setPadding(0, dp(2), 0, 0);
+        joystickTitle.addView(editHint);
         FrameLayout.LayoutParams joystickTitleLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -397,7 +411,7 @@ public final class RgbActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams outputLp =
                 (LinearLayout.LayoutParams) outputSection.getLayoutParams();
         outputLp.width = 0;
-        outputLp.weight = 1f;
+        outputLp.weight = 0.9f;
         outputLp.height = ViewGroup.LayoutParams.MATCH_PARENT;
         outputLp.topMargin = 0;
         outputLp.rightMargin = dp(5);
@@ -430,7 +444,7 @@ public final class RgbActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams modeLp =
                 (LinearLayout.LayoutParams) modeSection.getLayoutParams();
         modeLp.width = 0;
-        modeLp.weight = 1f;
+        modeLp.weight = 1.1f;
         modeLp.height = ViewGroup.LayoutParams.MATCH_PARENT;
         modeLp.topMargin = 0;
         modeLp.leftMargin = dp(5);
@@ -490,7 +504,7 @@ public final class RgbActivity extends PavoGlassActivity {
             @Override
             public void onColorChanged(int c) {
                 stopColorStick();
-                color = c;
+                setEditColor(c);
                 updateFromWheel();
                 scheduleApply();
             }
@@ -567,7 +581,7 @@ public final class RgbActivity extends PavoGlassActivity {
         b.setMinHeight(dp(36));
         // Four buttons share the lower row, so keep the horizontal padding
         // tight and let the label shrink instead of clipping the last letter.
-        b.setPadding(dp(2), dp(7), dp(2), dp(7));
+        b.setPadding(dp(1), dp(7), dp(1), dp(7));
         b.setAutoSizeTextTypeUniformWithConfiguration(6, 9, 1,
                 TypedValue.COMPLEX_UNIT_SP);
         b.setFocusable(true);
@@ -606,13 +620,16 @@ public final class RgbActivity extends PavoGlassActivity {
             @Override
             public void onFocusChange(View v, boolean hasFocus) {
                 if (hasFocus) Haptics.tick(v);
-                styleModeButton(b, mode == modeValue);
+                styleModeButton(b, editMode() == modeValue);
             }
         });
         modeButtons.add(b);
+        // Longer translations get more of the row: German "MEHRFARBIG" and
+        // "BILDSCHIRM" were clipped when all four buttons shared equally.
+        int weight = Math.max(4, Loc.s(this, label).length());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-        if (!last) lp.rightMargin = dp(7);
+                0, ViewGroup.LayoutParams.MATCH_PARENT, weight);
+        if (!last) lp.rightMargin = dp(4);
         parent.addView(b, lp);
     }
 
@@ -635,8 +652,9 @@ public final class RgbActivity extends PavoGlassActivity {
     }
 
     private void styleModeButtons() {
+        int selected = editMode();
         for (int i = 0; i < modeButtons.size() && i < MODE_VALUES.length; i++) {
-            styleModeButton(modeButtons.get(i), mode == MODE_VALUES[i]);
+            styleModeButton(modeButtons.get(i), selected == MODE_VALUES[i]);
         }
     }
 
@@ -705,12 +723,12 @@ public final class RgbActivity extends PavoGlassActivity {
     private void addJoystickPreview(LinearLayout parent, final boolean left) {
         final JoystickPreviewView view = new JoystickPreviewView(this);
         view.setContentDescription(Loc.s(this, left
-                ? "Left joystick preview. Tap to toggle its RGB ring."
-                : "Right joystick preview. Tap to toggle its RGB ring."));
+                ? "Left joystick. Tap to edit its color and mode."
+                : "Right joystick. Tap to edit its color and mode."));
         view.setListener(new JoystickPreviewView.Listener() {
             @Override
             public void onToggle(JoystickPreviewView v) {
-                toggleTarget(left);
+                selectTarget(left);
             }
         });
         LinearLayout box = new LinearLayout(this);
@@ -718,11 +736,16 @@ public final class RgbActivity extends PavoGlassActivity {
         box.setGravity(Gravity.CENTER);
         box.setPadding(dp(6), 0, dp(6), 0);
         box.addView(view, new LinearLayout.LayoutParams(dp(46), dp(46)));
-        TextView label = text(String.format(Loc.s(this, left ? "LEFT · %s" : "RIGHT · %s"),
-                Loc.s(this, "ON")), 8.5f, MUTED, true);
+        TextView label = text("", 8.5f, MUTED, true);
         label.setGravity(Gravity.CENTER);
-        label.setPadding(0, dp(4), 0, 0);
-        box.addView(label);
+        label.setSingleLine(true);
+        label.setAutoSizeTextTypeUniformWithConfiguration(6, 9, 1,
+                TypedValue.COMPLEX_UNIT_SP);
+        label.setPadding(dp(7), dp(2), dp(7), dp(2));
+        LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        labelLp.topMargin = dp(4);
+        box.addView(label, labelLp);
         parent.addView(box, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (left) {
@@ -738,23 +761,44 @@ public final class RgbActivity extends PavoGlassActivity {
     // State
     // ------------------------------------------------------------------
 
-    private void toggleTarget(boolean left) {
+    /** Tap chooses which stick the colour wheel and mode buttons edit. */
+    private void selectTarget(boolean left) {
         Haptics.click(left ? leftPreview : rightPreview);
-        if (left) leftOn = !leftOn;
-        else rightOn = !rightOn;
+        if (editingLeft == left) return;
+        editingLeft = left;
+        syncEditControls();
         updatePreview();
-        scheduleApply();
     }
 
     private void selectMode(int value) {
-        mode = value;
+        setEditMode(value);
         styleModeButtons();
         applyNow();
     }
 
+    private int editIndex() {
+        return editingLeft ? 0 : 1;
+    }
+
+    private int editMode() {
+        return modes[editIndex()];
+    }
+
+    private void setEditMode(int value) {
+        modes[editIndex()] = value;
+    }
+
+    private int editColor() {
+        return colors[editIndex()];
+    }
+
+    private void setEditColor(int value) {
+        colors[editIndex()] = value;
+    }
+
     private void updateFromWheel() {
         float[] hsv = new float[3];
-        Color.colorToHSV(color, hsv);
+        Color.colorToHSV(editColor(), hsv);
         suppress = true;
         hueBar.setProgress(Math.round(hsv[0]));
         satBar.setProgress(Math.round(hsv[1] * 100f));
@@ -768,7 +812,7 @@ public final class RgbActivity extends PavoGlassActivity {
         float hue = hueBar.getProgress();
         float sat = satBar.getProgress() / 100f;
         wheel.setHueSaturation(hue, sat);
-        color = wheel.color();
+        setEditColor(wheel.color());
         updateColorText();
         updatePreview();
         scheduleApply();
@@ -814,51 +858,86 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private void updateColorText() {
         if (hexView == null) return;
-        String hex = String.format("#%06X", 0xFFFFFF & color);
+        int value = editColor();
+        String hex = String.format("#%06X", 0xFFFFFF & value);
         hexView.setText(hex);
         rgbView.setText(String.format(Loc.s(this, "R %d · G %d · B %d"),
-                Color.red(color), Color.green(color), Color.blue(color)));
+                Color.red(value), Color.green(value), Color.blue(value)));
     }
 
     private void updatePreview() {
         if (leftPreview == null) return;
-        boolean animated = isAnimated(mode);
         int ring;
         int ringRight;
-        if (animated && RgbService.previewActive()) {
+        if (anyAnimated() && RgbService.previewActive()) {
             ring = RgbService.previewColor();
             ringRight = RgbService.previewColorRight();
         } else {
-            ring = RgbControl.scaledColor(color, 1f, brightness);
-            ringRight = ring;
+            ring = RgbControl.scaledColor(colors[0], 1f, brightness);
+            ringRight = RgbControl.scaledColor(colors[1], 1f, brightness);
         }
-        boolean active = mode != RgbControl.MODE_OFF;
-        leftPreview.setPowered(active);
-        rightPreview.setPowered(active);
+        boolean leftActive = modes[0] != RgbControl.MODE_OFF;
+        boolean rightActive = modes[1] != RgbControl.MODE_OFF;
+        leftPreview.setPowered(leftActive);
+        rightPreview.setPowered(rightActive);
         leftPreview.setRingColor(ring);
         rightPreview.setRingColor(ringRight);
-        leftPreview.setTargetEnabled(leftOn);
-        rightPreview.setTargetEnabled(rightOn);
-        leftLabel.setText(String.format(Loc.s(this, "LEFT · %s"),
-                Loc.s(this, leftOn ? "ON" : "OFF")));
-        rightLabel.setText(String.format(Loc.s(this, "RIGHT · %s"),
-                Loc.s(this, rightOn ? "ON" : "OFF")));
+        leftPreview.setTargetEnabled(leftActive);
+        rightPreview.setTargetEnabled(rightActive);
+        String leftText = String.format(Loc.s(this, "LEFT · %s"),
+                Loc.s(this, modeLabel(modes[0])));
+        String rightText = String.format(Loc.s(this, "RIGHT · %s"),
+                Loc.s(this, modeLabel(modes[1])));
+        // updatePreview runs every animation frame; only touch the labels when
+        // their text or the selected stick actually changes.
+        if (!leftText.equals(lastLeftText)) {
+            leftLabel.setText(leftText);
+            lastLeftText = leftText;
+        }
+        if (!rightText.equals(lastRightText)) {
+            rightLabel.setText(rightText);
+            lastRightText = rightText;
+        }
+        if (!labelStyleSet || lastLabelEditing != editingLeft) {
+            styleStickLabel(leftLabel, editingLeft);
+            styleStickLabel(rightLabel, !editingLeft);
+            labelStyleSet = true;
+            lastLabelEditing = editingLeft;
+        }
+    }
+
+    private void styleStickLabel(TextView label, boolean selected) {
+        if (label == null) return;
+        if (selected) {
+            label.setTextColor(0xFF071018);
+            label.setBackground(Ui.rounded(accent, dp(8)));
+        } else {
+            label.setTextColor(MUTED);
+            label.setBackground(null);
+        }
     }
 
     private void syncControls() {
+        syncEditControls();
+        suppress = true;
+        brightnessBar.setProgress(Math.max(0, Math.min(99, brightness - 1)));
+        speedBar.setProgress(Math.max(0, Math.min(290, speed - 10)));
+        suppress = false;
+        updatePreview();
+        updateStatus();
+    }
+
+    /** Pull the selected stick's colour and mode into the wheel and buttons. */
+    private void syncEditControls() {
         float[] hsv = new float[3];
-        Color.colorToHSV(color, hsv);
+        Color.colorToHSV(editColor(), hsv);
         suppress = true;
         wheel.setHueSaturation(hsv[0], hsv[1]);
         hueBar.setProgress(Math.round(hsv[0]));
         satBar.setProgress(Math.round(hsv[1] * 100f));
-        brightnessBar.setProgress(Math.max(0, Math.min(99, brightness - 1)));
-        speedBar.setProgress(Math.max(0, Math.min(290, speed - 10)));
         suppress = false;
         styleModeButtons();
         updateColorText();
-        updatePreview();
-        updateStatus();
     }
 
     private void scheduleApply() {
@@ -875,37 +954,28 @@ public final class RgbActivity extends PavoGlassActivity {
     private void applyNow() {
         handler.removeCallbacks(applyRunnable);
         lastApplyAt = SystemClock.uptimeMillis();
-        prefs.setRgbMode(mode);
-        prefs.setRgbColor(color);
+        prefs.setRgbLeftMode(modes[0]);
+        prefs.setRgbRightMode(modes[1]);
+        prefs.setRgbLeftColor(colors[0]);
+        prefs.setRgbRightColor(colors[1]);
         prefs.setRgbBrightness(brightness);
         prefs.setRgbSpeed(speed);
-        prefs.setRgbLeft(leftOn);
-        prefs.setRgbRight(rightOn);
 
-        if (mode == RgbControl.MODE_STATIC) {
-            if (isAnimated(serviceMode)) {
-                RgbService.apply(this, RgbControl.MODE_STATIC,
-                        color, brightness, speed, leftOn, rightOn);
-            }
-            serviceMode = RgbControl.MODE_STATIC;
-            scheduleStaticWrite();
-        } else if (mode == RgbControl.MODE_OFF) {
-            if (serviceMode != RgbControl.MODE_OFF || RgbService.isRunning()) {
-                RgbService.apply(this, RgbControl.MODE_OFF,
-                        color, brightness, speed, leftOn, rightOn);
-                final int generation = ++writeGeneration;
-                staticWriter.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (generation == writeGeneration) RgbControl.off();
-                    }
-                });
-            }
-            serviceMode = RgbControl.MODE_OFF;
-        } else {
+        boolean animated = anyAnimated();
+        if (animated) {
             ++writeGeneration;
-            RgbService.apply(this, mode, color, brightness, speed, leftOn, rightOn);
-            serviceMode = mode;
+            RgbService.apply(this, modes[0], colors[0], modes[1], colors[1],
+                    brightness, speed);
+            serviceRunning = true;
+        } else {
+            // Hand a running animation back to the service so it can stop its
+            // loop, then paint the static frame on the writer thread.
+            if (serviceRunning) {
+                RgbService.apply(this, modes[0], colors[0], modes[1], colors[1],
+                        brightness, speed);
+                serviceRunning = false;
+            }
+            scheduleStaticWrite();
         }
         updateStatus();
         handler.postDelayed(new Runnable() {
@@ -918,17 +988,34 @@ public final class RgbActivity extends PavoGlassActivity {
 
     private void scheduleStaticWrite() {
         final int generation = ++writeGeneration;
-        final int c = color;
+        final int lc = colors[0];
+        final int rc = colors[1];
         final int b = brightness;
-        final boolean l = leftOn;
-        final boolean r = rightOn;
+        final boolean l = modes[0] != RgbControl.MODE_OFF;
+        final boolean r = modes[1] != RgbControl.MODE_OFF;
         staticWriter.execute(new Runnable() {
             @Override
             public void run() {
                 if (generation != writeGeneration) return;
-                RgbControl.applyStatic(c, b, l, r);
+                RgbControl.applyStaticLR(lc, rc, b, l, r);
             }
         });
+    }
+
+    private boolean anyAnimated() {
+        return isAnimated(modes[0]) || isAnimated(modes[1]);
+    }
+
+    private boolean anyBreath() {
+        return modes[0] == RgbControl.MODE_BREATH
+                || modes[1] == RgbControl.MODE_BREATH;
+    }
+
+    private String modeLabel(int value) {
+        for (int i = 0; i < MODE_VALUES.length; i++) {
+            if (MODE_VALUES[i] == value) return MODE_LABELS[i];
+        }
+        return "OFF";
     }
 
     private boolean isAnimated(int value) {

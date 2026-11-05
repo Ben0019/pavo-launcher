@@ -22,12 +22,12 @@ public final class RgbService extends Service {
 
     static final String ACTION_APPLY = "com.ben.pavo.RGB_APPLY";
     static final String ACTION_STOP = "com.ben.pavo.RGB_STOP";
-    static final String EXTRA_MODE = "mode";
-    static final String EXTRA_COLOR = "color";
+    static final String EXTRA_LEFT_MODE = "left_mode";
+    static final String EXTRA_LEFT_COLOR = "left_color";
+    static final String EXTRA_RIGHT_MODE = "right_mode";
+    static final String EXTRA_RIGHT_COLOR = "right_color";
     static final String EXTRA_BRIGHTNESS = "brightness";
     static final String EXTRA_SPEED = "speed";
-    static final String EXTRA_LEFT = "left";
-    static final String EXTRA_RIGHT = "right";
 
     private static final String CHANNEL = "aurora_rgb";
     private static final int NOTIFICATION_ID = 101;
@@ -41,20 +41,23 @@ public final class RgbService extends Service {
 
     private HandlerThread thread;
     private Handler handler;
-    private int mode = RgbControl.MODE_OFF;
-    private int color = 0xFF2BE0D8;
-    private float colorHue;
+    private int leftMode = RgbControl.MODE_OFF;
+    private int rightMode = RgbControl.MODE_OFF;
+    private int leftColor = 0xFF2BE0D8;
+    private int rightColor = 0xFF2BE0D8;
+    private float leftHue;
+    private float rightHue;
     private int ambientColor;
     private int ambientTarget;
     private long lastAmbientSample;
     private volatile boolean ambientSampling;
     private int brightness = 50;
     private int speed = 100;
-    private boolean left = true;
-    private boolean right = true;
-    private long startedAt;
+    private long leftStart;
+    private long rightStart;
     private long lastEnableAt;
     private boolean foreground;
+    private boolean started;
 
     static boolean isRunning() {
         return running;
@@ -72,30 +75,38 @@ public final class RgbService extends Service {
         return previewActive;
     }
 
-    static void apply(Context c, int mode, int color, int brightness, int speed,
-                      boolean left, boolean right) {
+    static void apply(Context c, int leftMode, int leftColor,
+                      int rightMode, int rightColor, int brightness, int speed) {
         if (c == null) return;
         Intent intent = new Intent(c, RgbService.class);
         intent.setAction(ACTION_APPLY);
-        intent.putExtra(EXTRA_MODE, mode);
-        intent.putExtra(EXTRA_COLOR, color);
+        intent.putExtra(EXTRA_LEFT_MODE, leftMode);
+        intent.putExtra(EXTRA_LEFT_COLOR, leftColor);
+        intent.putExtra(EXTRA_RIGHT_MODE, rightMode);
+        intent.putExtra(EXTRA_RIGHT_COLOR, rightColor);
         intent.putExtra(EXTRA_BRIGHTNESS, brightness);
         intent.putExtra(EXTRA_SPEED, speed);
-        intent.putExtra(EXTRA_LEFT, left);
-        intent.putExtra(EXTRA_RIGHT, right);
         c.startService(intent);
     }
 
-    /** Re-apply the saved RGB mode after the display comes back on. */
+    static boolean isAnimated(int mode) {
+        return mode == RgbControl.MODE_BREATH
+                || mode == RgbControl.MODE_RAINBOW
+                || mode == RgbControl.MODE_STROBE
+                || mode == RgbControl.MODE_MULTI
+                || mode == RgbControl.MODE_SCREEN;
+    }
+
+    /** Re-apply the saved RGB modes after the display comes back on. */
     static void reapply(Context c) {
         if (c == null) return;
         Prefs prefs = new Prefs(c);
-        int mode = prefs.rgbMode();
-        if (mode == RgbControl.MODE_OFF) return;
+        if (prefs.rgbLeftMode() == RgbControl.MODE_OFF
+                && prefs.rgbRightMode() == RgbControl.MODE_OFF) return;
         // The panel's wake sequence writes a black LED frame ~0.5 s after the
         // screen becomes interactive and can drop the enable with it. Every
         // mode waits for the panel to settle, then restores itself: static
-        // paints the colour, animated modes re-enable and restart their loop.
+        // paints the colours, animated modes re-enable and restart their loop.
         scheduleWakeReapply(c.getApplicationContext());
     }
 
@@ -123,19 +134,21 @@ public final class RgbService extends Service {
                             Context.POWER_SERVICE);
                     if (pm != null && !pm.isInteractive()) return;
                     Prefs prefs = new Prefs(app);
-                    int saved = prefs.rgbMode();
-                    if (saved == RgbControl.MODE_OFF) return;
-                    int c = prefs.rgbColor();
+                    int lm = prefs.rgbLeftMode();
+                    int rm = prefs.rgbRightMode();
+                    if (lm == RgbControl.MODE_OFF && rm == RgbControl.MODE_OFF) return;
+                    int lc = prefs.rgbLeftColor();
+                    int rc = prefs.rgbRightColor();
                     int b = prefs.rgbBrightness();
                     int sp = prefs.rgbSpeed();
-                    boolean l = prefs.rgbLeft();
-                    boolean r = prefs.rgbRight();
+                    boolean l = lm != RgbControl.MODE_OFF;
+                    boolean r = rm != RgbControl.MODE_OFF;
                     wakeHoldUntil = 0L;
-                    if (saved == RgbControl.MODE_STATIC) {
-                        RgbControl.wakeApply(c, b, l, r);
+                    if (!isAnimated(lm) && !isAnimated(rm)) {
+                        RgbControl.wakeApply(lc, rc, b, l, r);
                     } else {
                         RgbControl.wakeEnable(l, r);
-                        apply(app, saved, c, b, sp, l, r);
+                        apply(app, lm, lc, rm, rc, b, sp);
                     }
                 } catch (Throwable ignored) {
                 }
@@ -179,7 +192,9 @@ public final class RgbService extends Service {
         String action = intent != null ? intent.getAction() : ACTION_APPLY;
         if (ACTION_STOP.equals(action)) {
             RgbControl.off();
-            new Prefs(this).setRgbMode(RgbControl.MODE_OFF);
+            Prefs stopPrefs = new Prefs(this);
+            stopPrefs.setRgbLeftMode(RgbControl.MODE_OFF);
+            stopPrefs.setRgbRightMode(RgbControl.MODE_OFF);
             previewActive = false;
             previewColor = 0;
             previewColorRight = 0;
@@ -189,39 +204,46 @@ public final class RgbService extends Service {
             return START_NOT_STICKY;
         }
 
-        int nextMode = intent != null ? intent.getIntExtra(EXTRA_MODE, mode) : mode;
-        int nextColor = intent != null ? intent.getIntExtra(EXTRA_COLOR, color) : color;
+        int nextLM = intent != null ? intent.getIntExtra(EXTRA_LEFT_MODE, leftMode) : leftMode;
+        int nextRM = intent != null ? intent.getIntExtra(EXTRA_RIGHT_MODE, rightMode) : rightMode;
+        int nextLC = intent != null ? intent.getIntExtra(EXTRA_LEFT_COLOR, leftColor) : leftColor;
+        int nextRC = intent != null
+                ? intent.getIntExtra(EXTRA_RIGHT_COLOR, rightColor) : rightColor;
         int nextBrightness = intent != null
                 ? intent.getIntExtra(EXTRA_BRIGHTNESS, brightness) : brightness;
         int nextSpeed = intent != null ? intent.getIntExtra(EXTRA_SPEED, speed) : speed;
-        boolean nextLeft = intent != null ? intent.getBooleanExtra(EXTRA_LEFT, left) : left;
-        boolean nextRight = intent != null
-                ? intent.getBooleanExtra(EXTRA_RIGHT, right) : right;
-        boolean modeChanged = nextMode != mode;
-        mode = nextMode;
-        color = nextColor;
+        boolean leftChanged = nextLM != leftMode;
+        boolean rightChanged = nextRM != rightMode;
+        boolean anyChanged = leftChanged || rightChanged;
+        leftMode = nextLM;
+        rightMode = nextRM;
+        leftColor = nextLC;
+        rightColor = nextRC;
         float[] hsv = new float[3];
-        Color.colorToHSV(color, hsv);
-        colorHue = hsv[0];
+        Color.colorToHSV(leftColor, hsv);
+        leftHue = hsv[0];
+        Color.colorToHSV(rightColor, hsv);
+        rightHue = hsv[0];
         brightness = Math.max(1, Math.min(100, nextBrightness));
         speed = Math.max(10, Math.min(300, nextSpeed));
-        left = nextLeft;
-        right = nextRight;
+        boolean leftOn = leftMode != RgbControl.MODE_OFF;
+        boolean rightOn = rightMode != RgbControl.MODE_OFF;
 
-        if (mode == RgbControl.MODE_OFF) {
+        if (!leftOn && !rightOn) {
             RgbControl.off();
             previewActive = false;
             previewColor = 0;
+            previewColorRight = 0;
             stopForeground(true);
             foreground = false;
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (mode == RgbControl.MODE_STATIC) {
-            RgbControl.applyStatic(color, brightness, left, right);
+        if (!isAnimated(leftMode) && !isAnimated(rightMode)) {
+            RgbControl.applyStaticLR(leftColor, rightColor, brightness, leftOn, rightOn);
             previewActive = false;
-            previewColor = RgbControl.scaledColor(color, 1f, brightness);
-            previewColorRight = previewColor;
+            previewColor = RgbControl.scaledColor(leftColor, 1f, brightness);
+            previewColorRight = RgbControl.scaledColor(rightColor, 1f, brightness);
             stopForeground(true);
             foreground = false;
             stopSelf();
@@ -233,17 +255,21 @@ public final class RgbService extends Service {
         if (intent != null && ACTION_APPLY.equals(intent.getAction())) {
             wakeHoldUntil = 0L;
         }
-        if (mode == RgbControl.MODE_SCREEN && (modeChanged || startedAt == 0L)) {
-            ambientColor = color;
+        if ((leftMode == RgbControl.MODE_SCREEN || rightMode == RgbControl.MODE_SCREEN)
+                && (anyChanged || !started)) {
+            ambientColor = leftMode == RgbControl.MODE_SCREEN ? leftColor : rightColor;
             ambientTarget = 0;
             lastAmbientSample = 0L;
         }
         previewActive = true;
-        if (modeChanged || startedAt == 0L) {
-            // Only touch the enable when the service or mode actually changes.
-            // A redundant enable write during wake made the LEDs blink.
-            RgbControl.setEnabled(left, right);
-            startedAt = SystemClock.uptimeMillis();
+        long now = SystemClock.uptimeMillis();
+        if (leftChanged || !started) leftStart = now;
+        if (rightChanged || !started) rightStart = now;
+        if (anyChanged || !started) {
+            // Only touch the enable when the service or a mode actually
+            // changes. A redundant enable write during wake made the LEDs blink.
+            RgbControl.setEnabled(leftOn, rightOn);
+            started = true;
         }
         if (!foreground) {
             if (!ServiceNotifications.hosted()) {
@@ -283,60 +309,58 @@ public final class RgbService extends Service {
                 handler.postDelayed(this, Math.min(100L, wakeHoldUntil - now));
                 return;
             }
-            long elapsed = now - startedAt;
-            long scaledElapsed = elapsed * speed / 100L;
+            long leftElapsed = now - leftStart;
+            long rightElapsed = now - rightStart;
             long strobeInterval = Math.max(35L, 140L * 100L / speed);
-            int effective = brightness;
-            int out = color;
-            int outRight = out;
-            if (mode == RgbControl.MODE_BREATH) {
-                effective = Math.max(1, Math.round(brightness
-                        * RgbControl.breathFactor(scaledElapsed) / 100f));
-            } else if (mode == RgbControl.MODE_RAINBOW) {
-                out = RgbControl.rainbowColor(scaledElapsed);
-                outRight = out;
-            } else if (mode == RgbControl.MODE_STROBE) {
-                if ((elapsed / strobeInterval) % 2L != 0L) out = 0;
-                outRight = out;
-            } else if (mode == RgbControl.MODE_MULTI) {
-                // Two hues at once, one per stick, both cycling. The ring is
-                // a single RGB zone, so this is the closest the hardware can
-                // get to a multi-colour gradient.
-                out = RgbControl.multiColor(scaledElapsed, colorHue, 0);
-                outRight = RgbControl.multiColor(scaledElapsed, colorHue, 120);
-            } else if (mode == RgbControl.MODE_SCREEN) {
-                if (!RgbActivity.isVisible() && !ambientSampling
-                        && now - lastAmbientSample >= 260L) {
-                    lastAmbientSample = now;
-                    ambientSampling = true;
-                    new Thread(new Runnable() {
-                        @Override public void run() {
-                            final int sampled = ScreenAmbient.sample(
-                                    getApplicationContext());
-                            if (handler != null) {
-                                handler.post(new Runnable() {
-                                    @Override public void run() {
-                                        ambientSampling = false;
-                                        if (running && sampled != 0) ambientTarget = sampled;
-                                    }
-                                });
-                            } else {
-                                ambientSampling = false;
-                            }
-                        }
-                    }, "rgb-ambient").start();
-                }
-                if (ambientTarget != 0) {
-                    float blendAmount = Math.max(0.04f,
-                            Math.min(0.82f, 0.38f * speed / 100f));
-                    ambientColor = blend(ambientColor, ambientTarget, blendAmount);
-                }
-                out = ambientColor;
-                outRight = out;
+            int effectiveLeft = brightness;
+            int effectiveRight = brightness;
+            int outLeft = leftColor;
+            int outRight = rightColor;
+
+            if (leftMode == RgbControl.MODE_BREATH) {
+                effectiveLeft = Math.max(1, Math.round(brightness
+                        * RgbControl.breathFactor(leftElapsed * speed / 100L) / 100f));
+            } else if (leftMode == RgbControl.MODE_RAINBOW) {
+                outLeft = RgbControl.rainbowColor(leftElapsed * speed / 100L);
+            } else if (leftMode == RgbControl.MODE_STROBE) {
+                if ((leftElapsed / strobeInterval) % 2L != 0L) outLeft = 0;
+            } else if (leftMode == RgbControl.MODE_MULTI) {
+                outLeft = RgbControl.multiColor(
+                        leftElapsed * speed / 100L, leftHue, 0);
+            } else if (leftMode == RgbControl.MODE_SCREEN) {
+                sampleAmbient(now);
+                if (ambientTarget != 0) blendAmbient();
+                outLeft = ambientColor;
             }
-            previewColor = RgbControl.scaledColor(out, 1f, effective);
-            previewColorRight = RgbControl.scaledColor(outRight, 1f, effective);
+
+            if (rightMode == RgbControl.MODE_BREATH) {
+                effectiveRight = Math.max(1, Math.round(brightness
+                        * RgbControl.breathFactor(rightElapsed * speed / 100L) / 100f));
+            } else if (rightMode == RgbControl.MODE_RAINBOW) {
+                outRight = RgbControl.rainbowColor(rightElapsed * speed / 100L);
+            } else if (rightMode == RgbControl.MODE_STROBE) {
+                if ((rightElapsed / strobeInterval) % 2L != 0L) outRight = 0;
+            } else if (rightMode == RgbControl.MODE_MULTI) {
+                // The ring is a single RGB zone; the two sticks act as two
+                // simultaneous colours when both run Multicolour.
+                outRight = RgbControl.multiColor(rightElapsed * speed / 100L, rightHue,
+                        leftMode == RgbControl.MODE_MULTI ? 120 : 0);
+            } else if (rightMode == RgbControl.MODE_SCREEN) {
+                sampleAmbient(now);
+                if (ambientTarget != 0) blendAmbient();
+                outRight = ambientColor;
+            }
+
+            // Bake each stick's brightness into its colour so one pass can
+            // paint different modes (a dim breathing left, a bright static
+            // right) at the same time.
+            int litLeft = RgbControl.scaledColor(outLeft, 1f, effectiveLeft);
+            int litRight = RgbControl.scaledColor(outRight, 1f, effectiveRight);
+            previewColor = litLeft;
+            previewColorRight = litRight;
             previewActive = true;
+            boolean leftOn = leftMode != RgbControl.MODE_OFF;
+            boolean rightOn = rightMode != RgbControl.MODE_OFF;
             // Re-assert the enable with every frame: the panel/vendor wake
             // sequence can clear it after the first frame, which left the
             // animated modes dark.
@@ -344,21 +368,45 @@ public final class RgbService extends Service {
                 // Re-assert periodically rather than every frame. The wake
                 // path enables before the loop starts, so this only recovers
                 // from a late panel/vendor write.
-                RgbControl.setEnabledFast(left, right);
+                RgbControl.setEnabledFast(leftOn, rightOn);
                 lastEnableAt = now;
             }
-            if (mode == RgbControl.MODE_MULTI) {
-                RgbControl.applyColorsLR(out, outRight, effective, left, right);
-            } else {
-                RgbControl.applyColorsFast(out, effective, left, right);
-            }
-            long frameMs = mode == RgbControl.MODE_STROBE
-                    ? strobeInterval
-                    : (mode == RgbControl.MODE_BREATH ? 12L : 70L);
+            RgbControl.applyColorsLR(litLeft, litRight, 100, leftOn, rightOn);
+            long frameMs = (leftMode == RgbControl.MODE_STROBE
+                    || rightMode == RgbControl.MODE_STROBE) ? strobeInterval
+                    : ((leftMode == RgbControl.MODE_BREATH
+                    || rightMode == RgbControl.MODE_BREATH) ? 12L : 70L);
             long work = SystemClock.uptimeMillis() - now;
             handler.postDelayed(this, Math.max(1L, frameMs - work));
         }
     };
+
+    private void sampleAmbient(long now) {
+        if (RgbActivity.isVisible() || ambientSampling
+                || now - lastAmbientSample < 260L) return;
+        lastAmbientSample = now;
+        ambientSampling = true;
+        new Thread(new Runnable() {
+            @Override public void run() {
+                final int sampled = ScreenAmbient.sample(getApplicationContext());
+                if (handler != null) {
+                    handler.post(new Runnable() {
+                        @Override public void run() {
+                            ambientSampling = false;
+                            if (running && sampled != 0) ambientTarget = sampled;
+                        }
+                    });
+                } else {
+                    ambientSampling = false;
+                }
+            }
+        }, "rgb-ambient").start();
+    }
+
+    private void blendAmbient() {
+        float blendAmount = Math.max(0.04f, Math.min(0.82f, 0.38f * speed / 100f));
+        ambientColor = blend(ambientColor, ambientTarget, blendAmount);
+    }
 
     private static int blend(int from, int to, float amount) {
         float f = Math.max(0f, Math.min(1f, amount));
@@ -378,7 +426,7 @@ public final class RgbService extends Service {
         Notification.Builder b = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_apps)
                 .setContentTitle(Loc.s(this, "Pavo RGB"))
-                .setContentText(Loc.s(this, modeName(mode)) + " · " + Loc.s(this, "joystick lighting"))
+                .setContentText(modeSummary() + " · " + Loc.s(this, "joystick lighting"))
                 .setContentIntent(open)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -386,6 +434,12 @@ public final class RgbService extends Service {
                         Icon.createWithResource(this, R.drawable.ic_apps),
                         "STOP", stop).build());
         return b.build();
+    }
+
+    private String modeSummary() {
+        String l = Loc.s(this, modeName(leftMode));
+        String r = Loc.s(this, modeName(rightMode));
+        return l.equals(r) ? l : l + " + " + r;
     }
 
     static String modeName(int mode) {

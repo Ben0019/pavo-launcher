@@ -282,41 +282,54 @@ final class RgbControl {
         return applyColors(color, brightness, left, right) && ok;
     }
 
+    /** Static paint with an independent colour per stick. */
+    static boolean applyStaticLR(int leftColor, int rightColor, int brightness,
+                                 boolean left, boolean right) {
+        boolean ok = setEnabled(left, right);
+        return applyColorsLR(leftColor, rightColor, brightness, left, right) && ok;
+    }
+
     /**
      * Fast wake path: write the sysfs nodes directly (they are world-writable)
      * so the LEDs come back as soon as the display turns on instead of waiting
      * for a PServer round trip. Falls back to the normal transport on failure.
      */
-    static void wakeApply(int color, int brightness, boolean left, boolean right) {
+    static void wakeApply(int leftColor, int rightColor, int brightness,
+                          boolean left, boolean right) {
         if (!sysfsAvailable()) {
-            applyColorsSettings(color, color, brightness, left, right);
+            applyColorsSettings(leftColor, rightColor, brightness, left, right);
             return;
         }
         float scale = Math.max(0f, Math.min(1f, brightness / 100f));
-        int r = Math.round(Color.red(color) * scale);
-        int g = Math.round(Color.green(color) * scale);
-        int b = Math.round(Color.blue(color) * scale);
-        String v1 = "1-" + r + ":" + g + ":" + b;
-        String v2 = "2-" + r + ":" + g + ":" + b;
+        int lr = Math.round(Color.red(leftColor) * scale);
+        int lg = Math.round(Color.green(leftColor) * scale);
+        int lb = Math.round(Color.blue(leftColor) * scale);
+        int rr = Math.round(Color.red(rightColor) * scale);
+        int rg = Math.round(Color.green(rightColor) * scale);
+        int rb = Math.round(Color.blue(rightColor) * scale);
+        String l1 = "1-" + lr + ":" + lg + ":" + lb;
+        String l2 = "2-" + lr + ":" + lg + ":" + lb;
+        String r1 = "1-" + rr + ":" + rg + ":" + rb;
+        String r2 = "2-" + rr + ":" + rg + ":" + rb;
         StringBuilder command = new StringBuilder();
         if (left) {
             command.append("echo 1 > ").append(ENABLE_LEFT).append("; ")
-                    .append("echo '").append(v1).append("' > ").append(COLOR_LEFT).append("; ")
-                    .append("echo '").append(v2).append("' > ").append(COLOR_LEFT).append("; ");
+                    .append("echo '").append(l1).append("' > ").append(COLOR_LEFT).append("; ")
+                    .append("echo '").append(l2).append("' > ").append(COLOR_LEFT).append("; ");
         }
         if (right) {
             command.append("echo 1 > ").append(ENABLE_RIGHT).append("; ")
-                    .append("echo '").append(v1).append("' > ").append(COLOR_RIGHT).append("; ")
-                    .append("echo '").append(v2).append("' > ").append(COLOR_RIGHT).append("; ");
+                    .append("echo '").append(r1).append("' > ").append(COLOR_RIGHT).append("; ")
+                    .append("echo '").append(r2).append("' > ").append(COLOR_RIGHT).append("; ");
         }
         boolean ok = true;
         if (left) {
             ok &= direct(ENABLE_LEFT, "1");
-            ok &= directColor(COLOR_LEFT, r, g, b);
+            ok &= directColor(COLOR_LEFT, lr, lg, lb);
         }
         if (right) {
             ok &= direct(ENABLE_RIGHT, "1");
-            ok &= directColor(COLOR_RIGHT, r, g, b);
+            ok &= directColor(COLOR_RIGHT, rr, rg, rb);
         }
         if (ok) return;
         if (command.length() > 0 && PServer.available()
@@ -324,7 +337,7 @@ final class RgbControl {
             return;
         }
         setEnabled(left, right);
-        applyColors(color, brightness, left, right);
+        applyColorsLR(leftColor, rightColor, brightness, left, right);
     }
 
     /** Wake path for animated modes: restore the enable only, so the first

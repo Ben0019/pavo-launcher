@@ -482,6 +482,38 @@ final class Prefs {
     void setRgbLeft(boolean v) { sp.edit().putBoolean("rgb_left", v).apply(); }
     void setRgbRight(boolean v) { sp.edit().putBoolean("rgb_right", v).apply(); }
 
+    /**
+     * Per-stick mode and colour. Builds without the new keys migrate from the
+     * old shared mode plus the two enable flags, so an upgrade keeps the same
+     * look instead of resetting both rings.
+     */
+    int rgbLeftMode() {
+        if (sp.contains("rgb_left_mode")) {
+            return clamp(sp.getInt("rgb_left_mode", RgbControl.MODE_OFF), 0, 6);
+        }
+        return rgbLeft() ? rgbMode() : RgbControl.MODE_OFF;
+    }
+
+    int rgbRightMode() {
+        if (sp.contains("rgb_right_mode")) {
+            return clamp(sp.getInt("rgb_right_mode", RgbControl.MODE_OFF), 0, 6);
+        }
+        return rgbRight() ? rgbMode() : RgbControl.MODE_OFF;
+    }
+
+    int rgbLeftColor() {
+        return sp.getInt("rgb_left_color", rgbColor());
+    }
+
+    int rgbRightColor() {
+        return sp.getInt("rgb_right_color", rgbColor());
+    }
+
+    void setRgbLeftMode(int v) { sp.edit().putInt("rgb_left_mode", clamp(v, 0, 6)).apply(); }
+    void setRgbRightMode(int v) { sp.edit().putInt("rgb_right_mode", clamp(v, 0, 6)).apply(); }
+    void setRgbLeftColor(int v) { sp.edit().putInt("rgb_left_color", v).apply(); }
+    void setRgbRightColor(int v) { sp.edit().putInt("rgb_right_color", v).apply(); }
+
     /** UI size: auto, 90, 100, 110 or 120 percent. */
     String uiScaleMode() {
         String value = sp.getString("ui_scale_mode", "auto");
