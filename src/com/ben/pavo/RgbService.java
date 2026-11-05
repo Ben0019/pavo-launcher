@@ -45,6 +45,7 @@ public final class RgbService extends Service {
 
     private HandlerThread thread;
     private Handler handler;
+    private android.content.BroadcastReceiver screenReceiver;
     private int leftMode = RgbControl.MODE_OFF;
     private int rightMode = RgbControl.MODE_OFF;
     private int leftColor = 0xFF2BE0D8;
@@ -202,6 +203,31 @@ public final class RgbService extends Service {
         thread = new HandlerThread("AuroraRgb", android.os.Process.THREAD_PRIORITY_DISPLAY);
         thread.start();
         handler = new Handler(thread.getLooper());
+        screenReceiver = new android.content.BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                if (intent == null) return;
+                String action = intent.getAction();
+                if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+                    onScreenOff();
+                } else if (Intent.ACTION_SCREEN_ON.equals(action)
+                        || Intent.ACTION_USER_PRESENT.equals(action)) {
+                    reapply(getApplicationContext());
+                }
+            }
+        };
+        android.content.IntentFilter filter = new android.content.IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_USER_PRESENT);
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(screenReceiver, filter,
+                        Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(screenReceiver, filter);
+            }
+        } catch (Throwable ignored) {
+        }
         NotificationManager nm =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null && Build.VERSION.SDK_INT >= 26) {
@@ -276,8 +302,9 @@ public final class RgbService extends Service {
             previewColorRight = RgbControl.scaledColor(rightColor, 1f, brightness);
             stopForeground(true);
             foreground = false;
-            stopSelf();
-            return START_NOT_STICKY;
+            // Stay alive without a row so the screen-on receiver can restore
+            // the static colour after the panel wake sequence clears it.
+            return START_STICKY;
         }
 
         // An explicit mode apply means the user is looking at the LEDs now;
@@ -391,7 +418,8 @@ public final class RgbService extends Service {
                 if (!ScreenStream.isActive()
                         && now - lastStreamAttempt >= 5000L) {
                     lastStreamAttempt = now;
-                    ScreenStream.start(getApplicationContext(), streamListener);
+                    ScreenStream.start(
+                            getApplicationContext(), streamListener);
                 }
                 sampleAmbient(now);
                 blendAmbient();
@@ -614,6 +642,13 @@ public final class RgbService extends Service {
     public void onDestroy() {
         running = false;
         ScreenStream.stop();
+        if (screenReceiver != null) {
+            try {
+                unregisterReceiver(screenReceiver);
+            } catch (Throwable ignored) {
+            }
+            screenReceiver = null;
+        }
         previewActive = false;
         previewColor = 0;
         if (handler != null) handler.removeCallbacksAndMessages(null);

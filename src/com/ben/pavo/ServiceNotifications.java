@@ -1,5 +1,6 @@
 package com.ben.pavo;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
@@ -97,6 +98,35 @@ final class ServiceNotifications {
     /** True when this service must not call startForeground(). */
     static boolean hosted() {
         return PavoA11yService.isConnected();
+    }
+
+    /**
+     * True when another Pavo service still holds a foreground row, or the
+     * accessibility host is connected. A guard service can then drop its own
+     * row without losing the process that keeps its wake lock and polling
+     * loop alive.
+     */
+    static boolean otherForeground(Service service) {
+        if (service == null) return false;
+        if (PavoA11yService.isConnected()) return true;
+        try {
+            ActivityManager am = (ActivityManager)
+                    service.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am == null) return false;
+            List<ActivityManager.RunningServiceInfo> running =
+                    am.getRunningServices(Integer.MAX_VALUE);
+            if (running == null) return false;
+            String self = service.getClass().getName();
+            for (ActivityManager.RunningServiceInfo info : running) {
+                if (info == null || info.service == null) continue;
+                if (info.uid != android.os.Process.myUid()) continue;
+                if (!info.foreground) continue;
+                if (self.equals(info.service.getClassName())) continue;
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     /** Post or update a persistent notification, unless notifications are off. */

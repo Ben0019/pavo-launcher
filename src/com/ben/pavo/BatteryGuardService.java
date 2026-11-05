@@ -35,6 +35,8 @@ public final class BatteryGuardService extends Service {
     private boolean polling;
     private int unpluggedPolls;
     private String lastStatus;
+    private volatile boolean rowHidden;
+    private long rowToken;
 
     static void start(Context c) {
         if (c == null) return;
@@ -93,14 +95,18 @@ public final class BatteryGuardService extends Service {
                         && (target == store.limitPercent() || !store.autoSeparation())
                         ? "Charge limit" : "Automatic charge separation",
                 idle ? "Nothing to do" : target + "%"));
-        // Keep the foreground row: without it the guard is frozen when the
-        // display sleeps and the battery charges past the configured limit.
+        // Keep the foreground contract while starting, then drop the row once
+        // another Pavo service is foreground. The process (and the partial
+        // wake lock) stays alive, so the 5 s poll keeps working with the
+        // display off without a permanent charge-guard notification.
         if (idle) {
             setWakeLock(false);
             stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
         }
+        rowHidden = false;
+        hideRowLater();
         if (!polling) {
             polling = true;
             main.post(poll);
@@ -191,7 +197,32 @@ public final class BatteryGuardService extends Service {
     }
 
 
+    private void hideRowLater() {
+        final long token = ++rowToken;
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    Thread.sleep(8000L);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                if (!polling || token != rowToken) return;
+                if (!ServiceNotifications.otherForeground(
+                        BatteryGuardService.this)) {
+                    return;
+                }
+                rowHidden = true;
+                try {
+                    stopForeground(Service.STOP_FOREGROUND_REMOVE);
+                } catch (Throwable ignored) {
+                }
+            }
+        }, "PavoGuardRow").start();
+    }
+
     private void updateStatus(String title, String text) {
+        if (rowHidden) return;
         String value = title + "|" + text;
         if (value.equals(lastStatus)) return;
         lastStatus = value;
