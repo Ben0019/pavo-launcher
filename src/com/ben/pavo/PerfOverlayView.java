@@ -29,8 +29,8 @@ import java.util.Random;
 /** The liquid-glass performance panel shown by {@link PerfOverlayService}. */
 final class PerfOverlayView extends LinearLayout {
     private int accent = 0xFFA9BEFF;
-    private static final int MUTED = 0x66FFFFFF;
-    private static final int TEXT = 0xF2FFFFFF;
+    private static final int MUTED = 0xFFB0BAC8;
+    private static final int TEXT = 0xFFFFFFFF;
 
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -254,7 +254,7 @@ final class PerfOverlayView extends LinearLayout {
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
         refreshPresetChip();
         if (s == null) {
-            appendSpan(b, "waiting for data", 0x99FFFFFF);
+            appendSpan(b, "waiting for data", 0xFFC4CBD6);
             stripText.setText(b);
             return;
         }
@@ -264,16 +264,16 @@ final class PerfOverlayView extends LinearLayout {
             appendSpan(b, Loc.s(getContext(), "CPU ") + " ", MUTED);
             if (p.perfCpuTemp()) {
                 appendSpan(b, fmtTemp(s.cpuTempC) + " ", s.cpuTempC > 0f
-                        ? heat((s.cpuTempC - 32f) / 55f) : 0x55FFFFFF);
+                        ? heat((s.cpuTempC - 32f) / 55f) : 0xFF8792A3);
             }
             if (p.perfCpuClock()) {
                 appendSpan(b, (s.cpuHz > 0 ? fmtHz(s.cpuHz) : "\u2014") + " ",
                         s.cpuHz > 0 && s.cpuMaxHz > 0
-                                ? heat(s.cpuHz / (float) s.cpuMaxHz) : 0x55FFFFFF);
+                                ? heat(s.cpuHz / (float) s.cpuMaxHz) : 0xFF8792A3);
             }
             if (p.perfCpuUsage()) {
                 appendSpan(b, (s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014") + "  ",
-                        s.cpuUsageKnown ? heat(s.cpuUsage / 100f) : 0x55FFFFFF);
+                        s.cpuUsageKnown ? heat(s.cpuUsage / 100f) : 0xFF8792A3);
             }
             any = true;
         }
@@ -282,7 +282,7 @@ final class PerfOverlayView extends LinearLayout {
             appendSpan(b, Loc.s(getContext(), "GPU ") + " ", MUTED);
             if (p.perfGpuTemp()) {
                 appendSpan(b, fmtTemp(s.gpuTempC) + " ", s.gpuTempC > 0f
-                        ? heat((s.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
+                        ? heat((s.gpuTempC - 32f) / 55f) : 0xFF8792A3);
             }
             if (p.perfGpuClock()) {
                 appendSpan(b, s.gpuHz > 0
@@ -291,7 +291,7 @@ final class PerfOverlayView extends LinearLayout {
             }
             if (p.perfGpuUsage()) {
                 appendSpan(b, (s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014") + "  ",
-                        s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0x55FFFFFF);
+                        s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0xFF8792A3);
             }
             any = true;
         }
@@ -320,23 +320,23 @@ final class PerfOverlayView extends LinearLayout {
             if (any) stripSep(b);
             appendSpan(b, "BATT ", MUTED);
             appendSpan(b, fmtTemp(s.batteryTempC) + " ", s.batteryTempC > 0f
-                    ? heat((s.batteryTempC - 30f) / 40f) : 0x55FFFFFF);
+                    ? heat((s.batteryTempC - 30f) / 40f) : 0xFF8792A3);
             appendSpan(b, (s.powerW > 0f ? String.format(Locale.US, "%.1fW", s.powerW) : "\u2014") + "  ",
-                    s.powerW > 0f ? heat(s.powerW / 25f) : 0x55FFFFFF);
+                    s.powerW > 0f ? heat(s.powerW / 25f) : 0xFF8792A3);
             any = true;
         }
         if (p.perfFps()) {
             if (any) stripSep(b);
             appendSpan(b, "FPS ", MUTED);
             appendSpan(b, (s.fpsValid ? String.valueOf(s.fps) : "\u2014") + "  ",
-                    s.fpsValid ? fpsColor(s.fps) : 0x99FFFFFF);
+                    s.fpsValid ? fpsColor(s.fps) : 0xFFC4CBD6);
             any = true;
         }
         if (p.perfBattery() && s.battery >= 0) {
             if (any) stripSep(b);
             appendSpan(b, "\u00b7 " + s.battery + "%", batteryColor(s.battery));
         }
-        if (!any) appendSpan(b, "no metrics selected", 0x99FFFFFF);
+        if (!any) appendSpan(b, "no metrics selected", 0xFFC4CBD6);
         stripText.setText(b);
     }
 
@@ -346,7 +346,7 @@ final class PerfOverlayView extends LinearLayout {
 
     /** Thin white rule between two metrics in the strip. */
     private void stripSep(android.text.SpannableStringBuilder b) {
-        appendSpan(b, "\u2502  ", 0xB3FFFFFF);
+        appendSpan(b, "\u2502  ", 0xFFD5DAE2);
     }
 
     private void appendSpan(android.text.SpannableStringBuilder b, String text, int color) {
@@ -471,29 +471,29 @@ final class PerfOverlayView extends LinearLayout {
         }
         boolean cpuTempKnown = s.cpuTempC > 0f;
         setValue(cpuTemp, cpuTempKnown ? Math.round(s.cpuTempC) + "\u00b0" : "\u2014",
-                cpuTempKnown ? heat((s.cpuTempC - 32f) / 55f) : 0x55FFFFFF);
+                cpuTempKnown ? heat((s.cpuTempC - 32f) / 55f) : 0xFF8792A3);
         boolean cpuClockKnown = s.cpuHz > 0;
         setValue(cpuClock, cpuClockKnown ? fmtHz(s.cpuHz) : "\u2014",
                 cpuClockKnown ? heat(s.cpuMaxHz > 0
-                        ? s.cpuHz / (float) s.cpuMaxHz : 0f) : 0x55FFFFFF);
+                        ? s.cpuHz / (float) s.cpuMaxHz : 0f) : 0xFF8792A3);
         setValue(cpuUsage, s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014",
-                s.cpuUsageKnown ? heat(s.cpuUsage / 100f) : 0x55FFFFFF);
+                s.cpuUsageKnown ? heat(s.cpuUsage / 100f) : 0xFF8792A3);
 
         boolean gpuTempKnown = s.gpuTempC > 0f;
         setValue(gpuTemp, gpuTempKnown ? Math.round(s.gpuTempC) + "\u00b0" : "\u2014",
-                gpuTempKnown ? heat((s.gpuTempC - 32f) / 55f) : 0x55FFFFFF);
+                gpuTempKnown ? heat((s.gpuTempC - 32f) / 55f) : 0xFF8792A3);
         boolean gpuClockKnown = s.gpuHz > 0;
         setValue(gpuClock, gpuClockKnown
                         ? fmtHz(s.gpuHz) + (s.gpuCapHz > 0 ? "/" + fmtHz(s.gpuCapHz) : "")
                         : "\u2014",
-                gpuClockKnown ? clockHeat(s.gpuHz, s.gpuMaxHz) : 0x55FFFFFF);
+                gpuClockKnown ? clockHeat(s.gpuHz, s.gpuMaxHz) : 0xFF8792A3);
         setValue(gpuUsage, s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014",
-                s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0x55FFFFFF);
+                s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0xFF8792A3);
 
         setValue(netUp, s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps) : "\u2191 \u2014",
-                0xB3FFFFFF);
+                0xFFD5DAE2);
         setValue(netDown, s.netKnown ? "\u2193 " + SysStats.fmtRate(s.netRxBps) : "\u2193 \u2014",
-                0xB3FFFFFF);
+                0xFFD5DAE2);
 
         if (s.memTotalKb > 0) {
             int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
@@ -504,23 +504,23 @@ final class PerfOverlayView extends LinearLayout {
                     levelHeat(s.memPercent / 100f));
         } else {
             ramUsage.setVisibility(GONE);
-            setValue(ramAmount, "\u2014", 0x55FFFFFF);
+            setValue(ramAmount, "\u2014", 0xFF8792A3);
         }
 
         boolean battTempKnown = s.batteryTempC > 0f;
         setValue(battTemp, battTempKnown ? Math.round(s.batteryTempC) + "\u00b0" : "\u2014",
-                battTempKnown ? heat((s.batteryTempC - 30f) / 40f) : 0x55FFFFFF);
+                battTempKnown ? heat((s.batteryTempC - 30f) / 40f) : 0xFF8792A3);
         boolean powerKnown = s.powerW > 0f;
         setValue(battPower, powerKnown
                 ? String.format(Locale.US, "%.1fW", s.powerW) : "\u2014",
-                powerKnown ? heat(s.powerW / 25f) : 0x55FFFFFF);
+                powerKnown ? heat(s.powerW / 25f) : 0xFF8792A3);
 
         if (s.battery >= 0) {
             battery.setText(s.battery + "%");
             battery.setTextColor(batteryColor(s.battery));
         } else {
             battery.setText("\u2014");
-            battery.setTextColor(0x55FFFFFF);
+            battery.setTextColor(0xFF8792A3);
         }
 
         if (s.fpsValid) {
@@ -529,7 +529,7 @@ final class PerfOverlayView extends LinearLayout {
             graph.push(s.fps);
         } else {
             fpsValue.setText("\u2014");
-            fpsValue.setTextColor(0x55FFFFFF);
+            fpsValue.setTextColor(0xFF8792A3);
         }
 
         for (int i = 0; i < cores.length; i++) {
@@ -682,7 +682,7 @@ final class PerfOverlayView extends LinearLayout {
      * and the step goes green at rest, amber mid-boost, red at the ceiling.
      */
     static int clockHeat(long hz, long maxHz) {
-        if (hz <= 0 || maxHz <= 0) return 0x55FFFFFF;
+        if (hz <= 0 || maxHz <= 0) return 0xFF8792A3;
         return levelHeat(hz / (float) maxHz);
     }
 
@@ -867,7 +867,7 @@ final class PerfOverlayView extends LinearLayout {
             p.setTypeface(Typeface.MONOSPACE);
             p.setTextSize(textSize);
             p.setTextAlign(Paint.Align.LEFT);
-            p.setColor(online ? 0x88FFFFFF : 0x44FFFFFF);
+            p.setColor(online ? 0xFFC2CAD6 : 0xFF8B95A3);
             canvas.drawText("C" + index, 0, baseline, p);
 
             float left = density * 18;
@@ -884,11 +884,11 @@ final class PerfOverlayView extends LinearLayout {
             }
 
             p.setTextAlign(Paint.Align.RIGHT);
-            p.setColor(online ? heat(usage / 100f) : 0x44FFFFFF);
+            p.setColor(online ? heat(usage / 100f) : 0xFF8B95A3);
             canvas.drawText(Loc.number(getContext(), !online ? "off" : usageKnown
                             ? Math.round(usage) + "%" : "\u2014"),
                     w - density * 30, baseline, p);
-            int clockColor = !online ? 0x44FFFFFF
+            int clockColor = !online ? 0xFF8B95A3
                     : heat(maxHz > 0 ? hz / (float) maxHz : 0f);
             p.setColor(clockColor);
             canvas.drawText(online ? Loc.number(getContext(), fmtHz(hz)) : "\u2014", w, baseline, p);
