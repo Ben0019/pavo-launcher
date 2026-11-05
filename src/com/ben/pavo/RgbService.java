@@ -52,10 +52,8 @@ public final class RgbService extends Service {
     private float rightHue;
     private int ambientLeft;
     private int ambientRight;
-    private int[] ambientLeftColors = {0, 0};
-    private int[] ambientRightColors = {0, 0};
-    private long ambientCycleStart;
-    private static final long SCREEN_CYCLE_MS = 3000L;
+    private int ambientTargetLeft;
+    private int ambientTargetRight;
     private long lastAmbientSample;
     private volatile boolean ambientSampling;
     private int brightness = 50;
@@ -269,13 +267,12 @@ public final class RgbService extends Service {
                 && (anyChanged || !started)) {
             if (leftMode == RgbControl.MODE_SCREEN) {
                 ambientLeft = leftColor;
-                ambientLeftColors = new int[]{leftColor, leftColor};
+                ambientTargetLeft = 0;
             }
             if (rightMode == RgbControl.MODE_SCREEN) {
                 ambientRight = rightColor;
-                ambientRightColors = new int[]{rightColor, rightColor};
+                ambientTargetRight = 0;
             }
-            ambientCycleStart = SystemClock.uptimeMillis();
             lastAmbientSample = 0L;
         }
         previewActive = true;
@@ -344,19 +341,7 @@ public final class RgbService extends Service {
             if (leftMode == RgbControl.MODE_SCREEN
                     || rightMode == RgbControl.MODE_SCREEN) {
                 sampleAmbient(now);
-                float phase = ((now - ambientCycleStart) % SCREEN_CYCLE_MS)
-                        / (float) SCREEN_CYCLE_MS;
-                float mix = (float) (0.5 - 0.5 * Math.cos(2.0 * Math.PI * phase));
-                if (leftMode == RgbControl.MODE_SCREEN) {
-                    int desired = blendHsv(ambientLeftColors[0],
-                            ambientLeftColors[1], mix);
-                    ambientLeft = blend(ambientLeft, desired, 0.30f);
-                }
-                if (rightMode == RgbControl.MODE_SCREEN) {
-                    int desired = blendHsv(ambientRightColors[0],
-                            ambientRightColors[1], mix);
-                    ambientRight = blend(ambientRight, desired, 0.30f);
-                }
+                blendAmbient();
             }
 
             if (leftMode == RgbControl.MODE_BREATH) {
@@ -419,6 +404,16 @@ public final class RgbService extends Service {
         }
     };
 
+    private void blendAmbient() {
+        // Quick but eased: a scene change settles in about 0.25 s.
+        if (ambientTargetLeft != 0) {
+            ambientLeft = blend(ambientLeft, ambientTargetLeft, 0.38f);
+        }
+        if (ambientTargetRight != 0) {
+            ambientRight = blend(ambientRight, ambientTargetRight, 0.38f);
+        }
+    }
+
     private void sampleAmbient(long now) {
         if (RgbActivity.isVisible() || ambientSampling
                 || now - lastAmbientSample < 260L) return;
@@ -432,15 +427,13 @@ public final class RgbService extends Service {
                         @Override public void run() {
                             ambientSampling = false;
                             if (!running || sampled == null) return;
-                            boolean changed = colorDistance(
-                                    ambientLeftColors[0], sampled[0]) > 90
-                                    || colorDistance(ambientRightColors[0], sampled[2]) > 90;
-                            ambientLeftColors = new int[]{sampled[0], sampled[1]};
-                            ambientRightColors = new int[]{sampled[2], sampled[3]};
-                            if (changed) {
-                                // A new scene starts from its dominant colour
-                                // instead of the previous palette's phase.
-                                ambientCycleStart = SystemClock.uptimeMillis();
+                            if (leftMode == RgbControl.MODE_SCREEN
+                                    && sampled[0] != 0) {
+                                ambientTargetLeft = sampled[0];
+                            }
+                            if (rightMode == RgbControl.MODE_SCREEN
+                                    && sampled[1] != 0) {
+                                ambientTargetRight = sampled[1];
                             }
                         }
                     });
@@ -451,27 +444,6 @@ public final class RgbService extends Service {
         }, "rgb-ambient").start();
     }
 
-
-    private static int blendHsv(int a, int b, float amount) {
-        float[] ha = new float[3];
-        float[] hb = new float[3];
-        Color.colorToHSV(a, ha);
-        Color.colorToHSV(b, hb);
-        if (ha[1] < 0.05f || hb[1] < 0.05f) return blend(a, b, amount);
-        float dh = hb[0] - ha[0];
-        if (dh > 180f) dh -= 360f;
-        else if (dh < -180f) dh += 360f;
-        float hue = (ha[0] + dh * amount + 360f) % 360f;
-        float sat = ha[1] + (hb[1] - ha[1]) * amount;
-        float val = ha[2] + (hb[2] - ha[2]) * amount;
-        return Color.HSVToColor(new float[]{hue, sat, val});
-    }
-
-    private static int colorDistance(int a, int b) {
-        return Math.abs(Color.red(a) - Color.red(b))
-                + Math.abs(Color.green(a) - Color.green(b))
-                + Math.abs(Color.blue(a) - Color.blue(b));
-    }
 
     private static int blend(int from, int to, float amount) {
         float f = Math.max(0f, Math.min(1f, amount));
