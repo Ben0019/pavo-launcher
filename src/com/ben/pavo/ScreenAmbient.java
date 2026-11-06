@@ -294,7 +294,7 @@ final class ScreenAmbient {
                         (int) Math.round(sceneHiR / sceneHiWeight),
                         (int) Math.round(sceneHiG / sceneHiWeight),
                         (int) Math.round(sceneHiB / sceneHiWeight));
-                base = blend(base, central, 0.35f);
+                base = blend(base, central, 0.50f);
             }
             return withValue(base, value);
         }
