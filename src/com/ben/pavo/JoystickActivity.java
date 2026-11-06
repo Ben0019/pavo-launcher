@@ -149,6 +149,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         deadzone = 60;
         curve = 100;
         if (deadzoneBar != null) deadzoneBar.setProgress(deadzone);
+        pads.setDeadzone(deadzone / 1000f);
         if (curveBar != null) curveBar.setProgress(curve - 50);
         stickEnabled = false;
         saveCalibration(false);
@@ -189,28 +190,49 @@ public final class JoystickActivity extends PavoGlassActivity {
     };
 
     private float[] corrected(float lx, float ly, float rx, float ry) {
-        return new float[]{
-                applyLocal(lx, 0), applyLocal(ly, 1),
-                applyLocal(rx, 2), applyLocal(ry, 3)
-        };
+        float[] out = new float[4];
+        radialPair(lx, ly, 0, 1, out, 0);
+        radialPair(rx, ry, 2, 3, out, 2);
+        return out;
     }
 
-    private float applyLocal(float value, int index) {
-        if (!stickEnabled) return value;
+    /** Mirrors the native radial correction: unit-circle clamp, circular
+     *  deadzone and magnitude curve, with the direction preserved. */
+    private void radialPair(float x, float y, int ix, int iy, float[] out, int at) {
+        if (!stickEnabled) {
+            out[at] = x;
+            out[at + 1] = y;
+            return;
+        }
+        float nx = axisNormalized(x, ix);
+        float ny = axisNormalized(y, iy);
+        float r = (float) Math.hypot(nx, ny);
+        if (r > 1f) {
+            nx /= r;
+            ny /= r;
+            r = 1f;
+        }
+        float dz = Math.max(0f, Math.min(0.8f, deadzone / 1000f));
+        float m = r <= dz ? 0f : (r - dz) / (1f - dz);
+        float gamma = Math.max(0.2f, Math.min(4f, curve / 100f));
+        if (m > 0f) m = (float) Math.pow(m, gamma);
+        if (r > 0f) {
+            out[at] = nx / r * m;
+            out[at + 1] = ny / r * m;
+        } else {
+            out[at] = 0f;
+            out[at + 1] = 0f;
+        }
+    }
+
+    private float axisNormalized(float value, int index) {
         int raw = Math.round(value * 32767f);
         int c = centers[index];
         int mn = mins[index];
         int mx = maxs[index];
         float n = raw >= c ? (raw - c) / (float) Math.max(1, mx - c)
                 : (raw - c) / (float) Math.max(1, c - mn);
-        n = Math.max(-1f, Math.min(1f, n));
-        float dz = Math.max(0f, Math.min(0.8f, deadzone / 1000f));
-        float a = Math.abs(n);
-        if (a <= dz) n = 0f;
-        else n = Math.signum(n) * (a - dz) / (1f - dz);
-        float gamma = Math.max(0.2f, Math.min(4f, curve / 100f));
-        if (n != 0f) n = Math.signum(n) * (float) Math.pow(Math.abs(n), gamma);
-        return n;
+        return Math.max(-1f, Math.min(1f, n));
     }
 
     private void buildUi() {
@@ -411,6 +433,7 @@ public final class JoystickActivity extends PavoGlassActivity {
                                                     boolean fromUser) {
                 if (isDeadzone) {
                     deadzone = progress;
+                    pads.setDeadzone(progress / 1000f);
                     if (deadzoneValue != null) {
                         deadzoneValue.setText(String.format(Locale.US,
                                 "%.1f%%", progress / 10f));
@@ -428,8 +451,12 @@ public final class JoystickActivity extends PavoGlassActivity {
         box.addView(bar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         parent.addView(box);
-        if (isDeadzone) deadzoneBar = bar;
-        else curveBar = bar;
+        if (isDeadzone) {
+            deadzoneBar = bar;
+            pads.setDeadzone(value / 1000f);
+        } else {
+            curveBar = bar;
+        }
     }
 
     private TextView smallButton(String label, boolean primary) {
@@ -471,6 +498,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float[] left = new float[2];
         private final float[] right = new float[2];
+        private float deadzone;
 
         StickPadView(Context context) {
             super(context);
@@ -486,6 +514,11 @@ public final class JoystickActivity extends PavoGlassActivity {
             label.setTextAlign(Paint.Align.CENTER);
             setFocusable(false);
             setWillNotDraw(false);
+        }
+
+        void setDeadzone(float value) {
+            deadzone = value;
+            invalidate();
         }
 
         void setAxes(float lx, float ly, float rx, float ry) {
@@ -516,7 +549,8 @@ public final class JoystickActivity extends PavoGlassActivity {
             ring.setColor(0x66A9BEFF);
             canvas.drawCircle(cx, cy, r, ring);
             ring.setColor(0x33A9BEFF);
-            canvas.drawCircle(cx, cy, r * 0.12f, ring);
+            float dz = Math.max(0f, Math.min(0.8f, deadzone));
+            canvas.drawCircle(cx, cy, Math.max(r * 0.04f, r * 0.88f * dz), ring);
             canvas.drawLine(cx - r, cy, cx + r, cy, cross);
             canvas.drawLine(cx, cy - r, cx, cy + r, cross);
 

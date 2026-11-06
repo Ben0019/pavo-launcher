@@ -101,6 +101,8 @@ static char config_path[512];
 static char pid_path[512];
 static char park_path[512];
 static int grabbed = 1;
+static int raw_axis[STICK_AXES];
+static int last_axis[STICK_AXES];
 static long long config_mtime;
 static long long config_size;
 static long long now_ms;
@@ -701,35 +703,70 @@ static int axis_index(int code) {
     }
 }
 
-static int apply_stick(int code, int value) {
-    if (!config.stick_enabled) return value;
-    int idx = axis_index(code);
-    if (idx < 0) return value;
+static float axis_normalized(int idx, int value) {
     int c = config.stick_center[idx];
     int mn = config.stick_min[idx];
     int mx = config.stick_max[idx];
-    if (mx <= mn) return value;
+    if (mx <= c) mx = c + 1;
+    if (mn >= c) mn = c - 1;
     float n = value >= c ? (value - c) / (float) (mx - c)
                          : (value - c) / (float) (c - mn);
     if (n > 1.0f) n = 1.0f;
     if (n < -1.0f) n = -1.0f;
+    return n;
+}
+
+/*
+ * Radial stick correction.
+ *
+ * Both axes of a stick are normalised against their own centre and travel,
+ * the vector is clamped to a unit circle so diagonals cannot reach 1.41x, a
+ * circular deadzone is removed, and the remaining magnitude is shaped by the
+ * response curve. Direction is preserved: x and y are scaled together.
+ */
+static void stick_output(int pair, float *out_x, float *out_y) {
+    float nx = axis_normalized(pair, raw_axis[pair]);
+    float ny = axis_normalized(pair + 1, raw_axis[pair + 1]);
+    float r = sqrtf(nx * nx + ny * ny);
+    if (r > 1.0f) {
+        nx /= r;
+        ny /= r;
+        r = 1.0f;
+    }
     float dz = config.stick_deadzone / 1000.0f;
     if (dz < 0.0f) dz = 0.0f;
     if (dz > 0.80f) dz = 0.80f;
-    float a = fabsf(n);
-    if (a <= dz) {
-        n = 0.0f;
-    } else {
-        n = copysignf((a - dz) / (1.0f - dz), n);
-    }
+    float m = r <= dz ? 0.0f : (r - dz) / (1.0f - dz);
     float gamma = config.stick_curve / 100.0f;
     if (gamma < 0.20f) gamma = 0.20f;
     if (gamma > 4.0f) gamma = 4.0f;
-    if (n != 0.0f) n = copysignf(powf(fabsf(n), gamma), n);
-    int out = (int) lroundf(n * 32767.0f);
+    if (m > 0.0f) m = powf(m, gamma);
+    if (r > 0.0f) {
+        *out_x = nx / r * m;
+        *out_y = ny / r * m;
+    } else {
+        *out_x = 0.0f;
+        *out_y = 0.0f;
+    }
+}
+
+static int unit_to_axis(float v) {
+    int out = (int) lroundf(v * 32767.0f);
     if (out > 32767) out = 32767;
     if (out < -32767) out = -32767;
     return out;
+}
+
+static int axis_code(int idx) {
+    switch (idx) {
+        case 0: return ABS_X;
+        case 1: return ABS_Y;
+        case 2: return ABS_Z;
+        case 3: return ABS_RZ;
+        case 4: return ABS_RX;
+        case 5: return ABS_RY;
+        default: return -1;
+    }
 }
 
 static void derive_park_path(void) {
@@ -892,9 +929,28 @@ int main(int argc, char **argv) {
                     on_key(ev[i].code, ev[i].value);
                     break;
                 case EV_ABS: {
-                    int value = apply_stick(ev[i].code, ev[i].value);
-                    socket_send_axis(ev[i].code, value);
-                    if (!swallow_all) emit_event(ev[i].type, ev[i].code, value);
+                    int idx = config.stick_enabled ? axis_index(ev[i].code) : -1;
+                    if (idx < 0) {
+                        socket_send_axis(ev[i].code, ev[i].value);
+                        if (!swallow_all) {
+                            emit_event(ev[i].type, ev[i].code, ev[i].value);
+                        }
+                        break;
+                    }
+                    raw_axis[idx] = ev[i].value;
+                    int pair = idx & ~1;
+                    float ox, oy;
+                    stick_output(pair, &ox, &oy);
+                    int out[2] = { unit_to_axis(ox), unit_to_axis(oy) };
+                    for (int k = 0; k < 2; k++) {
+                        int slot = pair + k;
+                        int code = axis_code(slot);
+                        if (code < 0) continue;
+                        if (out[k] == last_axis[slot] && slot != idx) continue;
+                        last_axis[slot] = out[k];
+                        socket_send_axis(code, out[k]);
+                        if (!swallow_all) emit_event(EV_ABS, code, out[k]);
+                    }
                     break;
                 }
                 case EV_SYN:
