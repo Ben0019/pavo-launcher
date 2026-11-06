@@ -54,8 +54,8 @@ final class ControllerMapConfig {
     final int[] stickCenter = new int[STICK_AXES];
     final int[] stickMin = new int[STICK_AXES];
     final int[] stickMax = new int[STICK_AXES];
-    int stickDeadzone = 60;
-    int stickCurve = 100;
+    final int[] stickDeadzone = {60, 60};
+    final int[] stickCurve = {100, 100};
     boolean stickSpecified;
     boolean gateEnabled;
     final int[][] gateGain = new int[2][GATE_POINTS];
@@ -156,8 +156,10 @@ final class ControllerMapConfig {
                     .append(stickMin[2]).append(':').append(stickMax[2]).append('\n');
             b.append("axis_rz=").append(stickCenter[3]).append(':')
                     .append(stickMin[3]).append(':').append(stickMax[3]).append('\n');
-            b.append("stick_deadzone=").append(stickDeadzone).append('\n');
-            b.append("stick_curve=").append(stickCurve).append('\n');
+            b.append("stick_deadzone_left=").append(stickDeadzone[0]).append('\n');
+            b.append("stick_deadzone_right=").append(stickDeadzone[1]).append('\n');
+            b.append("stick_curve_left=").append(stickCurve[0]).append('\n');
+            b.append("stick_curve_right=").append(stickCurve[1]).append('\n');
             if (gateEnabled) {
                 b.append("gate_enabled=1\n");
                 appendGate(b, 0);
@@ -206,8 +208,10 @@ final class ControllerMapConfig {
     private void resetSticks() {
         stickEnabled = false;
         stickSpecified = false;
-        stickDeadzone = 60;
-        stickCurve = 100;
+        stickDeadzone[0] = 60;
+        stickDeadzone[1] = 60;
+        stickCurve[0] = 100;
+        stickCurve[1] = 100;
         gateEnabled = false;
         for (int i = 0; i < STICK_AXES; i++) {
             stickCenter[i] = 0;
@@ -226,7 +230,15 @@ final class ControllerMapConfig {
             return;
         }
         if ("stick_deadzone".equals(key)) {
-            stickDeadzone = Math.max(0, Math.min(800, parseInt(value)));
+            int v = Math.max(0, Math.min(800, parseInt(value)));
+            stickDeadzone[0] = v;
+            stickDeadzone[1] = v;
+            stickSpecified = true;
+            return;
+        }
+        if ("stick_deadzone_left".equals(key) || "stick_deadzone_right".equals(key)) {
+            int stick = "stick_deadzone_left".equals(key) ? 0 : 1;
+            stickDeadzone[stick] = Math.max(0, Math.min(800, parseInt(value)));
             stickSpecified = true;
             return;
         }
@@ -249,7 +261,17 @@ final class ControllerMapConfig {
         }
         if ("stick_curve".equals(key)) {
             int v = parseInt(value);
-            if (v >= 20 && v <= 400) stickCurve = v;
+            if (v >= 20 && v <= 400) {
+                stickCurve[0] = v;
+                stickCurve[1] = v;
+            }
+            stickSpecified = true;
+            return;
+        }
+        if ("stick_curve_left".equals(key) || "stick_curve_right".equals(key)) {
+            int stick = "stick_curve_left".equals(key) ? 0 : 1;
+            int v = parseInt(value);
+            if (v >= 20 && v <= 400) stickCurve[stick] = v;
             stickSpecified = true;
             return;
         }
@@ -316,8 +338,8 @@ final class ControllerMapConfig {
      */
     void loadProfile(String text) {
         boolean hadSticks = stickEnabled;
-        int dz = stickDeadzone;
-        int cv = stickCurve;
+        int[] dz = stickDeadzone.clone();
+        int[] cv = stickCurve.clone();
         int[] center = stickCenter.clone();
         int[] min = stickMin.clone();
         int[] max = stickMax.clone();
@@ -328,8 +350,8 @@ final class ControllerMapConfig {
         loadText(text);
         if (!stickSpecified) {
             stickEnabled = hadSticks;
-            stickDeadzone = dz;
-            stickCurve = cv;
+            System.arraycopy(dz, 0, stickDeadzone, 0, 2);
+            System.arraycopy(cv, 0, stickCurve, 0, 2);
             System.arraycopy(center, 0, stickCenter, 0, STICK_AXES);
             System.arraycopy(min, 0, stickMin, 0, STICK_AXES);
             System.arraycopy(max, 0, stickMax, 0, STICK_AXES);

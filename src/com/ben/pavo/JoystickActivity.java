@@ -38,8 +38,11 @@ public final class JoystickActivity extends PavoGlassActivity {
     private boolean calibrating;
     private boolean calibrationApplied;
     private boolean stickEnabled;
-    private int deadzone = 60;
-    private int curve = 100;
+    private int selectedStick;
+    private final int[] deadzone = {60, 60};
+    private final int[] curve = {100, 100};
+    private TextView leftTab;
+    private TextView rightTab;
     private final int[] centers = new int[6];
     private final int[] mins = new int[6];
     private final int[] maxs = new int[6];
@@ -110,8 +113,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         ControllerMapConfig cfg = new ControllerMapConfig();
         cfg.load(ControllerRemapManager.configFile(this));
         stickEnabled = cfg.stickEnabled;
-        deadzone = cfg.stickDeadzone;
-        curve = cfg.stickCurve;
+        System.arraycopy(cfg.stickDeadzone, 0, deadzone, 0, 2);
+        System.arraycopy(cfg.stickCurve, 0, curve, 0, 2);
         System.arraycopy(cfg.stickCenter, 0, centers, 0, centers.length);
         System.arraycopy(cfg.stickMin, 0, mins, 0, mins.length);
         System.arraycopy(cfg.stickMax, 0, maxs, 0, maxs.length);
@@ -145,8 +148,8 @@ public final class JoystickActivity extends PavoGlassActivity {
             System.arraycopy(centers, 0, cfg.stickCenter, 0, centers.length);
             System.arraycopy(mins, 0, cfg.stickMin, 0, mins.length);
             System.arraycopy(maxs, 0, cfg.stickMax, 0, maxs.length);
-            cfg.stickDeadzone = deadzone;
-            cfg.stickCurve = curve;
+            System.arraycopy(deadzone, 0, cfg.stickDeadzone, 0, 2);
+            System.arraycopy(curve, 0, cfg.stickCurve, 0, 2);
             cfg.gateEnabled = gateEnabled;
             System.arraycopy(gateGain[0], 0, cfg.gateGain[0], 0, GATE_POINTS);
             System.arraycopy(gateGain[1], 0, cfg.gateGain[1], 0, GATE_POINTS);
@@ -166,15 +169,19 @@ public final class JoystickActivity extends PavoGlassActivity {
             mins[i] = -32767;
             maxs[i] = 32767;
         }
-        deadzone = 60;
-        curve = 100;
-        if (deadzoneBar != null) deadzoneBar.setProgress(deadzone);
-        pads.setDeadzone(deadzone / 1000f);
+        deadzone[0] = 60;
+        deadzone[1] = 60;
+        curve[0] = 100;
+        curve[1] = 100;
+        if (deadzoneBar != null) deadzoneBar.setProgress(deadzone[selectedStick]);
+        if (deadzoneValue != null) deadzoneValue.setText(percent(deadzone[selectedStick]));
+        pads.setDeadzone(deadzone[selectedStick] / 1000f);
         gateEnabled = false;
         for (int s2 = 0; s2 < 2; s2++) {
             for (int i = 0; i < GATE_POINTS; i++) gateGain[s2][i] = 1000;
         }
-        if (curveBar != null) curveBar.setProgress(curve - 50);
+        if (curveBar != null) curveBar.setProgress(Math.max(0, curve[selectedStick] - 50));
+        if (curveValue != null) curveValue.setText(curve[selectedStick] + "%");
         stickEnabled = false;
         saveCalibration(false);
         pads.setAxes(rawLx, rawLy, rawRx, rawRy);
@@ -359,9 +366,9 @@ public final class JoystickActivity extends PavoGlassActivity {
             ny /= r;
             r = 1f;
         }
-        float dz = Math.max(0f, Math.min(0.8f, deadzone / 1000f));
+        float dz = Math.max(0f, Math.min(0.8f, deadzone[ix >> 1] / 1000f));
         float m = r <= dz ? 0f : (r - dz) / (1f - dz);
-        float gamma = Math.max(0.2f, Math.min(4f, curve / 100f));
+        float gamma = Math.max(0.2f, Math.min(4f, curve[ix >> 1] / 100f));
         if (m > 0f) m = (float) Math.pow(m, gamma);
         if (r > 0f) {
             out[at] = nx / r * m;
@@ -431,10 +438,31 @@ public final class JoystickActivity extends PavoGlassActivity {
         values.setPadding(0, dp(2), 0, dp(4));
         card.addView(values);
 
-        deadzoneValue = text("6.0%", 9f, 0xB3FFFFFF, true);
-        addSlider(card, "Deadzone", deadzone, 300, true);
-        curveValue = text("100%", 9f, 0xB3FFFFFF, true);
-        addSlider(card, "CURVE", Math.max(0, curve - 50), 150, false);
+        LinearLayout stickRow = new LinearLayout(this);
+        stickRow.setOrientation(LinearLayout.HORIZONTAL);
+        stickRow.setPadding(0, dp(2), 0, dp(2));
+        leftTab = stickTab("Left");
+        leftTab.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { selectStick(0); }
+        });
+        rightTab = stickTab("Right");
+        rightTab.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { selectStick(1); }
+        });
+        stickRow.addView(leftTab, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams rightParams = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        rightParams.leftMargin = dp(6);
+        stickRow.addView(rightTab, rightParams);
+        card.addView(stickRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        deadzoneValue = text(percent(deadzone[selectedStick]), 9f, 0xB3FFFFFF, true);
+        addSlider(card, "Deadzone", deadzone[selectedStick], 300, true);
+        curveValue = text(curve[selectedStick] + "%", 9f, 0xB3FFFFFF, true);
+        addSlider(card, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, false);
+        updateStickTabs();
 
         LinearLayout tuneRow = new LinearLayout(this);
         tuneRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -592,16 +620,15 @@ public final class JoystickActivity extends PavoGlassActivity {
             @Override public void onProgressChanged(SeekBar seekBar, int progress,
                                                     boolean fromUser) {
                 if (isDeadzone) {
-                    deadzone = progress;
+                    deadzone[selectedStick] = progress;
                     pads.setDeadzone(progress / 1000f);
                     if (deadzoneValue != null) {
-                        deadzoneValue.setText(String.format(Locale.US,
-                                "%.1f%%", progress / 10f));
+                        deadzoneValue.setText(percent(progress));
                     }
                 } else {
-                    curve = progress + 50;
+                    curve[selectedStick] = progress + 50;
                     if (curveValue != null) {
-                        curveValue.setText(curve + "%");
+                        curveValue.setText(curve[selectedStick] + "%");
                     }
                 }
                 if (fromUser) {
@@ -624,6 +651,42 @@ public final class JoystickActivity extends PavoGlassActivity {
         } else {
             curveBar = bar;
         }
+    }
+
+    /** Selects which stick the Deadzone and CURVE sliders edit. */
+    private void selectStick(int stick) {
+        if (stick == selectedStick) return;
+        selectedStick = stick;
+        updateStickTabs();
+        if (deadzoneBar != null) deadzoneBar.setProgress(deadzone[stick]);
+        if (deadzoneValue != null) deadzoneValue.setText(percent(deadzone[stick]));
+        pads.setDeadzone(deadzone[stick] / 1000f);
+        if (curveBar != null) curveBar.setProgress(Math.max(0, curve[stick] - 50));
+        if (curveValue != null) curveValue.setText(curve[stick] + "%");
+        refreshPreview();
+    }
+
+    private void updateStickTabs() {
+        if (leftTab == null || rightTab == null) return;
+        boolean left = selectedStick == 0;
+        leftTab.setBackground(left ? Ui.rounded(ACCENT, dp(9))
+                : Ui.rounded(0x22FFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+        leftTab.setTextColor(left ? 0xFF061015 : TEXT);
+        rightTab.setBackground(!left ? Ui.rounded(ACCENT, dp(9))
+                : Ui.rounded(0x22FFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+        rightTab.setTextColor(!left ? 0xFF061015 : TEXT);
+    }
+
+    private TextView stickTab(String label) {
+        TextView v = text(label, 9f, TEXT, true);
+        v.setGravity(Gravity.CENTER);
+        v.setPadding(dp(8), dp(7), dp(8), dp(7));
+        v.setFocusable(true);
+        return v;
+    }
+
+    private static String percent(int permille) {
+        return String.format(Locale.US, "%.1f%%", permille / 10f);
     }
 
     private TextView smallButton(String label, boolean primary) {

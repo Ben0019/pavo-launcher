@@ -36,8 +36,10 @@
  *   combo=310,311:305  simultaneous sources : shortcut target
  *   stick_enabled=1
  *   axis_x=0:-32767:32767  centre:min:max
- *   stick_deadzone=60      permille
- *   stick_curve=100        percent (100 = linear)
+ *   stick_deadzone_left=60   permille (stick_deadzone sets both)
+ *   stick_deadzone_right=60
+ *   stick_curve_left=100     percent (100 = linear)
+ *   stick_curve_right=100
  *   gate_enabled=1
  *   gate_left=1000,1010,...  per-angle gain, 32 points, permille
  *   gate_right=1000,1010,...
@@ -72,8 +74,8 @@ typedef struct {
     int stick_center[STICK_AXES];
     int stick_min[STICK_AXES];
     int stick_max[STICK_AXES];
-    int stick_deadzone;
-    int stick_curve;
+    int stick_deadzone[2];
+    int stick_curve[2];
     int gate_enabled;
     int gate_gain[2][GATE_POINTS];
 } Config;
@@ -501,8 +503,10 @@ static int parse_int(const char *s, int *out) {
 
 static void reset_sticks(Config *c) {
     c->stick_enabled = 0;
-    c->stick_deadzone = 0;
-    c->stick_curve = 100;
+    c->stick_deadzone[0] = 0;
+    c->stick_deadzone[1] = 0;
+    c->stick_curve[0] = 100;
+    c->stick_curve[1] = 100;
     for (int i = 0; i < STICK_AXES; i++) {
         c->stick_center[i] = 0;
         c->stick_min[i] = -32767;
@@ -546,9 +550,25 @@ static int load_config(void) {
         } else if (!strcmp(key, "stick_enabled")) {
             parse_int(value, &next.stick_enabled);
         } else if (!strcmp(key, "stick_deadzone")) {
-            parse_int(value, &next.stick_deadzone);
+            int v;
+            if (parse_int(value, &v)) {
+                next.stick_deadzone[0] = v;
+                next.stick_deadzone[1] = v;
+            }
+        } else if (!strcmp(key, "stick_deadzone_left")) {
+            parse_int(value, &next.stick_deadzone[0]);
+        } else if (!strcmp(key, "stick_deadzone_right")) {
+            parse_int(value, &next.stick_deadzone[1]);
         } else if (!strcmp(key, "stick_curve")) {
-            parse_int(value, &next.stick_curve);
+            int v;
+            if (parse_int(value, &v)) {
+                next.stick_curve[0] = v;
+                next.stick_curve[1] = v;
+            }
+        } else if (!strcmp(key, "stick_curve_left")) {
+            parse_int(value, &next.stick_curve[0]);
+        } else if (!strcmp(key, "stick_curve_right")) {
+            parse_int(value, &next.stick_curve[1]);
         } else if (!strcmp(key, "gate_enabled")) {
             parse_int(value, &next.gate_enabled);
         } else if (!strcmp(key, "gate_left") || !strcmp(key, "gate_right")) {
@@ -785,11 +805,12 @@ static void stick_output(int pair, float *out_x, float *out_y) {
         ny /= r;
         r = 1.0f;
     }
-    float dz = config.stick_deadzone / 1000.0f;
+    int stick = pair >> 1;
+    float dz = (stick <= 1 ? config.stick_deadzone[stick] : 0) / 1000.0f;
     if (dz < 0.0f) dz = 0.0f;
     if (dz > 0.80f) dz = 0.80f;
     float m = r <= dz ? 0.0f : (r - dz) / (1.0f - dz);
-    float gamma = config.stick_curve / 100.0f;
+    float gamma = (stick <= 1 ? config.stick_curve[stick] : 100) / 100.0f;
     if (gamma < 0.20f) gamma = 0.20f;
     if (gamma > 4.0f) gamma = 4.0f;
     if (m > 0.0f) m = powf(m, gamma);
@@ -842,8 +863,10 @@ static void trace_tick(void) {
         trace_file = fopen(trace_path, "a");
         if (trace_file) {
             setvbuf(trace_file, NULL, _IOLBF, 0);
-            fprintf(trace_file, "# cal dz=%d curve=%d gate=%d",
-                    config.stick_deadzone, config.stick_curve, config.gate_enabled);
+            fprintf(trace_file, "# cal dzL=%d dzR=%d curveL=%d curveR=%d gate=%d",
+                    config.stick_deadzone[0], config.stick_deadzone[1],
+                    config.stick_curve[0], config.stick_curve[1],
+                    config.gate_enabled);
             for (int i = 0; i < 4; i++) {
                 fprintf(trace_file, " a%d=%d:%d:%d", i, config.stick_center[i],
                         config.stick_min[i], config.stick_max[i]);
