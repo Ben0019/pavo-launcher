@@ -44,6 +44,16 @@ final class ControllerProfiles {
         ControllerMapConfig cfg = new ControllerMapConfig();
         cfg.load(ControllerRemapManager.configFile(c));
         cfg.loadProfile(body);
+        // An app profile without stick tuning inherits the global stick block,
+        // not whatever profile happened to be applied before.
+        ControllerMapConfig probe = new ControllerMapConfig();
+        probe.loadText(body);
+        if (!probe.stickCalibrated) {
+            ControllerMapConfig globalSticks = new ControllerMapConfig();
+            String g = store.global();
+            if (g != null) globalSticks.loadText(g);
+            if (globalSticks.stickCalibrated) cfg.copySticksFrom(globalSticks);
+        }
         // The master switch is device-wide, so a profile never overrides it.
         cfg.save(ControllerRemapManager.configFile(c),
                 new Prefs(c).controllerRemapEnabled(), cfg.capture);

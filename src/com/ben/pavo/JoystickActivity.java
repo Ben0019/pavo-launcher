@@ -3,6 +3,7 @@ package com.ben.pavo;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -21,6 +22,7 @@ import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -28,6 +30,7 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.text.TextUtils;
 import java.util.Locale;
 
 /** Built-in joystick calibration and live stick accuracy test. */
@@ -51,6 +54,14 @@ public final class JoystickActivity extends PavoGlassActivity {
     private TextView rightTab;
     private TextView layerChip;
     private final List<View> nav = new ArrayList<>();
+    private String targetPkg = "";
+    private ControllerProfileStore profileStore;
+    private AppPickerStripView appPicker;
+    private FrameLayout rootView;
+    private LinearLayout appSelector;
+    private ImageView appSelectorIcon;
+    private TextView appSelectorLabel;
+    private TextView resetAppChip;
     private long lastNavAdjust;
     private long lastHatNav;
     private final int[] centers = new int[6];
@@ -78,7 +89,9 @@ public final class JoystickActivity extends PavoGlassActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = new Prefs(this);
+        profileStore = new ControllerProfileStore(this);
         pads = new StickPadView(this);
+        ensureGlobalStickProfile();
         loadCalibration();
         buildUi();
         hideBars();
@@ -91,6 +104,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         hideBars();
         hidePerformanceOverlay();
         remapWasEnabled = prefs.controllerRemapEnabled();
+        ControllerProfiles.activityOpen = true;
         ControllerRemapManager.setPassthrough(this, true);
         PavoA11yService.setRemapUiActive(true);
         PavoInputService.setRemapUiActive(true);
@@ -103,6 +117,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         rangeCapturing = false;
         gateCapturing = false;
         ControllerRemapManager.setPassthrough(this, false);
+        ControllerProfiles.activityOpen = false;
+        ControllerProfiles.markDirty();
         if (!calibrating) restoreRemapper();
         super.onPause();
     }
@@ -110,6 +126,8 @@ public final class JoystickActivity extends PavoGlassActivity {
     @Override
     protected void onDestroy() {
         ControllerRemapManager.setPassthrough(this, false);
+        ControllerProfiles.activityOpen = false;
+        ControllerProfiles.markDirty();
         if (!calibrating) restoreRemapper();
         super.onDestroy();
     }
@@ -122,9 +140,52 @@ public final class JoystickActivity extends PavoGlassActivity {
         }
     }
 
-    private ControllerMapConfig loadCalibration() {
+    /**
+     * The global profile must always carry a stick block, otherwise switching
+     * back from an app profile has nothing to restore. Seed it from the live
+     * config the first time the editor opens, before any app override exists.
+     */
+    private void ensureGlobalStickProfile() {
+        try {
+            if (profileStore.hasOverrides()) return;
+            String g = profileStore.global();
+            ControllerMapConfig global = new ControllerMapConfig();
+            if (g != null) global.loadText(g);
+            if (global.stickCalibrated) return;
+            ControllerMapConfig live = new ControllerMapConfig();
+            live.load(ControllerRemapManager.configFile(this));
+            if (!live.stickCalibrated) return;
+            global.copySticksFrom(live);
+            profileStore.setGlobal(global.encode(prefs.controllerRemapEnabled(), global.capture));
+            ControllerProfiles.markDirty();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Global stick profile, falling back to the live config. */
+    private ControllerMapConfig globalStickConfig() {
         ControllerMapConfig cfg = new ControllerMapConfig();
-        cfg.load(ControllerRemapManager.configFile(this));
+        String body = profileStore == null ? null : profileStore.global();
+        if (body != null) cfg.loadText(body);
+        if (!cfg.stickCalibrated) cfg.load(ControllerRemapManager.configFile(this));
+        return cfg;
+    }
+
+    /** Stick settings for the selected target, inheriting the global ones. */
+    private ControllerMapConfig targetStickConfig() {
+        ControllerMapConfig global = globalStickConfig();
+        if (targetPkg.isEmpty() || profileStore == null) return global;
+        String body = profileStore.app(targetPkg);
+        if (body != null) {
+            ControllerMapConfig app = new ControllerMapConfig();
+            app.loadText(body);
+            if (app.stickCalibrated) return app;
+        }
+        return global;
+    }
+
+    private ControllerMapConfig loadCalibration() {
+        ControllerMapConfig cfg = targetStickConfig();
         stickEnabled = cfg.stickEnabled;
         System.arraycopy(cfg.stickDeadzone, 0, deadzone, 0, 2);
         System.arraycopy(cfg.stickCurve, 0, curve, 0, 2);
@@ -157,8 +218,7 @@ public final class JoystickActivity extends PavoGlassActivity {
 
     private void saveCalibration(boolean enabled, boolean quiet) {
         try {
-            ControllerMapConfig cfg = new ControllerMapConfig();
-            cfg.load(ControllerRemapManager.configFile(this));
+            ControllerMapConfig cfg = targetProfileConfig();
             cfg.stickEnabled = enabled;
             cfg.stickCalibrated = true;
             System.arraycopy(centers, 0, cfg.stickCenter, 0, centers.length);
@@ -170,8 +230,7 @@ public final class JoystickActivity extends PavoGlassActivity {
             cfg.gateEnabled = gateEnabled;
             System.arraycopy(gateGain[0], 0, cfg.gateGain[0], 0, GATE_POINTS);
             System.arraycopy(gateGain[1], 0, cfg.gateGain[1], 0, GATE_POINTS);
-            cfg.save(ControllerRemapManager.configFile(this),
-                    prefs.controllerRemapEnabled(), false);
+            writeTargetProfile(cfg);
             calibrationApplied = enabled;
             if (!quiet) {
                 LToast.makeText(this, Loc.s(this, "Saved"), Toast.LENGTH_SHORT).show();
@@ -182,15 +241,40 @@ public final class JoystickActivity extends PavoGlassActivity {
 
     private void clearCalibration() {
         try {
-            ControllerMapConfig cfg = new ControllerMapConfig();
-            cfg.load(ControllerRemapManager.configFile(this));
+            ControllerMapConfig cfg = targetProfileConfig();
             cfg.stickEnabled = false;
             cfg.stickCalibrated = false;
-            cfg.save(ControllerRemapManager.configFile(this),
-                    prefs.controllerRemapEnabled(), false);
+            writeTargetProfile(cfg);
             calibrationApplied = false;
         } catch (Throwable ignored) {
         }
+    }
+
+    /** Existing profile for the selected target, seeded from global mappings. */
+    private ControllerMapConfig targetProfileConfig() {
+        ControllerMapConfig cfg = new ControllerMapConfig();
+        String body = targetPkg.isEmpty()
+                ? profileStore.global() : profileStore.app(targetPkg);
+        if (body != null) {
+            cfg.loadText(body);
+        } else if (!targetPkg.isEmpty()) {
+            String global = profileStore.global();
+            if (global != null) cfg.loadText(global);
+        }
+        return cfg;
+    }
+
+    private void writeTargetProfile(ControllerMapConfig cfg) {
+        String text = cfg.encode(prefs.controllerRemapEnabled(), false);
+        if (targetPkg.isEmpty()) {
+            profileStore.setGlobal(text);
+            // Keep the live file in step for the global profile.
+            cfg.save(ControllerRemapManager.configFile(this),
+                    prefs.controllerRemapEnabled(), false);
+        } else {
+            profileStore.setApp(targetPkg, text);
+        }
+        ControllerProfiles.markDirty();
     }
 
     private void resetCalibration() {
@@ -440,6 +524,7 @@ public final class JoystickActivity extends PavoGlassActivity {
 
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
+        rootView = root;
 
         GlassPanel card = new GlassPanel(this, null, ACCENT, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
@@ -458,6 +543,7 @@ public final class JoystickActivity extends PavoGlassActivity {
 
         column.addView(buildHeader(), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        updateAppSelector();
 
         View divider = new View(this);
         divider.setBackgroundColor(0x22FFFFFF);
@@ -642,6 +728,76 @@ public final class JoystickActivity extends PavoGlassActivity {
         header.addView(titles, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        LinearLayout leftControls = new LinearLayout(this);
+        leftControls.setOrientation(LinearLayout.HORIZONTAL);
+        leftControls.setGravity(Gravity.CENTER_VERTICAL);
+
+        appSelector = new LinearLayout(this);
+        appSelector.setOrientation(LinearLayout.HORIZONTAL);
+        appSelector.setGravity(Gravity.CENTER_VERTICAL);
+        appSelector.setPadding(dp(7), dp(4), dp(8), dp(4));
+        appSelector.setBackground(Ui.rounded(0x1EFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+        appSelector.setClickable(true);
+        appSelector.setFocusable(true);
+        appSelector.setFocusableInTouchMode(true);
+        appSelector.setDefaultFocusHighlightEnabled(false);
+        appSelector.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                openAppPicker();
+            }
+        });
+        appSelector.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                v.setBackground(focused
+                        ? Ui.rounded(0x1EFFFFFF, dp(10), 0xE6FFFFFF, dp(1.5f))
+                        : Ui.rounded(0x1EFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+            }
+        });
+        tapClicks(appSelector);
+        addNav(appSelector);
+
+        appSelectorIcon = new ImageView(this);
+        appSelectorIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        appSelector.addView(appSelectorIcon, new LinearLayout.LayoutParams(dp(18), dp(18)));
+        appSelectorLabel = text("ALL APPS", 8.5f, TEXT, true);
+        appSelectorLabel.setSingleLine(true);
+        appSelectorLabel.setEllipsize(TextUtils.TruncateAt.END);
+        appSelectorLabel.setMaxWidth(dp(96));
+        appSelectorLabel.setPadding(dp(6), 0, dp(2), 0);
+        appSelector.addView(appSelectorLabel);
+        appSelector.addView(text("\u25BE", 8f, MUTED, true));
+        leftControls.addView(appSelector);
+
+        resetAppChip = text("USE GLOBAL", 8f, 0xFFFFC857, true);
+        resetAppChip.setLetterSpacing(0.04f);
+        resetAppChip.setGravity(Gravity.CENTER);
+        resetAppChip.setPadding(dp(7), dp(5), dp(7), dp(5));
+        resetAppChip.setBackground(Ui.rounded(0x22FFC857, dp(10), 0x55FFC857, dp(1)));
+        resetAppChip.setVisibility(View.GONE);
+        resetAppChip.setFocusable(true);
+        resetAppChip.setFocusableInTouchMode(true);
+        resetAppChip.setDefaultFocusHighlightEnabled(false);
+        resetAppChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                resetSelectedApp();
+            }
+        });
+        resetAppChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                v.setBackground(focused
+                        ? Ui.rounded(0x22FFC857, dp(10), 0xE6FFFFFF, dp(1.5f))
+                        : Ui.rounded(0x22FFC857, dp(10), 0x55FFC857, dp(1)));
+            }
+        });
+        tapClicks(resetAppChip);
+        addNav(resetAppChip);
+        LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        resetLp.leftMargin = dp(6);
+        leftControls.addView(resetAppChip, resetLp);
+
         layerChip = text("ON", 9f, TEXT, true);
         layerChip.setLetterSpacing(0.08f);
         layerChip.setGravity(Gravity.CENTER);
@@ -661,10 +817,14 @@ public final class JoystickActivity extends PavoGlassActivity {
             }
         });
         tapClicks(layerChip);
-        header.addView(layerChip, new FrameLayout.LayoutParams(
+        LinearLayout.LayoutParams onLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        onLp.leftMargin = dp(6);
+        leftControls.addView(layerChip, onLp);
+        addNav(layerChip);
+        header.addView(leftControls, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.START | Gravity.CENTER_VERTICAL));
-        addNav(layerChip);
 
         TextView close = text("\u00D7", 22f, 0xCCFFFFFF, false);
         close.setGravity(Gravity.CENTER);
@@ -887,6 +1047,88 @@ public final class JoystickActivity extends PavoGlassActivity {
         if (floorBar != null) floorBar.setProgress(floor[stick]);
         if (floorValue != null) floorValue.setText(percent(floor[stick]));
         refreshPreview();
+    }
+
+    private void openAppPicker() {
+        if (appPicker != null || rootView == null) return;
+        GlassPanel baseCard = PavoGlassActivity.largestGlassPanel(rootView);
+        appPicker = new AppPickerStripView(this, prefs, targetPkg, baseCard,
+                new AppPickerStripView.Listener() {
+                    @Override public void onPick(String pkg, Apps.Entry entry) {
+                        appPicker = null;
+                        selectTarget(pkg);
+                    }
+                    @Override public void onClose() {
+                        appPicker = null;
+                    }
+                });
+        rootView.addView(appPicker, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        appPicker.bringToFront();
+    }
+
+    private void resetSelectedApp() {
+        if (targetPkg.isEmpty()) return;
+        profileStore.removeApp(targetPkg);
+        ControllerProfiles.markDirty();
+        selectTarget("");
+    }
+
+    private void selectTarget(String pkg) {
+        targetPkg = pkg == null ? "" : pkg;
+        updateAppSelector();
+        ControllerMapConfig cfg = targetStickConfig();
+        stickEnabled = cfg.stickEnabled;
+        gateEnabled = cfg.gateEnabled;
+        System.arraycopy(cfg.stickCenter, 0, centers, 0, centers.length);
+        System.arraycopy(cfg.stickMin, 0, mins, 0, mins.length);
+        System.arraycopy(cfg.stickMax, 0, maxs, 0, maxs.length);
+        System.arraycopy(cfg.stickDeadzone, 0, deadzone, 0, 2);
+        System.arraycopy(cfg.stickCurve, 0, curve, 0, 2);
+        System.arraycopy(cfg.stickFloor, 0, floor, 0, 2);
+        System.arraycopy(cfg.gateGain[0], 0, gateGain[0], 0, GATE_POINTS);
+        System.arraycopy(cfg.gateGain[1], 0, gateGain[1], 0, GATE_POINTS);
+        syncTuningUi();
+    }
+
+    private void syncTuningUi() {
+        if (deadzoneBar != null) deadzoneBar.setProgress(deadzone[selectedStick]);
+        if (deadzoneValue != null) deadzoneValue.setText(percent(deadzone[selectedStick]));
+        pads.setDeadzone(deadzone[selectedStick] / 1000f);
+        if (curveBar != null) curveBar.setProgress(Math.max(0, curve[selectedStick] - 50));
+        if (curveValue != null) curveValue.setText(curve[selectedStick] + "%");
+        if (floorBar != null) floorBar.setProgress(floor[selectedStick]);
+        if (floorValue != null) floorValue.setText(percent(floor[selectedStick]));
+        updateStickTabs();
+        updateLayerChip();
+        refreshPreview();
+    }
+
+    private void updateAppSelector() {
+        if (appSelectorLabel == null) return;
+        String label = Loc.s(this, "ALL APPS");
+        Bitmap bitmap = null;
+        if (!targetPkg.isEmpty()) {
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                label = String.valueOf(pm.getApplicationLabel(
+                        pm.getApplicationInfo(targetPkg, 0)));
+                bitmap = Apps.drawableToBitmap(pm.getApplicationIcon(targetPkg), dp(20));
+            } catch (Throwable ignored) {
+                label = targetPkg;
+            }
+        }
+        if (bitmap == null) {
+            try {
+                bitmap = Apps.drawableToBitmap(getDrawable(R.mipmap.ic_launcher), dp(20));
+            } catch (Throwable ignored) {
+            }
+        }
+        if (appSelectorIcon != null) appSelectorIcon.setImageBitmap(bitmap);
+        appSelectorLabel.setText(label);
+        if (resetAppChip != null) {
+            resetAppChip.setVisibility(targetPkg.isEmpty() ? View.GONE : View.VISIBLE);
+        }
     }
 
     /** Turns the software correction on or off without losing the tuning. */

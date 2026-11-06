@@ -394,6 +394,28 @@ final class ControllerMapConfig {
         }
     }
 
+    /** Copies the stick tuning block from another config. */
+    void copySticksFrom(ControllerMapConfig other) {
+        if (other == null) return;
+        stickEnabled = other.stickEnabled;
+        stickCalibrated = other.stickCalibrated;
+        stickDeadzone[0] = other.stickDeadzone[0];
+        stickDeadzone[1] = other.stickDeadzone[1];
+        stickCurve[0] = other.stickCurve[0];
+        stickCurve[1] = other.stickCurve[1];
+        stickFloor[0] = other.stickFloor[0];
+        stickFloor[1] = other.stickFloor[1];
+        for (int i = 0; i < STICK_AXES; i++) {
+            stickCenter[i] = other.stickCenter[i];
+            stickMin[i] = other.stickMin[i];
+            stickMax[i] = other.stickMax[i];
+        }
+        gateEnabled = other.gateEnabled;
+        for (int st = 0; st < 2; st++) {
+            System.arraycopy(other.gateGain[st], 0, gateGain[st], 0, GATE_POINTS);
+        }
+    }
+
     void save(File file, boolean enabled, boolean capture) {
         this.enabled = enabled;
         this.capture = capture;
