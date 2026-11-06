@@ -45,6 +45,12 @@ public final class JoystickActivity extends PavoGlassActivity {
     private final int[] maxs = new int[6];
     private final int[] rangeMin = new int[6];
     private final int[] rangeMax = new int[6];
+    private static final int GATE_POINTS = ControllerMapConfig.GATE_POINTS;
+    private final int[][] gateGain = new int[2][GATE_POINTS];
+    private final float[] gateLeft = new float[GATE_POINTS];
+    private final float[] gateRight = new float[GATE_POINTS];
+    private boolean gateEnabled;
+    private boolean gateCapturing;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean rangeCapturing;
     private SeekBar deadzoneBar;
@@ -77,7 +83,9 @@ public final class JoystickActivity extends PavoGlassActivity {
     @Override
     protected void onPause() {
         handler.removeCallbacks(rangeDone);
+        handler.removeCallbacks(gateDone);
         rangeCapturing = false;
+        gateCapturing = false;
         ControllerRemapManager.setPassthrough(this, false);
         if (!calibrating) restoreRemapper();
         super.onPause();
@@ -107,6 +115,9 @@ public final class JoystickActivity extends PavoGlassActivity {
         System.arraycopy(cfg.stickCenter, 0, centers, 0, centers.length);
         System.arraycopy(cfg.stickMin, 0, mins, 0, mins.length);
         System.arraycopy(cfg.stickMax, 0, maxs, 0, maxs.length);
+        gateEnabled = cfg.gateEnabled;
+        System.arraycopy(cfg.gateGain[0], 0, gateGain[0], 0, GATE_POINTS);
+        System.arraycopy(cfg.gateGain[1], 0, gateGain[1], 0, GATE_POINTS);
         return cfg;
     }
 
@@ -132,6 +143,9 @@ public final class JoystickActivity extends PavoGlassActivity {
             System.arraycopy(maxs, 0, cfg.stickMax, 0, maxs.length);
             cfg.stickDeadzone = deadzone;
             cfg.stickCurve = curve;
+            cfg.gateEnabled = gateEnabled;
+            System.arraycopy(gateGain[0], 0, cfg.gateGain[0], 0, GATE_POINTS);
+            System.arraycopy(gateGain[1], 0, cfg.gateGain[1], 0, GATE_POINTS);
             cfg.save(ControllerRemapManager.configFile(this),
                     prefs.controllerRemapEnabled(), false);
             calibrationApplied = enabled;
@@ -150,6 +164,10 @@ public final class JoystickActivity extends PavoGlassActivity {
         curve = 100;
         if (deadzoneBar != null) deadzoneBar.setProgress(deadzone);
         pads.setDeadzone(deadzone / 1000f);
+        gateEnabled = false;
+        for (int s2 = 0; s2 < 2; s2++) {
+            for (int i = 0; i < GATE_POINTS; i++) gateGain[s2][i] = 1000;
+        }
         if (curveBar != null) curveBar.setProgress(curve - 50);
         stickEnabled = false;
         saveCalibration(false);
@@ -189,6 +207,118 @@ public final class JoystickActivity extends PavoGlassActivity {
         }
     };
 
+    private void startGateCapture() {
+        if (gateCapturing) return;
+        gateCapturing = true;
+        java.util.Arrays.fill(gateLeft, 0f);
+        java.util.Arrays.fill(gateRight, 0f);
+        LToast.makeText(this, Loc.s(this,
+                "Roll both sticks fully around the edge for six seconds."),
+                Toast.LENGTH_LONG).show();
+        handler.removeCallbacks(gateDone);
+        handler.postDelayed(gateDone, 6000L);
+    }
+
+    private final Runnable gateDone = new Runnable() {
+        @Override public void run() {
+            if (!gateCapturing) return;
+            gateCapturing = false;
+            int[] left = buildGate(gateLeft);
+            int[] right = buildGate(gateRight);
+            if (left == null || right == null) {
+                LToast.makeText(JoystickActivity.this,
+                        Loc.s(JoystickActivity.this, "Gate needs a full circle"),
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            System.arraycopy(left, 0, gateGain[0], 0, GATE_POINTS);
+            System.arraycopy(right, 0, gateGain[1], 0, GATE_POINTS);
+            gateEnabled = true;
+            float[] c = corrected(rawLx, rawLy, rawRx, rawRy);
+            pads.setAxes(c[0], c[1], c[2], c[3]);
+            LToast.makeText(JoystickActivity.this,
+                    Loc.s(JoystickActivity.this, "Gate captured"),
+                    Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    /** Records the furthest radius seen at each angle while the stick is rolled. */
+    private static void sampleGate(float[] table, float x, float y) {
+        float r = (float) Math.hypot(x, y);
+        if (r < 0.30f) return;
+        int i = gateIndex(x, y);
+        if (r > table[i]) table[i] = r;
+    }
+
+    private static int gateIndex(float x, float y) {
+        float a = (float) Math.atan2(y, x) + (float) Math.PI;
+        int i = Math.round(a / (2f * (float) Math.PI) * GATE_POINTS);
+        if (i < 0) i = 0;
+        if (i >= GATE_POINTS) i = 0;
+        return i;
+    }
+
+    /**
+     * Turns the measured radius per angle into a gain table. Missing angles are
+     * interpolated from their nearest neighbours and the result is smoothed so
+     * the correction does not step at bucket edges.
+     */
+    private static int[] buildGate(float[] table) {
+        int valid = 0;
+        for (float v : table) if (v > 0.05f) valid++;
+        if (valid < 8) return null;
+        float[] r = new float[GATE_POINTS];
+        for (int i = 0; i < GATE_POINTS; i++) {
+            if (table[i] > 0.05f) {
+                r[i] = table[i];
+                continue;
+            }
+            int prev = -1;
+            int next = -1;
+            for (int d = 1; d <= GATE_POINTS; d++) {
+                int p = (i - d + GATE_POINTS) % GATE_POINTS;
+                if (table[p] > 0.05f) { prev = p; break; }
+            }
+            for (int d = 1; d <= GATE_POINTS; d++) {
+                int n = (i + d) % GATE_POINTS;
+                if (table[n] > 0.05f) { next = n; break; }
+            }
+            if (prev < 0 || next < 0) return null;
+            int span = (next - prev + GATE_POINTS) % GATE_POINTS;
+            int dist = (i - prev + GATE_POINTS) % GATE_POINTS;
+            float f = span == 0 ? 0f : dist / (float) span;
+            r[i] = table[prev] + (table[next] - table[prev]) * f;
+        }
+        for (int pass = 0; pass < 1; pass++) {
+            float[] smooth = new float[GATE_POINTS];
+            for (int i = 0; i < GATE_POINTS; i++) {
+                float p = r[(i - 1 + GATE_POINTS) % GATE_POINTS];
+                float n = r[(i + 1) % GATE_POINTS];
+                smooth[i] = (p + 2f * r[i] + n) * 0.25f;
+            }
+            r = smooth;
+        }
+        int[] gains = new int[GATE_POINTS];
+        for (int i = 0; i < GATE_POINTS; i++) {
+            float radius = Math.max(0.35f, Math.min(1.6f, r[i]));
+            float gain = Math.max(0.75f, Math.min(1.4f, 1f / radius));
+            gains[i] = Math.round(gain * 1000f);
+        }
+        return gains;
+    }
+
+    private float gateGain(int stick, float x, float y) {
+        if (!gateEnabled || stick < 0 || stick > 1) return 1f;
+        if (x == 0f && y == 0f) return 1f;
+        float pos = ((float) Math.atan2(y, x) + (float) Math.PI)
+                / (2f * (float) Math.PI) * GATE_POINTS;
+        int i0 = Math.max(0, Math.min(GATE_POINTS - 1, (int) pos));
+        int i1 = (i0 + 1) % GATE_POINTS;
+        float f = pos - i0;
+        float gain = (1f - f) * gateGain[stick][i0] + f * gateGain[stick][i1];
+        return gain / 1000f;
+    }
+
     private float[] corrected(float lx, float ly, float rx, float ry) {
         float[] out = new float[4];
         radialPair(lx, ly, 0, 1, out, 0);
@@ -206,6 +336,9 @@ public final class JoystickActivity extends PavoGlassActivity {
         }
         float nx = axisNormalized(x, ix);
         float ny = axisNormalized(y, iy);
+        float gain = gateGain(ix >> 1, nx, ny);
+        nx *= gain;
+        ny *= gain;
         float r = (float) Math.hypot(nx, ny);
         if (r > 1f) {
             nx /= r;
@@ -309,6 +442,15 @@ public final class JoystickActivity extends PavoGlassActivity {
         rglp.leftMargin = dp(6);
         tuneRow.addView(range, rglp);
 
+        TextView gate = smallButton("Gate", false);
+        gate.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { startGateCapture(); }
+        });
+        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        glp.leftMargin = dp(6);
+        tuneRow.addView(gate, glp);
+
         TextView apply = smallButton("Apply", true);
         apply.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { saveCalibration(true); }
@@ -393,6 +535,10 @@ public final class JoystickActivity extends PavoGlassActivity {
         rawLy = ly;
         rawRx = rx;
         rawRy = ry;
+        if (gateCapturing) {
+            sampleGate(gateLeft, axisNormalized(lx, 0), axisNormalized(ly, 1));
+            sampleGate(gateRight, axisNormalized(rx, 2), axisNormalized(ry, 3));
+        }
         if (rangeCapturing) {
             int[] raw = {
                     Math.round(lx * 32767f), Math.round(ly * 32767f),

@@ -38,6 +38,9 @@
  *   axis_x=0:-32767:32767  centre:min:max
  *   stick_deadzone=60      permille
  *   stick_curve=100        percent (100 = linear)
+ *   gate_enabled=1
+ *   gate_left=1000,1010,...  per-angle gain, 32 points, permille
+ *   gate_right=1000,1010,...
  */
 
 #define MAX_COMBOS 16
@@ -54,6 +57,8 @@ typedef struct {
 } Combo;
 
 #define STICK_AXES 6
+#define GATE_POINTS 64
+#define GATE_DEFAULT 1000
 
 typedef struct {
     int enabled;
@@ -69,6 +74,8 @@ typedef struct {
     int stick_max[STICK_AXES];
     int stick_deadzone;
     int stick_curve;
+    int gate_enabled;
+    int gate_gain[2][GATE_POINTS];
 } Config;
 
 typedef struct {
@@ -499,6 +506,10 @@ static void reset_sticks(Config *c) {
         c->stick_min[i] = -32767;
         c->stick_max[i] = 32767;
     }
+    c->gate_enabled = 0;
+    for (int s = 0; s < 2; s++) {
+        for (int i = 0; i < GATE_POINTS; i++) c->gate_gain[s][i] = GATE_DEFAULT;
+    }
 }
 
 static void reset_config(void) {
@@ -536,6 +547,22 @@ static int load_config(void) {
             parse_int(value, &next.stick_deadzone);
         } else if (!strcmp(key, "stick_curve")) {
             parse_int(value, &next.stick_curve);
+        } else if (!strcmp(key, "gate_enabled")) {
+            parse_int(value, &next.gate_enabled);
+        } else if (!strcmp(key, "gate_left") || !strcmp(key, "gate_right")) {
+            int stick = key[5] == 'l' ? 0 : 1;
+            char *save = NULL;
+            char *token = strtok_r(value, ",", &save);
+            int i = 0;
+            while (token && i < GATE_POINTS) {
+                int gain;
+                if (parse_int(trim(token), &gain)) {
+                    if (gain < 500) gain = 500;
+                    if (gain > 2000) gain = 2000;
+                    next.gate_gain[stick][i++] = gain;
+                }
+                token = strtok_r(NULL, ",", &save);
+            }
         } else if (!strncmp(key, "axis_", 5)) {
             int idx = -1;
             if (!strcmp(key, "axis_x")) idx = 0;
@@ -724,9 +751,32 @@ static float axis_normalized(int idx, int value) {
  * circular deadzone is removed, and the remaining magnitude is shaped by the
  * response curve. Direction is preserved: x and y are scaled together.
  */
+/*
+ * Per-angle gain measured by rolling the stick around its edge.  A gate that
+ * is not a perfect circle reaches a different radius at each angle; dividing
+ * by that radius makes every direction reach full scale at the physical stop.
+ */
+static float gate_gain(int stick, float x, float y) {
+    if (!config.gate_enabled || stick < 0 || stick > 1) return 1.0f;
+    if (x == 0.0f && y == 0.0f) return 1.0f;
+    const float tau = 6.28318530718f;
+    float pos = (atan2f(y, x) + 3.14159265359f) * (GATE_POINTS / tau);
+    if (pos < 0.0f) pos = 0.0f;
+    int i0 = (int) pos;
+    if (i0 >= GATE_POINTS) i0 = GATE_POINTS - 1;
+    int i1 = (i0 + 1) % GATE_POINTS;
+    float f = pos - i0;
+    float a = config.gate_gain[stick][i0];
+    float b = config.gate_gain[stick][i1];
+    return ((1.0f - f) * a + f * b) / 1000.0f;
+}
+
 static void stick_output(int pair, float *out_x, float *out_y) {
     float nx = axis_normalized(pair, raw_axis[pair]);
     float ny = axis_normalized(pair + 1, raw_axis[pair + 1]);
+    float gain = gate_gain(pair >> 1, nx, ny);
+    nx *= gain;
+    ny *= gain;
     float r = sqrtf(nx * nx + ny * ny);
     if (r > 1.0f) {
         nx /= r;

@@ -44,6 +44,7 @@ final class ControllerMapConfig {
     }
 
     static final int STICK_AXES = 6;
+    static final int GATE_POINTS = 64;
     final Map<Integer, Integer> mappings = new LinkedHashMap<>();
     final Set<Integer> turbo = new LinkedHashSet<>();
     final List<Combo> combos = new ArrayList<>();
@@ -56,6 +57,8 @@ final class ControllerMapConfig {
     int stickDeadzone = 60;
     int stickCurve = 100;
     boolean stickSpecified;
+    boolean gateEnabled;
+    final int[][] gateGain = new int[2][GATE_POINTS];
 
     boolean hasMapping(int source) {
         return mappings.containsKey(source);
@@ -155,6 +158,11 @@ final class ControllerMapConfig {
                     .append(stickMin[3]).append(':').append(stickMax[3]).append('\n');
             b.append("stick_deadzone=").append(stickDeadzone).append('\n');
             b.append("stick_curve=").append(stickCurve).append('\n');
+            if (gateEnabled) {
+                b.append("gate_enabled=1\n");
+                appendGate(b, 0);
+                appendGate(b, 1);
+            }
         }
         for (Combo combo : combos) {
             b.append("combo=");
@@ -165,6 +173,15 @@ final class ControllerMapConfig {
             b.append(':').append(combo.target).append('\n');
         }
         return b.toString();
+    }
+
+    private void appendGate(StringBuilder b, int stick) {
+        b.append(stick == 0 ? "gate_left=" : "gate_right=");
+        for (int i = 0; i < GATE_POINTS; i++) {
+            if (i > 0) b.append(',');
+            b.append(gateGain[stick][i]);
+        }
+        b.append('\n');
     }
 
     void load(File file) {
@@ -191,10 +208,14 @@ final class ControllerMapConfig {
         stickSpecified = false;
         stickDeadzone = 60;
         stickCurve = 100;
+        gateEnabled = false;
         for (int i = 0; i < STICK_AXES; i++) {
             stickCenter[i] = 0;
             stickMin[i] = -32767;
             stickMax[i] = 32767;
+        }
+        for (int s = 0; s < 2; s++) {
+            for (int i = 0; i < GATE_POINTS; i++) gateGain[s][i] = 1000;
         }
     }
 
@@ -206,6 +227,23 @@ final class ControllerMapConfig {
         }
         if ("stick_deadzone".equals(key)) {
             stickDeadzone = Math.max(0, Math.min(800, parseInt(value)));
+            stickSpecified = true;
+            return;
+        }
+        if ("gate_enabled".equals(key)) {
+            gateEnabled = "1".equals(value) || "true".equalsIgnoreCase(value);
+            stickSpecified = true;
+            return;
+        }
+        if ("gate_left".equals(key) || "gate_right".equals(key)) {
+            int stick = "gate_left".equals(key) ? 0 : 1;
+            String[] parts = value.split(",");
+            for (int i = 0; i < GATE_POINTS && i < parts.length; i++) {
+                int gain = parseInt(parts[i]);
+                if (gain < 500) gain = 500;
+                if (gain > 2000) gain = 2000;
+                gateGain[stick][i] = gain;
+            }
             stickSpecified = true;
             return;
         }
@@ -283,6 +321,10 @@ final class ControllerMapConfig {
         int[] center = stickCenter.clone();
         int[] min = stickMin.clone();
         int[] max = stickMax.clone();
+        boolean hadGate = gateEnabled;
+        int[][] gate = new int[2][];
+        gate[0] = gateGain[0].clone();
+        gate[1] = gateGain[1].clone();
         loadText(text);
         if (!stickSpecified) {
             stickEnabled = hadSticks;
@@ -291,6 +333,9 @@ final class ControllerMapConfig {
             System.arraycopy(center, 0, stickCenter, 0, STICK_AXES);
             System.arraycopy(min, 0, stickMin, 0, STICK_AXES);
             System.arraycopy(max, 0, stickMax, 0, STICK_AXES);
+            gateEnabled = hadGate;
+            System.arraycopy(gate[0], 0, gateGain[0], 0, GATE_POINTS);
+            System.arraycopy(gate[1], 0, gateGain[1], 0, GATE_POINTS);
             stickSpecified = true;
         }
     }
@@ -302,36 +347,7 @@ final class ControllerMapConfig {
         if (parent != null) parent.mkdirs();
         File tmp = new File(file.getAbsolutePath() + ".tmp");
         try (FileWriter w = new FileWriter(tmp, false)) {
-            w.write("# Pavo controller remapping\n");
-            w.write("enabled=" + (enabled ? "1" : "0") + "\n");
-            w.write("capture=" + (capture ? "1" : "0") + "\n");
-            for (Map.Entry<Integer, Integer> e : mappings.entrySet()) {
-                w.write("map=" + e.getKey() + ":" + e.getValue() + "\n");
-            }
-            for (Integer source : turbo) {
-                w.write("turbo=" + source + "\n");
-            }
-            if (stickEnabled) {
-                w.write("stick_enabled=1\n");
-                w.write("axis_x=" + stickCenter[0] + ":" + stickMin[0]
-                        + ":" + stickMax[0] + "\n");
-                w.write("axis_y=" + stickCenter[1] + ":" + stickMin[1]
-                        + ":" + stickMax[1] + "\n");
-                w.write("axis_z=" + stickCenter[2] + ":" + stickMin[2]
-                        + ":" + stickMax[2] + "\n");
-                w.write("axis_rz=" + stickCenter[3] + ":" + stickMin[3]
-                        + ":" + stickMax[3] + "\n");
-                w.write("stick_deadzone=" + stickDeadzone + "\n");
-                w.write("stick_curve=" + stickCurve + "\n");
-            }
-            for (Combo combo : combos) {
-                w.write("combo=");
-                for (int i = 0; i < combo.keys.length; i++) {
-                    if (i > 0) w.write(",");
-                    w.write(String.valueOf(combo.keys[i]));
-                }
-                w.write(":" + combo.target + "\n");
-            }
+            w.write(encode(enabled, capture));
         } catch (IOException ignored) {
             tmp.delete();
             return;
