@@ -216,7 +216,9 @@ final class ScreenAmbient {
             // mids and highs, with dark scenes still falling away.
             float t = clamp((sceneVal - 0.09f) / 0.53f, 0f, 1f);
             float shaped = t * t * (3f - 2f * t);
-            float ledVal = 0.04f + 0.96f * shaped;
+            // The scene drives the full 0..1 range; the user's Brightness
+            // setting remains the ceiling when the frame is written.
+            float ledVal = shaped;
             int avg = Color.rgb(
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
