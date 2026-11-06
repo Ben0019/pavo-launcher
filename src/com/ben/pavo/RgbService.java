@@ -18,6 +18,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.provider.Settings;
 
 /** Keeps animated joystick LED modes running after the RGB app is closed. */
 public final class RgbService extends Service {
@@ -62,6 +63,8 @@ public final class RgbService extends Service {
     private long lastAmbientSample;
     private long lastAmbientTick;
     private long lastStreamAttempt;
+    private int panelBrightness = 255;
+    private long lastPanelBrightnessAt;
     private final AmbientSpring leftSpring = new AmbientSpring();
     private final AmbientSpring rightSpring = new AmbientSpring();
     private final ScreenStream.Listener streamListener =
@@ -491,8 +494,26 @@ public final class RgbService extends Service {
             // Bake each stick's brightness into its colour so one pass can
             // paint different modes (a dim breathing left, a bright static
             // right) at the same time.
-            int litLeft = RgbControl.scaledColor(outLeft, 1f, effectiveLeft);
-            int litRight = RgbControl.scaledColor(outRight, 1f, effectiveRight);
+            if (leftMode == RgbControl.MODE_SCREEN
+                    || rightMode == RgbControl.MODE_SCREEN) {
+                if (now - lastPanelBrightnessAt >= 1000L) {
+                    lastPanelBrightnessAt = now;
+                    try {
+                        panelBrightness = Math.max(1, Math.min(255,
+                                Settings.System.getInt(getContentResolver(),
+                                        Settings.System.SCREEN_BRIGHTNESS, 255)));
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+            int screenBrightness = Math.max(1, Math.round(
+                    brightness * panelBrightness / 255f));
+            int leftBrightness = leftMode == RgbControl.MODE_SCREEN
+                    ? screenBrightness : effectiveLeft;
+            int rightBrightness = rightMode == RgbControl.MODE_SCREEN
+                    ? screenBrightness : effectiveRight;
+            int litLeft = RgbControl.scaledColor(outLeft, 1f, leftBrightness);
+            int litRight = RgbControl.scaledColor(outRight, 1f, rightBrightness);
             previewColor = litLeft;
             previewColorRight = litRight;
             previewActive = true;
