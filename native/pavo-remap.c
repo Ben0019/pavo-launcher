@@ -99,6 +99,8 @@ static char command_buffer[1024];
 static size_t command_length;
 static char config_path[512];
 static char pid_path[512];
+static char park_path[512];
+static int grabbed = 1;
 static long long config_mtime;
 static long long config_size;
 static long long now_ms;
@@ -730,6 +732,30 @@ static int apply_stick(int code, int value) {
     return out;
 }
 
+static void derive_park_path(void) {
+    park_path[0] = 0;
+    const char *slash = strrchr(config_path, '/');
+    if (!slash) return;
+    int dir = (int)(slash - config_path);
+    if (dir <= 0 || (size_t)dir + 32 >= sizeof(park_path)) return;
+    snprintf(park_path, sizeof(park_path),
+             "%.*s/controller-passthrough", dir, config_path);
+}
+
+/* The Joystick app parks the remapper so it can read the physical axes
+ * directly.  Parking releases EVIOCGRAB and discards input until the marker
+ * disappears, then re-grabs and resumes normal remapping. */
+static void update_grab(void) {
+    int park = park_path[0] && access(park_path, F_OK) == 0;
+    if (park && grabbed) {
+        ioctl(src_fd, EVIOCGRAB, 0);
+        grabbed = 0;
+        release_all_targets();
+    } else if (!park && !grabbed) {
+        if (ioctl(src_fd, EVIOCGRAB, 1) >= 0) grabbed = 1;
+    }
+}
+
 static void usage(const char *name) {
     fprintf(stderr, "usage: %s [--device PATH] --config PATH [--pid PATH] [--socket NAME]\n", name);
 }
@@ -757,6 +783,7 @@ int main(int argc, char **argv) {
         usage(argv[0]);
         return 2;
     }
+    derive_park_path();
     if (!device[0] && !find_default_device(device, sizeof(device))) {
         fprintf(stderr, "controller not found\n");
         return 1;
@@ -806,6 +833,7 @@ int main(int argc, char **argv) {
             }
             next_config_check = now_ms + CONFIG_POLL_MS;
         }
+        update_grab();
         tick();
         int timeout = 10;
         for (int i = 0; i <= KEY_MAX; i++) {
@@ -857,6 +885,7 @@ int main(int argc, char **argv) {
         struct input_event ev[64];
         ssize_t n = read(src_fd, ev, sizeof(ev));
         if (n <= 0) continue;
+        if (!grabbed) continue;
         for (size_t i = 0; i < (size_t)n / sizeof(ev[0]); i++) {
             switch (ev[i].type) {
                 case EV_KEY:

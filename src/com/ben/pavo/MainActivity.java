@@ -1331,6 +1331,7 @@ public final class MainActivity extends Activity {
         handler.removeCallbacks(endQuiet);
         handler.postDelayed(endQuiet, 900L);
         syncPinnedShortcuts();
+        ControllerRemapManager.setPassthrough(this, false);
         Updater.checkDaily(this);
         if (Loc.applyLocale(this)) {
             recreate();

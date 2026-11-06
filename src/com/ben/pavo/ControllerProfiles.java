@@ -42,7 +42,8 @@ final class ControllerProfiles {
             return;
         }
         ControllerMapConfig cfg = new ControllerMapConfig();
-        cfg.loadText(body);
+        cfg.load(ControllerRemapManager.configFile(c));
+        cfg.loadProfile(body);
         // The master switch is device-wide, so a profile never overrides it.
         cfg.save(ControllerRemapManager.configFile(c),
                 new Prefs(c).controllerRemapEnabled(), cfg.capture);

@@ -55,6 +55,7 @@ final class ControllerMapConfig {
     final int[] stickMax = new int[STICK_AXES];
     int stickDeadzone = 60;
     int stickCurve = 100;
+    boolean stickSpecified;
 
     boolean hasMapping(int source) {
         return mappings.containsKey(source);
@@ -187,6 +188,7 @@ final class ControllerMapConfig {
 
     private void resetSticks() {
         stickEnabled = false;
+        stickSpecified = false;
         stickDeadzone = 60;
         stickCurve = 100;
         for (int i = 0; i < STICK_AXES; i++) {
@@ -199,15 +201,18 @@ final class ControllerMapConfig {
     private void parseLine(String key, String value) {
         if ("stick_enabled".equals(key)) {
             stickEnabled = "1".equals(value) || "true".equalsIgnoreCase(value);
+            stickSpecified = true;
             return;
         }
         if ("stick_deadzone".equals(key)) {
             stickDeadzone = Math.max(0, Math.min(800, parseInt(value)));
+            stickSpecified = true;
             return;
         }
         if ("stick_curve".equals(key)) {
             int v = parseInt(value);
             if (v >= 20 && v <= 400) stickCurve = v;
+            stickSpecified = true;
             return;
         }
         if (key.startsWith("axis_")) {
@@ -228,6 +233,7 @@ final class ControllerMapConfig {
                 stickCenter[idx] = c;
                 stickMin[idx] = mn;
                 stickMax[idx] = mx;
+                stickSpecified = true;
             }
             return;
         }
@@ -263,6 +269,29 @@ final class ControllerMapConfig {
                 System.arraycopy(keys, 0, trimmed, 0, count);
                 combos.add(new Combo(trimmed, target));
             }
+        }
+    }
+
+    /**
+     * Applies a saved button profile while keeping the live stick calibration.
+     * Profiles never carry stick tuning, so they must not wipe it.
+     */
+    void loadProfile(String text) {
+        boolean hadSticks = stickEnabled;
+        int dz = stickDeadzone;
+        int cv = stickCurve;
+        int[] center = stickCenter.clone();
+        int[] min = stickMin.clone();
+        int[] max = stickMax.clone();
+        loadText(text);
+        if (!stickSpecified) {
+            stickEnabled = hadSticks;
+            stickDeadzone = dz;
+            stickCurve = cv;
+            System.arraycopy(center, 0, stickCenter, 0, STICK_AXES);
+            System.arraycopy(min, 0, stickMin, 0, STICK_AXES);
+            System.arraycopy(max, 0, stickMax, 0, STICK_AXES);
+            stickSpecified = true;
         }
     }
 

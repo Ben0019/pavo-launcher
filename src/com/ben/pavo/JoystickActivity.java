@@ -8,6 +8,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -17,6 +19,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,6 +41,16 @@ public final class JoystickActivity extends PavoGlassActivity {
     private int deadzone = 60;
     private int curve = 100;
     private final int[] centers = new int[6];
+    private final int[] mins = new int[6];
+    private final int[] maxs = new int[6];
+    private final int[] rangeMin = new int[6];
+    private final int[] rangeMax = new int[6];
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean rangeCapturing;
+    private SeekBar deadzoneBar;
+    private SeekBar curveBar;
+    private TextView deadzoneValue;
+    private TextView curveValue;
     private float rawLx, rawLy, rawRx, rawRy;
 
     @Override
@@ -56,19 +69,23 @@ public final class JoystickActivity extends PavoGlassActivity {
         calibrating = false;
         hideBars();
         remapWasEnabled = prefs.controllerRemapEnabled();
-        if (remapWasEnabled) ControllerRemapManager.stop(this);
+        ControllerRemapManager.setPassthrough(this, true);
         PavoA11yService.setRemapUiActive(true);
         PavoInputService.setRemapUiActive(true);
     }
 
     @Override
     protected void onPause() {
+        handler.removeCallbacks(rangeDone);
+        rangeCapturing = false;
+        ControllerRemapManager.setPassthrough(this, false);
         if (!calibrating) restoreRemapper();
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
+        ControllerRemapManager.setPassthrough(this, false);
         if (!calibrating) restoreRemapper();
         super.onDestroy();
     }
@@ -88,6 +105,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         deadzone = cfg.stickDeadzone;
         curve = cfg.stickCurve;
         System.arraycopy(cfg.stickCenter, 0, centers, 0, centers.length);
+        System.arraycopy(cfg.stickMin, 0, mins, 0, mins.length);
+        System.arraycopy(cfg.stickMax, 0, maxs, 0, maxs.length);
         return cfg;
     }
 
@@ -109,23 +128,65 @@ public final class JoystickActivity extends PavoGlassActivity {
             cfg.load(ControllerRemapManager.configFile(this));
             cfg.stickEnabled = enabled;
             System.arraycopy(centers, 0, cfg.stickCenter, 0, centers.length);
+            System.arraycopy(mins, 0, cfg.stickMin, 0, mins.length);
+            System.arraycopy(maxs, 0, cfg.stickMax, 0, maxs.length);
             cfg.stickDeadzone = deadzone;
             cfg.stickCurve = curve;
             cfg.save(ControllerRemapManager.configFile(this),
                     prefs.controllerRemapEnabled(), false);
             calibrationApplied = enabled;
-            ControllerRemapManager.restart(this, null);
             LToast.makeText(this, Loc.s(this, "Saved"), Toast.LENGTH_SHORT).show();
         } catch (Throwable ignored) {
         }
     }
 
     private void resetCalibration() {
-        for (int i = 0; i < centers.length; i++) centers[i] = 0;
+        for (int i = 0; i < centers.length; i++) {
+            centers[i] = 0;
+            mins[i] = -32767;
+            maxs[i] = 32767;
+        }
+        deadzone = 60;
+        curve = 100;
+        if (deadzoneBar != null) deadzoneBar.setProgress(deadzone);
+        if (curveBar != null) curveBar.setProgress(curve - 50);
         stickEnabled = false;
         saveCalibration(false);
         pads.setAxes(rawLx, rawLy, rawRx, rawRy);
     }
+
+    private void startRangeCapture() {
+        if (rangeCapturing) return;
+        rangeCapturing = true;
+        for (int i = 0; i < rangeMin.length; i++) {
+            rangeMin[i] = Integer.MAX_VALUE;
+            rangeMax[i] = Integer.MIN_VALUE;
+        }
+        LToast.makeText(this, Loc.s(this,
+                "Rotate both sticks around their full edge for five seconds."),
+                Toast.LENGTH_LONG).show();
+        handler.removeCallbacks(rangeDone);
+        handler.postDelayed(rangeDone, 5000L);
+    }
+
+    private final Runnable rangeDone = new Runnable() {
+        @Override public void run() {
+            if (!rangeCapturing) return;
+            rangeCapturing = false;
+            for (int i = 0; i < 4; i++) {
+                if (rangeMax[i] != Integer.MIN_VALUE
+                        && rangeMax[i] - rangeMin[i] > 4000) {
+                    mins[i] = rangeMin[i];
+                    maxs[i] = rangeMax[i];
+                }
+            }
+            float[] c = corrected(rawLx, rawLy, rawRx, rawRy);
+            pads.setAxes(c[0], c[1], c[2], c[3]);
+            LToast.makeText(JoystickActivity.this,
+                    Loc.s(JoystickActivity.this, "Range captured"),
+                    Toast.LENGTH_SHORT).show();
+        }
+    };
 
     private float[] corrected(float lx, float ly, float rx, float ry) {
         return new float[]{
@@ -138,8 +199,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         if (!stickEnabled) return value;
         int raw = Math.round(value * 32767f);
         int c = centers[index];
-        int mn = -32767;
-        int mx = 32767;
+        int mn = mins[index];
+        int mx = maxs[index];
         float n = raw >= c ? (raw - c) / (float) Math.max(1, mx - c)
                 : (raw - c) / (float) Math.max(1, c - mn);
         n = Math.max(-1f, Math.min(1f, n));
@@ -201,6 +262,11 @@ public final class JoystickActivity extends PavoGlassActivity {
         values.setPadding(0, dp(2), 0, dp(4));
         card.addView(values);
 
+        deadzoneValue = text("6.0%", 9f, 0xB3FFFFFF, true);
+        addSlider(card, "Deadzone", deadzone, 300, true);
+        curveValue = text("100%", 9f, 0xB3FFFFFF, true);
+        addSlider(card, "CURVE", Math.max(0, curve - 50), 150, false);
+
         LinearLayout tuneRow = new LinearLayout(this);
         tuneRow.setOrientation(LinearLayout.HORIZONTAL);
         tuneRow.setGravity(Gravity.CENTER);
@@ -211,6 +277,15 @@ public final class JoystickActivity extends PavoGlassActivity {
         });
         tuneRow.addView(capture, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView range = smallButton("Range", false);
+        range.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { startRangeCapture(); }
+        });
+        LinearLayout.LayoutParams rglp = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        rglp.leftMargin = dp(6);
+        tuneRow.addView(range, rglp);
 
         TextView apply = smallButton("Apply", true);
         apply.setOnClickListener(new View.OnClickListener() {
@@ -296,11 +371,65 @@ public final class JoystickActivity extends PavoGlassActivity {
         rawLy = ly;
         rawRx = rx;
         rawRy = ry;
+        if (rangeCapturing) {
+            int[] raw = {
+                    Math.round(lx * 32767f), Math.round(ly * 32767f),
+                    Math.round(rx * 32767f), Math.round(ry * 32767f)
+            };
+            for (int i = 0; i < 4; i++) {
+                if (raw[i] < rangeMin[i]) rangeMin[i] = raw[i];
+                if (raw[i] > rangeMax[i]) rangeMax[i] = raw[i];
+            }
+        }
         float[] c = corrected(lx, ly, rx, ry);
         pads.setAxes(c[0], c[1], c[2], c[3]);
         values.setText(String.format(Locale.US,
                 "L  %+.2f / %+.2f        R  %+.2f / %+.2f", c[0], c[1], c[2], c[3]));
         return true;
+    }
+
+    private void addSlider(LinearLayout parent, String label, int value,
+                           int max, boolean isDeadzone) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(0, dp(2), 0, 0);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView name = text(label, 9f, 0xB3FFFFFF, true);
+        row.addView(name, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView valueText = isDeadzone ? deadzoneValue : curveValue;
+        if (valueText != null) row.addView(valueText);
+        box.addView(row);
+        SeekBar bar = new SeekBar(this);
+        bar.setMax(max);
+        bar.setProgress(Math.max(0, Math.min(max, value)));
+        bar.setPadding(dp(2), 0, dp(2), 0);
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar seekBar, int progress,
+                                                    boolean fromUser) {
+                if (isDeadzone) {
+                    deadzone = progress;
+                    if (deadzoneValue != null) {
+                        deadzoneValue.setText(String.format(Locale.US,
+                                "%.1f%%", progress / 10f));
+                    }
+                } else {
+                    curve = progress + 50;
+                    if (curveValue != null) {
+                        curveValue.setText(curve + "%");
+                    }
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+        box.addView(bar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        parent.addView(box);
+        if (isDeadzone) deadzoneBar = bar;
+        else curveBar = bar;
     }
 
     private TextView smallButton(String label, boolean primary) {

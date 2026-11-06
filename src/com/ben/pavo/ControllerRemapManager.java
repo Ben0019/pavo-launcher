@@ -29,7 +29,8 @@ final class ControllerRemapManager {
     private static final String LAUNCHER = "controller-launch.sh";
     private static final String LOG = "controller-remap.log";
     private static final String VERSION = "controller-daemon.version";
-    private static final int DAEMON_VERSION = 5;
+    private static final String PARK = "controller-passthrough";
+    private static final int DAEMON_VERSION = 6;
     static final String SOCKET = "aurora-input";
 
     private static Process process;
@@ -159,6 +160,22 @@ final class ControllerRemapManager {
         }
         Log.w(TAG, "remapper did not open " + SOCKET + "; see " + LOG);
         return false;
+    }
+
+    /** Lets the joystick app read the physical axes with the remapper idle. */
+    static void setPassthrough(Context context, boolean parked) {
+        if (context == null) return;
+        try {
+            File f = new File(context.getFilesDir(), PARK);
+            if (parked) {
+                f.getParentFile().mkdirs();
+                if (!f.exists()) new FileOutputStream(f).close();
+            } else if (f.exists() && !f.delete()) {
+                Log.w(TAG, "could not clear " + PARK);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "passthrough failed", t);
+        }
     }
 
     static synchronized void stop(final Context context) {
