@@ -219,9 +219,6 @@ final class ScreenAmbient {
             // The scene drives the full 0..1 range; the user's Brightness
             // setting remains the ceiling when the frame is written.
             float ledVal = shaped;
-            // A very low cap for detected highlights keeps tiny text from
-            // vanishing without lifting the whole dark-scene response.
-            if (hiCount > 4) ledVal = Math.max(ledVal, 0.02f);
             int avg = Color.rgb(
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
