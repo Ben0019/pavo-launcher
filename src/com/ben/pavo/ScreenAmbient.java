@@ -197,32 +197,37 @@ final class ScreenAmbient {
 
         int color() {
             if (count == 0) return 0;
+            // Brightness follows the whole region, not only its saturated
+            // accent. A bright scene lifts the LEDs; a dark scene dims them.
             float meanVal = (float) (valAreaSum / count);
             float accentVal = weightSum > count * 0.001f
                     ? (float) (accentValSum / weightSum) : meanVal;
             float hiVal = hiCount > 0
                     ? (float) (hiValSum / hiCount) : meanVal;
-            // Bright accents lift the scene level only in proportion to how
-            // much of the region they cover.
+            // The scene brightness is the base. Bright accents may lift it,
+            // but only in proportion to how much of the region they cover;
+            // a tiny highlight must not make a dark scene look bright.
             float hiFraction = hiCount / (float) count;
             float accentWeight = clamp(0.05f + 1.8f * hiFraction, 0.05f, 0.55f);
             float sceneVal = meanVal
                     + (Math.max(accentVal, hiVal) - meanVal) * accentWeight;
-            if (sceneVal < 0.01f) return 0xFF000000;
-            // Black/white points shape the response; the user's Brightness
-            // setting is the ceiling applied when the frame is written.
+            if (sceneVal < 0.045f) return 0xFF000000;
+            // Slightly narrower black/white window than 1.0.37: brighter
+            // mids and highs, with dark scenes still falling away.
             float t = clamp((sceneVal - 0.09f) / 0.53f, 0f, 1f);
             float shaped = t * t * (3f - 2f * t);
+            // The scene drives the full 0..1 range; the user's Brightness
+            // setting remains the ceiling when the frame is written.
             float ledVal = shaped;
-            // A detected highlight keeps very small text from disappearing.
-            if (hiCount > 4) ledVal = Math.max(ledVal, 0.07f);
+            // A very low cap for detected highlights keeps tiny text from
+            // vanishing without lifting the whole dark-scene response.
+            if (hiCount > 4) ledVal = Math.max(ledVal, 0.02f);
             int avg = Color.rgb(
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
                     (int) Math.round(avgB / count));
             boolean whiteText = hiCount > 4
-                    && hiAchromatic * 1.0f / hiCount >= 0.5f
-                    && weightSum < count * 0.002f;
+                    && hiAchromatic * 1.0f / hiCount > 0.6f;
             if (whiteText) {
                 int hi = Color.rgb(
                         (int) Math.round(hiR / hiCount),
@@ -251,6 +256,8 @@ final class ScreenAmbient {
                 if (hue < 0f) hue += 360f;
                 float sat = clamp((float) (satSum / weightSum) * 1.25f, 0.45f, 1f);
                 int dominant = Color.HSVToColor(new float[]{hue, sat, 1f});
+                // Keep a little of the actual average so the LED still reads
+                // like the region rather than only its brightest accent.
                 int base = applySaturation(blend(dominant, avg, 0.22f),
                         SCREEN_VIVIDNESS);
                 return withValue(base, ledVal);
