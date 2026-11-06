@@ -506,8 +506,9 @@ public final class RgbService extends Service {
                     }
                 }
             }
+            float panel = panelBrightness / 255f;
             int screenBrightness = Math.max(1, Math.round(
-                    brightness * panelBrightness / 255f));
+                    brightness * panel * panel));
             int leftBrightness = leftMode == RgbControl.MODE_SCREEN
                     ? screenBrightness : effectiveLeft;
             int rightBrightness = rightMode == RgbControl.MODE_SCREEN
