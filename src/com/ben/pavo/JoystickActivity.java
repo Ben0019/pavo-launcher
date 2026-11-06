@@ -7,10 +7,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.Paint;
-import android.graphics.LinearGradient;
-import android.graphics.RadialGradient;
-import android.graphics.RectF;
-import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -1102,39 +1098,25 @@ public final class JoystickActivity extends PavoGlassActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    /**
-     * Two analogue sticks: a bevelled socket, a recessed well with the
-     * crosshair, and a dished rubber cap carrying the green centre dot.
-     */
+    /** Two stick pads with a live dot, centre cross and deadzone ring. */
     private static final class StickPadView extends View {
         private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint cross = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint bezel = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint well = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint innerShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint capPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint dish = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint capRim = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint shadow = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF capRect = new RectF();
         private final float[] left = new float[2];
         private final float[] right = new float[2];
         private float deadzone;
 
         StickPadView(Context context) {
             super(context);
-            float density = context.getResources().getDisplayMetrics().density;
             ring.setStyle(Paint.Style.STROKE);
-            ring.setStrokeWidth(Math.max(1f, density * 1.2f));
+            ring.setStrokeWidth(context.getResources().getDisplayMetrics().density * 2f);
+            ring.setColor(0x66A9BEFF);
             cross.setStyle(Paint.Style.STROKE);
-            cross.setStrokeWidth(Math.max(1f, density * 0.9f));
-            cross.setColor(0x22FFFFFF);
-            well.setColor(0x66000000);
-            capRim.setStyle(Paint.Style.STROKE);
-            capRim.setStrokeWidth(Math.max(1f, density * 1.1f));
-            capRim.setColor(0x2EFFFFFF);
+            cross.setStrokeWidth(context.getResources().getDisplayMetrics().density * 1.2f);
+            cross.setColor(0x33FFFFFF);
+            dot.setColor(0xFFA9BEFF);
             label.setColor(0x99FFFFFF);
             label.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 8.5f);
             label.setTextAlign(Paint.Align.CENTER);
@@ -1172,76 +1154,19 @@ public final class JoystickActivity extends PavoGlassActivity {
 
         private void drawPad(Canvas canvas, float cx, float cy, float r,
                              float[] axes, String name) {
-            float density = getResources().getDisplayMetrics().density;
-            float inner = r * 0.88f;
-
-            // Bevelled outer plate.
-            bezel.setShader(new LinearGradient(cx, cy - r, cx, cy + r,
-                    new int[]{0x38FFFFFF, 0x14FFFFFF, 0x0A000000},
-                    null, Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, r, bezel);
-            bezel.setShader(null);
-            ring.setColor(0x3DA9BEFF);
+            ring.setColor(0x66A9BEFF);
             canvas.drawCircle(cx, cy, r, ring);
-
-            // Recessed well with a shadow hanging from the top edge.
-            canvas.drawCircle(cx, cy, inner, well);
-            innerShadow.setShader(new RadialGradient(cx, cy - inner * 0.85f,
-                    inner * 1.55f, new int[]{0x7A000000, 0x00000000},
-                    new float[]{0f, 1f}, Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, inner, innerShadow);
-            innerShadow.setShader(null);
-            ring.setColor(0x1FFFFFFF);
-            canvas.drawCircle(cx, cy, inner, ring);
-
-            // Crosshair.
-            canvas.drawLine(cx - inner, cy, cx + inner, cy, cross);
-            canvas.drawLine(cx, cy - inner, cx, cy + inner, cross);
-
-            // Deadzone ring.
+            ring.setColor(0x33A9BEFF);
             float dz = Math.max(0f, Math.min(0.8f, deadzone));
-            ring.setColor(0x38A9BEFF);
-            canvas.drawCircle(cx, cy, Math.max(r * 0.04f, inner * dz), ring);
+            canvas.drawCircle(cx, cy, Math.max(r * 0.04f, r * 0.88f * dz), ring);
+            canvas.drawLine(cx - r, cy, cx + r, cy, cross);
+            canvas.drawLine(cx, cy - r, cx, cy + r, cross);
 
-            // Rubber cap.
-            float px = cx + axes[0] * r * 0.36f;
-            float py = cy + axes[1] * r * 0.36f;
-            float cap = r * 0.40f;
-            boolean centred = Math.hypot(axes[0], axes[1]) <= 0.10f;
-
-            shadow.setColor(0x7A000000);
-            canvas.drawCircle(px, py + cap * 0.18f, cap * 1.10f, shadow);
-
-            capPaint.setShader(new LinearGradient(px, py - cap, px, py + cap,
-                    new int[]{0xFF4C586E, 0xFF3A4356, 0xFF2A3140},
-                    new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
-            canvas.drawCircle(px, py, cap, capPaint);
-            capPaint.setShader(null);
-
-            // Dished top: a soft inner shadow around the rim of the cap.
-            dish.setShader(new RadialGradient(px, py - cap * 0.20f, cap * 1.02f,
-                    new int[]{0x22000000, 0x33000000, 0x99000000},
-                    new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
-            canvas.drawCircle(px, py, cap * 0.80f, dish);
-            dish.setShader(null);
-
-            // Soft highlight on the lower inner lip.
-            dish.setShader(new LinearGradient(px, py + cap * 0.15f, px, py + cap * 0.75f,
-                    new int[]{0x00000000, 0x30FFFFFF}, null, Shader.TileMode.CLAMP));
-            canvas.drawCircle(px, py, cap * 0.80f, dish);
-            dish.setShader(null);
-
-            canvas.drawCircle(px, py, cap, capRim);
-
-            // The live dot: green when centred, accent when deflected.
-            float dotR = cap * 0.28f;
-            dot.setColor(centred ? 0x4469D98B : 0x44A9BEFF);
-            canvas.drawCircle(px, py, dotR * 1.45f, dot);
-            dot.setColor(centred ? 0xFF69D98B : 0xFFA9BEFF);
-            canvas.drawCircle(px, py, dotR, dot);
-
-            capRect.set(px - cap, py - cap, px + cap, py + cap);
-            label.setColor(0x99FFFFFF);
+            float px = cx + axes[0] * r * 0.88f;
+            float py = cy + axes[1] * r * 0.88f;
+            float magnitude = (float) Math.hypot(axes[0], axes[1]);
+            dot.setColor(magnitude > 0.10f ? 0xFFA9BEFF : 0xFF69D98B);
+            canvas.drawCircle(px, py, r * 0.09f, dot);
             canvas.drawText(name, cx, cy + r + r * 0.30f, label);
         }
     }
