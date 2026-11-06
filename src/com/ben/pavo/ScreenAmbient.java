@@ -92,11 +92,16 @@ final class ScreenAmbient {
                         int r = row[o] & 0xFF;
                         int g = row[o + 1] & 0xFF;
                         int b = row[o + 2] & 0xFF;
-                        if (x < w / 2) left.add(r, g, b);
-                        else right.add(r, g, b);
+                        float t = x < w / 2
+                                ? x / (float) (w / 2)
+                                : (x - w / 2) / (float) (w / 2);
+                        float edge = x < w / 2 ? 1f - t : t;
+                        float prox = 0.25f + 0.75f * edge * edge;
+                        if (x < w / 2) left.add(r, g, b, prox);
+                        else right.add(r, g, b, prox);
                     }
                 }
-                if (left.count == 0 || right.count == 0) return null;
+                if (left.totalWeight <= 0.0 || right.totalWeight <= 0.0) return null;
                 return new int[]{left.color(), right.color()};
             } catch (Throwable ignored) {
                 return null;
@@ -123,14 +128,19 @@ final class ScreenAmbient {
                 int r = data[offset] & 0xFF;
                 int g = data[offset + 1] & 0xFF;
                 int b = data[offset + 2] & 0xFF;
+                float t = x < half
+                        ? x / (float) half
+                        : (x - half) / (float) half;
+                float edge = x < half ? 1f - t : t;
+                float prox = 0.25f + 0.75f * edge * edge;
                 if (x < half) {
-                    left.add(r, g, b);
+                    left.add(r, g, b, prox);
                 } else {
-                    right.add(r, g, b);
+                    right.add(r, g, b, prox);
                 }
             }
         }
-        if (left.count == 0 || right.count == 0) return null;
+        if (left.totalWeight <= 0.0 || right.totalWeight <= 0.0) return null;
         return new int[]{left.color(), right.color()};
     }
 
@@ -148,33 +158,40 @@ final class ScreenAmbient {
         private double hiR;
         private double hiG;
         private double hiB;
-        private int hiCount;
-        private int hiAchromatic;
         private double hiValSum;
-        private int count;
+        private double hiWeight;
+        private double hiAchromaticWeight;
+        private double totalWeight;
 
-        void add(int r, int g, int b) {
-            avgR += r;
-            avgG += g;
-            avgB += b;
-            count++;
+        /**
+         * @param spatial weight for this pixel's distance from the stick:
+         *                1.0 at the outer edge, 0.25 at the screen centre.
+         */
+        void add(int r, int g, int b, float spatial) {
+            float s = spatial < 0f ? 0f : spatial;
+            totalWeight += s;
+            avgR += r * s;
+            avgG += g * s;
+            avgB += b * s;
             int max = Math.max(r, Math.max(g, b));
             int min = Math.min(r, Math.min(g, b));
-            valAreaSum += max / 255f;
+            valAreaSum += (max / 255f) * s;
             if (max == 0) return;
             float val = max / 255f;
             if (val >= 0.5f) {
-                hiR += r;
-                hiG += g;
-                hiB += b;
-                hiValSum += val;
-                hiCount++;
-                if ((max - min) / (float) max < 0.15f) hiAchromatic++;
+                hiR += r * s;
+                hiG += g * s;
+                hiB += b * s;
+                hiValSum += val * s;
+                hiWeight += s;
+                if ((max - min) / (float) max < 0.15f) {
+                    hiAchromaticWeight += s;
+                }
             }
             if (val <= 0.05f) return;
             float sat = (max - min) / (float) max;
             float weight = SAT_WEIGHT[(int) (sat * 63f + 0.5f)]
-                    * VAL_WEIGHT[(int) (val * 63f + 0.5f)];
+                    * VAL_WEIGHT[(int) (val * 63f + 0.5f)] * s;
             if (weight <= 0.006f) return;
             int delta = max - min;
             float hue;
@@ -196,46 +213,37 @@ final class ScreenAmbient {
         }
 
         int color() {
-            if (count == 0) return 0;
-            // Brightness follows the whole region, not only its saturated
-            // accent. A bright scene lifts the LEDs; a dark scene dims them.
-            float meanVal = (float) (valAreaSum / count);
-            float accentVal = weightSum > count * 0.001f
+            if (totalWeight <= 0.0) return 0;
+            float meanVal = (float) (valAreaSum / totalWeight);
+            float accentVal = weightSum > totalWeight * 0.001
                     ? (float) (accentValSum / weightSum) : meanVal;
-            float hiVal = hiCount > 0
-                    ? (float) (hiValSum / hiCount) : meanVal;
-            // The scene brightness is the base. Bright accents may lift it,
-            // but only in proportion to how much of the region they cover;
-            // a tiny highlight must not make a dark scene look bright.
-            float hiFraction = hiCount / (float) count;
+            float hiVal = hiWeight > 0.0
+                    ? (float) (hiValSum / hiWeight) : meanVal;
+            float hiFraction = (float) (hiWeight / totalWeight);
             float accentWeight = clamp(0.05f + 1.8f * hiFraction, 0.05f, 0.55f);
             float sceneVal = meanVal
                     + (Math.max(accentVal, hiVal) - meanVal) * accentWeight;
             if (sceneVal < 0.045f) return 0xFF000000;
-            // Slightly narrower black/white window than 1.0.37: brighter
-            // mids and highs, with dark scenes still falling away.
             float t = clamp((sceneVal - 0.09f) / 0.53f, 0f, 1f);
             float shaped = t * t * (3f - 2f * t);
-            // The scene drives the full 0..1 range; the user's Brightness
-            // setting remains the ceiling when the frame is written.
             float ledVal = shaped;
-            // Barely-there cap for a detected highlight, about 0.5% of the
-            // user's ceiling. Dark scenes without highlights still go to 0.
-            if (hiCount > 4) ledVal = Math.max(ledVal, 0.005f);
+            // A bare 0.5% highlight floor; dark scenes still go to zero.
+            if (hiWeight > 0.5) ledVal = Math.max(ledVal, 0.005f);
             int avg = Color.rgb(
-                    (int) Math.round(avgR / count),
-                    (int) Math.round(avgG / count),
-                    (int) Math.round(avgB / count));
-            boolean whiteText = hiCount > 4
-                    && hiAchromatic * 1.0f / hiCount > 0.6f;
+                    (int) Math.round(avgR / totalWeight),
+                    (int) Math.round(avgG / totalWeight),
+                    (int) Math.round(avgB / totalWeight));
+            boolean whiteText = hiWeight > 0.5
+                    && hiAchromaticWeight / hiWeight >= 0.5
+                    && weightSum < totalWeight * 0.002;
             if (whiteText) {
                 int hi = Color.rgb(
-                        (int) Math.round(hiR / hiCount),
-                        (int) Math.round(hiG / hiCount),
-                        (int) Math.round(hiB / hiCount));
+                        (int) Math.round(hiR / hiWeight),
+                        (int) Math.round(hiG / hiWeight),
+                        (int) Math.round(hiB / hiWeight));
                 return withValue(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
             }
-            if (weightSum > count * 0.001f) {
+            if (weightSum > totalWeight * 0.001) {
                 int best = 0;
                 for (int i = 1; i < hueBins.length; i++) {
                     if (hueBins[i] > hueBins[best]) best = i;
@@ -256,17 +264,15 @@ final class ScreenAmbient {
                 if (hue < 0f) hue += 360f;
                 float sat = clamp((float) (satSum / weightSum) * 1.25f, 0.45f, 1f);
                 int dominant = Color.HSVToColor(new float[]{hue, sat, 1f});
-                // Keep a little of the actual average so the LED still reads
-                // like the region rather than only its brightest accent.
                 int base = applySaturation(blend(dominant, avg, 0.22f),
                         SCREEN_VIVIDNESS);
                 return withValue(base, ledVal);
             }
-            if (hiCount > 4) {
+            if (hiWeight > 0.5) {
                 int hi = Color.rgb(
-                        (int) Math.round(hiR / hiCount),
-                        (int) Math.round(hiG / hiCount),
-                        (int) Math.round(hiB / hiCount));
+                        (int) Math.round(hiR / hiWeight),
+                        (int) Math.round(hiG / hiWeight),
+                        (int) Math.round(hiB / hiWeight));
                 return withValue(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
             }
             Color.RGBToHSV(Color.red(avg), Color.green(avg), Color.blue(avg), hsv);
