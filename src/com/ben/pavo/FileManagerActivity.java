@@ -55,6 +55,7 @@ import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -74,6 +75,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -993,7 +995,20 @@ public final class FileManagerActivity extends PavoGlassActivity {
                 actionRow.addView(actionButton("RENAME", new Runnable() {
                     @Override public void run() { showRenameDialog(p.selected.iterator().next()); }
                 }), actionLp(5));
+                final File onlyZip = p.selected.iterator().next();
+                if (isZipFile(onlyZip)) {
+                    actionRow.addView(actionButton("Extract all", new Runnable() {
+                        @Override public void run() {
+                            p.clearSelection();
+                            updateFooter();
+                            extractZip(onlyZip, p);
+                        }
+                    }), actionLp(5));
+                }
             }
+            actionRow.addView(actionButton("COMPRESS", new Runnable() {
+                @Override public void run() { compressSelection(); }
+            }), actionLp(5));
             actionRow.addView(actionButton("DELETE", new Runnable() {
                 @Override public void run() { confirmDeleteSelection(); }
             }), actionLp(5));
@@ -2729,7 +2744,52 @@ public final class FileManagerActivity extends PavoGlassActivity {
             }
         });
 
-        final Dialog dialog = baseDialog();
+        final ScrollView[] listScroll = new ScrollView[1];
+        final List<View> zipActions = new ArrayList<>();
+        final boolean[] rightLatch = {false};
+        final Dialog dialog = new Dialog(this, android.R.style.Theme_Translucent_NoTitleBar) {
+            private float scrollSpeed;
+            private boolean scrollScheduled;
+            private final Runnable scroller = new Runnable() {
+                @Override public void run() {
+                    scrollScheduled = false;
+                    if (!isShowing() || listScroll[0] == null
+                            || Math.abs(scrollSpeed) < 0.18f) {
+                        return;
+                    }
+                    listScroll[0].scrollBy(0, Math.round(scrollSpeed * dp(16)));
+                    scrollScheduled = true;
+                    listScroll[0].postDelayed(this, 45L);
+                }
+            };
+
+            @Override
+            public boolean dispatchGenericMotionEvent(MotionEvent event) {
+                int source = event.getSource();
+                boolean gamepad = (source & android.view.InputDevice.SOURCE_JOYSTICK) != 0
+                        || (source & android.view.InputDevice.SOURCE_GAMEPAD) != 0;
+                if (gamepad && event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                    float leftY = event.getAxisValue(MotionEvent.AXIS_Y);
+                    scrollSpeed = Math.abs(leftY) > 0.18f ? leftY : 0f;
+                    if (scrollSpeed != 0f && !scrollScheduled) {
+                        scrollScheduled = true;
+                        listScroll[0].post(scroller);
+                    }
+                    float rightY = event.getAxisValue(MotionEvent.AXIS_RZ);
+                    if (Math.abs(rightY) > 0.65f) {
+                        if (!rightLatch[0]) {
+                            rightLatch[0] = true;
+                            moveDialogAction(rightY > 0f ? 1 : -1, zipActions, this);
+                        }
+                    } else if (Math.abs(rightY) < 0.35f) {
+                        rightLatch[0] = false;
+                    }
+                    return true;
+                }
+                return super.dispatchGenericMotionEvent(event);
+            }
+        };
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         final GlassPanel panel = dialogPanel();
         panel.setPadding(dp(18), dp(14), dp(18), dp(12));
 
@@ -2773,6 +2833,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
             list.addView(row, matchWrap());
         }
         scroll.addView(list);
+        listScroll[0] = scroll;
         // Keep the action rows inside the dialog: cap the list against the
         // screen height instead of a fixed 300dp, which pushed them off the
         // bottom of the card on this display.
@@ -2784,20 +2845,112 @@ public final class FileManagerActivity extends PavoGlassActivity {
         slp.topMargin = dp(2);
         column.addView(scroll, slp);
 
-        addDialogOption(column, "Extract all",
+        zipActions.add(addDialogOption(column, "Extract all",
                 new Runnable() {
             @Override
             public void run() {
                 extractZip(zip, pane);
             }
-        });
-        addDialogOption(column, "Close", new Runnable() {
+        }));
+        zipActions.add(addDialogOption(column, "Close", new Runnable() {
             @Override
             public void run() {
                 // dismiss handled by the dialog helper
             }
-        });
+        }));
         showPanel(dialog, panel, 560);
+    }
+
+    /** Zips the current selection next to it. */
+    private void compressSelection() {
+        final Pane pane = activePane;
+        if (pane == null || pane.selected.isEmpty()) return;
+        if (!localWritable(pane)) {
+            LToast.makeText(this, Loc.s(this, "READ ONLY"), android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final List<File> items = new ArrayList<>(pane.selected);
+        final File parent = items.get(0).getParentFile();
+        final File dir = parent != null ? parent : pane.dir;
+        pane.clearSelection();
+        updateFooter();
+        LToast.makeText(this, Loc.s(this, "Compressing…"),
+                android.widget.Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final File target = uniqueZip(dir, zipNameFor(items));
+                final boolean ok = writeZip(items, target);
+                main.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!ok) {
+                            LToast.makeText(FileManagerActivity.this,
+                                    Loc.s(FileManagerActivity.this,
+                                            "Could not create archive"),
+                                    android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                        reloadAll();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    private String zipNameFor(List<File> items) {
+        if (items.size() == 1) {
+            File only = items.get(0);
+            String name = only.getName();
+            if (!only.isDirectory()) {
+                int dot = name.lastIndexOf('.');
+                if (dot > 0) name = name.substring(0, dot);
+            }
+            if (!name.trim().isEmpty()) return name + ".zip";
+        }
+        return "Archive.zip";
+    }
+
+    private File uniqueZip(File dir, String name) {
+        File target = new File(dir, name);
+        String base = name.toLowerCase(java.util.Locale.US).endsWith(".zip")
+                ? name.substring(0, name.length() - 4) : name;
+        int n = 2;
+        while (target.exists()) {
+            target = new File(dir, base + " (" + n + ").zip");
+            n++;
+        }
+        return target;
+    }
+
+    private boolean writeZip(List<File> items, File target) {
+        try (ZipOutputStream out = new ZipOutputStream(
+                new BufferedOutputStream(new FileOutputStream(target)))) {
+            for (File item : items) addZipEntry(out, item, item.getName());
+            return true;
+        } catch (Throwable t) {
+            target.delete();
+            return false;
+        }
+    }
+
+    private void addZipEntry(ZipOutputStream out, File file, String name) throws IOException {
+        if (file.isDirectory()) {
+            File[] kids = file.listFiles();
+            if (kids == null || kids.length == 0) {
+                out.putNextEntry(new ZipEntry(name + "/"));
+                out.closeEntry();
+                return;
+            }
+            for (File kid : kids) addZipEntry(out, kid, name + "/" + kid.getName());
+            return;
+        }
+        out.putNextEntry(new ZipEntry(name));
+        try (InputStream in = new FileInputStream(file)) {
+            byte[] buffer = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+        }
+        out.closeEntry();
     }
 
     private String folderNameFor(File zip) {
@@ -3424,7 +3577,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
         showPanel(d, panel, 420);
     }
 
-    private void addDialogOption(LinearLayout panel, String label, final Runnable action) {
+    private TextView addDialogOption(LinearLayout panel, String label, final Runnable action) {
         TextView row = text(label, 11.5f, 0xF5FFFFFF, false);
         row.setPadding(dp(10), dp(8), dp(10), dp(8));
         row.setFocusable(true);
@@ -3445,6 +3598,23 @@ public final class FileManagerActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams lp = matchWrap();
         lp.topMargin = dp(4);
         panel.addView(row, lp);
+        return row;
+    }
+
+    /** Right stick walks the dialog's action rows. */
+    private void moveDialogAction(int dir, List<View> actions, Dialog dialog) {
+        if (actions.isEmpty()) return;
+        View focus = dialog.getCurrentFocus();
+        int index = actions.indexOf(focus);
+        if (index < 0) index = dir > 0 ? -1 : 0;
+        for (int i = 0; i < actions.size(); i++) {
+            index = (index + dir + actions.size()) % actions.size();
+            View target = actions.get(index);
+            if (target.getVisibility() == View.VISIBLE && target.isEnabled()
+                    && target.requestFocus()) {
+                return;
+            }
+        }
     }
 
     private Dialog baseDialog() {
