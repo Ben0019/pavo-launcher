@@ -66,6 +66,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static final String OVERLAY_PKG = "com.ben.pavo.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.pavo.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
+    private static final String JOYSTICK_PKG = "com.ben.pavo.joystick";
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
     private static final String SCREEN_RECORDER_PKG = "com.ben.pavo.screenrecorder";
@@ -642,6 +643,10 @@ final class AppDrawerOverlayView extends FrameLayout {
         Apps.Entry controller = new Apps.Entry(Loc.s(context, "Controller Remapper"), CONTROLLER_PKG, "");
         controller.icon = Apps.controllerMapIcon(px, accent);
         out.add(controller);
+        Apps.Entry joystick = new Apps.Entry(Loc.s(context, "JOYSTICKS"),
+                JOYSTICK_PKG, "");
+        joystick.icon = Apps.joystickIcon(px, accent);
+        out.add(joystick);
         if (profile.rgb) {
             Apps.Entry rgb = new Apps.Entry(Loc.s(context, "RGB Lighting"), RGB_PKG, "");
             rgb.icon = Apps.rgbIcon(px, accent);
@@ -681,6 +686,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static boolean isBuiltinPkg(String pkg) {
         return PERF_TUNER_PKG.equals(pkg) || PERF_LOG_PKG.equals(pkg)
                 || DISPLAY_PKG.equals(pkg) || CONTROLLER_PKG.equals(pkg)
+                || JOYSTICK_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
@@ -701,6 +707,8 @@ final class AppDrawerOverlayView extends FrameLayout {
             intent = new Intent(context, DisplayActivity.class);
         } else if (CONTROLLER_PKG.equals(e.pkg)) {
             intent = new Intent(context, ControllerMapActivity.class);
+        } else if (JOYSTICK_PKG.equals(e.pkg)) {
+            intent = new Intent(context, JoystickActivity.class);
         } else if (RGB_PKG.equals(e.pkg)) {
             intent = new Intent(context, RgbActivity.class);
         } else if (OVERLAY_PKG.equals(e.pkg)) {

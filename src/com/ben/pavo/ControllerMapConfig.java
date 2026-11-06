@@ -43,11 +43,18 @@ final class ControllerMapConfig {
         }
     }
 
+    static final int STICK_AXES = 6;
     final Map<Integer, Integer> mappings = new LinkedHashMap<>();
     final Set<Integer> turbo = new LinkedHashSet<>();
     final List<Combo> combos = new ArrayList<>();
     boolean enabled;
     boolean capture;
+    boolean stickEnabled;
+    final int[] stickCenter = new int[STICK_AXES];
+    final int[] stickMin = new int[STICK_AXES];
+    final int[] stickMax = new int[STICK_AXES];
+    int stickDeadzone = 60;
+    int stickCurve = 100;
 
     boolean hasMapping(int source) {
         return mappings.containsKey(source);
@@ -113,6 +120,7 @@ final class ControllerMapConfig {
         combos.clear();
         enabled = false;
         capture = false;
+        resetSticks();
         if (text == null) return;
         for (String raw : text.split("\n")) {
             String line = raw.trim();
@@ -134,6 +142,19 @@ final class ControllerMapConfig {
         for (Integer source : turbo) {
             b.append("turbo=").append(source).append('\n');
         }
+        if (stickEnabled) {
+            b.append("stick_enabled=1\n");
+            b.append("axis_x=").append(stickCenter[0]).append(':')
+                    .append(stickMin[0]).append(':').append(stickMax[0]).append('\n');
+            b.append("axis_y=").append(stickCenter[1]).append(':')
+                    .append(stickMin[1]).append(':').append(stickMax[1]).append('\n');
+            b.append("axis_z=").append(stickCenter[2]).append(':')
+                    .append(stickMin[2]).append(':').append(stickMax[2]).append('\n');
+            b.append("axis_rz=").append(stickCenter[3]).append(':')
+                    .append(stickMin[3]).append(':').append(stickMax[3]).append('\n');
+            b.append("stick_deadzone=").append(stickDeadzone).append('\n');
+            b.append("stick_curve=").append(stickCurve).append('\n');
+        }
         for (Combo combo : combos) {
             b.append("combo=");
             for (int i = 0; i < combo.keys.length; i++) {
@@ -151,6 +172,7 @@ final class ControllerMapConfig {
         combos.clear();
         enabled = false;
         capture = false;
+        resetSticks();
         if (file == null || !file.isFile()) return;
         StringBuilder text = new StringBuilder();
         try (BufferedReader r = new BufferedReader(new java.io.FileReader(file))) {
@@ -163,7 +185,52 @@ final class ControllerMapConfig {
         loadText(text.toString());
     }
 
+    private void resetSticks() {
+        stickEnabled = false;
+        stickDeadzone = 60;
+        stickCurve = 100;
+        for (int i = 0; i < STICK_AXES; i++) {
+            stickCenter[i] = 0;
+            stickMin[i] = -32767;
+            stickMax[i] = 32767;
+        }
+    }
+
     private void parseLine(String key, String value) {
+        if ("stick_enabled".equals(key)) {
+            stickEnabled = "1".equals(value) || "true".equalsIgnoreCase(value);
+            return;
+        }
+        if ("stick_deadzone".equals(key)) {
+            stickDeadzone = Math.max(0, Math.min(800, parseInt(value)));
+            return;
+        }
+        if ("stick_curve".equals(key)) {
+            int v = parseInt(value);
+            if (v >= 20 && v <= 400) stickCurve = v;
+            return;
+        }
+        if (key.startsWith("axis_")) {
+            int idx = -1;
+            if ("axis_x".equals(key)) idx = 0;
+            else if ("axis_y".equals(key)) idx = 1;
+            else if ("axis_z".equals(key)) idx = 2;
+            else if ("axis_rz".equals(key)) idx = 3;
+            else if ("axis_rx".equals(key)) idx = 4;
+            else if ("axis_ry".equals(key)) idx = 5;
+            if (idx < 0) return;
+            String[] p = value.split(":");
+            if (p.length != 3) return;
+            int c = parseInt(p[0]);
+            int mn = parseInt(p[1]);
+            int mx = parseInt(p[2]);
+            if (mx > mn) {
+                stickCenter[idx] = c;
+                stickMin[idx] = mn;
+                stickMax[idx] = mx;
+            }
+            return;
+        }
         if ("enabled".equals(key)) {
             enabled = "1".equals(value) || "true".equalsIgnoreCase(value);
         } else if ("capture".equals(key)) {
@@ -214,6 +281,19 @@ final class ControllerMapConfig {
             }
             for (Integer source : turbo) {
                 w.write("turbo=" + source + "\n");
+            }
+            if (stickEnabled) {
+                w.write("stick_enabled=1\n");
+                w.write("axis_x=" + stickCenter[0] + ":" + stickMin[0]
+                        + ":" + stickMax[0] + "\n");
+                w.write("axis_y=" + stickCenter[1] + ":" + stickMin[1]
+                        + ":" + stickMax[1] + "\n");
+                w.write("axis_z=" + stickCenter[2] + ":" + stickMin[2]
+                        + ":" + stickMax[2] + "\n");
+                w.write("axis_rz=" + stickCenter[3] + ":" + stickMin[3]
+                        + ":" + stickMax[3] + "\n");
+                w.write("stick_deadzone=" + stickDeadzone + "\n");
+                w.write("stick_curve=" + stickCurve + "\n");
             }
             for (Combo combo : combos) {
                 w.write("combo=");

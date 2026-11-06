@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include <math.h>
 #include <fcntl.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
@@ -33,6 +34,10 @@
  *   map=304:305        source evdev code : target evdev code
  *   turbo=304          source button auto-repeats while held
  *   combo=310,311:305  simultaneous sources : shortcut target
+ *   stick_enabled=1
+ *   axis_x=0:-32767:32767  centre:min:max
+ *   stick_deadzone=60      permille
+ *   stick_curve=100        percent (100 = linear)
  */
 
 #define MAX_COMBOS 16
@@ -48,6 +53,8 @@ typedef struct {
     int target;
 } Combo;
 
+#define STICK_AXES 6
+
 typedef struct {
     int enabled;
     int capture;
@@ -56,6 +63,12 @@ typedef struct {
     int combo_member[KEY_MAX + 1];
     Combo combos[MAX_COMBOS];
     int combo_count;
+    int stick_enabled;
+    int stick_center[STICK_AXES];
+    int stick_min[STICK_AXES];
+    int stick_max[STICK_AXES];
+    int stick_deadzone;
+    int stick_curve;
 } Config;
 
 typedef struct {
@@ -473,10 +486,22 @@ static int parse_int(const char *s, int *out) {
     return 1;
 }
 
+static void reset_sticks(Config *c) {
+    c->stick_enabled = 0;
+    c->stick_deadzone = 0;
+    c->stick_curve = 100;
+    for (int i = 0; i < STICK_AXES; i++) {
+        c->stick_center[i] = 0;
+        c->stick_min[i] = -32767;
+        c->stick_max[i] = 32767;
+    }
+}
+
 static void reset_config(void) {
     memset(&config, 0, sizeof(config));
     config.enabled = 1;
     for (int i = 0; i <= KEY_MAX; i++) config.map[i] = -1;
+    reset_sticks(&config);
 }
 
 static int load_config(void) {
@@ -486,6 +511,7 @@ static int load_config(void) {
     memset(&next, 0, sizeof(next));
     next.enabled = 1;
     for (int i = 0; i <= KEY_MAX; i++) next.map[i] = -1;
+    reset_sticks(&next);
 
     char line[1024];
     while (fgets(line, sizeof(line), f)) {
@@ -500,6 +526,34 @@ static int load_config(void) {
             parse_int(value, &next.enabled);
         } else if (!strcmp(key, "capture")) {
             parse_int(value, &next.capture);
+        } else if (!strcmp(key, "stick_enabled")) {
+            parse_int(value, &next.stick_enabled);
+        } else if (!strcmp(key, "stick_deadzone")) {
+            parse_int(value, &next.stick_deadzone);
+        } else if (!strcmp(key, "stick_curve")) {
+            parse_int(value, &next.stick_curve);
+        } else if (!strncmp(key, "axis_", 5)) {
+            int idx = -1;
+            if (!strcmp(key, "axis_x")) idx = 0;
+            else if (!strcmp(key, "axis_y")) idx = 1;
+            else if (!strcmp(key, "axis_z")) idx = 2;
+            else if (!strcmp(key, "axis_rz")) idx = 3;
+            else if (!strcmp(key, "axis_rx")) idx = 4;
+            else if (!strcmp(key, "axis_ry")) idx = 5;
+            if (idx < 0) continue;
+            char *f1 = strchr(value, ':');
+            if (!f1) continue;
+            *f1 = 0;
+            char *f2 = strchr(f1 + 1, ':');
+            if (!f2) continue;
+            *f2 = 0;
+            int c, mn, mx;
+            if (parse_int(trim(value), &c) && parse_int(trim(f1 + 1), &mn)
+                    && parse_int(trim(f2 + 1), &mx) && mx > mn) {
+                next.stick_center[idx] = c;
+                next.stick_min[idx] = mn;
+                next.stick_max[idx] = mx;
+            }
         } else if (!strcmp(key, "map")) {
             char *colon = strchr(value, ':');
             if (!colon) continue;
@@ -631,6 +685,49 @@ static int find_default_device(char *out, size_t out_size) {
     }
     pclose(f);
     return found;
+}
+
+static int axis_index(int code) {
+    switch (code) {
+        case ABS_X: return 0;
+        case ABS_Y: return 1;
+        case ABS_Z: return 2;
+        case ABS_RZ: return 3;
+        case ABS_RX: return 4;
+        case ABS_RY: return 5;
+        default: return -1;
+    }
+}
+
+static int apply_stick(int code, int value) {
+    if (!config.stick_enabled) return value;
+    int idx = axis_index(code);
+    if (idx < 0) return value;
+    int c = config.stick_center[idx];
+    int mn = config.stick_min[idx];
+    int mx = config.stick_max[idx];
+    if (mx <= mn) return value;
+    float n = value >= c ? (value - c) / (float) (mx - c)
+                         : (value - c) / (float) (c - mn);
+    if (n > 1.0f) n = 1.0f;
+    if (n < -1.0f) n = -1.0f;
+    float dz = config.stick_deadzone / 1000.0f;
+    if (dz < 0.0f) dz = 0.0f;
+    if (dz > 0.80f) dz = 0.80f;
+    float a = fabsf(n);
+    if (a <= dz) {
+        n = 0.0f;
+    } else {
+        n = copysignf((a - dz) / (1.0f - dz), n);
+    }
+    float gamma = config.stick_curve / 100.0f;
+    if (gamma < 0.20f) gamma = 0.20f;
+    if (gamma > 4.0f) gamma = 4.0f;
+    if (n != 0.0f) n = copysignf(powf(fabsf(n), gamma), n);
+    int out = (int) lroundf(n * 32767.0f);
+    if (out > 32767) out = 32767;
+    if (out < -32767) out = -32767;
+    return out;
 }
 
 static void usage(const char *name) {
@@ -765,10 +862,12 @@ int main(int argc, char **argv) {
                 case EV_KEY:
                     on_key(ev[i].code, ev[i].value);
                     break;
-                case EV_ABS:
-                    socket_send_axis(ev[i].code, ev[i].value);
-                    if (!swallow_all) emit_event(ev[i].type, ev[i].code, ev[i].value);
+                case EV_ABS: {
+                    int value = apply_stick(ev[i].code, ev[i].value);
+                    socket_send_axis(ev[i].code, value);
+                    if (!swallow_all) emit_event(ev[i].type, ev[i].code, value);
                     break;
+                }
                 case EV_SYN:
                 case EV_MSC:
                     if (!swallow_all) emit_event(ev[i].type, ev[i].code, ev[i].value);

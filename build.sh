@@ -28,7 +28,7 @@ NATIVE_CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android3
 if [[ -x "$NATIVE_CC" ]]; then
   mkdir -p assets
   "$NATIVE_CC" -O2 -Wall -Wextra -fPIE -pie -s \
-    -o assets/pavo-remap native/pavo-remap.c
+    -o assets/pavo-remap native/pavo-remap.c -lm
   "$NATIVE_CC" -O2 -Wall -Wextra -fPIE -pie -s \
     -o assets/pavo-touchmap native/pavo-touchmap.c -lm
 else
