@@ -23,12 +23,18 @@ final class ScreenAmbient {
     /** Precomputed perceptual weights remove two pow() calls per pixel. */
     private static final float[] SAT_WEIGHT = new float[64];
     private static final float[] VAL_WEIGHT = new float[64];
+    private static final float[] LINEAR = new float[256];
 
     static {
         for (int i = 0; i < 64; i++) {
             float v = i / 63f;
             SAT_WEIGHT[i] = (float) Math.pow(v, 1.35);
             VAL_WEIGHT[i] = (float) Math.pow(v, 1.15);
+        }
+        for (int i = 0; i < 256; i++) {
+            float c = i / 255f;
+            LINEAR[i] = c <= 0.04045f ? c / 12.92f
+                    : (float) Math.pow((c + 0.055f) / 1.055f, 2.4f);
         }
     }
 
@@ -165,6 +171,9 @@ final class ScreenAmbient {
         private double sceneHiG;
         private double sceneHiB;
         private double sceneHiWeight;
+        private double lumaSum;
+        private double hiLumaSum;
+        private double accentLumaSum;
         private double totalWeight;
 
         /**
@@ -179,6 +188,9 @@ final class ScreenAmbient {
             avgB += b * s;
             int max = Math.max(r, Math.max(g, b));
             int min = Math.min(r, Math.min(g, b));
+            float luma = 0.2126f * LINEAR[r]
+                    + 0.7152f * LINEAR[g] + 0.0722f * LINEAR[b];
+            lumaSum += luma * s;
             valAreaSum += (max / 255f) * s;
             if (max == 0) return;
             float val = max / 255f;
@@ -187,6 +199,7 @@ final class ScreenAmbient {
                 hiG += g * s;
                 hiB += b * s;
                 hiValSum += val * s;
+                hiLumaSum += luma * s;
                 hiWeight += s;
                 sceneHiR += r;
                 sceneHiG += g;
@@ -217,24 +230,24 @@ final class ScreenAmbient {
             hueBins[bin] += weight;
             satSum += sat * weight;
             accentValSum += val * weight;
+            accentLumaSum += luma * weight;
             weightSum += weight;
         }
 
         int color() {
             if (totalWeight <= 0.0) return 0;
-            float meanVal = (float) (valAreaSum / totalWeight);
+            float meanVal = (float) (lumaSum / totalWeight);
             float accentVal = weightSum > totalWeight * 0.001
-                    ? (float) (accentValSum / weightSum) : meanVal;
+                    ? (float) (accentLumaSum / weightSum) : meanVal;
             float hiVal = hiWeight > 0.0
-                    ? (float) (hiValSum / hiWeight) : meanVal;
+                    ? (float) (hiLumaSum / hiWeight) : meanVal;
             float hiFraction = (float) (hiWeight / totalWeight);
             float accentWeight = clamp(0.05f + 1.8f * hiFraction, 0.05f, 0.55f);
             float sceneVal = meanVal
                     + (Math.max(accentVal, hiVal) - meanVal) * accentWeight;
-            if (sceneVal < 0.045f) return 0xFF000000;
-            float t = clamp((sceneVal - 0.09f) / 0.53f, 0f, 1f);
-            float shaped = t * t * (3f - 2f * t);
-            float ledVal = shaped;
+            if (sceneVal < 0.01f) return 0xFF000000;
+            // Target linear luminance: 0 to 1 across the scene range.
+            float ledVal = clamp((sceneVal - 0.01f) / 0.99f, 0f, 1f);
             // A bare 0.5% highlight floor; dark scenes still go to zero.
             if (hiWeight > 0.5) ledVal = Math.max(ledVal, 0.005f);
             int avg = Color.rgb(
@@ -296,8 +309,24 @@ final class ScreenAmbient {
                         (int) Math.round(sceneHiB / sceneHiWeight));
                 base = blend(base, central, 0.50f);
             }
-            return withValue(base, value);
+            return withLuminance(base, value);
         }
+    }
+
+    /** Scales the colour so its linear luminance matches the scene target. */
+    private static int withLuminance(int color, float target) {
+        if (target <= 0f) return 0xFF000000;
+        int r = Color.red(color);
+        int g = Color.green(color);
+        int b = Color.blue(color);
+        float y = 0.2126f * LINEAR[r]
+                + 0.7152f * LINEAR[g] + 0.0722f * LINEAR[b];
+        if (y <= 0.0001f) return 0xFF000000;
+        float scale = Math.min(1f, target / y);
+        return Color.rgb(
+                Math.max(0, Math.min(255, Math.round(r * scale))),
+                Math.max(0, Math.min(255, Math.round(g * scale))),
+                Math.max(0, Math.min(255, Math.round(b * scale))));
     }
 
     /** Replaces only the HSV value so brightness follows the region. */
