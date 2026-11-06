@@ -397,7 +397,17 @@ public final class JoystickActivity extends PavoGlassActivity {
         float dz = Math.max(0f, Math.min(0.8f, deadzone[ix >> 1] / 1000f));
         float m = r <= dz ? 0f : (r - dz) / (1f - dz);
         float gamma = Math.max(0.2f, Math.min(4f, curve[ix >> 1] / 100f));
-        if (m > 0f) m = (float) Math.pow(m, gamma);
+        if (m > 0f) {
+            float base = m;
+            float shaped = (float) Math.pow(base, gamma);
+            float blend = 0.25f * (gamma > 1f ? gamma - 1f : 0f);
+            if (blend > 0f) {
+                float w = blend * (1f - base);
+                m = w * base + (1f - w) * shaped;
+            } else {
+                m = shaped;
+            }
+        }
         if (r > 0f) {
             out[at] = nx / r * m;
             out[at + 1] = ny / r * m;

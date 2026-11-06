@@ -817,7 +817,21 @@ static void stick_output(int pair, float *out_x, float *out_y) {
     float gamma = (stick <= 1 ? config.stick_curve[stick] : 100) / 100.0f;
     if (gamma < 0.20f) gamma = 0.20f;
     if (gamma > 4.0f) gamma = 4.0f;
-    if (m > 0.0f) m = powf(m, gamma);
+    if (m > 0.0f) {
+        /* A pure power curve has zero slope at the deadzone edge, so a high
+         * setting makes gentle pushes vanish into the game's own deadzone.
+         * Blend in a small linear share that fades out towards full tilt:
+         * the start stays slow but alive, the top keeps the precision shape. */
+        float base = m;
+        float shaped = powf(base, gamma);
+        float blend = 0.25f * (gamma > 1.0f ? gamma - 1.0f : 0.0f);
+        if (blend > 0.0f) {
+            float w = blend * (1.0f - base);
+            m = w * base + (1.0f - w) * shaped;
+        } else {
+            m = shaped;
+        }
+    }
     if (r > 0.0f) {
         *out_x = nx / r * m;
         *out_y = ny / r * m;
