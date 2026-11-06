@@ -2773,8 +2773,14 @@ public final class FileManagerActivity extends PavoGlassActivity {
             list.addView(row, matchWrap());
         }
         scroll.addView(list);
+        // Keep the action rows inside the dialog: cap the list against the
+        // screen height instead of a fixed 300dp, which pushed them off the
+        // bottom of the card on this display.
+        int screenDp = Math.round(getResources().getDisplayMetrics().heightPixels
+                / getResources().getDisplayMetrics().density);
+        int listDp = Math.max(120, Math.min(300, screenDp - 240));
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(300));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(listDp));
         slp.topMargin = dp(2);
         column.addView(scroll, slp);
 
@@ -3423,7 +3429,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
         row.setPadding(dp(10), dp(8), dp(10), dp(8));
         row.setFocusable(true);
         row.setClickable(true);
-        final android.graphics.drawable.Drawable normal = Ui.rounded(0x22FFFFFF, dp(9));
+        final android.graphics.drawable.Drawable normal = Ui.rounded(0x30FFFFFF, dp(9));
         row.setBackground(normal);
         row.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean focused) {
@@ -3506,6 +3512,9 @@ public final class FileManagerActivity extends PavoGlassActivity {
         dismissDialog();
         final View previousFocus = getCurrentFocus();
         openDialog = dialog;
+        // The app's header (new/sort/search/reload/close) sits outside the
+        // dialog card and reads as part of it, so hide it while a dialog is up.
+        if (headerBar != null) headerBar.setVisibility(View.INVISIBLE);
         dialog.setContentView(panel);
         dialog.setCanceledOnTouchOutside(true);
         Window window = dialog.getWindow();
@@ -3523,6 +3532,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
         dialog.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
             @Override public void onDismiss(android.content.DialogInterface d) {
                 if (openDialog == dialog) openDialog = null;
+                if (headerBar != null) headerBar.setVisibility(View.VISIBLE);
                 dialogFocusOrder.clear();
                 if (controllerNav != null) controllerNav.setRoot(controllerRoot);
                 // Whatever the dialog was opened from (list cursor or a toolbar
