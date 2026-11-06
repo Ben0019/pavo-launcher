@@ -48,6 +48,7 @@ public final class JoystickActivity extends PavoGlassActivity {
     private final int[] curve = {100, 100};
     private TextView leftTab;
     private TextView rightTab;
+    private TextView layerChip;
     private final List<View> nav = new ArrayList<>();
     private long lastNavAdjust;
     private long lastHatNav;
@@ -139,6 +140,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         centers[2] = Math.round(rawRx * 32767f);
         centers[3] = Math.round(rawRy * 32767f);
         stickEnabled = true;
+        updateLayerChip();
         pads.setAxes(0f, 0f, 0f, 0f);
         values.setText(String.format(Locale.US,
                 "L  %+.2f / %+.2f        R  %+.2f / %+.2f",
@@ -154,6 +156,7 @@ public final class JoystickActivity extends PavoGlassActivity {
             ControllerMapConfig cfg = new ControllerMapConfig();
             cfg.load(ControllerRemapManager.configFile(this));
             cfg.stickEnabled = enabled;
+            cfg.stickCalibrated = true;
             System.arraycopy(centers, 0, cfg.stickCenter, 0, centers.length);
             System.arraycopy(mins, 0, cfg.stickMin, 0, mins.length);
             System.arraycopy(maxs, 0, cfg.stickMax, 0, maxs.length);
@@ -168,6 +171,19 @@ public final class JoystickActivity extends PavoGlassActivity {
             if (!quiet) {
                 LToast.makeText(this, Loc.s(this, "Saved"), Toast.LENGTH_SHORT).show();
             }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void clearCalibration() {
+        try {
+            ControllerMapConfig cfg = new ControllerMapConfig();
+            cfg.load(ControllerRemapManager.configFile(this));
+            cfg.stickEnabled = false;
+            cfg.stickCalibrated = false;
+            cfg.save(ControllerRemapManager.configFile(this),
+                    prefs.controllerRemapEnabled(), false);
+            calibrationApplied = false;
         } catch (Throwable ignored) {
         }
     }
@@ -192,7 +208,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         if (curveBar != null) curveBar.setProgress(Math.max(0, curve[selectedStick] - 50));
         if (curveValue != null) curveValue.setText(curve[selectedStick] + "%");
         stickEnabled = false;
-        saveCalibration(false);
+        updateLayerChip();
+        clearCalibration();
         pads.setAxes(rawLx, rawLy, rawRx, rawRy);
     }
 
@@ -256,6 +273,8 @@ public final class JoystickActivity extends PavoGlassActivity {
             System.arraycopy(left, 0, gateGain[0], 0, GATE_POINTS);
             System.arraycopy(right, 0, gateGain[1], 0, GATE_POINTS);
             gateEnabled = true;
+            stickEnabled = true;
+            updateLayerChip();
             float[] c = corrected(rawLx, rawLy, rawRx, rawRy);
             pads.setAxes(c[0], c[1], c[2], c[3]);
             LToast.makeText(JoystickActivity.this,
@@ -468,6 +487,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         curveValue = text(curve[selectedStick] + "%", 9.5f, TEXT, true);
         addSlider(tuning, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, false);
         updateStickTabs();
+        updateLayerChip();
 
         LinearLayout tuneRow = new LinearLayout(this);
         tuneRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -503,7 +523,10 @@ public final class JoystickActivity extends PavoGlassActivity {
 
         TextView apply = smallButton("Apply", true);
         apply.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { Haptics.click(v); saveCalibration(true); }
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                saveCalibration(stickEnabled, false);
+            }
         });
         LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
@@ -580,6 +603,30 @@ public final class JoystickActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         header.addView(titles, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        layerChip = text("ON", 9f, TEXT, true);
+        layerChip.setLetterSpacing(0.08f);
+        layerChip.setGravity(Gravity.CENTER);
+        layerChip.setPadding(dp(10), dp(5), dp(10), dp(5));
+        layerChip.setFocusable(true);
+        layerChip.setFocusableInTouchMode(true);
+        layerChip.setDefaultFocusHighlightEnabled(false);
+        layerChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                setStickLayer(!stickEnabled, true);
+            }
+        });
+        layerChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateLayerChip();
+            }
+        });
+        tapClicks(layerChip);
+        header.addView(layerChip, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.START | Gravity.CENTER_VERTICAL));
+        addNav(layerChip);
 
         TextView close = text("\u00D7", 22f, 0xCCFFFFFF, false);
         close.setGravity(Gravity.CENTER);
@@ -759,6 +806,7 @@ public final class JoystickActivity extends PavoGlassActivity {
                 }
                 if (fromUser) {
                     stickEnabled = true;
+                    updateLayerChip();
                     refreshPreview();
                 }
             }
@@ -792,6 +840,32 @@ public final class JoystickActivity extends PavoGlassActivity {
         refreshPreview();
     }
 
+    /** Turns the software correction on or off without losing the tuning. */
+    private void setStickLayer(boolean on, boolean persist) {
+        if (stickEnabled == on) return;
+        stickEnabled = on;
+        updateLayerChip();
+        refreshPreview();
+        if (persist) saveCalibration(on, true);
+    }
+
+    private void updateLayerChip() {
+        if (layerChip == null) return;
+        layerChip.setText(Loc.s(this, stickEnabled ? "ON" : "OFF"));
+        boolean focused = layerChip.hasFocus();
+        if (stickEnabled) {
+            layerChip.setTextColor(0xFF69D98B);
+            layerChip.setBackground(focused
+                    ? Ui.rounded(0x2669D98B, dp(10), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1E69D98B, dp(10), 0x4469D98B, dp(1)));
+        } else {
+            layerChip.setTextColor(MUTED);
+            layerChip.setBackground(focused
+                    ? Ui.rounded(0x1EFFFFFF, dp(10), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1EFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+        }
+    }
+
     private void updateStickTabs() {
         if (leftTab == null || rightTab == null) return;
         boolean left = selectedStick == 0;
@@ -805,6 +879,28 @@ public final class JoystickActivity extends PavoGlassActivity {
                 ? Ui.rounded(ACCENT, dp(10), rightFocus ? 0xFFFFFFFF : 0x00000000, dp(1.5f))
                 : Ui.rounded(0x22FFFFFF, dp(10), rightFocus ? 0xE6FFFFFF : 0x33FFFFFF, dp(1.5f)));
         rightTab.setTextColor(!left ? 0xFF061015 : TEXT);
+    }
+
+    /**
+     * Focusable-in-touch-mode views can swallow the first tap as a focus
+     * change, so handle the press ourselves for a deterministic click.
+     */
+    private void tapClicks(final View v) {
+        v.setOnTouchListener(new View.OnTouchListener() {
+            @Override public boolean onTouch(View view, MotionEvent event) {
+                int action = event.getActionMasked();
+                if (action == MotionEvent.ACTION_DOWN) {
+                    view.setPressed(true);
+                    view.requestFocus();
+                } else if (action == MotionEvent.ACTION_UP) {
+                    view.setPressed(false);
+                    view.performClick();
+                } else if (action == MotionEvent.ACTION_CANCEL) {
+                    view.setPressed(false);
+                }
+                return true;
+            }
+        });
     }
 
     private void addNav(View v) {
@@ -897,6 +993,7 @@ public final class JoystickActivity extends PavoGlassActivity {
                 updateStickTabs();
             }
         });
+        tapClicks(v);
         addNav(v);
         return v;
     }

@@ -57,6 +57,7 @@ final class ControllerMapConfig {
     final int[] stickDeadzone = {60, 60};
     final int[] stickCurve = {100, 100};
     boolean stickSpecified;
+    boolean stickCalibrated;
     boolean gateEnabled;
     final int[][] gateGain = new int[2][GATE_POINTS];
 
@@ -146,8 +147,8 @@ final class ControllerMapConfig {
         for (Integer source : turbo) {
             b.append("turbo=").append(source).append('\n');
         }
-        if (stickEnabled) {
-            b.append("stick_enabled=1\n");
+        if (stickEnabled || stickCalibrated) {
+            b.append("stick_enabled=").append(stickEnabled ? "1" : "0").append('\n');
             b.append("axis_x=").append(stickCenter[0]).append(':')
                     .append(stickMin[0]).append(':').append(stickMax[0]).append('\n');
             b.append("axis_y=").append(stickCenter[1]).append(':')
@@ -208,6 +209,7 @@ final class ControllerMapConfig {
     private void resetSticks() {
         stickEnabled = false;
         stickSpecified = false;
+        stickCalibrated = false;
         stickDeadzone[0] = 60;
         stickDeadzone[1] = 60;
         stickCurve[0] = 100;
@@ -227,6 +229,7 @@ final class ControllerMapConfig {
         if ("stick_enabled".equals(key)) {
             stickEnabled = "1".equals(value) || "true".equalsIgnoreCase(value);
             stickSpecified = true;
+            stickCalibrated = true;
             return;
         }
         if ("stick_deadzone".equals(key)) {
@@ -234,12 +237,14 @@ final class ControllerMapConfig {
             stickDeadzone[0] = v;
             stickDeadzone[1] = v;
             stickSpecified = true;
+            stickCalibrated = true;
             return;
         }
         if ("stick_deadzone_left".equals(key) || "stick_deadzone_right".equals(key)) {
             int stick = "stick_deadzone_left".equals(key) ? 0 : 1;
             stickDeadzone[stick] = Math.max(0, Math.min(800, parseInt(value)));
             stickSpecified = true;
+            stickCalibrated = true;
             return;
         }
         if ("gate_enabled".equals(key)) {
@@ -266,6 +271,7 @@ final class ControllerMapConfig {
                 stickCurve[1] = v;
             }
             stickSpecified = true;
+            stickCalibrated = true;
             return;
         }
         if ("stick_curve_left".equals(key) || "stick_curve_right".equals(key)) {
@@ -273,6 +279,7 @@ final class ControllerMapConfig {
             int v = parseInt(value);
             if (v >= 20 && v <= 400) stickCurve[stick] = v;
             stickSpecified = true;
+            stickCalibrated = true;
             return;
         }
         if (key.startsWith("axis_")) {
@@ -294,6 +301,7 @@ final class ControllerMapConfig {
                 stickMin[idx] = mn;
                 stickMax[idx] = mx;
                 stickSpecified = true;
+                stickCalibrated = true;
             }
             return;
         }
@@ -338,6 +346,7 @@ final class ControllerMapConfig {
      */
     void loadProfile(String text) {
         boolean hadSticks = stickEnabled;
+        boolean hadCalibrated = stickCalibrated;
         int[] dz = stickDeadzone.clone();
         int[] cv = stickCurve.clone();
         int[] center = stickCenter.clone();
@@ -350,6 +359,7 @@ final class ControllerMapConfig {
         loadText(text);
         if (!stickSpecified) {
             stickEnabled = hadSticks;
+            stickCalibrated = hadCalibrated;
             System.arraycopy(dz, 0, stickDeadzone, 0, 2);
             System.arraycopy(cv, 0, stickCurve, 0, 2);
             System.arraycopy(center, 0, stickCenter, 0, STICK_AXES);
