@@ -7,6 +7,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.Paint;
+import android.graphics.RadialGradient;
+import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -479,7 +481,7 @@ public final class JoystickActivity extends PavoGlassActivity {
                 "Release the sticks; both dots should sit inside the centre rings.",
                 8.5f, MUTED, false);
         testHint.setGravity(Gravity.CENTER);
-        testHint.setPadding(0, 0, 0, dp(6));
+        testHint.setPadding(0, 0, 0, dp(4));
         column.addView(testHint);
 
         LinearLayout tuning = panel(column);
@@ -503,10 +505,25 @@ public final class JoystickActivity extends PavoGlassActivity {
         tuning.addView(stickRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        LinearLayout tuningRow = new LinearLayout(this);
+        tuningRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout leftCol = new LinearLayout(this);
+        leftCol.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout rightCol = new LinearLayout(this);
+        rightCol.setOrientation(LinearLayout.VERTICAL);
+        tuningRow.addView(leftCol, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams rightColLp = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        rightColLp.leftMargin = dp(16);
+        tuningRow.addView(rightCol, rightColLp);
+        tuning.addView(tuningRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         deadzoneValue = text(percent(deadzone[selectedStick]), 9.5f, TEXT, true);
-        addSlider(tuning, "Deadzone", deadzone[selectedStick], 300, 0);
+        addSlider(leftCol, "Deadzone", deadzone[selectedStick], 300, 0);
         curveValue = text(curve[selectedStick] + "%", 9.5f, TEXT, true);
-        addSlider(tuning, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, 1);
+        addSlider(rightCol, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, 1);
         floorValue = text(percent(floor[selectedStick]), 9.5f, TEXT, true);
         addSlider(tuning, "Min output", floor[selectedStick], 300, 2);
         updateStickTabs();
@@ -569,7 +586,7 @@ public final class JoystickActivity extends PavoGlassActivity {
 
         LinearLayout.LayoutParams tuneLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tuneLp.topMargin = dp(6);
+        tuneLp.topMargin = dp(4);
         column.addView(tuneRow, tuneLp);
 
         TextView calibrate = text("CALIBRATION", 10f, 0xFF061015, true);
@@ -683,7 +700,7 @@ public final class JoystickActivity extends PavoGlassActivity {
     private LinearLayout panel(LinearLayout parent) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(14), dp(9), dp(14), dp(9));
+        box.setPadding(dp(14), dp(7), dp(14), dp(7));
         box.setBackground(Ui.rounded(0x12FFFFFF, dp(18), 0x22FFFFFF, dp(1)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -782,7 +799,7 @@ public final class JoystickActivity extends PavoGlassActivity {
                            int max, final int kind) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(0, dp(4), 0, 0);
+        box.setPadding(0, dp(2), 0, 0);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -800,7 +817,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         SeekBar bar = new SeekBar(this);
         bar.setMax(max);
         bar.setProgress(Math.max(0, Math.min(max, value)));
-        bar.setPadding(dp(2), 0, dp(2), 0);
+        bar.setPadding(dp(14), dp(3), dp(14), dp(3));
+        bar.setSplitTrack(false);
         bar.setFocusable(true);
         bar.setFocusableInTouchMode(true);
         bar.setDefaultFocusHighlightEnabled(false);
@@ -1082,11 +1100,15 @@ public final class JoystickActivity extends PavoGlassActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    /** Two stick pads with a live dot, centre cross and deadzone ring. */
+    /** Two analogue sticks drawn as recessed sockets with a moving cap. */
     private static final class StickPadView extends View {
         private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint cross = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint well = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint stick = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint stickRim = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint shadow = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint highlight = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float[] left = new float[2];
         private final float[] right = new float[2];
@@ -1094,15 +1116,18 @@ public final class JoystickActivity extends PavoGlassActivity {
 
         StickPadView(Context context) {
             super(context);
+            float density = context.getResources().getDisplayMetrics().density;
             ring.setStyle(Paint.Style.STROKE);
-            ring.setStrokeWidth(context.getResources().getDisplayMetrics().density * 2f);
+            ring.setStrokeWidth(Math.max(1f, density * 1.6f));
             ring.setColor(0x66A9BEFF);
             cross.setStyle(Paint.Style.STROKE);
-            cross.setStrokeWidth(context.getResources().getDisplayMetrics().density * 1.2f);
-            cross.setColor(0x33FFFFFF);
-            dot.setColor(0xFFA9BEFF);
-            label.setColor(0x88FFFFFF);
-            label.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 8f);
+            cross.setStrokeWidth(Math.max(1f, density * 1.1f));
+            cross.setColor(0x30FFFFFF);
+            stickRim.setStyle(Paint.Style.STROKE);
+            stickRim.setStrokeWidth(Math.max(1f, density * 1.2f));
+            stickRim.setColor(0x88E9F0FF);
+            label.setColor(0x99FFFFFF);
+            label.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 8.5f);
             label.setTextAlign(Paint.Align.CENTER);
             setFocusable(false);
             setWillNotDraw(false);
@@ -1130,28 +1155,61 @@ public final class JoystickActivity extends PavoGlassActivity {
             super.onDraw(canvas);
             float w = getWidth();
             float h = getHeight();
-            float r = Math.min(w * 0.19f, h * 0.32f);
-            float y = h * 0.45f;
+            float r = Math.min(w * 0.19f, h * 0.33f);
+            float y = h * 0.42f;
             drawPad(canvas, w * 0.27f, y, r, left, Loc.s(getContext(), "LEFT STICK"));
             drawPad(canvas, w * 0.73f, y, r, right, Loc.s(getContext(), "RIGHT STICK"));
         }
 
         private void drawPad(Canvas canvas, float cx, float cy, float r,
                              float[] axes, String name) {
+            float density = getResources().getDisplayMetrics().density;
+
+            // Recessed socket.
+            well.setShader(new RadialGradient(cx, cy - r * 0.18f, r * 1.18f,
+                    new int[]{0x52000000, 0x2A000000, 0x0C000000},
+                    new float[]{0f, 0.72f, 1f}, Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, r, well);
+            well.setShader(null);
+
+            // Socket rim.
+            ring.setStrokeWidth(Math.max(1f, density * 1.5f));
             ring.setColor(0x66A9BEFF);
             canvas.drawCircle(cx, cy, r, ring);
-            ring.setColor(0x33A9BEFF);
-            float dz = Math.max(0f, Math.min(0.8f, deadzone));
-            canvas.drawCircle(cx, cy, Math.max(r * 0.04f, r * 0.88f * dz), ring);
-            canvas.drawLine(cx - r, cy, cx + r, cy, cross);
-            canvas.drawLine(cx, cy - r, cx, cy + r, cross);
 
-            float px = cx + axes[0] * r * 0.88f;
-            float py = cy + axes[1] * r * 0.88f;
-            float magnitude = (float) Math.hypot(axes[0], axes[1]);
-            dot.setColor(magnitude > 0.10f ? 0xFFA9BEFF : 0xFF69D98B);
-            canvas.drawCircle(px, py, r * 0.09f, dot);
-            canvas.drawText(name, cx, cy + r + r * 0.22f, label);
+            // Deadzone ring.
+            float dz = Math.max(0f, Math.min(0.8f, deadzone));
+            ring.setStrokeWidth(Math.max(1f, density * 1.1f));
+            ring.setColor(0x40A9BEFF);
+            canvas.drawCircle(cx, cy, Math.max(r * 0.05f, r * 0.84f * dz), ring);
+
+            // Crosshair.
+            canvas.drawLine(cx - r * 0.96f, cy, cx + r * 0.96f, cy, cross);
+            canvas.drawLine(cx, cy - r * 0.96f, cx, cy + r * 0.96f, cross);
+
+            // Stick cap.
+            float px = cx + axes[0] * r * 0.66f;
+            float py = cy + axes[1] * r * 0.66f;
+            float cap = r * 0.30f;
+            boolean centred = Math.hypot(axes[0], axes[1]) <= 0.10f;
+
+            shadow.setColor(0x59000000);
+            canvas.drawCircle(px, py + cap * 0.20f, cap * 1.06f, shadow);
+
+            int light = centred ? 0xFF8BEBA8 : 0xFFCBD8FF;
+            int dark = centred ? 0xFF3E9E64 : 0xFF6F86CC;
+            stick.setShader(new RadialGradient(px - cap * 0.35f, py - cap * 0.40f,
+                    cap * 1.7f, new int[]{light, dark},
+                    new float[]{0f, 1f}, Shader.TileMode.CLAMP));
+            canvas.drawCircle(px, py, cap, stick);
+            stick.setShader(null);
+
+            canvas.drawCircle(px, py, cap, stickRim);
+
+            highlight.setColor(0x55FFFFFF);
+            canvas.drawCircle(px - cap * 0.32f, py - cap * 0.36f, cap * 0.32f, highlight);
+
+            canvas.drawText(name, cx, cy + r + r * 0.36f, label);
         }
     }
 }
