@@ -29,7 +29,7 @@ final class ScreenStream {
     static final int HEIGHT = 270;
     private static final int BPP = 3;
     private static final int FRAME_BYTES = WIDTH * HEIGHT * BPP;
-    private static final long FRAME_INTERVAL_MS = 33L;
+    private static final long FRAME_INTERVAL_MS = 16L;
     private static final int MAX_FAILURES = 3;
     private static final Object LOCK = new Object();
 

@@ -553,6 +553,18 @@ public final class RgbService extends Service {
                 Math.max(Color.green(color), Color.blue(color))) < 12;
     }
 
+    private static float luminance(int color) {
+        return 0.2126f * linear(Color.red(color))
+                + 0.7152f * linear(Color.green(color))
+                + 0.0722f * linear(Color.blue(color));
+    }
+
+    private static float linear(int channel) {
+        float c = channel / 255f;
+        return c <= 0.04045f ? c / 12.92f
+                : (float) Math.pow((c + 0.055f) / 1.055f, 2.4f);
+    }
+
     private void blendAmbient() {
         // A critically damped spring keeps colour in motion between the 5 Hz
         // screen samples. Unlike a fixed per-frame mix it has no hard snap,
@@ -565,11 +577,19 @@ public final class RgbService extends Service {
         // ~1.1 s settle at the slow end, ~0.22 s at maximum.
         float omega = 3.5f + 14.5f * t;
         if (ambientTargetLeft != 0) {
-            leftSpring.update(ambientTargetLeft, omega, dt);
+            float target = luminance(ambientTargetLeft);
+            float current = leftSpring.luminance();
+            float sideOmega = target - current > 0.06f
+                    ? Math.max(omega, 32f) : omega;
+            leftSpring.update(ambientTargetLeft, sideOmega, dt);
             ambientLeft = leftSpring.color();
         }
         if (ambientTargetRight != 0) {
-            rightSpring.update(ambientTargetRight, omega, dt);
+            float target = luminance(ambientTargetRight);
+            float current = rightSpring.luminance();
+            float sideOmega = target - current > 0.06f
+                    ? Math.max(omega, 32f) : omega;
+            rightSpring.update(ambientTargetRight, sideOmega, dt);
             ambientRight = rightSpring.color();
         }
     }
@@ -603,6 +623,17 @@ public final class RgbService extends Service {
             c = vb + omega * d;
             b = tb + (d + c * dt) * e;
             vb = (c - omega * (d + c * dt)) * e;
+        }
+
+        float luminance() {
+            return 0.2126f * linear(r) + 0.7152f * linear(g)
+                    + 0.0722f * linear(b);
+        }
+
+        private static float linear(float value) {
+            float c = Math.max(0f, Math.min(255f, value)) / 255f;
+            return c <= 0.04045f ? c / 12.92f
+                    : (float) Math.pow((c + 0.055f) / 1.055f, 2.4f);
         }
 
         int color() {
