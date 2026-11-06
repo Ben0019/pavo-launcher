@@ -207,11 +207,10 @@ final class ScreenAmbient {
             // Blend the whole-scene level with the brightest accent/highlight
             // so coloured or white text on black is not averaged away.
             float sceneVal = 0.55f * meanVal + 0.45f * Math.max(accentVal, hiVal);
-            if (sceneVal < 0.04f) return 0xFF000000;
-            // Aggressive black/white points: the S-curve reaches full much
-            // sooner and drops dark scenes harder, so scene changes read as
-            // obvious brightness swings.
-            float t = clamp((sceneVal - 0.075f) / 0.60f, 0f, 1f);
+            if (sceneVal < 0.045f) return 0xFF000000;
+            // Slightly narrower black/white window than 1.0.37: brighter
+            // mids and highs, with dark scenes still falling away.
+            float t = clamp((sceneVal - 0.09f) / 0.53f, 0f, 1f);
             float shaped = t * t * (3f - 2f * t);
             float ledVal = 0.025f + 0.975f * shaped;
             int avg = Color.rgb(
