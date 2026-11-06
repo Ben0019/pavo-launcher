@@ -108,8 +108,12 @@ static char command_buffer[1024];
 static size_t command_length;
 static char config_path[512];
 static char pid_path[512];
+static char device[256];
 static char park_path[512];
 static char trace_path[512];
+static dev_t src_dev_id;
+static ino_t src_ino;
+static long long next_source_check;
 static FILE *trace_file;
 static int grabbed = 1;
 static int raw_axis[STICK_AXES];
@@ -842,6 +846,54 @@ static int axis_code(int idx) {
     }
 }
 
+/* Opens the physical controller and records the identity of the node we hold. */
+static int open_source(void) {
+    int fd = open(device, O_RDWR | O_CLOEXEC);
+    if (fd < 0) return 0;
+    if (ioctl(fd, EVIOCGRAB, 1) < 0) {
+        close(fd);
+        return 0;
+    }
+    struct stat st;
+    if (fstat(fd, &st) == 0) {
+        src_dev_id = st.st_dev;
+        src_ino = st.st_ino;
+    }
+    src_fd = fd;
+    grabbed = 1;
+    return 1;
+}
+
+/* The controller node is recreated when it sleeps, reconnects or the game
+ * switches USB modes. The old fd then points at a deleted node and silently
+ * stops receiving input, so compare the live node with the one we hold. */
+static int source_alive(void) {
+    if (src_fd < 0) return 0;
+    struct stat st;
+    if (stat(device, &st) != 0) return 0;
+    return st.st_dev == src_dev_id && st.st_ino == src_ino;
+}
+
+static int reconnect_source(void) {
+    if (src_fd >= 0) {
+        ioctl(src_fd, EVIOCGRAB, 0);
+        close(src_fd);
+        src_fd = -1;
+    }
+    grabbed = 0;
+    release_all_targets();
+    char found[256];
+    if (find_default_device(found, sizeof(found)) && strcmp(found, device)) {
+        snprintf(device, sizeof(device), "%s", found);
+    }
+    if (open_source()) {
+        fprintf(stderr, "reconnected to %s\n", device);
+        fflush(stderr);
+        return 1;
+    }
+    return 0;
+}
+
 static void derive_side_path(char *out, size_t size, const char *name) {
     out[0] = 0;
     const char *slash = strrchr(config_path, '/');
@@ -898,7 +950,7 @@ static void usage(const char *name) {
 }
 
 int main(int argc, char **argv) {
-    char device[256] = {0};
+    device[0] = 0;
     config_path[0] = 0;
     pid_path[0] = 0;
     socket_name[0] = 0;
@@ -928,14 +980,8 @@ int main(int argc, char **argv) {
 
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
-    src_fd = open(device, O_RDWR | O_CLOEXEC);
-    if (src_fd < 0) {
+    if (!open_source()) {
         fprintf(stderr, "open %s: %s\n", device, strerror(errno));
-        return 1;
-    }
-    if (ioctl(src_fd, EVIOCGRAB, 1) < 0) {
-        fprintf(stderr, "grab %s: %s\n", device, strerror(errno));
-        close(src_fd);
         return 1;
     }
     if (!create_virtual()) {
@@ -958,6 +1004,7 @@ int main(int argc, char **argv) {
     passthrough = !config.enabled;
     write_pid();
     now_ms = monotonic_ms();
+    next_source_check = now_ms + 1000;
     long long next_config_check = now_ms;
 
     while (!stop_requested) {
@@ -972,6 +1019,12 @@ int main(int argc, char **argv) {
             next_config_check = now_ms + CONFIG_POLL_MS;
         }
         update_grab();
+        if (now_ms >= next_source_check) {
+            next_source_check = now_ms + 1000;
+            if (!source_alive() && reconnect_source()) {
+                update_grab();
+            }
+        }
         tick();
         int timeout = 10;
         for (int i = 0; i <= KEY_MAX; i++) {
@@ -1020,8 +1073,16 @@ int main(int argc, char **argv) {
         }
 
         if (!(pfds[0].revents & POLLIN)) continue;
+        if (pfds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            if (reconnect_source()) update_grab();
+            continue;
+        }
         struct input_event ev[64];
         ssize_t n = read(src_fd, ev, sizeof(ev));
+        if (n < 0 && errno == ENODEV) {
+            if (reconnect_source()) update_grab();
+            continue;
+        }
         if (n <= 0) continue;
         if (!grabbed) continue;
         for (size_t i = 0; i < (size_t)n / sizeof(ev[0]); i++) {
