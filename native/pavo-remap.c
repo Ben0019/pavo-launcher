@@ -107,6 +107,8 @@ static size_t command_length;
 static char config_path[512];
 static char pid_path[512];
 static char park_path[512];
+static char trace_path[512];
+static FILE *trace_file;
 static int grabbed = 1;
 static int raw_axis[STICK_AXES];
 static int last_axis[STICK_AXES];
@@ -819,14 +821,39 @@ static int axis_code(int idx) {
     }
 }
 
-static void derive_park_path(void) {
-    park_path[0] = 0;
+static void derive_side_path(char *out, size_t size, const char *name) {
+    out[0] = 0;
     const char *slash = strrchr(config_path, '/');
     if (!slash) return;
     int dir = (int)(slash - config_path);
-    if (dir <= 0 || (size_t)dir + 32 >= sizeof(park_path)) return;
-    snprintf(park_path, sizeof(park_path),
-             "%.*s/controller-passthrough", dir, config_path);
+    if (dir <= 0 || (size_t)dir + strlen(name) + 2 >= size) return;
+    snprintf(out, size, "%.*s/%s", dir, config_path, name);
+}
+
+static void derive_park_path(void) {
+    derive_side_path(park_path, sizeof(park_path), "controller-passthrough");
+    derive_side_path(trace_path, sizeof(trace_path), "controller-trace");
+}
+
+/* Optional raw-vs-corrected logging, enabled by creating a marker file. */
+static void trace_tick(void) {
+    int wanted = trace_path[0] && access(trace_path, F_OK) == 0;
+    if (wanted && !trace_file) {
+        trace_file = fopen(trace_path, "a");
+        if (trace_file) {
+            setvbuf(trace_file, NULL, _IOLBF, 0);
+            fprintf(trace_file, "# cal dz=%d curve=%d gate=%d",
+                    config.stick_deadzone, config.stick_curve, config.gate_enabled);
+            for (int i = 0; i < 4; i++) {
+                fprintf(trace_file, " a%d=%d:%d:%d", i, config.stick_center[i],
+                        config.stick_min[i], config.stick_max[i]);
+            }
+            fprintf(trace_file, "\n");
+        }
+    } else if (!wanted && trace_file) {
+        fclose(trace_file);
+        trace_file = NULL;
+    }
 }
 
 /* The Joystick app parks the remapper so it can read the physical axes
@@ -913,6 +940,7 @@ int main(int argc, char **argv) {
     while (!stop_requested) {
         now_ms = monotonic_ms();
         if (now_ms >= next_config_check) {
+            trace_tick();
             if (config_changed()) {
                 if (!load_config()) break;
                 if (!config.enabled && !socket_enabled) break;
@@ -992,6 +1020,11 @@ int main(int argc, char **argv) {
                     float ox, oy;
                     stick_output(pair, &ox, &oy);
                     int out[2] = { unit_to_axis(ox), unit_to_axis(oy) };
+                    if (trace_file && pair <= 2) {
+                        fprintf(trace_file, "%lld,%d,%d,%d,%d,%d\n", now_ms,
+                                pair >> 1, raw_axis[pair], raw_axis[pair + 1],
+                                out[0], out[1]);
+                    }
                     for (int k = 0; k < 2; k++) {
                         int slot = pair + k;
                         int code = axis_code(slot);

@@ -134,6 +134,10 @@ public final class JoystickActivity extends PavoGlassActivity {
     }
 
     private void saveCalibration(boolean enabled) {
+        saveCalibration(enabled, false);
+    }
+
+    private void saveCalibration(boolean enabled, boolean quiet) {
         try {
             ControllerMapConfig cfg = new ControllerMapConfig();
             cfg.load(ControllerRemapManager.configFile(this));
@@ -149,7 +153,9 @@ public final class JoystickActivity extends PavoGlassActivity {
             cfg.save(ControllerRemapManager.configFile(this),
                     prefs.controllerRemapEnabled(), false);
             calibrationApplied = enabled;
-            LToast.makeText(this, Loc.s(this, "Saved"), Toast.LENGTH_SHORT).show();
+            if (!quiet) {
+                LToast.makeText(this, Loc.s(this, "Saved"), Toast.LENGTH_SHORT).show();
+            }
         } catch (Throwable ignored) {
         }
     }
@@ -317,6 +323,14 @@ public final class JoystickActivity extends PavoGlassActivity {
         float f = pos - i0;
         float gain = (1f - f) * gateGain[stick][i0] + f * gateGain[stick][i1];
         return gain / 1000f;
+    }
+
+    /** Redraws the pads and readout with the current tuning, without input. */
+    private void refreshPreview() {
+        float[] c = corrected(rawLx, rawLy, rawRx, rawRy);
+        pads.setAxes(c[0], c[1], c[2], c[3]);
+        values.setText(String.format(Locale.US,
+                "L  %+.2f / %+.2f        R  %+.2f / %+.2f", c[0], c[1], c[2], c[3]));
     }
 
     private float[] corrected(float lx, float ly, float rx, float ry) {
@@ -590,9 +604,16 @@ public final class JoystickActivity extends PavoGlassActivity {
                         curveValue.setText(curve + "%");
                     }
                 }
+                if (fromUser) {
+                    stickEnabled = true;
+                    refreshPreview();
+                }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {
+                // Tuning is a live control: commit on release, no Apply needed.
+                saveCalibration(true, true);
+            }
         });
         box.addView(bar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
