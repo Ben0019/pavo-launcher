@@ -46,6 +46,7 @@ public final class JoystickActivity extends PavoGlassActivity {
     private int selectedStick;
     private final int[] deadzone = {60, 60};
     private final int[] curve = {100, 100};
+    private final int[] floor = {0, 0};
     private TextView leftTab;
     private TextView rightTab;
     private TextView layerChip;
@@ -67,8 +68,10 @@ public final class JoystickActivity extends PavoGlassActivity {
     private boolean rangeCapturing;
     private SeekBar deadzoneBar;
     private SeekBar curveBar;
+    private SeekBar floorBar;
     private TextView deadzoneValue;
     private TextView curveValue;
+    private TextView floorValue;
     private float rawLx, rawLy, rawRx, rawRy;
 
     @Override
@@ -125,6 +128,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         stickEnabled = cfg.stickEnabled;
         System.arraycopy(cfg.stickDeadzone, 0, deadzone, 0, 2);
         System.arraycopy(cfg.stickCurve, 0, curve, 0, 2);
+        System.arraycopy(cfg.stickFloor, 0, floor, 0, 2);
         System.arraycopy(cfg.stickCenter, 0, centers, 0, centers.length);
         System.arraycopy(cfg.stickMin, 0, mins, 0, mins.length);
         System.arraycopy(cfg.stickMax, 0, maxs, 0, maxs.length);
@@ -162,6 +166,7 @@ public final class JoystickActivity extends PavoGlassActivity {
             System.arraycopy(maxs, 0, cfg.stickMax, 0, maxs.length);
             System.arraycopy(deadzone, 0, cfg.stickDeadzone, 0, 2);
             System.arraycopy(curve, 0, cfg.stickCurve, 0, 2);
+            System.arraycopy(floor, 0, cfg.stickFloor, 0, 2);
             cfg.gateEnabled = gateEnabled;
             System.arraycopy(gateGain[0], 0, cfg.gateGain[0], 0, GATE_POINTS);
             System.arraycopy(gateGain[1], 0, cfg.gateGain[1], 0, GATE_POINTS);
@@ -198,6 +203,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         deadzone[1] = 60;
         curve[0] = 100;
         curve[1] = 100;
+        floor[0] = 0;
+        floor[1] = 0;
         if (deadzoneBar != null) deadzoneBar.setProgress(deadzone[selectedStick]);
         if (deadzoneValue != null) deadzoneValue.setText(percent(deadzone[selectedStick]));
         pads.setDeadzone(deadzone[selectedStick] / 1000f);
@@ -207,6 +214,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         }
         if (curveBar != null) curveBar.setProgress(Math.max(0, curve[selectedStick] - 50));
         if (curveValue != null) curveValue.setText(curve[selectedStick] + "%");
+        if (floorBar != null) floorBar.setProgress(floor[selectedStick]);
+        if (floorValue != null) floorValue.setText(percent(floor[selectedStick]));
         stickEnabled = false;
         updateLayerChip();
         clearCalibration();
@@ -408,6 +417,8 @@ public final class JoystickActivity extends PavoGlassActivity {
                 m = shaped;
             }
         }
+        float fl = Math.min(0.9f, floor[ix >> 1] / 1000f);
+        if (m > 0f && fl > 0f) m = fl + (1f - fl) * m;
         if (r > 0f) {
             out[at] = nx / r * m;
             out[at + 1] = ny / r * m;
@@ -493,9 +504,11 @@ public final class JoystickActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         deadzoneValue = text(percent(deadzone[selectedStick]), 9.5f, TEXT, true);
-        addSlider(tuning, "Deadzone", deadzone[selectedStick], 300, true);
+        addSlider(tuning, "Deadzone", deadzone[selectedStick], 300, 0);
         curveValue = text(curve[selectedStick] + "%", 9.5f, TEXT, true);
-        addSlider(tuning, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, false);
+        addSlider(tuning, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, 1);
+        floorValue = text(percent(floor[selectedStick]), 9.5f, TEXT, true);
+        addSlider(tuning, "Min output", floor[selectedStick], 300, 2);
         updateStickTabs();
         updateLayerChip();
 
@@ -766,7 +779,7 @@ public final class JoystickActivity extends PavoGlassActivity {
     }
 
     private void addSlider(LinearLayout parent, String label, int value,
-                           int max, boolean isDeadzone) {
+                           int max, final int kind) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(0, dp(4), 0, 0);
@@ -777,7 +790,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         name.setLetterSpacing(0.08f);
         row.addView(name, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView valueText = isDeadzone ? deadzoneValue : curveValue;
+        TextView valueText = kind == 0 ? deadzoneValue
+                : kind == 1 ? curveValue : floorValue;
         if (valueText != null) {
             valueText.setTextColor(TEXT);
             row.addView(valueText);
@@ -802,16 +816,21 @@ public final class JoystickActivity extends PavoGlassActivity {
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress,
                                                     boolean fromUser) {
-                if (isDeadzone) {
+                if (kind == 0) {
                     deadzone[selectedStick] = progress;
                     pads.setDeadzone(progress / 1000f);
                     if (deadzoneValue != null) {
                         deadzoneValue.setText(percent(progress));
                     }
-                } else {
+                } else if (kind == 1) {
                     curve[selectedStick] = progress + 50;
                     if (curveValue != null) {
                         curveValue.setText(curve[selectedStick] + "%");
+                    }
+                } else {
+                    floor[selectedStick] = progress;
+                    if (floorValue != null) {
+                        floorValue.setText(percent(progress));
                     }
                 }
                 if (fromUser) {
@@ -829,11 +848,13 @@ public final class JoystickActivity extends PavoGlassActivity {
         box.addView(bar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         parent.addView(box);
-        if (isDeadzone) {
+        if (kind == 0) {
             deadzoneBar = bar;
             pads.setDeadzone(value / 1000f);
-        } else {
+        } else if (kind == 1) {
             curveBar = bar;
+        } else {
+            floorBar = bar;
         }
     }
 
@@ -847,6 +868,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         pads.setDeadzone(deadzone[stick] / 1000f);
         if (curveBar != null) curveBar.setProgress(Math.max(0, curve[stick] - 50));
         if (curveValue != null) curveValue.setText(curve[stick] + "%");
+        if (floorBar != null) floorBar.setProgress(floor[stick]);
+        if (floorValue != null) floorValue.setText(percent(floor[stick]));
         refreshPreview();
     }
 

@@ -56,6 +56,7 @@ final class ControllerMapConfig {
     final int[] stickMax = new int[STICK_AXES];
     final int[] stickDeadzone = {60, 60};
     final int[] stickCurve = {100, 100};
+    final int[] stickFloor = {0, 0};
     boolean stickSpecified;
     boolean stickCalibrated;
     boolean gateEnabled;
@@ -161,6 +162,8 @@ final class ControllerMapConfig {
             b.append("stick_deadzone_right=").append(stickDeadzone[1]).append('\n');
             b.append("stick_curve_left=").append(stickCurve[0]).append('\n');
             b.append("stick_curve_right=").append(stickCurve[1]).append('\n');
+            b.append("stick_floor_left=").append(stickFloor[0]).append('\n');
+            b.append("stick_floor_right=").append(stickFloor[1]).append('\n');
             if (gateEnabled) {
                 b.append("gate_enabled=1\n");
                 appendGate(b, 0);
@@ -214,6 +217,8 @@ final class ControllerMapConfig {
         stickDeadzone[1] = 60;
         stickCurve[0] = 100;
         stickCurve[1] = 100;
+        stickFloor[0] = 0;
+        stickFloor[1] = 0;
         gateEnabled = false;
         for (int i = 0; i < STICK_AXES; i++) {
             stickCenter[i] = 0;
@@ -270,6 +275,21 @@ final class ControllerMapConfig {
                 stickCurve[0] = v;
                 stickCurve[1] = v;
             }
+            stickSpecified = true;
+            stickCalibrated = true;
+            return;
+        }
+        if ("stick_floor".equals(key)) {
+            int v = Math.max(0, Math.min(300, parseInt(value)));
+            stickFloor[0] = v;
+            stickFloor[1] = v;
+            stickSpecified = true;
+            stickCalibrated = true;
+            return;
+        }
+        if ("stick_floor_left".equals(key) || "stick_floor_right".equals(key)) {
+            int stick = "stick_floor_left".equals(key) ? 0 : 1;
+            stickFloor[stick] = Math.max(0, Math.min(300, parseInt(value)));
             stickSpecified = true;
             stickCalibrated = true;
             return;
@@ -349,6 +369,7 @@ final class ControllerMapConfig {
         boolean hadCalibrated = stickCalibrated;
         int[] dz = stickDeadzone.clone();
         int[] cv = stickCurve.clone();
+        int[] fl = stickFloor.clone();
         int[] center = stickCenter.clone();
         int[] min = stickMin.clone();
         int[] max = stickMax.clone();
@@ -362,6 +383,7 @@ final class ControllerMapConfig {
             stickCalibrated = hadCalibrated;
             System.arraycopy(dz, 0, stickDeadzone, 0, 2);
             System.arraycopy(cv, 0, stickCurve, 0, 2);
+            System.arraycopy(fl, 0, stickFloor, 0, 2);
             System.arraycopy(center, 0, stickCenter, 0, STICK_AXES);
             System.arraycopy(min, 0, stickMin, 0, STICK_AXES);
             System.arraycopy(max, 0, stickMax, 0, STICK_AXES);

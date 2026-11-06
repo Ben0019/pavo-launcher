@@ -40,6 +40,8 @@
  *   stick_deadzone_right=60
  *   stick_curve_left=100     percent (100 = linear)
  *   stick_curve_right=100
+ *   stick_floor_left=0       minimum output, permille (anti-deadzone)
+ *   stick_floor_right=0
  *   gate_enabled=1
  *   gate_left=1000,1010,...  per-angle gain, 32 points, permille
  *   gate_right=1000,1010,...
@@ -76,6 +78,7 @@ typedef struct {
     int stick_max[STICK_AXES];
     int stick_deadzone[2];
     int stick_curve[2];
+    int stick_floor[2];
     int gate_enabled;
     int gate_gain[2][GATE_POINTS];
 } Config;
@@ -511,6 +514,8 @@ static void reset_sticks(Config *c) {
     c->stick_deadzone[1] = 0;
     c->stick_curve[0] = 100;
     c->stick_curve[1] = 100;
+    c->stick_floor[0] = 0;
+    c->stick_floor[1] = 0;
     for (int i = 0; i < STICK_AXES; i++) {
         c->stick_center[i] = 0;
         c->stick_min[i] = -32767;
@@ -569,6 +574,16 @@ static int load_config(void) {
                 next.stick_curve[0] = v;
                 next.stick_curve[1] = v;
             }
+        } else if (!strcmp(key, "stick_floor")) {
+            int v;
+            if (parse_int(value, &v)) {
+                next.stick_floor[0] = v;
+                next.stick_floor[1] = v;
+            }
+        } else if (!strcmp(key, "stick_floor_left")) {
+            parse_int(value, &next.stick_floor[0]);
+        } else if (!strcmp(key, "stick_floor_right")) {
+            parse_int(value, &next.stick_floor[1]);
         } else if (!strcmp(key, "stick_curve_left")) {
             parse_int(value, &next.stick_curve[0]);
         } else if (!strcmp(key, "stick_curve_right")) {
@@ -832,6 +847,13 @@ static void stick_output(int pair, float *out_x, float *out_y) {
             m = shaped;
         }
     }
+    /* Anti-deadzone: land just above the game's own threshold so a gentle
+     * push registers as the slowest speed instead of nothing. */
+    float floorv = (stick <= 1 ? config.stick_floor[stick] : 0) / 1000.0f;
+    if (m > 0.0f && floorv > 0.0f) {
+        if (floorv > 0.90f) floorv = 0.90f;
+        m = floorv + (1.0f - floorv) * m;
+    }
     if (r > 0.0f) {
         *out_x = nx / r * m;
         *out_y = ny / r * m;
@@ -929,9 +951,10 @@ static void trace_tick(void) {
         trace_file = fopen(trace_path, "a");
         if (trace_file) {
             setvbuf(trace_file, NULL, _IOLBF, 0);
-            fprintf(trace_file, "# cal dzL=%d dzR=%d curveL=%d curveR=%d gate=%d",
+            fprintf(trace_file, "# cal dzL=%d dzR=%d curveL=%d curveR=%d floorL=%d floorR=%d gate=%d",
                     config.stick_deadzone[0], config.stick_deadzone[1],
                     config.stick_curve[0], config.stick_curve[1],
+                    config.stick_floor[0], config.stick_floor[1],
                     config.gate_enabled);
             for (int i = 0; i < 4; i++) {
                 fprintf(trace_file, " a%d=%d:%d:%d", i, config.stick_center[i],
