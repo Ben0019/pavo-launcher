@@ -25,8 +25,8 @@ final class ScreenStream {
     }
 
     // 16:9 at 1/6 scale. Each pixel is RGB888, so a frame is 172,800 bytes.
-    static final int WIDTH = 320;
-    static final int HEIGHT = 180;
+    static final int WIDTH = 480;
+    static final int HEIGHT = 270;
     private static final int BPP = 3;
     private static final int FRAME_BYTES = WIDTH * HEIGHT * BPP;
     private static final long FRAME_INTERVAL_MS = 33L;
