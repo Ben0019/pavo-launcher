@@ -5,13 +5,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.InputDevice;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +26,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /** Built-in joystick calibration and live stick accuracy test. */
@@ -43,6 +48,9 @@ public final class JoystickActivity extends PavoGlassActivity {
     private final int[] curve = {100, 100};
     private TextView leftTab;
     private TextView rightTab;
+    private final List<View> nav = new ArrayList<>();
+    private long lastNavAdjust;
+    private long lastHatNav;
     private final int[] centers = new int[6];
     private final int[] mins = new int[6];
     private final int[] maxs = new int[6];
@@ -77,6 +85,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         super.onResume();
         calibrating = false;
         hideBars();
+        hidePerformanceOverlay();
         remapWasEnabled = prefs.controllerRemapEnabled();
         ControllerRemapManager.setPassthrough(this, true);
         PavoA11yService.setRemapUiActive(true);
@@ -391,56 +400,52 @@ public final class JoystickActivity extends PavoGlassActivity {
 
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xF2080B10);
 
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(22), dp(16), dp(22), dp(14));
-        card.setBackground(Ui.rounded(0xFF0E131A, dp(22), 0x33FFFFFF, dp(1)));
+        GlassPanel card = new GlassPanel(this, null, ACCENT, 0x4D0B0E14, 26, true);
+        card.setClearGlass(true);
+        card.setClearBodyAlpha(0);
+        card.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
+        card.setPadding(dp(20), dp(10), dp(20), dp(12));
+        FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        cardLp.setMargins(dp(14), dp(12), dp(14), dp(12));
+        root.addView(card, cardLp);
 
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout titles = new LinearLayout(this);
-        titles.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text("JOYSTICKS", 20f, TEXT, false);
-        title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
-        title.setLetterSpacing(0.04f);
-        titles.addView(title);
-        TextView sub = text("CALIBRATION", 9f, MUTED, true);
-        sub.setLetterSpacing(0.12f);
-        titles.addView(sub);
-        header.addView(titles, new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView close = text("\u2715", 16f, TEXT, false);
-        close.setPadding(dp(10), dp(6), dp(10), dp(6));
-        close.setGravity(Gravity.CENTER);
-        close.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                finish();
-            }
-        });
-        header.addView(close);
-        card.addView(header, new LinearLayout.LayoutParams(
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        card.addView(column, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        column.addView(buildHeader(), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        TextView hint = text("Centre both sticks, roll each one around its full edge, "
-                + "then press Finish in the Odin calibration screen.",
-                9f, MUTED, false);
-        hint.setPadding(0, dp(8), 0, dp(6));
-        card.addView(hint);
+        View divider = new View(this);
+        divider.setBackgroundColor(0x22FFFFFF);
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+        dlp.topMargin = dp(8);
+        column.addView(divider, dlp);
 
-        card.addView(pads, new LinearLayout.LayoutParams(
+        column.addView(pads, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        values = text("", 9f, 0xB3FFFFFF, true);
+        values = text("L  +0.00 / +0.00        R  +0.00 / +0.00",
+                9.5f, 0xB3FFFFFF, true);
         values.setGravity(Gravity.CENTER);
-        values.setPadding(0, dp(2), 0, dp(4));
-        card.addView(values);
+        values.setPadding(0, dp(1), 0, dp(2));
+        column.addView(values);
+
+        TextView testHint = text(
+                "Release the sticks; both dots should sit inside the centre rings.",
+                8.5f, MUTED, false);
+        testHint.setGravity(Gravity.CENTER);
+        testHint.setPadding(0, 0, 0, dp(6));
+        column.addView(testHint);
+
+        LinearLayout tuning = panel(column);
 
         LinearLayout stickRow = new LinearLayout(this);
         stickRow.setOrientation(LinearLayout.HORIZONTAL);
-        stickRow.setPadding(0, dp(2), 0, dp(2));
         leftTab = stickTab("Left");
         leftTab.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { selectStick(0); }
@@ -455,13 +460,13 @@ public final class JoystickActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         rightParams.leftMargin = dp(6);
         stickRow.addView(rightTab, rightParams);
-        card.addView(stickRow, new LinearLayout.LayoutParams(
+        tuning.addView(stickRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        deadzoneValue = text(percent(deadzone[selectedStick]), 9f, 0xB3FFFFFF, true);
-        addSlider(card, "Deadzone", deadzone[selectedStick], 300, true);
-        curveValue = text(curve[selectedStick] + "%", 9f, 0xB3FFFFFF, true);
-        addSlider(card, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, false);
+        deadzoneValue = text(percent(deadzone[selectedStick]), 9.5f, TEXT, true);
+        addSlider(tuning, "Deadzone", deadzone[selectedStick], 300, true);
+        curveValue = text(curve[selectedStick] + "%", 9.5f, TEXT, true);
+        addSlider(tuning, "CURVE", Math.max(0, curve[selectedStick] - 50), 150, false);
         updateStickTabs();
 
         LinearLayout tuneRow = new LinearLayout(this);
@@ -470,74 +475,151 @@ public final class JoystickActivity extends PavoGlassActivity {
 
         TextView capture = smallButton("Center", false);
         capture.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { captureCenter(); }
+            @Override public void onClick(View v) { Haptics.click(v); captureCenter(); }
         });
         tuneRow.addView(capture, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        addNav(capture);
 
         TextView range = smallButton("Range", false);
         range.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { startRangeCapture(); }
+            @Override public void onClick(View v) { Haptics.click(v); startRangeCapture(); }
         });
         LinearLayout.LayoutParams rglp = new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         rglp.leftMargin = dp(6);
         tuneRow.addView(range, rglp);
+        addNav(range);
 
         TextView gate = smallButton("Gate", false);
         gate.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { startGateCapture(); }
+            @Override public void onClick(View v) { Haptics.click(v); startGateCapture(); }
         });
         LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         glp.leftMargin = dp(6);
         tuneRow.addView(gate, glp);
+        addNav(gate);
 
         TextView apply = smallButton("Apply", true);
         apply.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { saveCalibration(true); }
+            @Override public void onClick(View v) { Haptics.click(v); saveCalibration(true); }
         });
         LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         al.leftMargin = dp(6);
         tuneRow.addView(apply, al);
+        addNav(apply);
 
         TextView reset = smallButton("RESET", false);
         reset.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { resetCalibration(); }
+            @Override public void onClick(View v) { Haptics.click(v); resetCalibration(); }
         });
         LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         rl.leftMargin = dp(6);
         tuneRow.addView(reset, rl);
-        card.addView(tuneRow, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        addNav(reset);
 
-        TextView testHint = text(
-                "Release the sticks; both dots should sit inside the centre rings.",
-                8.8f, 0x99FFFFFF, false);
-        testHint.setGravity(Gravity.CENTER);
-        testHint.setPadding(0, 0, 0, dp(8));
-        card.addView(testHint);
+        LinearLayout.LayoutParams tuneLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tuneLp.topMargin = dp(6);
+        column.addView(tuneRow, tuneLp);
 
         TextView calibrate = text("CALIBRATION", 10f, 0xFF061015, true);
         calibrate.setGravity(Gravity.CENTER);
-        calibrate.setPadding(dp(12), dp(8), dp(12), dp(8));
+        calibrate.setPadding(dp(12), dp(9), dp(12), dp(9));
         calibrate.setBackground(Ui.rounded(ACCENT, dp(12)));
         calibrate.setFocusable(true);
+        calibrate.setFocusableInTouchMode(true);
+        calibrate.setDefaultFocusHighlightEnabled(false);
+        calibrate.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                v.setBackground(focused
+                        ? Ui.rounded(ACCENT, dp(12), 0xFFFFFFFF, dp(1.5f))
+                        : Ui.rounded(ACCENT, dp(12)));
+            }
+        });
         calibrate.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
+                Haptics.click(v);
                 openOdinCalibration();
             }
         });
-        card.addView(calibrate, new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams calLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        calLp.topMargin = dp(8);
+        column.addView(calibrate, calLp);
+        addNav(calibrate);
+
+        setContentView(root);
+        root.post(new Runnable() {
+            @Override public void run() {
+                if (leftTab != null && !isFinishing()) leftTab.requestFocus();
+            }
+        });
+    }
+
+    private View buildHeader() {
+        FrameLayout header = new FrameLayout(this);
+
+        LinearLayout titles = new LinearLayout(this);
+        titles.setOrientation(LinearLayout.VERTICAL);
+        titles.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView title = text("JOYSTICKS", 19f, TEXT, false);
+        title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        title.setLetterSpacing(0.05f);
+        title.setGravity(Gravity.CENTER);
+        titles.addView(title, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView sub = text("CALIBRATION", 9.5f, MUTED, false);
+        sub.setLetterSpacing(0.13f);
+        sub.setGravity(Gravity.CENTER);
+        sub.setPadding(0, dp(2), 0, 0);
+        titles.addView(sub, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        header.addView(titles, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        cardLp.setMargins(dp(14), dp(12), dp(14), dp(12));
-        root.addView(card, cardLp);
-        setContentView(root);
+        TextView close = text("\u00D7", 22f, 0xCCFFFFFF, false);
+        close.setGravity(Gravity.CENTER);
+        close.setIncludeFontPadding(false);
+        close.setPadding(dp(8), 0, dp(8), 0);
+        close.setMinWidth(dp(34));
+        close.setMinHeight(dp(32));
+        close.setFocusable(true);
+        close.setFocusableInTouchMode(true);
+        close.setDefaultFocusHighlightEnabled(false);
+        close.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                finishAnimated();
+            }
+        });
+        close.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                v.setBackground(focused
+                        ? Ui.rounded(0x00000000, dp(12), 0xE6FFFFFF, dp(1.5f))
+                        : new ColorDrawable(0x00000000));
+            }
+        });
+        header.addView(close, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.END | Gravity.CENTER_VERTICAL));
+        addNav(close);
+        return header;
+    }
+
+    private LinearLayout panel(LinearLayout parent) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(14), dp(9), dp(14), dp(9));
+        box.setBackground(Ui.rounded(0x12FFFFFF, dp(18), 0x22FFFFFF, dp(1)));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(4);
+        parent.addView(box, lp);
+        return box;
     }
 
     private void openOdinCalibration() {
@@ -561,6 +643,34 @@ public final class JoystickActivity extends PavoGlassActivity {
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (event == null) return super.onGenericMotionEvent(event);
+        // The Odin D-pad arrives as a hat, not as key events.
+        long now = SystemClock.uptimeMillis();
+        if (now - lastHatNav > 180L) {
+            float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+            float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+            if (hatY > 0.5f) {
+                lastHatNav = now;
+                moveNav(1);
+            } else if (hatY < -0.5f) {
+                lastHatNav = now;
+                moveNav(-1);
+            } else if (hatX > 0.5f) {
+                lastHatNav = now;
+                if (!adjustFocusedBar(1)) moveNav(1);
+            } else if (hatX < -0.5f) {
+                lastHatNav = now;
+                if (!adjustFocusedBar(-1)) moveNav(-1);
+            }
+        }
+        // Right stick nudges a focused slider, matching the other built-ins.
+        if (getCurrentFocus() instanceof SeekBar) {
+            float rz = event.getAxisValue(MotionEvent.AXIS_RZ);
+            long rzNow = SystemClock.uptimeMillis();
+            if (Math.abs(rz) > 0.65f && rzNow - lastNavAdjust > 140L) {
+                lastNavAdjust = rzNow;
+                adjustFocusedBar(rz > 0f ? 1 : -1);
+            }
+        }
         int source = event.getSource();
         boolean gamepad = (source & InputDevice.SOURCE_JOYSTICK) != 0
                 || (source & InputDevice.SOURCE_GAMEPAD) != 0;
@@ -602,20 +712,36 @@ public final class JoystickActivity extends PavoGlassActivity {
                            int max, boolean isDeadzone) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(0, dp(2), 0, 0);
+        box.setPadding(0, dp(4), 0, 0);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView name = text(label, 9f, 0xB3FFFFFF, true);
+        TextView name = text(label, 9.5f, MUTED, true);
+        name.setLetterSpacing(0.08f);
         row.addView(name, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView valueText = isDeadzone ? deadzoneValue : curveValue;
-        if (valueText != null) row.addView(valueText);
+        if (valueText != null) {
+            valueText.setTextColor(TEXT);
+            row.addView(valueText);
+        }
         box.addView(row);
         SeekBar bar = new SeekBar(this);
         bar.setMax(max);
         bar.setProgress(Math.max(0, Math.min(max, value)));
         bar.setPadding(dp(2), 0, dp(2), 0);
+        bar.setFocusable(true);
+        bar.setFocusableInTouchMode(true);
+        bar.setDefaultFocusHighlightEnabled(false);
+        bar.setBackground(new ColorDrawable(0x00000000));
+        bar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                v.setBackground(focused
+                        ? Ui.rounded(0x24FFFFFF, dp(12), 0xE6FFFFFF, dp(1.5f))
+                        : new ColorDrawable(0x00000000));
+            }
+        });
+        addNav(bar);
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress,
                                                     boolean fromUser) {
@@ -669,19 +795,109 @@ public final class JoystickActivity extends PavoGlassActivity {
     private void updateStickTabs() {
         if (leftTab == null || rightTab == null) return;
         boolean left = selectedStick == 0;
-        leftTab.setBackground(left ? Ui.rounded(ACCENT, dp(9))
-                : Ui.rounded(0x22FFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+        boolean leftFocus = leftTab.hasFocus();
+        boolean rightFocus = rightTab.hasFocus();
+        leftTab.setBackground(left
+                ? Ui.rounded(ACCENT, dp(10), leftFocus ? 0xFFFFFFFF : 0x00000000, dp(1.5f))
+                : Ui.rounded(0x22FFFFFF, dp(10), leftFocus ? 0xE6FFFFFF : 0x33FFFFFF, dp(1.5f)));
         leftTab.setTextColor(left ? 0xFF061015 : TEXT);
-        rightTab.setBackground(!left ? Ui.rounded(ACCENT, dp(9))
-                : Ui.rounded(0x22FFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+        rightTab.setBackground(!left
+                ? Ui.rounded(ACCENT, dp(10), rightFocus ? 0xFFFFFFFF : 0x00000000, dp(1.5f))
+                : Ui.rounded(0x22FFFFFF, dp(10), rightFocus ? 0xE6FFFFFF : 0x33FFFFFF, dp(1.5f)));
         rightTab.setTextColor(!left ? 0xFF061015 : TEXT);
     }
 
+    private void addNav(View v) {
+        if (v == null || nav.contains(v)) return;
+        v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
+        nav.add(v);
+    }
+
+    private void moveNav(int direction) {
+        if (nav.isEmpty()) return;
+        View current = getCurrentFocus();
+        int idx = nav.indexOf(current);
+        if (idx < 0) idx = direction > 0 ? -1 : 0;
+        for (int i = 0; i < nav.size(); i++) {
+            idx = (idx + direction + nav.size()) % nav.size();
+            View candidate = nav.get(idx);
+            if (candidate.getVisibility() == View.VISIBLE && candidate.isEnabled()
+                    && candidate.requestFocus()) {
+                return;
+            }
+        }
+    }
+
+    private boolean adjustFocusedBar(int direction) {
+        View focused = getCurrentFocus();
+        if (!(focused instanceof SeekBar)) return false;
+        SeekBar bar = (SeekBar) focused;
+        int next = Math.max(0, Math.min(bar.getMax(), bar.getProgress() + direction * 5));
+        if (next == bar.getProgress()) return true;
+        bar.setProgress(next);
+        stickEnabled = true;
+        refreshPreview();
+        saveCalibration(true, true);
+        return true;
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (ControllerNav.isSyntheticStickDpad(event)) return true;
+        ControllerNav.noteExternalDpad(event);
+        int code = event.getKeyCode();
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B) {
+                if (event.getRepeatCount() == 0) finishAnimated();
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_DPAD_CENTER
+                    || code == KeyEvent.KEYCODE_ENTER) {
+                if (event.getRepeatCount() == 0) {
+                    View focused = getCurrentFocus();
+                    if (focused != null) {
+                        Haptics.click(focused);
+                        focused.performClick();
+                    } else {
+                        moveNav(1);
+                    }
+                }
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_DPAD_UP) {
+                moveNav(-1);
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
+                moveNav(1);
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
+                if (!adjustFocusedBar(-1)) moveNav(-1);
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (!adjustFocusedBar(1)) moveNav(1);
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     private TextView stickTab(String label) {
-        TextView v = text(label, 9f, TEXT, true);
+        TextView v = text(label, 9.5f, TEXT, true);
         v.setGravity(Gravity.CENTER);
         v.setPadding(dp(8), dp(7), dp(8), dp(7));
         v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
+        v.setDefaultFocusHighlightEnabled(false);
+        v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View view, boolean focused) {
+                updateStickTabs();
+            }
+        });
+        addNav(v);
         return v;
     }
 
@@ -689,14 +905,30 @@ public final class JoystickActivity extends PavoGlassActivity {
         return String.format(Locale.US, "%.1f%%", permille / 10f);
     }
 
-    private TextView smallButton(String label, boolean primary) {
-        TextView v = text(label, 9f, primary ? 0xFF061015 : TEXT, true);
+    private TextView smallButton(final String label, final boolean primary) {
+        TextView v = text(label, 9.5f, primary ? 0xFF061015 : TEXT, true);
         v.setGravity(Gravity.CENTER);
-        v.setPadding(dp(8), dp(6), dp(8), dp(6));
-        v.setBackground(primary ? Ui.rounded(ACCENT, dp(10))
-                : Ui.rounded(0x22FFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+        v.setPadding(dp(8), dp(7), dp(8), dp(7));
+        v.setBackground(buttonBackground(primary, false));
         v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
+        v.setDefaultFocusHighlightEnabled(false);
+        v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View view, boolean focused) {
+                view.setBackground(buttonBackground(primary, focused));
+            }
+        });
         return v;
+    }
+
+    private android.graphics.drawable.GradientDrawable buttonBackground(boolean primary,
+                                                                       boolean focused) {
+        if (primary) {
+            return focused ? Ui.rounded(ACCENT, dp(11), 0xFFFFFFFF, dp(1.5f))
+                    : Ui.rounded(ACCENT, dp(11));
+        }
+        return focused ? Ui.rounded(0x26FFFFFF, dp(11), 0xE6FFFFFF, dp(1.5f))
+                : Ui.rounded(0x22FFFFFF, dp(11), 0x33FFFFFF, dp(1));
     }
 
     private void hideBars() {
