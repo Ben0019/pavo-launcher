@@ -219,6 +219,9 @@ final class ScreenAmbient {
             // The scene drives the full 0..1 range; the user's Brightness
             // setting remains the ceiling when the frame is written.
             float ledVal = shaped;
+            // Barely-there cap for a detected highlight, about 0.5% of the
+            // user's ceiling. Dark scenes without highlights still go to 0.
+            if (hiCount > 4) ledVal = Math.max(ledVal, 0.005f);
             int avg = Color.rgb(
                     (int) Math.round(avgR / count),
                     (int) Math.round(avgG / count),
