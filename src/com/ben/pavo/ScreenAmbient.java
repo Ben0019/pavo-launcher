@@ -161,6 +161,10 @@ final class ScreenAmbient {
         private double hiValSum;
         private double hiWeight;
         private double hiAchromaticWeight;
+        private double sceneHiR;
+        private double sceneHiG;
+        private double sceneHiB;
+        private double sceneHiWeight;
         private double totalWeight;
 
         /**
@@ -184,6 +188,10 @@ final class ScreenAmbient {
                 hiB += b * s;
                 hiValSum += val * s;
                 hiWeight += s;
+                sceneHiR += r;
+                sceneHiG += g;
+                sceneHiB += b;
+                sceneHiWeight += 1.0;
                 if ((max - min) / (float) max < 0.15f) {
                     hiAchromaticWeight += s;
                 }
@@ -241,7 +249,7 @@ final class ScreenAmbient {
                         (int) Math.round(hiR / hiWeight),
                         (int) Math.round(hiG / hiWeight),
                         (int) Math.round(hiB / hiWeight));
-                return withValue(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
+                return finish(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
             }
             if (weightSum > totalWeight * 0.001) {
                 int best = 0;
@@ -266,17 +274,29 @@ final class ScreenAmbient {
                 int dominant = Color.HSVToColor(new float[]{hue, sat, 1f});
                 int base = applySaturation(blend(dominant, avg, 0.22f),
                         SCREEN_VIVIDNESS);
-                return withValue(base, ledVal);
+                return finish(base, ledVal);
             }
             if (hiWeight > 0.5) {
                 int hi = Color.rgb(
                         (int) Math.round(hiR / hiWeight),
                         (int) Math.round(hiG / hiWeight),
                         (int) Math.round(hiB / hiWeight));
-                return withValue(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
+                return finish(applySaturation(hi, SCREEN_VIVIDNESS), ledVal);
             }
             Color.RGBToHSV(Color.red(avg), Color.green(avg), Color.blue(avg), hsv);
-            return withValue(Color.HSVToColor(hsv), ledVal);
+            return finish(Color.HSVToColor(hsv), ledVal);
+        }
+
+        /** Blend the edge colour with the frame's bright central accent. */
+        private int finish(int base, float value) {
+            if (sceneHiWeight > 4.0) {
+                int central = Color.rgb(
+                        (int) Math.round(sceneHiR / sceneHiWeight),
+                        (int) Math.round(sceneHiG / sceneHiWeight),
+                        (int) Math.round(sceneHiB / sceneHiWeight));
+                base = blend(base, central, 0.35f);
+            }
+            return withValue(base, value);
         }
     }
 
