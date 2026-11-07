@@ -228,6 +228,31 @@ final class FanCurve {
         return ensureTerminal(b.toString());
     }
 
+    /** Move every point by deltaC, keeping the edited shape around the hold. */
+    static String shiftCurve(String curve, int deltaC) {
+        TreeMap<Integer, Integer> map = new TreeMap<>();
+        for (int[] p : points(curve)) {
+            int t = clamp(p[0] + deltaC, 30, 100);
+            Integer old = map.get(t);
+            if (old == null || p[1] > old) map.put(t, p[1]);
+        }
+        StringBuilder b = new StringBuilder();
+        for (Map.Entry<Integer, Integer> e : map.entrySet()) {
+            if (b.length() > 0) b.append(',');
+            b.append(e.getKey()).append(':').append(e.getValue());
+        }
+        return b.toString();
+    }
+
+    /** Change only the final (hold) point's duty. */
+    static String setLastDuty(String curve, int duty) {
+        List<int[]> pts = points(curve);
+        if (pts.isEmpty()) return curve;
+        int[] last = pts.get(pts.size() - 1);
+        last[1] = clamp(duty, 0, 100);
+        return serialize(pts);
+    }
+
     /** 15 control points at 5 °C intervals at one duty level. */
     static String flat(int duty) {        int d = clamp(duty, 0, 100);
         StringBuilder b = new StringBuilder();

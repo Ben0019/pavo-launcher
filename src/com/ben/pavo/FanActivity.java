@@ -639,14 +639,13 @@ public final class FanActivity extends PavoGlassActivity {
         holdBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                holdTarget = progress + 45;
-                if (holdValue != null) holdValue.setText(holdTarget + "°C");
-                if (!fromUser || suppress) return;
-                prefs.setFanHoldTargetC(holdTarget);
-                prefs.resetFanHoldCurve();
-                refreshCurveDisplay();
-                updateLiveHint();
-                if (mode == MODE_HOLD) FanControl.update(FanActivity.this);
+                int t = progress + 45;
+                if (holdValue != null) holdValue.setText(t + "°C");
+                if (!fromUser || suppress) {
+                    holdTarget = t;
+                    return;
+                }
+                changeHoldTarget(t);
                 Haptics.tick(seekBar);
             }
 
@@ -670,14 +669,13 @@ public final class FanActivity extends PavoGlassActivity {
         holdDutyBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                holdDuty = progress + 10;
-                if (holdDutyValue != null) holdDutyValue.setText(holdDuty + "%");
-                if (!fromUser || suppress) return;
-                prefs.setFanHoldDuty(holdDuty);
-                prefs.resetFanHoldCurve();
-                refreshCurveDisplay();
-                updateLiveHint();
-                if (mode == MODE_HOLD) FanControl.update(FanActivity.this);
+                int d = progress + 10;
+                if (holdDutyValue != null) holdDutyValue.setText(d + "%");
+                if (!fromUser || suppress) {
+                    holdDuty = d;
+                    return;
+                }
+                changeHoldDuty(d);
                 Haptics.tick(seekBar);
             }
 
@@ -1510,6 +1508,41 @@ public final class FanActivity extends PavoGlassActivity {
             default:
                 return FanCurve.dutyAt(curve, temp);
         }
+    }
+
+    /** Moves the hold point without discarding the edited approach curve. */
+    private void changeHoldTarget(int newTarget) {
+        int t = Math.max(45, Math.min(85, newTarget));
+        String custom = prefs.fanHoldCurve();
+        if (custom != null && !custom.isEmpty()) {
+            int delta = t - holdTarget;
+            if (delta != 0) prefs.setFanHoldCurve(FanCurve.shiftCurve(custom, delta));
+        } else {
+            prefs.resetFanHoldCurve();
+        }
+        holdTarget = t;
+        prefs.setFanHoldTargetC(t);
+        if (holdValue != null) holdValue.setText(t + "°C");
+        refreshCurveDisplay();
+        updateLiveHint();
+        if (mode == MODE_HOLD) FanControl.update(this);
+    }
+
+    /** Changes only the hold point's duty; the approach curve is untouched. */
+    private void changeHoldDuty(int newDuty) {
+        int d = Math.max(10, Math.min(100, newDuty));
+        String custom = prefs.fanHoldCurve();
+        if (custom != null && !custom.isEmpty()) {
+            prefs.setFanHoldCurve(FanCurve.setLastDuty(custom, d));
+        } else {
+            prefs.resetFanHoldCurve();
+        }
+        holdDuty = d;
+        prefs.setFanHoldDuty(d);
+        if (holdDutyValue != null) holdDutyValue.setText(d + "%");
+        refreshCurveDisplay();
+        updateLiveHint();
+        if (mode == MODE_HOLD) FanControl.update(this);
     }
 
     private int presetColor(int value) {
