@@ -343,6 +343,9 @@ final class PerfTuner {
         max = Math.max(min, max);
         min = Math.max(c.floorMin, min);
         max = Math.max(min, max);
+        max = snap(c.freqs, max);
+        min = snap(c.freqs, min);
+        if (min > max) min = max;
         String d = cpuPath(c);
         if (governor != null && !governor.isEmpty()) {
             PServer.run("echo " + governor + " > " + d + "/scaling_governor");
@@ -405,6 +408,11 @@ final class PerfTuner {
         max = Math.max(min, max);
         min = Math.max(c.floorMin, min);
         max = Math.max(min, max);
+        // Snap to this device's table: a preset stored on another device (or a
+        // restored config) must never write a frequency the kernel cannot take.
+        max = snap(c.freqs, max);
+        min = snap(c.freqs, min);
+        if (min > max) min = max;
         String d = cpuPath(c);
         StringBuilder cmd = new StringBuilder("d=").append(d).append("; ");
         if (governor != null && !governor.isEmpty()) {
@@ -432,6 +440,9 @@ final class PerfTuner {
         int lowest = g.freqs[0];
         min = Math.max(lowest, min);
         max = Math.max(min, max);
+        max = snap(g.freqs, max);
+        min = snap(g.freqs, min);
+        if (min > max) min = max;
         if (p.kgsl) {
             String cmd = "d=" + d + "; echo " + max + " >$d/max_gpuclk; "
                     + "echo " + lowest + " >$d/devfreq/min_freq; "
@@ -654,6 +665,11 @@ final class PerfTuner {
         int value = fanValue(percent);
         Root.write("settings put system fan_speed " + value
                 + "; settings put global fan_speed " + value);
+    }
+
+    static int snap(int[] values, int value) {
+        if (values == null || values.length == 0) return value;
+        return values[closestIndex(values, value)];
     }
 
     static int closestIndex(int[] values, int target) {
