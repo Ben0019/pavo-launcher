@@ -240,13 +240,6 @@ public final class FanActivity extends PavoGlassActivity {
         hidePerformanceOverlay();
         polling = true;
         main.post(poll);
-        if (selectedAppPkg.isEmpty()) {
-            int stored = normalizeMode(prefs.fanAppMode());
-            if (stored != mode) {
-                mode = stored;
-                syncModeUi();
-            }
-        }
         if (profileStore.hasOverrides()) {
             FanControl.stop(this);
             PerAppFanService.start(this);
@@ -1444,13 +1437,9 @@ public final class FanActivity extends PavoGlassActivity {
         previewFanTarget();
         saveCurrentProfile();
         applyProfileFanMode();
-        if (mode == MODE_HOLD) {
-            if (selectedAppPkg.isEmpty()) {
-                prefs.setPerfHoldEnabled(true);
-                PerfTuneService.start(this);
-            }
-        } else if (FanCurve.isPresetMode(mode) && selectedAppPkg.isEmpty()) {
-            PresetPair.applyPerformance(this, mode);
+        if (mode == MODE_HOLD && selectedAppPkg.isEmpty()) {
+            prefs.setPerfHoldEnabled(true);
+            PerfTuneService.start(this);
         }
         updateLiveHint();
     }

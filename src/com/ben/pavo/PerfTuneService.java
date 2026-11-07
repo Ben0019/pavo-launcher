@@ -28,8 +28,6 @@ public final class PerfTuneService extends Service {
 
     static final String ACTION_STOP = "com.ben.pavo.perftune.STOP";
     static final String ACTION_RESUME = "com.ben.pavo.perftune.RESUME";
-    static final String ACTION_APPLY_PRESET = "com.ben.pavo.perftune.PRESET";
-    static final String EXTRA_PRESET = "preset";
     private static final String CHANNEL = "aurora_performance_hold";
     private static final int NOTIFICATION_ID = 0x4174756E;
     /** Fallback when the preference cannot be read. */
@@ -78,15 +76,6 @@ public final class PerfTuneService extends Service {
         ServiceNotifications.start(context, intent);
     }
 
-    /** Applies a named tuner preset from another Pavo app (fan pairing). */
-    static void applyPreset(Context context, String name) {
-        if (context == null || name == null) return;
-        Intent intent = new Intent(context, PerfTuneService.class)
-                .setAction(ACTION_APPLY_PRESET)
-                .putExtra(EXTRA_PRESET, name);
-        ServiceNotifications.start(context, intent);
-    }
-
     static void stop(Context context) {
         Intent intent = new Intent(context, PerfTuneService.class);
         intent.setAction(ACTION_STOP);
@@ -121,16 +110,6 @@ public final class PerfTuneService extends Service {
             new Prefs(this).setHoldMode(PerfTuner.currentMode(this));
         }
         Prefs prefs = new Prefs(this);
-        if (intent != null && ACTION_APPLY_PRESET.equals(intent.getAction())) {
-            prefs.setPerfHoldEnabled(true);
-            final String name = intent.getStringExtra(EXTRA_PRESET);
-            io.execute(new Runnable() {
-                @Override
-                public void run() {
-                    applyPresetNow(name);
-                }
-            });
-        }
         if (!prefs.perfHoldEnabled()) {
             stopForeground(true);
             stopSelf();
@@ -167,38 +146,6 @@ public final class PerfTuneService extends Service {
     private void schedule(long delay) {
         handler.removeCallbacks(tick);
         handler.postDelayed(tick, delay);
-    }
-
-    /** Loads a preset (factory or saved) and applies it to the clock hold. */
-    private void applyPresetNow(String name) {
-        if (name == null || name.isEmpty()) return;
-        PerfTuner.prepare();
-        PerfTuner.State state = PerfTuner.readStateForHold(this);
-        if (state == null) return;
-        TuneStore store = new TuneStore(this);
-        TuneConfig cfg = store.preset(name);
-        if (cfg == null) {
-            PerfProfiles.Spec spec = PerfProfiles.get(name, state);
-            cfg = TuneConfig.fromState(state);
-            cfg.p0Max = spec.p0Max;
-            cfg.p0Min = spec.p0Min;
-            cfg.p0Gov = spec.governor;
-            cfg.p6Max = spec.p6Max;
-            cfg.p6Min = spec.p6Min;
-            cfg.p6Gov = spec.governor;
-            cfg.gpuMax = spec.gpuMax;
-            cfg.gpuMin = spec.gpuMin;
-            cfg.performanceMode = spec.performanceMode;
-        }
-        cfg.profile = name;
-        cfg.apply(this, state);
-        store.setGlobal(cfg);
-        store.setPreset(name, cfg);
-        Prefs prefs = new Prefs(this);
-        prefs.setPerfHoldEnabled(true);
-        prefs.setTuneTargets(cfg.p0Max, cfg.p0Min, cfg.p0Gov,
-                cfg.p6Max, cfg.p6Min, cfg.p6Gov, cfg.gpuMax, cfg.gpuMin);
-        prefs.setHoldMode(PerfTuner.currentMode(this));
     }
 
     private final Runnable tick = new Runnable() {
