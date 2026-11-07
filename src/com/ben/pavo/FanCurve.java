@@ -7,8 +7,8 @@ import java.util.Locale;
 
 /** Temperature-to-duty curve shared by the fan app and its background service. */
 final class FanCurve {
-    static final String DEFAULT = "30:20,35:25,40:25,45:30,50:35,55:45,60:55,"
-            + "65:70,70:80,75:90,80:100,85:100,90:100,95:100,100:100";
+    static final String DEFAULT = "30:0,35:0,40:0,45:0,50:12,55:20,60:30,"
+            + "65:42,70:55,75:68,80:82,85:93,90:100,95:100,100:100";
 
     /** Representative automatic curve shown while the SMART system preset is active. */
     static final String SMART = "30:10,35:10,40:12,45:15,50:20,55:26,60:34,"

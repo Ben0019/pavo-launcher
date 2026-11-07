@@ -18,11 +18,11 @@ final class FanCurveController {
     /** Rise constant for Smart, which is expected to answer within a second. */
     static final float FAST_ATTACK_SEC = 0.6f;
     /** Fall time constant. Holds the blower up while the heatsink is still hot. */
-    static final float RELEASE_SEC = 8f;
+    static final float RELEASE_SEC = 10f;
     /** Target changes below this many percentage points are not worth a write. */
-    static final int DEADBAND = 3;
+    static final int DEADBAND = 4;
     /** Downward slew limit, percentage points per second. */
-    static final float FALL_LIMIT = 6f;
+    static final float FALL_LIMIT = 5f;
     /** Upward slew limit, percentage points per second. */
     static final float RISE_LIMIT = 60f;
 
