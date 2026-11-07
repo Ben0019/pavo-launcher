@@ -1395,12 +1395,13 @@ public final class FanActivity extends PavoGlassActivity {
 
     private void updateLiveHint() {
         if (curveHint == null) return;
+        String curveNav = "%s · right stick speed · D-pad/left stick point · L1/R1 cards";
         if (mode == MODE_CURVE) {
-            curveHint.setText("CURVE · right stick speed · D-pad/left stick point · L1/R1 cards");
+            curveHint.setText(String.format(Loc.s(this, curveNav), Loc.s(this, "CURVE")));
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (FanCurve.isPresetMode(mode)) {
-            curveHint.setText(Loc.s(this, modeLabel(mode))
-                    + " · right stick speed · D-pad/left stick point · L1/R1 cards");
+            curveHint.setText(String.format(Loc.s(this, curveNav),
+                    Loc.s(this, modeLabel(mode))));
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (mode == PerfTuner.FAN_MANUAL) {
             curveHint.setText(String.format(Loc.s(this,

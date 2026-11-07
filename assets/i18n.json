@@ -1995,7 +1995,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Správce souborů a FTP host procházejí interní úložiště a SD kartu.",
     "Only used when you record a clip with sound.": "Používá se pouze při nahrávání klipu se zvukem.",
     "Location": "Poloha",
-    "Rough location for the local weather line on the home screen.": "Přibližná poloha pro řádek s místním počasím na domovské obrazovce."
+    "Rough location for the local weather line on the home screen.": "Přibližná poloha pro řádek s místním počasím na domovské obrazovce.",
+    "SMALL": "MALÝ",
+    "LARGE": "VELKÝ",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · rychlost pravé páčky · bod D-pad/levé páčky · karty L1/R1"
   },
   "da": {
     "\n\nReturn to the game to use the map.": "\n\nVend tilbage til spillet for at bruge kortet.",
@@ -3993,7 +3996,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Filhåndteringen og FTP-værten gennemser intern lagerplads og SD-kortet.",
     "Only used when you record a clip with sound.": "Bruges kun, når du optager et klip med lyd.",
     "Location": "Placering",
-    "Rough location for the local weather line on the home screen.": "Omtrentlig placering til den lokale vejrlinje på startskærmen."
+    "Rough location for the local weather line on the home screen.": "Omtrentlig placering til den lokale vejrlinje på startskærmen.",
+    "SMALL": "LILLE",
+    "LARGE": "STOR",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · højre stiks hastighed · D-pad/venstre stik punkt · L1/R1-kort"
   },
   "de": {
     "\n\nReturn to the game to use the map.": "\n\nKehren Sie zum Spiel zurück, um die Zuordnung zu verwenden.",
@@ -5991,7 +5997,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Dateimanager und FTP-Host durchsuchen den internen Speicher und die SD-Karte.",
     "Only used when you record a clip with sound.": "Wird nur verwendet, wenn du einen Clip mit Ton aufnimmst.",
     "Location": "Standort",
-    "Rough location for the local weather line on the home screen.": "Ungefährer Standort für die lokale Wetterzeile auf dem Startbildschirm."
+    "Rough location for the local weather line on the home screen.": "Ungefährer Standort für die lokale Wetterzeile auf dem Startbildschirm.",
+    "SMALL": "KLEIN",
+    "LARGE": "GROSS",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · Geschwindigkeit rechter Stick · Punkt Steuerkreuz/linker Stick · L1/R1-Karten"
   },
   "el": {
     "\n\nReturn to the game to use the map.": "\n\nΕπιστρέψτε στο παιχνίδι για να χρησιμοποιήσετε τον χάρτη.",
@@ -7989,7 +7998,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Ο διαχειριστής αρχείων και ο FTP host περιηγούνται στον εσωτερικό χώρο και στην κάρτα SD.",
     "Only used when you record a clip with sound.": "Χρησιμοποιείται μόνο όταν ηχογραφείτε ένα κλιπ με ήχο.",
     "Location": "Τοποθεσία",
-    "Rough location for the local weather line on the home screen.": "Κατά προσέγγιση τοποθεσία για τη γραμμή τοπικού καιρού στην αρχική οθόνη."
+    "Rough location for the local weather line on the home screen.": "Κατά προσέγγιση τοποθεσία για τη γραμμή τοπικού καιρού στην αρχική οθόνη.",
+    "SMALL": "ΜΙΚΡΟ",
+    "LARGE": "ΜΕΓΑΛΟ",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · ταχύτητα δεξιού μοχλού · σημείο D-pad/αριστερού μοχλού · κάρτες L1/R1"
   },
   "es": {
     "\n\nReturn to the game to use the map.": "\n\nRegrese al juego para usar el mapa.",
@@ -9987,7 +9999,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "El gestor de archivos y el host FTP exploran el almacenamiento interno y la tarjeta SD.",
     "Only used when you record a clip with sound.": "Solo se usa cuando grabas un clip con sonido.",
     "Location": "Ubicación",
-    "Rough location for the local weather line on the home screen.": "Ubicación aproximada para la línea del tiempo local en la pantalla de inicio."
+    "Rough location for the local weather line on the home screen.": "Ubicación aproximada para la línea del tiempo local en la pantalla de inicio.",
+    "SMALL": "PEQUEÑO",
+    "LARGE": "GRANDE",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · velocidad del stick derecho · punto del D-pad/stick izquierdo · tarjetas L1/R1"
   },
   "fi": {
     "\n\nReturn to the game to use the map.": "\n\nPalaa peliin käyttääksesi karttaa.",
@@ -11985,7 +12000,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Tiedostohallinta ja FTP-isäntä selaavat sisäistä tallennustilaa ja SD-korttia.",
     "Only used when you record a clip with sound.": "Käytetään vain, kun tallennat leikkeen äänen kanssa.",
     "Location": "Sijainti",
-    "Rough location for the local weather line on the home screen.": "Likimääräinen sijainti kotinäytön paikallista sääriviä varten."
+    "Rough location for the local weather line on the home screen.": "Likimääräinen sijainti kotinäytön paikallista sääriviä varten.",
+    "SMALL": "PIENI",
+    "LARGE": "SUURI",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · oikean sauvan nopeus · D-pad/vasemman sauvan piste · L1/R1-kortit"
   },
   "fr": {
     "\n\nReturn to the game to use the map.": "\n\nRevenez au jeu pour utiliser la carte.",
@@ -13983,7 +14001,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Le gestionnaire de fichiers et l'hôte FTP parcourent le stockage interne et la carte SD.",
     "Only used when you record a clip with sound.": "Utilisé uniquement lorsque vous enregistrez un clip avec du son.",
     "Location": "Position",
-    "Rough location for the local weather line on the home screen.": "Position approximative pour la ligne météo locale de l'écran d'accueil."
+    "Rough location for the local weather line on the home screen.": "Position approximative pour la ligne météo locale de l'écran d'accueil.",
+    "SMALL": "PETIT",
+    "LARGE": "GRAND",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · vitesse du stick droit · point de la croix/stick gauche · cartes L1/R1"
   },
   "he": {
     "\n\nReturn to the game to use the map.": "\n\nחזור למשחק כדי להשתמש במפה.",
@@ -15981,7 +16002,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "מנהל הקבצים ומארח ה-FTP גולשים באחסון הפנימי ובכרטיס ה-SD.",
     "Only used when you record a clip with sound.": "משמש רק כשמקליטים קליפ עם קול.",
     "Location": "מיקום",
-    "Rough location for the local weather line on the home screen.": "מיקום משוער לשורת מזג האוויר המקומית במסך הבית."
+    "Rough location for the local weather line on the home screen.": "מיקום משוער לשורת מזג האוויר המקומית במסך הבית.",
+    "SMALL": "קטן",
+    "LARGE": "גדול",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · מהירות מקל ימני · נקודת D-pad/מקל שמאלי · כרטיסי L1/R1"
   },
   "hu": {
     "\n\nReturn to the game to use the map.": "\n\nA térkép használatához térjen vissza a játékhoz.",
@@ -17979,7 +18003,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "A fájlkezelő és az FTP-host a belső tárhelyen és az SD-kártyán böngészik.",
     "Only used when you record a clip with sound.": "Csak akkor használatos, ha hanggal rögzítesz egy klipet.",
     "Location": "Hely",
-    "Rough location for the local weather line on the home screen.": "Hozzávetőleges hely a helyi időjárás-sorhoz a kezdőképernyőn."
+    "Rough location for the local weather line on the home screen.": "Hozzávetőleges hely a helyi időjárás-sorhoz a kezdőképernyőn.",
+    "SMALL": "KICSI",
+    "LARGE": "NAGY",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · jobb bot sebessége · D-pad/bal bot pont · L1/R1 kártyák"
   },
   "id": {
     "\n\nReturn to the game to use the map.": "\n\nKembali ke permainan untuk menggunakan peta.",
@@ -19977,7 +20004,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Pengelola file dan host FTP menelusuri penyimpanan internal dan kartu SD.",
     "Only used when you record a clip with sound.": "Hanya digunakan saat merekam klip dengan suara.",
     "Location": "Lokasi",
-    "Rough location for the local weather line on the home screen.": "Perkiraan lokasi untuk baris cuaca lokal di layar utama."
+    "Rough location for the local weather line on the home screen.": "Perkiraan lokasi untuk baris cuaca lokal di layar utama.",
+    "SMALL": "KECIL",
+    "LARGE": "BESAR",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · kecepatan stik kanan · titik D-pad/stik kiri · kartu L1/R1"
   },
   "it": {
     "\n\nReturn to the game to use the map.": "\n\nTorna al gioco per usare la mappa.",
@@ -21975,7 +22005,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Il gestore file e l'host FTP esplorano la memoria interna e la scheda SD.",
     "Only used when you record a clip with sound.": "Usato solo quando registri una clip con l'audio.",
     "Location": "Posizione",
-    "Rough location for the local weather line on the home screen.": "Posizione approssimativa per la riga meteo locale nella schermata Home."
+    "Rough location for the local weather line on the home screen.": "Posizione approssimativa per la riga meteo locale nella schermata Home.",
+    "SMALL": "PICCOLO",
+    "LARGE": "GRANDE",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · velocità stick destro · punto D-pad/stick sinistro · schede L1/R1"
   },
   "ja": {
     "\n\nReturn to the game to use the map.": "\n\nゲームに戻ってマップを使用します。",
@@ -23973,7 +24006,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "ファイルマネージャーと FTP ホストが内部ストレージと SD カードを閲覧します。",
     "Only used when you record a clip with sound.": "音声付きでクリップを録画するときだけ使用します。",
     "Location": "位置情報",
-    "Rough location for the local weather line on the home screen.": "ホーム画面の現地天気行に使うおおよその位置情報。"
+    "Rough location for the local weather line on the home screen.": "ホーム画面の現地天気行に使うおおよその位置情報。",
+    "SMALL": "小",
+    "LARGE": "大",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · 右スティックの速さ · 方向キー/左スティックのポイント · L1/R1 カード"
   },
   "ko": {
     "CHARGER": "충전기",
@@ -25971,7 +26007,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "파일 관리자와 FTP 호스트가 내부 저장소와 SD 카드를 탐색합니다.",
     "Only used when you record a clip with sound.": "소리가 있는 클립을 녹화할 때만 사용됩니다.",
     "Location": "위치",
-    "Rough location for the local weather line on the home screen.": "홈 화면의 지역 날씨 줄에 사용할 대략적인 위치입니다."
+    "Rough location for the local weather line on the home screen.": "홈 화면의 지역 날씨 줄에 사용할 대략적인 위치입니다.",
+    "SMALL": "작음",
+    "LARGE": "큼",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · 오른쪽 스틱 속도 · D패드/왼쪽 스틱 지점 · L1/R1 카드"
   },
   "nb": {
     "\n\nReturn to the game to use the map.": "\n\nGå tilbake til spillet for å bruke kartet.",
@@ -27969,7 +28008,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Filbehandlingen og FTP-verten blar i intern lagring og SD-kortet.",
     "Only used when you record a clip with sound.": "Brukes bare når du tar opp et klipp med lyd.",
     "Location": "Posisjon",
-    "Rough location for the local weather line on the home screen.": "Omtrentlig posisjon for den lokale værlinjen på startskjermen."
+    "Rough location for the local weather line on the home screen.": "Omtrentlig posisjon for den lokale værlinjen på startskjermen.",
+    "SMALL": "LITEN",
+    "LARGE": "STOR",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · høyre stikks hastighet · D-pad/venstre stikk punkt · L1/R1-kort"
   },
   "nl": {
     "\n\nReturn to the game to use the map.": "\n\nKeer terug naar het spel om de kaart te gebruiken.",
@@ -29967,7 +30009,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "De bestandsbeheerder en FTP-host bladeren door interne opslag en de SD-kaart.",
     "Only used when you record a clip with sound.": "Alleen gebruikt wanneer je een clip met geluid opneemt.",
     "Location": "Locatie",
-    "Rough location for the local weather line on the home screen.": "Geschatte locatie voor de lokale weerregel op het startscherm."
+    "Rough location for the local weather line on the home screen.": "Geschatte locatie voor de lokale weerregel op het startscherm.",
+    "SMALL": "KLEIN",
+    "LARGE": "GROOT",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · snelheid rechterstick · D-pad/linkerstickpunt · L1/R1-kaarten"
   },
   "pl": {
     "\n\nReturn to the game to use the map.": "\n\nWróć do gry, aby skorzystać z mapy.",
@@ -31965,7 +32010,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Menedżer plików i host FTP przeglądają pamięć wewnętrzną i kartę SD.",
     "Only used when you record a clip with sound.": "Używane tylko podczas nagrywania klipu z dźwiękiem.",
     "Location": "Lokalizacja",
-    "Rough location for the local weather line on the home screen.": "Przybliżona lokalizacja dla wiersza lokalnej pogody na ekranie głównym."
+    "Rough location for the local weather line on the home screen.": "Przybliżona lokalizacja dla wiersza lokalnej pogody na ekranie głównym.",
+    "SMALL": "MAŁY",
+    "LARGE": "DUŻY",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · prędkość prawego drążka · punkt D-pad/lewego drążka · karty L1/R1"
   },
   "pt": {
     "\n\nReturn to the game to use the map.": "\n\nVolte ao jogo para usar o mapa.",
@@ -33963,7 +34011,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "O gerenciador de arquivos e o host FTP navegam no armazenamento interno e no cartão SD.",
     "Only used when you record a clip with sound.": "Usado apenas quando você grava um clipe com som.",
     "Location": "Localização",
-    "Rough location for the local weather line on the home screen.": "Localização aproximada para a linha de clima local na tela inicial."
+    "Rough location for the local weather line on the home screen.": "Localização aproximada para a linha de clima local na tela inicial.",
+    "SMALL": "PEQUENO",
+    "LARGE": "GRANDE",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · velocidade do stick direito · ponto do D-pad/stick esquerdo · cartões L1/R1"
   },
   "ro": {
     "\n\nReturn to the game to use the map.": "\n\nReveniți la joc pentru a utiliza harta.",
@@ -35961,7 +36012,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Managerul de fișiere și gazda FTP navighează stocarea internă și cardul SD.",
     "Only used when you record a clip with sound.": "Folosit doar când înregistrezi un clip cu sunet.",
     "Location": "Locație",
-    "Rough location for the local weather line on the home screen.": "Locație aproximativă pentru linia meteo locală de pe ecranul principal."
+    "Rough location for the local weather line on the home screen.": "Locație aproximativă pentru linia meteo locală de pe ecranul principal.",
+    "SMALL": "MIC",
+    "LARGE": "MARE",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · viteza stickului dreapta · punct D-pad/stick stânga · cartele L1/R1"
   },
   "ru": {
     "\n\nReturn to the game to use the map.": "\n\nВернитесь в игру, чтобы использовать карту.",
@@ -37959,7 +38013,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Файловый менеджер и FTP-хост просматривают внутреннюю память и SD-карту.",
     "Only used when you record a clip with sound.": "Используется только при записи клипа со звуком.",
     "Location": "Местоположение",
-    "Rough location for the local weather line on the home screen.": "Приблизительное местоположение для строки местной погоды на главном экране."
+    "Rough location for the local weather line on the home screen.": "Приблизительное местоположение для строки местной погоды на главном экране.",
+    "SMALL": "МАЛЫЙ",
+    "LARGE": "БОЛЬШОЙ",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · скорость правого стика · точка D-pad/левого стика · карты L1/R1"
   },
   "sv": {
     "\n\nReturn to the game to use the map.": "\n\nGå tillbaka till spelet för att använda kartan.",
@@ -39957,7 +40014,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Filhanteraren och FTP-värden bläddrar i internminnet och SD-kortet.",
     "Only used when you record a clip with sound.": "Används bara när du spelar in ett klipp med ljud.",
     "Location": "Plats",
-    "Rough location for the local weather line on the home screen.": "Ungefärlig plats för den lokala väderversen på startskärmen."
+    "Rough location for the local weather line on the home screen.": "Ungefärlig plats för den lokala väderversen på startskärmen.",
+    "SMALL": "LITEN",
+    "LARGE": "STOR",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · höger spaks hastighet · styrkors/vänster spak punkt · L1/R1-kort"
   },
   "th": {
     "\n\nReturn to the game to use the map.": "\n\nกลับไปที่เกมเพื่อใช้แผนที่",
@@ -41955,7 +42015,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "ตัวจัดการไฟล์และโฮสต์ FTP จะเรียกดูที่เก็บข้อมูลภายในและการ์ด SD",
     "Only used when you record a clip with sound.": "ใช้เฉพาะเมื่อคุณบันทึกคลิปที่มีเสียง",
     "Location": "ตำแหน่ง",
-    "Rough location for the local weather line on the home screen.": "ตำแหน่งโดยประมาณสำหรับแถบสภาพอากาศท้องถิ่นบนหน้าจอหลัก"
+    "Rough location for the local weather line on the home screen.": "ตำแหน่งโดยประมาณสำหรับแถบสภาพอากาศท้องถิ่นบนหน้าจอหลัก",
+    "SMALL": "เล็ก",
+    "LARGE": "ใหญ่",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · ความเร็วสติกขวา · จุด D-pad/สติกซ้าย · การ์ด L1/R1"
   },
   "tr": {
     "\n\nReturn to the game to use the map.": "\n\nHaritayı kullanmak için oyuna dönün.",
@@ -43953,7 +44016,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Dosya yöneticisi ve FTP sunucusu dahili depolamaya ve SD karta göz atar.",
     "Only used when you record a clip with sound.": "Yalnızca sesli bir klip kaydederken kullanılır.",
     "Location": "Konum",
-    "Rough location for the local weather line on the home screen.": "Ana ekrandaki yerel hava durumu satırı için yaklaşık konum."
+    "Rough location for the local weather line on the home screen.": "Ana ekrandaki yerel hava durumu satırı için yaklaşık konum.",
+    "SMALL": "KÜÇÜK",
+    "LARGE": "BÜYÜK",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · sağ çubuk hızı · D-pad/sol çubuk noktası · L1/R1 kartları"
   },
   "uk": {
     "\n\nReturn to the game to use the map.": "\n\nПоверніться до гри, щоб скористатися картою.",
@@ -45951,7 +46017,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Файловий менеджер і FTP-хост переглядають внутрішню пам'ять і SD-картку.",
     "Only used when you record a clip with sound.": "Використовується лише під час запису кліпу зі звуком.",
     "Location": "Місцезнаходження",
-    "Rough location for the local weather line on the home screen.": "Приблизне місцезнаходження для рядка місцевої погоди на головному екрані."
+    "Rough location for the local weather line on the home screen.": "Приблизне місцезнаходження для рядка місцевої погоди на головному екрані.",
+    "SMALL": "МАЛИЙ",
+    "LARGE": "ВЕЛИКИЙ",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · швидкість правого стіка · точка D-pad/лівого стіка · карти L1/R1"
   },
   "vi": {
     "\n\nReturn to the game to use the map.": "\n\nQuay lại trò chơi để sử dụng bản đồ.",
@@ -47949,7 +48018,10 @@
     "The file manager and FTP host browse internal storage and the SD card.": "Trình quản lý tệp và máy chủ FTP duyệt bộ nhớ trong và thẻ SD.",
     "Only used when you record a clip with sound.": "Chỉ dùng khi bạn ghi một clip có âm thanh.",
     "Location": "Vị trí",
-    "Rough location for the local weather line on the home screen.": "Vị trí gần đúng cho dòng thời tiết địa phương trên màn hình chính."
+    "Rough location for the local weather line on the home screen.": "Vị trí gần đúng cho dòng thời tiết địa phương trên màn hình chính.",
+    "SMALL": "NHỎ",
+    "LARGE": "LỚN",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · tốc độ cần phải · điểm D-pad/cần trái · thẻ L1/R1"
   },
   "zh-CN": {
     "\n\nReturn to the game to use the map.": "\n\n返回游戏即可使用映射。",
@@ -49947,6 +50019,9 @@
     "The file manager and FTP host browse internal storage and the SD card.": "文件管理器和 FTP 主机可浏览内部存储和 SD 卡。",
     "Only used when you record a clip with sound.": "仅在录制带声音的片段时使用。",
     "Location": "位置",
-    "Rough location for the local weather line on the home screen.": "用于主屏幕本地天气一行的粗略位置。"
+    "Rough location for the local weather line on the home screen.": "用于主屏幕本地天气一行的粗略位置。",
+    "SMALL": "小",
+    "LARGE": "大",
+    "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · 右摇杆速度 · 方向键/左摇杆控制点 · L1/R1 卡片"
   }
 }
