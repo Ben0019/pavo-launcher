@@ -21,7 +21,7 @@ final class FanCurve {
      * above it. The deeper the underclock, the longer it stays quiet.
      */
     static final String SMALL = "30:0,35:0,40:0,45:0,50:10,55:14,60:18,"
-            + "65:26,70:36,75:48,80:62,85:80,90:100,95:100,100:100";
+            + "65:26,70:44,75:56,80:70,85:88,90:100,95:100,100:100";
     static final String MEDIUM = "30:0,35:0,40:0,45:0,50:6,55:9,60:13,"
             + "65:18,70:26,75:37,80:52,85:72,90:100,95:100,100:100";
     static final String LARGE = "30:0,35:0,40:0,45:0,50:5,55:7,57:10,"
