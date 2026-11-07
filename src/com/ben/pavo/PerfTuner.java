@@ -37,6 +37,7 @@ final class PerfTuner {
         String path;
         String label;
         int cores;
+        int[] cpus = new int[0];
         int floorMin;
         int[] freqs = new int[0];
         String[] governors = new String[0];
@@ -175,6 +176,7 @@ final class PerfTuner {
             c.label = cluster.label == null || cluster.label.isEmpty()
                     ? fallbackLabel : cluster.label;
             c.cores = cluster.cores();
+            c.cpus = cluster.cpus;
             c.floorMin = cluster.min > 0 ? cluster.min : 384000;
             base = cluster.path;
         } else {
@@ -325,6 +327,11 @@ final class PerfTuner {
         for (DeviceProfile.Cluster c : profile().clusters) {
             PServer.run("chmod 666 " + c.path + "/scaling_max_freq "
                     + c.path + "/scaling_min_freq " + c.path + "/scaling_governor");
+            for (int cpu : c.cpus) {
+                PServer.run("chmod 666 /sys/devices/system/cpu/cpu" + cpu
+                        + "/cpufreq/scaling_max_freq /sys/devices/system/cpu/cpu"
+                        + cpu + "/cpufreq/scaling_min_freq 2>/dev/null");
+            }
         }
         PServer.run(chmodGpu());
         return true;
@@ -343,6 +350,10 @@ final class PerfTuner {
         PServer.run("echo " + lowest + " > " + d + "/scaling_min_freq");
         PServer.run("echo " + max + " > " + d + "/scaling_max_freq");
         PServer.run("echo " + min + " > " + d + "/scaling_min_freq");
+        for (int cpu : c.cpus) {
+            PServer.run("echo " + max + " > /sys/devices/system/cpu/cpu"
+                    + cpu + "/cpufreq/scaling_max_freq");
+        }
     }
 
     static void setGpuPServer(Gpu g, int max, int min) {
@@ -401,7 +412,15 @@ final class PerfTuner {
         }
         cmd.append("echo ").append(lowest).append(" >$d/scaling_min_freq; ");
         cmd.append("echo ").append(max).append(" >$d/scaling_max_freq; ");
-        cmd.append("echo ").append(min).append(" >$d/scaling_min_freq");
+        cmd.append("echo ").append(min).append(" >$d/scaling_min_freq; ");
+        // The vendor's performance service lifts each core's own max node
+        // independently of the policy cap. Write every core so the underclock
+        // cannot be bypassed for a burst.
+        for (int cpu : c.cpus) {
+            cmd.append("echo ").append(max)
+                    .append(" >/sys/devices/system/cpu/cpu").append(cpu)
+                    .append("/cpufreq/scaling_max_freq; ");
+        }
         Root.write(cmd.toString());
     }
 
