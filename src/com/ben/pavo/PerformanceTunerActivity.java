@@ -919,7 +919,8 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         demoChip = text("DEMO", 8.5f, accent, true);
         demoChip.setGravity(Gravity.CENTER);
-        demoChip.setPadding(dp(9), dp(4), dp(9), dp(4));
+        demoChip.setPadding(dp(14), dp(6), dp(14), dp(6));
+        demoChip.setMinHeight(dp(28));
         demoChip.setBackground(Ui.rounded(ThemeColors.withAlpha(0x1A), dp(8),
                 ThemeColors.withAlpha(0x55), dp(1)));
         demoChip.setOnClickListener(new View.OnClickListener() {
@@ -930,6 +931,17 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             }
         });
         addFocusable(demoChip, true);
+        // Inset the focus ring so its rounded ends cannot be clipped by the
+        // button bounds.
+        android.graphics.drawable.StateListDrawable demoRing =
+                new android.graphics.drawable.StateListDrawable();
+        demoRing.addState(new int[]{android.R.attr.state_focused},
+                new android.graphics.drawable.InsetDrawable(
+                        Ui.rounded(0x00000000, dp(8), accent, dp(1.4f)), dp(1)));
+        demoRing.addState(new int[]{},
+                new android.graphics.drawable.InsetDrawable(
+                        Ui.rounded(0x00000000, dp(8)), dp(1)));
+        demoChip.setForeground(demoRing);
         // Keep the chip off the artwork: it shares the temperature row instead
         // of sitting on the board.
         LinearLayout statsRow = new LinearLayout(this);
