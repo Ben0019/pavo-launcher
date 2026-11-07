@@ -82,9 +82,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     }
 
     static int profileColor(String name) {
-        if ("SMALL".equals(name)) return profileColor(1);
-        if ("MEDIUM".equals(name)) return profileColor(2);
-        if ("LARGE".equals(name)) return profileColor(3);
+        if ("SMALL".equals(name)) return profileColor(3);
+        if ("MEDIUM".equals(name)) return profileColor(1);
+        if ("LARGE".equals(name)) return profileColor(0);
         return AMBER;
     }
 
@@ -171,8 +171,8 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     private TextView fanDetail;
     private SeekBar fanSeek;
     private TextView fanValue;
-    private final TextView[] profileChips = new TextView[3];
-    private final String[] profileNames = {"SMALL", "MEDIUM", "LARGE"};
+    private final TextView[] profileChips = new TextView[4];
+    private final String[] profileNames = {"SMALL", "MEDIUM", "LARGE", "STOCK"};
     private final TextView[] fanChips = new TextView[5];
     private CpuCard efficiencyCard;
     private CpuCard performanceCard;
@@ -618,26 +618,6 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         pslp.rightMargin = dp(8);
         controls.addView(profileStatus, pslp);
 
-        TextView stock = text("STOCK", 9.5f, 0xFFFFC36A, true);
-        stock.setLetterSpacing(0.10f);
-        stock.setGravity(Gravity.CENTER);
-        stock.setPadding(dp(11), dp(5), dp(11), dp(5));
-        stock.setBackground(Ui.rounded(0x22FFC36A, dp(11),
-                0x55FFC36A, dp(1)));
-        stock.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Haptics.click(v);
-                applyStock();
-            }
-        });
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        slp.rightMargin = dp(8);
-        controls.addView(stock, slp);
-        addFocusable(stock, true);
-        headerFocus.add(stock);
-
         bigCoreChip = text("BIG ON", 9.5f, GREEN, true);
         bigCoreChip.setLetterSpacing(0.06f);
         bigCoreChip.setGravity(Gravity.CENTER);
@@ -705,15 +685,12 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
             appSelectorLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             profileStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
-            stock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             bigCoreChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             holdChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
             ((LinearLayout.LayoutParams) profileStatus.getLayoutParams()).rightMargin = dp(5);
-            ((LinearLayout.LayoutParams) stock.getLayoutParams()).rightMargin = dp(5);
             ((LinearLayout.LayoutParams) bigCoreChip.getLayoutParams()).rightMargin = dp(5);
             ((LinearLayout.LayoutParams) holdChip.getLayoutParams()).rightMargin = dp(5);
             profileStatus.setPadding(dp(7), dp(3), dp(7), dp(3));
-            stock.setPadding(dp(8), dp(3), dp(8), dp(3));
             bigCoreChip.setPadding(dp(7), dp(3), dp(7), dp(3));
             holdChip.setPadding(dp(7), dp(3), dp(7), dp(3));
         }
@@ -883,7 +860,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         if (profileStatus == null) return;
         String name = selectedProfile == null || selectedProfile.isEmpty()
                 ? "CUSTOM" : selectedProfile;
-        if ("CUSTOM".equals(name) || "STOCK".equals(name)) {
+        if ("CUSTOM".equals(name)) {
             profileStatus.setText(Loc.s(this, name));
         } else {
             profileStatus.setText(Loc.s(this, name) + " " + Loc.s(this, "APPLIED"));
@@ -914,7 +891,8 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 @Override
                 public void onClick(View v) {
                     Haptics.click(v);
-                    applyProfile(name);
+                    if (PerfProfiles.STOCK.equals(name)) applyStock();
+                    else applyProfile(name);
                 }
             });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -923,7 +901,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             row.addView(chip, lp);
             profileChips[i] = chip;
             addFocusable(chip, true);
-            styleProfileChip(chip, i, false, false);
+            styleProfileChip(chip, profileNames[i], false, false);
         }
         return wrap;
     }
@@ -1140,9 +1118,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         return chip;
     }
 
-    private void styleProfileChip(TextView chip, int index, boolean selected,
+    private void styleProfileChip(TextView chip, String name, boolean selected,
                                   boolean focused) {
-        int color = profileColor(index);
+        int color = profileColor(name);
         int light = lighten(color, 0.36f);
         chip.setTextColor(selected ? DARK_TEXT : light);
         if (selected) {
@@ -2015,7 +1993,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     private void markProfileChips() {
         for (int i = 0; i < profileChips.length; i++) {
             boolean selected = profileNames[i].equals(selectedProfile);
-            styleProfileChip(profileChips[i], i, selected, false);
+            styleProfileChip(profileChips[i], profileNames[i], selected, false);
         }
     }
 
