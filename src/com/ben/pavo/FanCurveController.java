@@ -23,6 +23,9 @@ final class FanCurveController {
     static final int DEADBAND = 4;
     /** Downward slew limit, percentage points per second. */
     static final float FALL_LIMIT = 5f;
+    /** Faster release/drop for HOLD when the target is comfortably undershot. */
+    static final float HOLD_RELEASE_SEC = 3f;
+    static final float HOLD_FALL_LIMIT = 12f;
     /** Upward slew limit, percentage points per second. */
     static final float RISE_LIMIT = 60f;
 
@@ -80,6 +83,16 @@ final class FanCurveController {
      *                   about half a second instead of waiting for a median.
      */
     synchronized int next(String curve, float rawMaxTemp, long nowMs, boolean responsive) {
+        return next(curve, rawMaxTemp, nowMs, responsive, false);
+    }
+
+    /**
+     * @param fastRelease true for HOLD: drop back towards the curve quickly when
+     *                    the target is comfortably undershot, instead of holding
+     *                    full speed for the usual ten second release.
+     */
+    synchronized int next(String curve, float rawMaxTemp, long nowMs,
+                          boolean responsive, boolean fastRelease) {
         float raw = rawMaxTemp > 0f ? rawMaxTemp : 40f;
         window[samples % 3] = raw;
         samples++;
@@ -102,7 +115,8 @@ final class FanCurveController {
         lastMs = nowMs;
 
         float tau = sample > filtered
-                ? (responsive ? FAST_ATTACK_SEC : ATTACK_SEC) : RELEASE_SEC;
+                ? (responsive ? FAST_ATTACK_SEC : ATTACK_SEC)
+                : (fastRelease ? HOLD_RELEASE_SEC : RELEASE_SEC);
         float alpha = 1f - (float) Math.exp(-dt / tau);
         filtered += (sample - filtered) * alpha;
 
@@ -119,7 +133,8 @@ final class FanCurveController {
             int maxRise = Math.max(1, Math.round(RISE_LIMIT * dt));
             applied = Math.min(target, applied + maxRise);
         } else {
-            int maxFall = Math.max(1, Math.round(FALL_LIMIT * dt));
+            float fallLimit = fastRelease ? HOLD_FALL_LIMIT : FALL_LIMIT;
+            int maxFall = Math.max(1, Math.round(fallLimit * dt));
             applied = Math.max(target, applied - maxFall);
         }
         return applied;

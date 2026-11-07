@@ -154,9 +154,29 @@ final class FanCurve {
         return Math.max(cpu, gpu);
     }
 
+    /** One-sided target curve: full duty at the target, easing below it. */
+    static String holdCurve(float targetC) {
+        int t = clamp(Math.round(targetC), 45, 85);
+        TreeMap<Integer, Integer> map = new TreeMap<>();
+        int[][] pts = {
+                {t - 15, 0}, {t - 10, 10}, {t - 5, 35},
+                {t - 2, 75}, {t, 100}, {t + 5, 100}, {t + 10, 100}
+        };
+        for (int[] p : pts) {
+            int temp = clamp(p[0], 30, 100);
+            Integer old = map.get(temp);
+            if (old == null || p[1] > old) map.put(temp, p[1]);
+        }
+        StringBuilder b = new StringBuilder();
+        for (Map.Entry<Integer, Integer> e : map.entrySet()) {
+            if (b.length() > 0) b.append(',');
+            b.append(e.getKey()).append(':').append(e.getValue());
+        }
+        return ensureTerminal(b.toString());
+    }
+
     /** 15 control points at 5 °C intervals at one duty level. */
-    static String flat(int duty) {
-        int d = clamp(duty, 0, 100);
+    static String flat(int duty) {        int d = clamp(duty, 0, 100);
         StringBuilder b = new StringBuilder();
         for (int t = 30; t <= 100; t += 5) {
             if (b.length() > 0) b.append(',');

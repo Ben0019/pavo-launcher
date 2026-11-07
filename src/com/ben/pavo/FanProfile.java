@@ -6,6 +6,7 @@ final class FanProfile {
     static final int MODE_SMALL = 8;
     static final int MODE_MEDIUM = 9;
     static final int MODE_LARGE = 10;
+    static final int MODE_HOLD = 11;
     private static final String VERSION = "1";
 
     int mode = PerfTuner.FAN_SMART;
@@ -52,7 +53,7 @@ final class FanProfile {
 
     static int normalizeMode(int value) {
         if (value == MODE_CURVE || value == MODE_SMALL || value == MODE_MEDIUM
-                || value == MODE_LARGE || value == PerfTuner.FAN_MANUAL
+                || value == MODE_LARGE || value == MODE_HOLD || value == PerfTuner.FAN_MANUAL
                 || value == PerfTuner.FAN_OFF || value == PerfTuner.FAN_LOW
                 || value == PerfTuner.FAN_SMART || value == PerfTuner.FAN_HIGH) {
             return value;

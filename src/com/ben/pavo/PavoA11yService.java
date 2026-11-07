@@ -806,6 +806,7 @@ public final class PavoA11yService extends AccessibilityService {
         Prefs fanPrefs = new Prefs(this);
         int fanMode = fanPrefs.fanAppMode();
         if (fanMode == FanActivity.MODE_CURVE || FanCurve.isPresetMode(fanMode)
+                || fanMode == FanActivity.MODE_HOLD
                 || fanMode == PerfTuner.FAN_SMART || fanMode == PerfTuner.FAN_HIGH) {
             FanControl.start(this);
         }

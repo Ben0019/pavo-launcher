@@ -94,6 +94,7 @@ public final class FanCurveService extends Service {
         }
         int appMode = prefs.fanAppMode();
         if (appMode != FanActivity.MODE_CURVE && !FanCurve.isPresetMode(appMode)
+                && appMode != FanActivity.MODE_HOLD
                 && appMode != PerfTuner.FAN_SMART && appMode != PerfTuner.FAN_HIGH) {
             stopForeground(true);
             stopSelf();
@@ -120,8 +121,9 @@ public final class FanCurveService extends Service {
             int appMode = prefs.fanAppMode();
             boolean smart = appMode == PerfTuner.FAN_SMART;
             boolean high = appMode == PerfTuner.FAN_HIGH;
+            boolean hold = appMode == FanActivity.MODE_HOLD;
             String preset = FanCurve.presetCurve(prefs, appMode);
-            if (appMode != FanActivity.MODE_CURVE && preset == null && !smart && !high) {
+            if (appMode != FanActivity.MODE_CURVE && preset == null && !hold && !smart && !high) {
                 stopSelf();
                 return;
             }
@@ -145,6 +147,7 @@ public final class FanCurveService extends Service {
             // holds a flat duty instead of being re-written every tick.
             String curve = high ? FanCurve.flat(100)
                     : smart ? FanCurve.SMART
+                    : hold ? FanCurve.holdCurve(prefs.fanHoldTargetC())
                     : preset != null ? preset : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
@@ -156,7 +159,7 @@ public final class FanCurveService extends Service {
             // High is a hard maximum: do not ease into it or let the curve
             // controller round it down.
             int duty = high ? 100
-                    : controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
+                    : controller.next(curve, temp, SystemClock.uptimeMillis(), smart, hold);
             if (warmup) duty = -1;  // start silently, keep the current speed
             if (duty >= 0) {
                 lastDuty = duty;
@@ -182,7 +185,7 @@ public final class FanCurveService extends Service {
                     PerfTuner.setFanManual(controller.applied());
                 }
             }
-            handler.postDelayed(this, smart || high ? 750L : 1500L);
+            handler.postDelayed(this, smart || high ? 750L : hold ? 1000L : 1500L);
         }
     };
 

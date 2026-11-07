@@ -32,6 +32,7 @@ final class FanCurveView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint livePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint liveDot = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint targetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint focusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF plot = new RectF();
     private final Path path = new Path();
@@ -44,6 +45,7 @@ final class FanCurveView extends View {
     private float liveTemp = 40f;
     private int liveDuty = 30;
     private int liveRpm;
+    private float targetC;
     private boolean editable = true;
     private boolean focused;
     private long lastHaptic;
@@ -71,6 +73,11 @@ final class FanCurveView extends View {
         livePaint.setPathEffect(new DashPathEffect(new float[]{
                 Ui.dpf(c, 3), Ui.dpf(c, 4)}, 0));
         liveDot.setColor(0xFFFFFFFF);
+        targetPaint.setStyle(Paint.Style.STROKE);
+        targetPaint.setStrokeWidth(Ui.dpf(c, 1.4f));
+        targetPaint.setColor(0xCC4DD0E1);
+        targetPaint.setPathEffect(new DashPathEffect(new float[]{
+                Ui.dpf(c, 2), Ui.dpf(c, 2)}, 0));
         focusPaint.setStyle(Paint.Style.STROKE);
         focusPaint.setStrokeWidth(Ui.dpf(c, 2f));
         focusPaint.setColor(ACCENT);
@@ -96,6 +103,12 @@ final class FanCurveView extends View {
         points.clear();
         points.addAll(FanCurve.points(curve));
         selected = Math.max(0, Math.min(selected, points.size() - 1));
+        invalidate();
+    }
+
+    /** HOLD target line; 0 hides it. */
+    void setTarget(float temp) {
+        targetC = temp;
         invalidate();
     }
 
@@ -230,6 +243,16 @@ final class FanCurveView extends View {
         liveDot.setColor(liveColor);
         c.drawLine(lx, plot.top, lx, plot.bottom, livePaint);
         c.drawCircle(lx, ly, Ui.dpf(getContext(), 3f), liveDot);
+
+        if (targetC > 0f) {
+            float tx = xFor(Math.round(targetC));
+            c.drawLine(tx, plot.top, tx, plot.bottom, targetPaint);
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setColor(0xFF4DD0E1);
+            c.drawText(Loc.number(getContext(), Math.round(targetC) + "°"),
+                    tx, plot.top + Ui.dpf(getContext(), 10f), textPaint);
+            textPaint.setColor(MUTED);
+        }
     }
 
     boolean moveSelection(int delta) {

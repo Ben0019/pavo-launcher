@@ -445,7 +445,7 @@ final class Prefs {
     }
     int fanAppMode() {
         return clamp(sp.getInt("fan_app_mode", PerfTuner.FAN_SMART), 0,
-                FanProfile.MODE_LARGE);
+                FanProfile.MODE_HOLD);
     }
     boolean hasFanAppMode() {
         return sp.contains("fan_app_mode");
@@ -481,7 +481,13 @@ final class Prefs {
         return null;
     }
     void setFanAppMode(int v) {
-        sp.edit().putInt("fan_app_mode", clamp(v, 0, FanProfile.MODE_LARGE)).apply();
+        sp.edit().putInt("fan_app_mode", clamp(v, 0, FanProfile.MODE_HOLD)).apply();
+    }
+    int fanHoldTargetC() {
+        return clamp(sp.getInt("fan_hold_target_c", 65), 45, 85);
+    }
+    void setFanHoldTargetC(int v) {
+        sp.edit().putInt("fan_hold_target_c", clamp(v, 45, 85)).apply();
     }
     void setFanManualPercent(int v) {
         sp.edit().putInt("fan_manual_percent", clamp(v, 10, 100)).apply();

@@ -81,6 +81,7 @@ final class FanEngine {
         // ended up back on the smart curve.
         final int selected = new Prefs(target).fanAppMode();
         if (selected != FanActivity.MODE_CURVE && !FanCurve.isPresetMode(selected)
+                && selected != FanActivity.MODE_HOLD
                 && selected != PerfTuner.FAN_SMART && selected != PerfTuner.FAN_HIGH) {
             return;
         }
@@ -101,8 +102,9 @@ final class FanEngine {
             int appMode = prefs.fanAppMode();
             boolean smart = appMode == PerfTuner.FAN_SMART;
             boolean high = appMode == PerfTuner.FAN_HIGH;
+            boolean hold = appMode == FanActivity.MODE_HOLD;
             String preset = FanCurve.presetCurve(prefs, appMode);
-            if (appMode != FanActivity.MODE_CURVE && preset == null && !smart && !high) {
+            if (appMode != FanActivity.MODE_CURVE && preset == null && !hold && !smart && !high) {
                 stop(app);
                 return;
             }
@@ -120,6 +122,7 @@ final class FanEngine {
             if (temp <= 0f) temp = 40f;
             String curve = high ? FanCurve.flat(100)
                     : smart ? FanCurve.SMART
+                    : hold ? FanCurve.holdCurve(prefs.fanHoldTargetC())
                     : preset != null ? preset : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
@@ -129,7 +132,7 @@ final class FanEngine {
             }
             // High is a hard maximum: do not ease into it.
             int duty = high ? 100
-                    : controller.next(curve, temp, SystemClock.uptimeMillis(), smart);
+                    : controller.next(curve, temp, SystemClock.uptimeMillis(), smart, hold);
             controlTemp = controller.filteredTemp();
             if (warmup) duty = -1;
             if (duty >= 0) {
@@ -149,7 +152,7 @@ final class FanEngine {
                 }
             }
             Handler h = handler;
-            if (h != null) h.postDelayed(this, smart || high ? 750L : 1500L);
+            if (h != null) h.postDelayed(this, smart || high ? 750L : hold ? 1000L : 1500L);
         }
     };
 }

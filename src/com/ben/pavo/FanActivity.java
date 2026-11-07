@@ -39,6 +39,7 @@ public final class FanActivity extends PavoGlassActivity {
     static final int MODE_SMALL = FanProfile.MODE_SMALL;
     static final int MODE_MEDIUM = FanProfile.MODE_MEDIUM;
     static final int MODE_LARGE = FanProfile.MODE_LARGE;
+    static final int MODE_HOLD = FanProfile.MODE_HOLD;
 
     private int accent = 0xFFA9BEFF;
     private static final int TEXT = 0xF2FFFFFF;
@@ -51,10 +52,10 @@ public final class FanActivity extends PavoGlassActivity {
 
     private static final int[] MODE_VALUES = {
             PerfTuner.FAN_OFF, PerfTuner.FAN_SMART, PerfTuner.FAN_HIGH,
-            MODE_CURVE, MODE_SMALL, MODE_MEDIUM, MODE_LARGE
+            MODE_CURVE, MODE_SMALL, MODE_MEDIUM, MODE_LARGE, MODE_HOLD
     };
     private static final String[] MODE_LABELS = {
-            "OFF", "SMART", "HIGH", "CURVE", "SMALL", "MEDIUM", "LARGE"
+            "OFF", "SMART", "HIGH", "CURVE", "SMALL", "MEDIUM", "LARGE", "HOLD"
     };
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -93,6 +94,10 @@ public final class FanActivity extends PavoGlassActivity {
     private SeekBar manualBar;
     private TextView manualValue;
     private GradientDrawable manualThumb;
+    private LinearLayout holdRow;
+    private SeekBar holdBar;
+    private TextView holdValue;
+    private int holdTarget = 65;
     private float currentTemp = 40f;
 
     private int mode;
@@ -209,6 +214,7 @@ public final class FanActivity extends PavoGlassActivity {
         manualPct = global.manualPct;
         curve = global.curve;
         fanSource = prefs.fanTempSource();
+        holdTarget = prefs.fanHoldTargetC();
         buildUi();
         styleSourceChips();
         hideBars();
@@ -488,6 +494,7 @@ public final class FanActivity extends PavoGlassActivity {
         curveView.setListener(new FanCurveView.Listener() {
             @Override
             public void onCurveChanged(String value) {
+                if (mode == MODE_HOLD) return;
                 if (FanCurve.isPresetMode(mode)) {
                     // Editing a preset updates that preset's own default; it
                     // does not fork into the editable CURVE profile.
@@ -526,6 +533,71 @@ public final class FanActivity extends PavoGlassActivity {
         curveHint = text("", 9f, MUTED, false);
         curveHint.setPadding(dp(2), dp(4), dp(2), 0);
         curveCard.addView(curveHint);
+
+        // Target-temperature control for HOLD. Hidden unless HOLD is selected.
+        int holdColor = 0xFF4DD0E1;
+        holdRow = new LinearLayout(this);
+        holdRow.setOrientation(LinearLayout.HORIZONTAL);
+        holdRow.setGravity(Gravity.CENTER_VERTICAL);
+        holdRow.setPadding(dp(2), dp(6), dp(2), 0);
+        TextView holdLabel = text(Loc.s(this, "HOLD"), 9.5f, MUTED, true);
+        holdRow.addView(holdLabel, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        holdBar = new SeekBar(this);
+        holdBar.setMax(40);
+        holdBar.setProgress(Math.max(0, Math.min(40, holdTarget - 45)));
+        holdBar.setProgressTintList(ColorStateList.valueOf(holdColor));
+        GradientDrawable holdThumb = new GradientDrawable();
+        holdThumb.setShape(GradientDrawable.OVAL);
+        holdThumb.setColor(holdColor);
+        holdThumb.setSize(dp(16), dp(16));
+        holdBar.setThumb(holdThumb);
+        holdBar.setThumbOffset(0);
+        holdBar.setSplitTrack(false);
+        holdBar.setDefaultFocusHighlightEnabled(false);
+        holdBar.setFocusable(true);
+        holdBar.setFocusableInTouchMode(true);
+        holdBar.setMinimumHeight(dp(30));
+        holdBar.setPadding(dp(12), dp(2), dp(12), dp(2));
+        LinearLayout.LayoutParams holdBarLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        holdBarLp.leftMargin = dp(8);
+        holdRow.addView(holdBar, holdBarLp);
+        holdValue = text(holdTarget + "°C", 10.5f, holdColor, true);
+        holdRow.addView(holdValue);
+        holdBar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                v.setBackground(hasFocus ? Ui.focusRing(FanActivity.this, dp(10)) : null);
+                if (hasFocus) Haptics.tick(v);
+            }
+        });
+        holdBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                holdTarget = progress + 45;
+                if (holdValue != null) holdValue.setText(holdTarget + "°C");
+                if (!fromUser || suppress) return;
+                prefs.setFanHoldTargetC(holdTarget);
+                refreshCurveDisplay();
+                updateLiveHint();
+                if (mode == MODE_HOLD) FanControl.update(FanActivity.this);
+                Haptics.tick(seekBar);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                Haptics.key(seekBar);
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                Haptics.click(seekBar);
+            }
+        });
+        holdRow.setVisibility(View.GONE);
+        curveCard.addView(holdRow);
 
         // Rear outline tucked into the card's top-right corner.
         FrameLayout outlineHolder = new FrameLayout(this);
@@ -792,7 +864,7 @@ public final class FanActivity extends PavoGlassActivity {
 
     /** Curve, the three underclock presets, Smart and High use the controller. */
     private boolean managedFanMode() {
-        return mode == MODE_CURVE || FanCurve.isPresetMode(mode)
+        return mode == MODE_CURVE || FanCurve.isPresetMode(mode) || mode == MODE_HOLD
                 || mode == PerfTuner.FAN_SMART || mode == PerfTuner.FAN_HIGH;
     }
 
@@ -1135,18 +1207,30 @@ public final class FanActivity extends PavoGlassActivity {
                 selectMode(value);
             }
         });
-        if (FanCurve.isPresetMode(value)) {
+        if (FanCurve.isPresetMode(value) || value == MODE_HOLD) {
             chip.setLongClickable(true);
             chip.setOnLongClickListener(new View.OnLongClickListener() {
                 @Override
                 public boolean onLongClick(View v) {
                     Haptics.longPress(v);
-                    prefs.resetFanPresetCurve(value);
-                    if (mode == value) {
-                        curveController.reset();
-                        refreshCurveDisplay();
-                        updateLiveHint();
-                        FanControl.update(FanActivity.this);
+                    if (value == MODE_HOLD) {
+                        prefs.setFanHoldTargetC(65);
+                        holdTarget = 65;
+                        if (holdBar != null) holdBar.setProgress(20);
+                        if (holdValue != null) holdValue.setText("65°C");
+                        if (mode == MODE_HOLD) {
+                            refreshCurveDisplay();
+                            updateLiveHint();
+                            FanControl.update(FanActivity.this);
+                        }
+                    } else {
+                        prefs.resetFanPresetCurve(value);
+                        if (mode == value) {
+                            curveController.reset();
+                            refreshCurveDisplay();
+                            updateLiveHint();
+                            FanControl.update(FanActivity.this);
+                        }
                     }
                     LToast.makeText(FanActivity.this,
                             Loc.s(FanActivity.this, modeLabel(value)) + " "
@@ -1217,8 +1301,11 @@ public final class FanActivity extends PavoGlassActivity {
         styleChips();
         styleSourceChips();
         if (curveView != null) {
-            curveView.setEditable(true);
+            curveView.setEditable(mode != MODE_HOLD);
             refreshCurveDisplay();
+        }
+        if (holdRow != null) {
+            holdRow.setVisibility(mode == MODE_HOLD ? View.VISIBLE : View.GONE);
         }
         if (manualBar != null) {
             manualBar.setAlpha(mode == PerfTuner.FAN_MANUAL ? 1f : 0.62f);
@@ -1239,8 +1326,11 @@ public final class FanActivity extends PavoGlassActivity {
         styleChips();
         styleSourceChips();
         if (curveView != null) {
-            curveView.setEditable(true);
+            curveView.setEditable(mode != MODE_HOLD);
             refreshCurveDisplay();
+        }
+        if (holdRow != null) {
+            holdRow.setVisibility(mode == MODE_HOLD ? View.VISIBLE : View.GONE);
         }
         if (manualBar != null) manualBar.setAlpha(mode == PerfTuner.FAN_MANUAL ? 1f : 0.62f);
         previewFanTarget();
@@ -1269,6 +1359,8 @@ public final class FanActivity extends PavoGlassActivity {
             case MODE_MEDIUM:
             case MODE_LARGE:
                 return FanCurve.presetCurve(prefs, mode);
+            case MODE_HOLD:
+                return FanCurve.holdCurve(holdTarget);
             case MODE_CURVE:
             default:
                 return curve;
@@ -1276,7 +1368,10 @@ public final class FanActivity extends PavoGlassActivity {
     }
 
     private void refreshCurveDisplay() {
-        if (curveView != null) curveView.setCurve(displayedCurve());
+        if (curveView != null) {
+            curveView.setCurve(displayedCurve());
+            curveView.setTarget(mode == MODE_HOLD ? holdTarget : 0f);
+        }
     }
 
     private String modeLabel(int value) {
@@ -1303,6 +1398,8 @@ public final class FanActivity extends PavoGlassActivity {
             case MODE_MEDIUM:
             case MODE_LARGE:
                 return FanCurve.dutyAt(FanCurve.presetCurve(prefs, mode), temp);
+            case MODE_HOLD:
+                return FanCurve.dutyAt(FanCurve.holdCurve(holdTarget), temp);
             case MODE_CURVE:
             default:
                 return FanCurve.dutyAt(curve, temp);
@@ -1315,6 +1412,7 @@ public final class FanActivity extends PavoGlassActivity {
         if (value == MODE_SMALL) return HeatColor.ramp(1f);
         if (value == MODE_MEDIUM) return HeatColor.ramp(1f / 3f);
         if (value == MODE_LARGE) return HeatColor.ramp(0f);
+        if (value == MODE_HOLD) return 0xFF4DD0E1;
         // Control modes stay off the thermal ramp so they read as modes,
         // not as "how hot is it": grey off, blue auto, violet custom.
         if (value == PerfTuner.FAN_OFF) return 0xFF8C98A4;
@@ -1345,7 +1443,7 @@ public final class FanActivity extends PavoGlassActivity {
 
     private int normalizeMode(int value) {
         if (value == MODE_CURVE || value == MODE_SMALL || value == MODE_MEDIUM
-                || value == MODE_LARGE || value == PerfTuner.FAN_MANUAL
+                || value == MODE_LARGE || value == MODE_HOLD || value == PerfTuner.FAN_MANUAL
                 || value == PerfTuner.FAN_OFF || value == PerfTuner.FAN_LOW
                 || value == PerfTuner.FAN_SMART || value == PerfTuner.FAN_HIGH) {
             return value;
@@ -1412,6 +1510,10 @@ public final class FanActivity extends PavoGlassActivity {
         } else if (FanCurve.isPresetMode(mode)) {
             curveHint.setText(String.format(Loc.s(this, curveNav),
                     Loc.s(this, modeLabel(mode))));
+            curveHint.setTextColor(0xB3FFFFFF);
+        } else if (mode == MODE_HOLD) {
+            curveHint.setText(String.format(Loc.s(this, curveNav),
+                    Loc.s(this, "HOLD") + " " + holdTarget + "°C"));
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (mode == PerfTuner.FAN_MANUAL) {
             curveHint.setText(String.format(Loc.s(this,
