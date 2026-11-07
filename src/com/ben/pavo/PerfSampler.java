@@ -43,30 +43,25 @@ final class PerfSampler {
             + "echo \"APP:$full\"\n"
             + "pid=$(pidof \"$pkg\" 2>/dev/null | awk '{print $1}')\n"
             + "if [ -n \"$pid\" ]; then rss=$(grep VmRSS /proc/$pid/status 2>/dev/null | awk '{print $2}'); [ -n \"$rss\" ] && echo \"RSS:$rss\"; fi\n"
-            + "best=\"$cached\"; bestn=0; bestout=\n"
-            + "case \"$best\" in *\"$pkg\"*) ;; *) best=;; esac\n"
+            + "cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$full\" "
+            + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Pavo performance overlay|ClusterTune|Cluster Tune' "
+            + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 6)\n"
+            + "sv=$(printf '%s\\n' \"$cands\" | grep -F 'SurfaceView[' | head -n 4)\n"
+            + "[ -n \"$sv\" ] && cands=\"$sv\"\n"
+            + "best=\n"
+            + "if [ -n \"$cached\" ] && printf '%s\\n' \"$cands\" | grep -Fxq \"$cached\"; then best=\"$cached\"; fi\n"
+            + "[ -z \"$best\" ] && best=$(printf '%s\\n' \"$cands\" | head -n 1)\n"
+            + "bestn=0; bestout=\n"
             + "if [ -n \"$best\" ]; then\n"
             + "  bestout=$(dumpsys SurfaceFlinger --latency \"$best\" 2>/dev/null)\n"
             + "  bestn=$(printf '%s\\n' \"$bestout\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}')\n"
             + "fi\n"
-            + "if [ -z \"$best\" ] || [ \"$bestn\" -eq 0 ]; then\n"
-            + "  cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$full\" "
-            + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Pavo performance overlay|ClusterTune|Cluster Tune' "
-            + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 4)\n"
-            + "  bestn=0; bestNewest=0; best=; bestout=\n"
-            + "  while IFS= read -r cand; do\n"
-            + "    [ -z \"$cand\" ] && continue\n"
-            + "    o=$(dumpsys SurfaceFlinger --latency \"$cand\" 2>/dev/null)\n"
-            + "    n=$(printf '%s\\n' \"$o\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}')\n"
-            + "    nw=$(printf '%s\\n' \"$o\" | awk 'NR>1 && $2+0>0 {if ($2+0>m) m=$2+0; c++} END {printf \"%.0f\\n\", m}')\n"
-            + "    better=0;\n"
-            + "    if [ -z \"$best\" ]; then better=1;\n"
-            + "    elif [ \"$n\" -gt \"$bestn\" ]; then better=1;\n"
-            + "    elif [ \"$n\" -eq \"$bestn\" ] && awk -v a=\"${nw:-0}\" -v b=\"$bestNewest\" 'BEGIN{exit !(a>b)}'; then better=1; fi\n"
-            + "    if [ \"$better\" -eq 1 ]; then bestNewest=$nw; bestn=$n; best=$cand; bestout=$o; fi\n"
-            + "  done <<EOF\n$cands\nEOF\n"
-            + "fi\n"
-            + "if [ -n \"$best\" ] && [ \"$bestn\" -gt 0 ]; then echo \"LAYER:$best\"; printf '%s\\n' \"$bestout\"; else echo \"LAYER:\"; fi\n"
+            + "if [ -n \"$best\" ] && [ \"$bestn\" -gt 0 ]; then echo \"LAYER:$best\"; printf '%s\\n' \"$bestout\";\n"
+            + "elif [ -n \"$best\" ]; then\n"
+            + "  echo \"LAYER:$best\"\n"
+            + "  frame=$(dumpsys SurfaceFlinger 2>/dev/null | awk -v pat=\"$best\" 'index($0,pat){f=1;next} f&&/frame=/{match($0,/frame=[0-9]+/); if(RSTART>0){print substr($0,RSTART+6,RLENGTH-6); exit}} f&&/Layer \\[/{f=0}')\n"
+            + "  [ -n \"$frame\" ] && echo \"FRAME:$frame\"\n"
+            + "else echo \"LAYER:\"; fi\n"
             + "} > \"$tmp\" 2>/dev/null\n"
             + "chmod 644 \"$tmp\"\n"
             + "mv \"$tmp\" \"$out\"\n"
@@ -165,6 +160,9 @@ final class PerfSampler {
     private int fpsRecentCount;
     private int fpsRecentIndex;
     private String fpsRecentLayer;
+    private String fpsFrameLayer;
+    private long fpsFrameLast = -1;
+    private long fpsFrameAtNs;
     private long prevNetRx = -1;
     private long prevNetTx = -1;
     private long prevNetAt;
@@ -681,6 +679,7 @@ final class PerfSampler {
         long newest = 0;
         long refreshNs = 0;
         String layer = null;
+        long frameCount = -1;
         List<Long> times = new ArrayList<>();
         String[] lines = out.split("\n");
         for (String line : lines) {
@@ -698,6 +697,13 @@ final class PerfSampler {
             if (line.startsWith("RSS:")) {
                 try {
                     cachedAppRamKb = Long.parseLong(line.substring("RSS:".length()).trim());
+                } catch (Throwable ignored) {
+                }
+                continue;
+            }
+            if (line.startsWith("FRAME:")) {
+                try {
+                    frameCount = Long.parseLong(line.substring("FRAME:".length()).trim());
                 } catch (Throwable ignored) {
                 }
                 continue;
@@ -735,6 +741,31 @@ final class PerfSampler {
         if (resolved) {
             cachedLayer = layerFound ? layer : null;
             if (!layerFound) noLayerUntil = now + 500_000_000L;
+        }
+        if (layerFound && times.isEmpty() && frameCount >= 0) {
+            // SurfaceView/BLAST layers expose no --latency rows on this
+            // firmware; their frame counter in the layer dump still advances
+            // once per presented game frame.
+            s.targetPkg = cachedTargetPkg;
+            s.targetCls = cachedTargetCls;
+            s.appRamKb = cachedAppRamKb;
+            if (layer != null && layer.equals(fpsFrameLayer)
+                    && fpsFrameLast >= 0 && now > fpsFrameAtNs) {
+                long delta = frameCount - fpsFrameLast;
+                long dt = now - fpsFrameAtNs;
+                if (delta > 0 && dt > 200_000_000L) {
+                    long raw = Math.round(delta * 1_000_000_000.0 / dt);
+                    if (raw > 0 && raw <= 240) {
+                        s.fps = (int) raw;
+                        s.fpsValid = true;
+                    }
+                }
+            }
+            fpsFrameLayer = layer;
+            fpsFrameLast = frameCount;
+            fpsFrameAtNs = now;
+            cachedLayer = layer;
+            return;
         }
         if (!layerFound || times.isEmpty() || newest <= 0) {
             // An empty dump means the layer went away; resolve again instead of
