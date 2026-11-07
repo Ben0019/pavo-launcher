@@ -805,8 +805,8 @@ public final class PavoA11yService extends AccessibilityService {
         // alive without a foreground service or a persistent notification.
         Prefs fanPrefs = new Prefs(this);
         int fanMode = fanPrefs.fanAppMode();
-        if (fanMode == FanActivity.MODE_CURVE || fanMode == PerfTuner.FAN_SMART
-                || fanMode == PerfTuner.FAN_HIGH) {
+        if (fanMode == FanActivity.MODE_CURVE || FanCurve.presetCurve(fanMode) != null
+                || fanMode == PerfTuner.FAN_SMART || fanMode == PerfTuner.FAN_HIGH) {
             FanControl.start(this);
         }
         ServiceNotifications.cancelPersistent(this);

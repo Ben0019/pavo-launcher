@@ -36,6 +36,9 @@ import java.util.concurrent.Executors;
 /** Built-in Pavo app: system fan presets, precise curve and live rear fan model. */
 public final class FanActivity extends PavoGlassActivity {
     static final int MODE_CURVE = 7;
+    static final int MODE_SMALL = FanProfile.MODE_SMALL;
+    static final int MODE_MEDIUM = FanProfile.MODE_MEDIUM;
+    static final int MODE_LARGE = FanProfile.MODE_LARGE;
 
     private int accent = 0xFFA9BEFF;
     private static final int TEXT = 0xF2FFFFFF;
@@ -47,11 +50,11 @@ public final class FanActivity extends PavoGlassActivity {
     private static final int CARD_BORDER = 0x22FFFFFF;
 
     private static final int[] MODE_VALUES = {
-            PerfTuner.FAN_OFF, PerfTuner.FAN_LOW, PerfTuner.FAN_SMART,
-            PerfTuner.FAN_HIGH, MODE_CURVE, PerfTuner.FAN_MANUAL
+            PerfTuner.FAN_OFF, PerfTuner.FAN_SMART, PerfTuner.FAN_HIGH,
+            MODE_CURVE, MODE_SMALL, MODE_MEDIUM, MODE_LARGE
     };
     private static final String[] MODE_LABELS = {
-            "OFF", "LOW", "SMART", "HIGH", "CURVE", "MANUAL"
+            "OFF", "SMART", "HIGH", "CURVE", "SMALL", "MEDIUM", "LARGE"
     };
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -242,7 +245,8 @@ public final class FanActivity extends PavoGlassActivity {
         main.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (!chips.isEmpty()) chips.get(selectedIndex()).requestFocus();
+                int index = selectedIndex();
+                if (index >= 0 && index < chips.size()) chips.get(index).requestFocus();
             }
         }, 140L);
     }
@@ -594,8 +598,8 @@ public final class FanActivity extends PavoGlassActivity {
         row2Lp.topMargin = dp(7);
         presets.addView(row2, row2Lp);
         for (int i = 0; i < MODE_VALUES.length; i++) {
-            LinearLayout row = i < 3 ? row1 : row2;
-            addModeChip(row, MODE_LABELS[i], MODE_VALUES[i], i == 2);
+            LinearLayout row = i < 4 ? row1 : row2;
+            addModeChip(row, Loc.s(this, MODE_LABELS[i]), MODE_VALUES[i], i == 2);
         }
 
         LinearLayout manual = card(left, "MANUAL SPEED", "");
@@ -771,10 +775,10 @@ public final class FanActivity extends PavoGlassActivity {
         syncBackgroundServices();
     }
 
-    /** Curve, Smart and High are all driven by the temperature controller. */
+    /** Curve, the three underclock presets, Smart and High use the controller. */
     private boolean managedFanMode() {
-        return mode == MODE_CURVE || mode == PerfTuner.FAN_SMART
-                || mode == PerfTuner.FAN_HIGH;
+        return mode == MODE_CURVE || FanCurve.presetCurve(mode) != null
+                || mode == PerfTuner.FAN_SMART || mode == PerfTuner.FAN_HIGH;
     }
 
     private void applyProfileFanMode() {
@@ -1186,7 +1190,7 @@ public final class FanActivity extends PavoGlassActivity {
         for (int i = 0; i < MODE_VALUES.length; i++) {
             if (MODE_VALUES[i] == mode) return i;
         }
-        return 2;
+        return -1;
     }
 
     private void selectMode(int value) {
@@ -1217,6 +1221,12 @@ public final class FanActivity extends PavoGlassActivity {
                 return FanCurve.flat(100);
             case PerfTuner.FAN_MANUAL:
                 return FanCurve.flat(manualPct);
+            case MODE_SMALL:
+                return FanCurve.SMALL;
+            case MODE_MEDIUM:
+                return FanCurve.MEDIUM;
+            case MODE_LARGE:
+                return FanCurve.LARGE;
             case MODE_CURVE:
             default:
                 return curve;
@@ -1247,6 +1257,12 @@ public final class FanActivity extends PavoGlassActivity {
                 return 100;
             case PerfTuner.FAN_MANUAL:
                 return manualPct;
+            case MODE_SMALL:
+                return FanCurve.dutyAt(FanCurve.SMALL, temp);
+            case MODE_MEDIUM:
+                return FanCurve.dutyAt(FanCurve.MEDIUM, temp);
+            case MODE_LARGE:
+                return FanCurve.dutyAt(FanCurve.LARGE, temp);
             case MODE_CURVE:
             default:
                 return FanCurve.dutyAt(curve, temp);
@@ -1277,7 +1293,8 @@ public final class FanActivity extends PavoGlassActivity {
     }
 
     private int normalizeMode(int value) {
-        if (value == MODE_CURVE || value == PerfTuner.FAN_MANUAL
+        if (value == MODE_CURVE || value == MODE_SMALL || value == MODE_MEDIUM
+                || value == MODE_LARGE || value == PerfTuner.FAN_MANUAL
                 || value == PerfTuner.FAN_OFF || value == PerfTuner.FAN_LOW
                 || value == PerfTuner.FAN_SMART || value == PerfTuner.FAN_HIGH) {
             return value;
@@ -1339,6 +1356,10 @@ public final class FanActivity extends PavoGlassActivity {
         if (curveHint == null) return;
         if (mode == MODE_CURVE) {
             curveHint.setText("CURVE · right stick speed · D-pad/left stick point · L1/R1 cards");
+            curveHint.setTextColor(0xB3FFFFFF);
+        } else if (FanCurve.presetCurve(mode) != null) {
+            curveHint.setText(Loc.s(this, modeLabel(mode))
+                    + " · right stick speed · D-pad/left stick point · L1/R1 cards");
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (mode == PerfTuner.FAN_MANUAL) {
             curveHint.setText(String.format(Loc.s(this,

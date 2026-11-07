@@ -184,7 +184,9 @@ public final class PerAppFanService extends Service {
             return false;
         }
 
-        if (profile.mode == FanProfile.MODE_CURVE) {
+        String preset = FanCurve.presetCurve(profile.mode);
+        if (profile.mode == FanProfile.MODE_CURVE || preset != null) {
+            String activeCurve = preset != null ? preset : profile.curve;
             if (!key.equals(lastKey)) {
                 lastKey = key;
                 lastCurveDuty = -1;
@@ -193,7 +195,7 @@ public final class PerAppFanService extends Service {
             float[] temps = PerfTuner.temperatures();
             float temp = FanCurve.sourceTemp(temps[0], temps[1], prefs.fanTempSource());
             if (temp <= 0f) temp = 40f;
-            int duty = curveController.next(profile.curve, temp,
+            int duty = curveController.next(activeCurve, temp,
                     SystemClock.uptimeMillis());
             if (duty >= 0) {
                 PerfTuner.setFanManual(duty);

@@ -1391,6 +1391,7 @@ public final class MainActivity extends Activity {
         if (new FanProfileStore(this).hasOverrides()) {
             PerAppFanService.start(this);
         } else if (prefs.fanAppMode() == FanActivity.MODE_CURVE
+                || FanCurve.presetCurve(prefs.fanAppMode()) != null
                 || prefs.fanAppMode() == PerfTuner.FAN_SMART) {
             // Smart is driven by our own controller too, so it needs the service
             // running from the first launch, not only after Fan Control is opened.

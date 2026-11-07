@@ -40,6 +40,7 @@ public final class PerfTuneService extends Service {
     private boolean tickInFlight;
     private boolean thermalHold;
     private boolean modePaused;
+    private volatile float lastTempC;
 
     /**
      * The Odin firmware parks cores 6-7 for apps it does not classify as games:
@@ -167,7 +168,8 @@ public final class PerfTuneService extends Service {
                                             notification(hot, paused));
                                 }
                             }
-                            schedule(hot || paused ? 1000L : 150L);
+                            schedule(hot || paused ? 1000L
+                                    : (lastTempC >= 45f ? 60L : 150L));
                         }
                     });
                 }
@@ -189,6 +191,7 @@ public final class PerfTuneService extends Service {
         }
         expireBoost();
         float[] temps = PerfTuner.temperatures();
+        lastTempC = Math.max(temps[0], temps[1]);
         // Only step aside when the chip is genuinely hot; the old 72 C limit
         // meant the caps never applied while gaming (junctions run 80-95 C).
         float limit = prefs.perfHoldLimitC();

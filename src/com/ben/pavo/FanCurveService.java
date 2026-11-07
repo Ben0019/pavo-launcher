@@ -93,8 +93,8 @@ public final class FanCurveService extends Service {
             return START_NOT_STICKY;
         }
         int appMode = prefs.fanAppMode();
-        if (appMode != FanActivity.MODE_CURVE && appMode != PerfTuner.FAN_SMART
-                && appMode != PerfTuner.FAN_HIGH) {
+        if (appMode != FanActivity.MODE_CURVE && FanCurve.presetCurve(appMode) == null
+                && appMode != PerfTuner.FAN_SMART && appMode != PerfTuner.FAN_HIGH) {
             stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
@@ -120,7 +120,8 @@ public final class FanCurveService extends Service {
             int appMode = prefs.fanAppMode();
             boolean smart = appMode == PerfTuner.FAN_SMART;
             boolean high = appMode == PerfTuner.FAN_HIGH;
-            if (appMode != FanActivity.MODE_CURVE && !smart && !high) {
+            String preset = FanCurve.presetCurve(appMode);
+            if (appMode != FanActivity.MODE_CURVE && preset == null && !smart && !high) {
                 stopSelf();
                 return;
             }
@@ -143,7 +144,8 @@ public final class FanCurveService extends Service {
             // High is always full speed, driven by the same controller so it
             // holds a flat duty instead of being re-written every tick.
             String curve = high ? FanCurve.flat(100)
-                    : smart ? FanCurve.SMART : prefs.fanCurve();
+                    : smart ? FanCurve.SMART
+                    : preset != null ? preset : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
                 controller.reset();

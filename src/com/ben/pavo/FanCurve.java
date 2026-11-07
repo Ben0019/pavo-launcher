@@ -14,6 +14,27 @@ final class FanCurve {
     static final String SMART = "30:10,35:10,40:12,45:15,50:20,55:26,60:34,"
             + "65:45,70:58,75:72,80:86,85:95,90:100,95:100,100:100";
 
+    /**
+     * Low-noise curves for the three Performance Tuner underclocks. The
+     * eight-thread probe held roughly 60 °C on all three at 10-18 % duty, so
+     * each preset stays quiet through its own sustained peak and only ramps
+     * above it. The deeper the underclock, the longer it stays quiet.
+     */
+    static final String SMALL = "30:0,35:0,40:0,45:0,50:10,55:14,60:18,"
+            + "65:26,70:36,75:48,80:62,85:80,90:100,95:100,100:100";
+    static final String MEDIUM = "30:0,35:0,40:0,45:0,50:8,55:12,60:16,"
+            + "65:22,70:32,75:44,80:58,85:76,90:100,95:100,100:100";
+    static final String LARGE = "30:0,35:0,40:0,45:0,50:6,55:10,60:14,"
+            + "65:20,70:28,75:40,80:54,85:72,90:100,95:100,100:100";
+
+    /** Fixed low-noise curve for a performance-preset fan mode, or null. */
+    static String presetCurve(int mode) {
+        if (mode == FanProfile.MODE_SMALL) return SMALL;
+        if (mode == FanProfile.MODE_MEDIUM) return MEDIUM;
+        if (mode == FanProfile.MODE_LARGE) return LARGE;
+        return null;
+    }
+
     private FanCurve() {}
 
     /** Pick the temperature that drives the curve: CPU, GPU, or the hotter one. */
