@@ -122,7 +122,7 @@ final class FanEngine {
             if (temp <= 0f) temp = 40f;
             String curve = high ? FanCurve.flat(100)
                     : smart ? FanCurve.SMART
-                    : hold ? FanCurve.holdCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
+                    : hold ? FanCurve.holdServiceCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
                     : preset != null ? preset : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;

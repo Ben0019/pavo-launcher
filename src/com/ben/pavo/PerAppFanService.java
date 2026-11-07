@@ -188,7 +188,7 @@ public final class PerAppFanService extends Service {
         if (profile.mode == FanProfile.MODE_CURVE || profile.mode == FanProfile.MODE_HOLD
                 || preset != null) {
             String activeCurve = profile.mode == FanProfile.MODE_HOLD
-                    ? FanCurve.holdCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
+                    ? FanCurve.holdServiceCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
                     : preset != null ? preset : profile.curve;
             if (!key.equals(lastKey)) {
                 lastKey = key;

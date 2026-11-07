@@ -190,6 +190,34 @@ final class FanCurve {
         return holdCurve(targetC, dutyPct);
     }
 
+    /**
+     * Hidden service curve for HOLD: the displayed curve stops at the hold
+     * point, but above it the fan steps up by 5 points per °C (capped at
+     * 100) so a small skip is corrected with a little noise, not full blast.
+     */
+    static String holdServiceCurve(Prefs prefs, float targetC, int dutyPct) {
+        String base = holdCurve(prefs, targetC, dutyPct);
+        int t = clamp(Math.round(targetC), 45, 85);
+        int d = clamp(dutyPct, 10, 100);
+        TreeMap<Integer, Integer> map = new TreeMap<>();
+        for (int[] p : points(base)) {
+            map.put(p[0], p[1]);
+        }
+        for (int dt = 1; dt <= 25; dt++) {
+            int temp = t + dt;
+            if (temp > 100) break;
+            int guard = Math.min(100, d + Math.round(dt * 5f));
+            Integer old = map.get(temp);
+            if (old == null || guard > old) map.put(temp, guard);
+        }
+        StringBuilder b = new StringBuilder();
+        for (Map.Entry<Integer, Integer> e : map.entrySet()) {
+            if (b.length() > 0) b.append(',');
+            b.append(e.getKey()).append(':').append(e.getValue());
+        }
+        return ensureTerminal(b.toString());
+    }
+
     /** 15 control points at 5 °C intervals at one duty level. */
     static String flat(int duty) {        int d = clamp(duty, 0, 100);
         StringBuilder b = new StringBuilder();

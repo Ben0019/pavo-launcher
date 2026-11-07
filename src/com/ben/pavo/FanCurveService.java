@@ -147,7 +147,7 @@ public final class FanCurveService extends Service {
             // holds a flat duty instead of being re-written every tick.
             String curve = high ? FanCurve.flat(100)
                     : smart ? FanCurve.SMART
-                    : hold ? FanCurve.holdCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
+                    : hold ? FanCurve.holdServiceCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
                     : preset != null ? preset : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
