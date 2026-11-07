@@ -22,7 +22,7 @@ final class Defaults {
         PerfTuner.preparePServer();
         PerfTuner.State state = PerfTuner.readState(app);
         if (state == null) return;
-        PerfProfiles.Spec spec = PerfProfiles.get(PerfProfiles.BALANCED, state);
+        PerfProfiles.Spec spec = PerfProfiles.get(PerfProfiles.MEDIUM, state);
         // The vendor daemon can race the first write with its own restore, so
         // apply a few times until the hardware really reports the target.
         for (int attempt = 0; attempt < 5; attempt++) {
@@ -41,7 +41,7 @@ final class Defaults {
             if (now != null) state = now;
         }
         TuneConfig config = TuneConfig.fromState(state, PerfTuner.FAN_SMART,
-                prefs.fanManualPercent(), spec.performanceMode, PerfProfiles.BALANCED);
+                prefs.fanManualPercent(), spec.performanceMode, PerfProfiles.MEDIUM);
         config.p0Max = spec.p0Max;
         config.p0Min = spec.p0Min;
         config.p0Gov = spec.governor;
@@ -49,7 +49,7 @@ final class Defaults {
         config.p6Min = spec.p6Min;
         config.p6Gov = spec.governor;
         config.gpuMax = spec.gpuMax;
-        config.profile = PerfProfiles.BALANCED;
+        config.profile = PerfProfiles.MEDIUM;
         new TuneStore(app).setGlobal(config);
     }
 
@@ -57,7 +57,7 @@ final class Defaults {
         PerfTuner.setCpu(state.efficiency, spec.p0Max, spec.p0Min, spec.governor);
         PerfTuner.setCpu(state.performance, spec.p6Max, spec.p6Min, spec.governor);
         if (state.gpu != null && state.gpu.freqs.length > 0) {
-            PerfTuner.setGpu(state.gpu, spec.gpuMax, state.gpu.freqs[0]);
+            PerfTuner.setGpu(state.gpu, spec.gpuMax, spec.gpuMin);
         }
     }
 }

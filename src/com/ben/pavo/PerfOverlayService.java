@@ -553,8 +553,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     }
 
     private static final String[] PRESET_CYCLE = {
-            PerfProfiles.QUIET, PerfProfiles.BALANCED, PerfProfiles.PERFORMANCE,
-            PerfProfiles.EXTREME, "CUSTOM"
+            PerfProfiles.SMALL, PerfProfiles.MEDIUM, PerfProfiles.LARGE,
+            PerfProfiles.STOCK, "CUSTOM"
     };
 
     /** Tapping the title walks through the tuner presets and applies each one. */
@@ -617,12 +617,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         PerfTuner.setCpu(state.performance, spec.p6Max, spec.p6Min,
                                 spec.governor);
                     }
-                    int gpuMin = spec.gpuMax;
                     if (state.gpu != null) {
-                        if (state.gpu.freqs != null && state.gpu.freqs.length > 0) {
-                            gpuMin = state.gpu.freqs[0];
-                        }
-                        PerfTuner.setGpu(state.gpu, spec.gpuMax, gpuMin);
+                        PerfTuner.setGpu(state.gpu, spec.gpuMax, spec.gpuMin);
                     }
                     config = current != null ? current.copy() : TuneConfig.fromState(state);
                     config.p0Max = spec.p0Max;
@@ -632,7 +628,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     config.p6Min = spec.p6Min;
                     config.p6Gov = spec.governor;
                     config.gpuMax = spec.gpuMax;
-                    config.gpuMin = gpuMin;
+                    config.gpuMin = spec.gpuMin;
                     config.performanceMode = spec.performanceMode;
                     config.profile = next;
                 }

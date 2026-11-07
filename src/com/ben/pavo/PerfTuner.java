@@ -491,31 +491,19 @@ final class PerfTuner {
         if (context == null) return false;
         Context app = context.getApplicationContext();
         State s = readStateForHold(app);
-        if (s.efficiency == null || s.performance == null) return false;
-        String name = PerfProfiles.forMode(mode);
-        PerfProfiles.Spec spec = PerfProfiles.get(name, s);
-        int gpuMin = s.gpu != null && s.gpu.freqs.length > 0
-                ? s.gpu.freqs[0] : 160000000;
-        setCpu(s.efficiency, spec.p0Max, spec.p0Min, spec.governor);
-        setCpu(s.performance, spec.p6Max, spec.p6Min, spec.governor);
-        if (s.gpu != null) setGpu(s.gpu, spec.gpuMax, gpuMin);
+        if (s == null || s.efficiency == null || s.performance == null) return false;
+        // Presets are underclocks that belong to the user, not to the firmware
+        // mode. Re-assert the stored profile so a mode switch cannot undo it.
+        TuneConfig cfg = new TuneStore(app).global();
+        if (cfg == null || cfg.p0Max <= 0 || cfg.p6Max <= 0) return false;
+        setCpu(s.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
+        setCpu(s.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
+        if (s.gpu != null) setGpu(s.gpu, cfg.gpuMax, cfg.gpuMin);
         Prefs prefs = new Prefs(app);
-        prefs.setTuneTargets(spec.p0Max, spec.p0Min, spec.governor,
-                spec.p6Max, spec.p6Min, spec.governor, spec.gpuMax, gpuMin);
+        prefs.setTuneTargets(cfg.p0Max, cfg.p0Min, cfg.p0Gov,
+                cfg.p6Max, cfg.p6Min, cfg.p6Gov, cfg.gpuMax, cfg.gpuMin);
         prefs.setHoldMode(mode);
-        // Keep the stored global profile in step, so the per-app watcher does not
-        // re-apply the clocks that belonged to the old mode.
-        TuneConfig cfg = TuneConfig.fromState(s, prefs.fanAppMode(),
-                prefs.fanManualPercent(), mode, name);
-        cfg.p0Max = spec.p0Max;
-        cfg.p0Min = spec.p0Min;
-        cfg.p0Gov = spec.governor;
-        cfg.p6Max = spec.p6Max;
-        cfg.p6Min = spec.p6Min;
-        cfg.p6Gov = spec.governor;
-        cfg.gpuMax = spec.gpuMax;
-        cfg.gpuMin = gpuMin;
-        cfg.profile = name;
+        cfg.performanceMode = mode;
         new TuneStore(app).setGlobal(cfg);
         if (prefs.perfHoldEnabled()) PerfTuneService.start(app);
         return true;

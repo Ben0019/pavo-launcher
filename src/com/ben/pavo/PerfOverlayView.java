@@ -372,7 +372,7 @@ final class PerfOverlayView extends LinearLayout {
             presetReadAt = now;
             TuneConfig config = new TuneStore(getContext()).global();
             String name = config == null || config.profile == null || config.profile.isEmpty()
-                    ? PerfProfiles.BALANCED : config.profile;
+                    ? PerfProfiles.MEDIUM : config.profile;
             presetLabel = name.toUpperCase(java.util.Locale.US);
         }
         return presetLabel;

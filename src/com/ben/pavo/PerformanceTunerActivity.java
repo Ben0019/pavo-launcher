@@ -82,10 +82,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     }
 
     static int profileColor(String name) {
-        if ("QUIET".equals(name)) return profileColor(0);
-        if ("PERFORMANCE".equals(name)) return profileColor(2);
-        if ("EXTREME".equals(name)) return profileColor(3);
-        if ("BALANCED".equals(name)) return profileColor(1);
+        if ("SMALL".equals(name)) return profileColor(1);
+        if ("MEDIUM".equals(name)) return profileColor(2);
+        if ("LARGE".equals(name)) return profileColor(3);
         return AMBER;
     }
 
@@ -172,8 +171,8 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     private TextView fanDetail;
     private SeekBar fanSeek;
     private TextView fanValue;
-    private final TextView[] profileChips = new TextView[4];
-    private final String[] profileNames = {"QUIET", "BALANCED", "PERFORMANCE", "EXTREME"};
+    private final TextView[] profileChips = new TextView[3];
+    private final String[] profileNames = {"SMALL", "MEDIUM", "LARGE"};
     private final TextView[] fanChips = new TextView[5];
     private CpuCard efficiencyCard;
     private CpuCard performanceCard;
@@ -1897,7 +1896,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             state.performance.min = spec.p6Min;
             state.efficiency.governor = spec.governor;
             state.performance.governor = spec.governor;
-            state.gpu.min = state.gpu.freqs.length > 0 ? state.gpu.freqs[0] : 160000000;
+            state.gpu.min = spec.gpuMin;
             state.performanceMode = spec.performanceMode;
             if (contextConfig != null) {
                 contextConfig.performanceMode = spec.performanceMode;
@@ -1915,8 +1914,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 // directly, and the fan keeps its own mode.
                 PerfTuner.setCpu(s.efficiency, spec.p0Max, spec.p0Min, spec.governor);
                 PerfTuner.setCpu(s.performance, spec.p6Max, spec.p6Min, spec.governor);
-                PerfTuner.setGpu(s.gpu, spec.gpuMax,
-                        s.gpu.freqs.length > 0 ? s.gpu.freqs[0] : 160000000);
+                PerfTuner.setGpu(s.gpu, spec.gpuMax, spec.gpuMin);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -1942,9 +1940,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             state.performance.min = spec.p6Min;
             state.efficiency.governor = spec.governor;
             state.performance.governor = spec.governor;
-            state.performanceMode = 0;
+            state.performanceMode = spec.performanceMode;
             if (contextConfig != null) {
-                contextConfig.performanceMode = 0;
+                contextConfig.performanceMode = spec.performanceMode;
             }
             saveCurrentConfig();
         }
@@ -1956,8 +1954,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 PerfProfiles.Spec stock = PerfProfiles.get(PerfProfiles.STOCK, s);
                 PerfTuner.setCpu(s.efficiency, stock.p0Max, stock.p0Min, stock.governor);
                 PerfTuner.setCpu(s.performance, stock.p6Max, stock.p6Min, stock.governor);
-                PerfTuner.setGpu(s.gpu, stock.gpuMax,
-                        s.gpu.freqs.length > 0 ? s.gpu.freqs[0] : 160000000);
+                PerfTuner.setGpu(s.gpu, stock.gpuMax, stock.gpuMin);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -1978,8 +1975,6 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             String sub;
             if (spec.p0Max <= 0 && spec.p6Max <= 0) {
                 sub = "\u2014";
-            } else if (PerfProfiles.EXTREME.equals(profileNames[i])) {
-                sub = Loc.s(this, "MAX") + " / " + Loc.s(this, "MAX");
             } else {
                 sub = String.format(Loc.displayLocale(PerformanceTunerActivity.this), "%.2f / %.2f %s",
                         spec.p0Max / 1000000f, spec.p6Max / 1000000f,
