@@ -896,6 +896,26 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                     else applyProfile(name);
                 }
             });
+            if (!PerfProfiles.STOCK.equals(name)) {
+                chip.setLongClickable(true);
+                chip.setOnLongClickListener(new View.OnLongClickListener() {
+                    @Override
+                    public boolean onLongClick(View v) {
+                        Haptics.longPress(v);
+                        if (tuneStore != null) tuneStore.removePreset(name);
+                        if (name.equals(selectedProfile)) {
+                            applyProfile(name);
+                        } else {
+                            updateProfileLabels();
+                        }
+                        LToast.makeText(PerformanceTunerActivity.this,
+                                Loc.s(PerformanceTunerActivity.this, name) + " "
+                                        + Loc.s(PerformanceTunerActivity.this, "RESET"),
+                                Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                });
+            }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     0, dp(44), 1f);
             lp.rightMargin = i == profileNames.length - 1 ? 0 : dp(7);
@@ -1878,21 +1898,34 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         markProfileChips();
         profileStatus.setText(Loc.s(this, name) + " " + Loc.s(this, "APPLIED"));
         styleProfileStatus(name);
-        final PerfProfiles.Spec spec = PerfProfiles.get(name, state);
+        final PerfProfiles.Spec factory = PerfProfiles.get(name, state);
+        final TuneConfig stored = tuneStore != null ? tuneStore.preset(name) : null;
+        final int p0Max = stored != null ? stored.p0Max : factory.p0Max;
+        final int p0Min = stored != null ? stored.p0Min : factory.p0Min;
+        final int p6Max = stored != null ? stored.p6Max : factory.p6Max;
+        final int p6Min = stored != null ? stored.p6Min : factory.p6Min;
+        final int gpuMax = stored != null ? stored.gpuMax : factory.gpuMax;
+        final int gpuMin = stored != null ? stored.gpuMin : factory.gpuMin;
+        final String governor = stored != null && stored.p0Gov != null
+                && !stored.p0Gov.isEmpty() ? stored.p0Gov : factory.governor;
+        final int perfMode = stored != null ? stored.performanceMode : factory.performanceMode;
         if (state != null) {
-            applySliderTargets(state.efficiency, spec.p0Max);
-            applySliderTargets(state.performance, spec.p6Max);
-            applySliderTargets(state.gpu, spec.gpuMax);
-            state.efficiency.min = spec.p0Min;
-            state.performance.min = spec.p6Min;
-            state.efficiency.governor = spec.governor;
-            state.performance.governor = spec.governor;
-            state.gpu.min = spec.gpuMin;
-            state.performanceMode = spec.performanceMode;
+            applySliderTargets(state.efficiency, p0Max);
+            applySliderTargets(state.performance, p6Max);
+            applySliderTargets(state.gpu, gpuMax);
+            state.efficiency.min = p0Min;
+            state.performance.min = p6Min;
+            state.efficiency.governor = governor;
+            state.performance.governor = governor;
+            state.gpu.min = gpuMin;
+            state.performanceMode = perfMode;
             if (contextConfig != null) {
-                contextConfig.performanceMode = spec.performanceMode;
+                contextConfig.performanceMode = perfMode;
             }
             saveCurrentConfig();
+            if (tuneStore != null && contextConfig != null) {
+                tuneStore.setPreset(name, contextConfig);
+            }
             startHold();
         }
         io.execute(new Runnable() {
@@ -1903,9 +1936,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 // Do not write performance_mode: the Odin's fan daemon reacts to it
                 // by switching fan_mode to 0 (off). The tuner drives CPU/GPU
                 // directly, and the fan keeps its own mode.
-                PerfTuner.setCpu(s.efficiency, spec.p0Max, spec.p0Min, spec.governor);
-                PerfTuner.setCpu(s.performance, spec.p6Max, spec.p6Min, spec.governor);
-                PerfTuner.setGpu(s.gpu, spec.gpuMax, spec.gpuMin);
+                PerfTuner.setCpu(s.efficiency, p0Max, p0Min, governor);
+                PerfTuner.setCpu(s.performance, p6Max, p6Min, governor);
+                PerfTuner.setGpu(s.gpu, gpuMax, gpuMin);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -1963,12 +1996,15 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             TextView chip = profileChips[i];
             if (chip == null) continue;
             PerfProfiles.Spec spec = PerfProfiles.get(profileNames[i], state);
+            TuneConfig stored = tuneStore == null ? null : tuneStore.preset(profileNames[i]);
+            int p0 = stored != null ? stored.p0Max : spec.p0Max;
+            int p6 = stored != null ? stored.p6Max : spec.p6Max;
             String sub;
-            if (spec.p0Max <= 0 && spec.p6Max <= 0) {
+            if (p0 <= 0 && p6 <= 0) {
                 sub = "\u2014";
             } else {
                 sub = String.format(Loc.displayLocale(PerformanceTunerActivity.this), "%.2f / %.2f %s",
-                        spec.p0Max / 1000000f, spec.p6Max / 1000000f,
+                        p0 / 1000000f, p6 / 1000000f,
                         Loc.s(this, "GHz"));
             }
             chip.setText(Loc.s(this, profileNames[i]) + "\n" + sub);
@@ -1994,6 +2030,20 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     }
 
     private void markCustom() {
+        // Editing while a named preset is active updates that preset's own
+        // default instead of forking into a CUSTOM profile. STOCK stays a
+        // read-only factory reset target.
+        if (PerfProfiles.isProfile(selectedProfile)
+                && !PerfProfiles.STOCK.equals(selectedProfile)) {
+            saveCurrentConfig();
+            if (tuneStore != null && contextConfig != null) {
+                tuneStore.setPreset(selectedProfile, contextConfig);
+            }
+            updateProfileLabels();
+            markProfileChips();
+            updateProfileStatus();
+            return;
+        }
         selectedProfile = "";
         markProfileChips();
         if (profileStatus != null) {
@@ -2607,6 +2657,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 view.setOnTouchListener(new View.OnTouchListener() {
                     private float downX;
                     private float downY;
+                    private long downAt;
                     private boolean moved;
 
                     @Override
@@ -2616,6 +2667,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                             case MotionEvent.ACTION_DOWN:
                                 downX = event.getX();
                                 downY = event.getY();
+                                downAt = android.os.SystemClock.uptimeMillis();
                                 moved = false;
                                 v.setPressed(true);
                                 v.requestFocus();
@@ -2629,7 +2681,12 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                                 return true;
                             case MotionEvent.ACTION_UP:
                                 v.setPressed(false);
-                                if (!moved) v.performClick();
+                                if (!moved) {
+                                    boolean held = android.os.SystemClock.uptimeMillis() - downAt
+                                            >= android.view.ViewConfiguration.getLongPressTimeout();
+                                    if (held) v.performLongClick();
+                                    else v.performClick();
+                                }
                                 return true;
                             case MotionEvent.ACTION_CANCEL:
                                 v.setPressed(false);

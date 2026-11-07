@@ -29,11 +29,23 @@ final class FanCurve {
             + "90:100,95:100,100:100";
 
     /** Fixed low-noise curve for a performance-preset fan mode, or null. */
-    static String presetCurve(int mode) {
+    static String factoryPreset(int mode) {
         if (mode == FanProfile.MODE_SMALL) return SMALL;
         if (mode == FanProfile.MODE_MEDIUM) return MEDIUM;
         if (mode == FanProfile.MODE_LARGE) return LARGE;
         return null;
+    }
+
+    static boolean isPresetMode(int mode) {
+        return factoryPreset(mode) != null;
+    }
+
+    /** Saved preset curve, falling back to the factory default. */
+    static String presetCurve(Prefs prefs, int mode) {
+        String factory = factoryPreset(mode);
+        if (factory == null) return null;
+        String saved = prefs == null ? null : prefs.fanPresetCurve(mode);
+        return saved == null || saved.isEmpty() ? factory : saved;
     }
 
     private FanCurve() {}

@@ -184,7 +184,7 @@ public final class PerAppFanService extends Service {
             return false;
         }
 
-        String preset = FanCurve.presetCurve(profile.mode);
+        String preset = FanCurve.presetCurve(prefs, profile.mode);
         if (profile.mode == FanProfile.MODE_CURVE || preset != null) {
             String activeCurve = preset != null ? preset : profile.curve;
             if (!key.equals(lastKey)) {

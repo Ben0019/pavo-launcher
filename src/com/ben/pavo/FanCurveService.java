@@ -93,7 +93,7 @@ public final class FanCurveService extends Service {
             return START_NOT_STICKY;
         }
         int appMode = prefs.fanAppMode();
-        if (appMode != FanActivity.MODE_CURVE && FanCurve.presetCurve(appMode) == null
+        if (appMode != FanActivity.MODE_CURVE && !FanCurve.isPresetMode(appMode)
                 && appMode != PerfTuner.FAN_SMART && appMode != PerfTuner.FAN_HIGH) {
             stopForeground(true);
             stopSelf();
@@ -120,7 +120,7 @@ public final class FanCurveService extends Service {
             int appMode = prefs.fanAppMode();
             boolean smart = appMode == PerfTuner.FAN_SMART;
             boolean high = appMode == PerfTuner.FAN_HIGH;
-            String preset = FanCurve.presetCurve(appMode);
+            String preset = FanCurve.presetCurve(prefs, appMode);
             if (appMode != FanActivity.MODE_CURVE && preset == null && !smart && !high) {
                 stopSelf();
                 return;

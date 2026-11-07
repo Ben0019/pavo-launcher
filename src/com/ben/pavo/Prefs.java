@@ -456,6 +456,30 @@ final class Prefs {
     String fanCurve() {
         return sp.getString("fan_curve", FanCurve.DEFAULT);
     }
+    String fanPresetCurve(int mode) {
+        String key = fanPresetKey(mode);
+        return key == null ? null : sp.getString(key, null);
+    }
+    void setFanPresetCurve(int mode, String curve) {
+        String key = fanPresetKey(mode);
+        if (key != null && curve != null && !curve.isEmpty()) {
+            sp.edit().putString(key, FanCurve.ensureTerminal(curve)).apply();
+        }
+    }
+    void resetFanPresetCurve(int mode) {
+        String key = fanPresetKey(mode);
+        if (key != null) sp.edit().remove(key).apply();
+    }
+    boolean hasFanPresetCurve(int mode) {
+        String key = fanPresetKey(mode);
+        return key != null && sp.contains(key);
+    }
+    private static String fanPresetKey(int mode) {
+        if (mode == FanProfile.MODE_SMALL) return "fan_preset_small";
+        if (mode == FanProfile.MODE_MEDIUM) return "fan_preset_medium";
+        if (mode == FanProfile.MODE_LARGE) return "fan_preset_large";
+        return null;
+    }
     void setFanAppMode(int v) {
         sp.edit().putInt("fan_app_mode", clamp(v, 0, FanProfile.MODE_LARGE)).apply();
     }

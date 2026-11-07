@@ -608,29 +608,47 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     if (state.gpu != null) PerfTuner.setGpu(state.gpu, config.gpuMax,
                             config.gpuMin);
                 } else {
-                    PerfProfiles.Spec spec = PerfProfiles.get(next, state);
-                    if (state.efficiency != null) {
-                        PerfTuner.setCpu(state.efficiency, spec.p0Max, spec.p0Min,
-                                spec.governor);
+                    TuneConfig presetConfig = store.preset(next);
+                    if (presetConfig != null) {
+                        if (state.efficiency != null) {
+                            PerfTuner.setCpu(state.efficiency, presetConfig.p0Max,
+                                    presetConfig.p0Min, presetConfig.p0Gov);
+                        }
+                        if (state.performance != null) {
+                            PerfTuner.setCpu(state.performance, presetConfig.p6Max,
+                                    presetConfig.p6Min, presetConfig.p6Gov);
+                        }
+                        if (state.gpu != null) {
+                            PerfTuner.setGpu(state.gpu, presetConfig.gpuMax,
+                                    presetConfig.gpuMin);
+                        }
+                        config = presetConfig.copy();
+                        config.profile = next;
+                    } else {
+                        PerfProfiles.Spec spec = PerfProfiles.get(next, state);
+                        if (state.efficiency != null) {
+                            PerfTuner.setCpu(state.efficiency, spec.p0Max, spec.p0Min,
+                                    spec.governor);
+                        }
+                        if (state.performance != null) {
+                            PerfTuner.setCpu(state.performance, spec.p6Max, spec.p6Min,
+                                    spec.governor);
+                        }
+                        if (state.gpu != null) {
+                            PerfTuner.setGpu(state.gpu, spec.gpuMax, spec.gpuMin);
+                        }
+                        config = current != null ? current.copy() : TuneConfig.fromState(state);
+                        config.p0Max = spec.p0Max;
+                        config.p0Min = spec.p0Min;
+                        config.p0Gov = spec.governor;
+                        config.p6Max = spec.p6Max;
+                        config.p6Min = spec.p6Min;
+                        config.p6Gov = spec.governor;
+                        config.gpuMax = spec.gpuMax;
+                        config.gpuMin = spec.gpuMin;
+                        config.performanceMode = spec.performanceMode;
+                        config.profile = next;
                     }
-                    if (state.performance != null) {
-                        PerfTuner.setCpu(state.performance, spec.p6Max, spec.p6Min,
-                                spec.governor);
-                    }
-                    if (state.gpu != null) {
-                        PerfTuner.setGpu(state.gpu, spec.gpuMax, spec.gpuMin);
-                    }
-                    config = current != null ? current.copy() : TuneConfig.fromState(state);
-                    config.p0Max = spec.p0Max;
-                    config.p0Min = spec.p0Min;
-                    config.p0Gov = spec.governor;
-                    config.p6Max = spec.p6Max;
-                    config.p6Min = spec.p6Min;
-                    config.p6Gov = spec.governor;
-                    config.gpuMax = spec.gpuMax;
-                    config.gpuMin = spec.gpuMin;
-                    config.performanceMode = spec.performanceMode;
-                    config.profile = next;
                 }
                 store.setGlobal(config);
 

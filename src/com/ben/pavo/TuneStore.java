@@ -12,6 +12,7 @@ final class TuneStore {
     private static final String GLOBAL = "global";
     private static final String CUSTOM = "custom";
     private static final String APP_PREFIX = "app:";
+    private static final String PRESET_PREFIX = "preset:";
 
     private final SharedPreferences sp;
 
@@ -67,6 +68,25 @@ final class TuneStore {
     TuneConfig app(String pkg) {
         if (pkg == null || pkg.isEmpty()) return null;
         return TuneConfig.decode(sp.getString(APP_PREFIX + pkg, null));
+    }
+
+    TuneConfig preset(String name) {
+        if (name == null || name.isEmpty()) return null;
+        return TuneConfig.decode(sp.getString(PRESET_PREFIX + name, null));
+    }
+
+    void setPreset(String name, TuneConfig config) {
+        if (name == null || name.isEmpty() || config == null) return;
+        sp.edit().putString(PRESET_PREFIX + name, config.encode()).apply();
+    }
+
+    void removePreset(String name) {
+        if (name == null || name.isEmpty()) return;
+        sp.edit().remove(PRESET_PREFIX + name).apply();
+    }
+
+    boolean hasPreset(String name) {
+        return name != null && !name.isEmpty() && sp.contains(PRESET_PREFIX + name);
     }
 
     void setApp(String pkg, TuneConfig config) {

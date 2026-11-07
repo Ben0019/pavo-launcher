@@ -38,7 +38,7 @@ final class FanControl {
         FanEngine.stop(c);
         Prefs prefs = new Prefs(c);
         int mode = prefs.fanAppMode();
-        if (mode == FanActivity.MODE_CURVE || FanCurve.presetCurve(mode) != null
+        if (mode == FanActivity.MODE_CURVE || FanCurve.isPresetMode(mode)
                 || mode == PerfTuner.FAN_SMART || mode == PerfTuner.FAN_HIGH) {
             if (!FanCurveService.isActive()) FanCurveService.start(c);
         }

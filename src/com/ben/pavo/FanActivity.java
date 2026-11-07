@@ -481,6 +481,14 @@ public final class FanActivity extends PavoGlassActivity {
         curveView.setListener(new FanCurveView.Listener() {
             @Override
             public void onCurveChanged(String value) {
+                if (FanCurve.isPresetMode(mode)) {
+                    // Editing a preset updates that preset's own default; it
+                    // does not fork into the editable CURVE profile.
+                    prefs.setFanPresetCurve(mode, value);
+                    curveController.reset();
+                    updateLiveHint();
+                    return;
+                }
                 curve = value;
                 curveController.reset();
                 saveCurrentProfile();
@@ -777,7 +785,7 @@ public final class FanActivity extends PavoGlassActivity {
 
     /** Curve, the three underclock presets, Smart and High use the controller. */
     private boolean managedFanMode() {
-        return mode == MODE_CURVE || FanCurve.presetCurve(mode) != null
+        return mode == MODE_CURVE || FanCurve.isPresetMode(mode)
                 || mode == PerfTuner.FAN_SMART || mode == PerfTuner.FAN_HIGH;
     }
 
@@ -1088,17 +1096,22 @@ public final class FanActivity extends PavoGlassActivity {
         chip.setFocusableInTouchMode(true);
         chip.setClickable(true);
         chip.setDefaultFocusHighlightEnabled(false);
+        final long[] downAt = {0L};
         chip.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, android.view.MotionEvent event) {
                 switch (event.getActionMasked()) {
                     case android.view.MotionEvent.ACTION_DOWN:
+                        downAt[0] = SystemClock.uptimeMillis();
                         v.setPressed(true);
                         v.requestFocus();
                         return true;
                     case android.view.MotionEvent.ACTION_UP:
+                        boolean held = SystemClock.uptimeMillis() - downAt[0]
+                                >= android.view.ViewConfiguration.getLongPressTimeout();
                         v.setPressed(false);
-                        chip.performClick();
+                        if (held) chip.performLongClick();
+                        else chip.performClick();
                         return true;
                     case android.view.MotionEvent.ACTION_CANCEL:
                         v.setPressed(false);
@@ -1115,6 +1128,27 @@ public final class FanActivity extends PavoGlassActivity {
                 selectMode(value);
             }
         });
+        if (FanCurve.isPresetMode(value)) {
+            chip.setLongClickable(true);
+            chip.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    Haptics.longPress(v);
+                    prefs.resetFanPresetCurve(value);
+                    if (mode == value) {
+                        curveController.reset();
+                        refreshCurveDisplay();
+                        updateLiveHint();
+                        FanControl.update(FanActivity.this);
+                    }
+                    LToast.makeText(FanActivity.this,
+                            Loc.s(FanActivity.this, modeLabel(value)) + " "
+                                    + Loc.s(FanActivity.this, "RESET"),
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+            });
+        }
         chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, boolean hasFocus) {
@@ -1222,11 +1256,9 @@ public final class FanActivity extends PavoGlassActivity {
             case PerfTuner.FAN_MANUAL:
                 return FanCurve.flat(manualPct);
             case MODE_SMALL:
-                return FanCurve.SMALL;
             case MODE_MEDIUM:
-                return FanCurve.MEDIUM;
             case MODE_LARGE:
-                return FanCurve.LARGE;
+                return FanCurve.presetCurve(prefs, mode);
             case MODE_CURVE:
             default:
                 return curve;
@@ -1258,11 +1290,9 @@ public final class FanActivity extends PavoGlassActivity {
             case PerfTuner.FAN_MANUAL:
                 return manualPct;
             case MODE_SMALL:
-                return FanCurve.dutyAt(FanCurve.SMALL, temp);
             case MODE_MEDIUM:
-                return FanCurve.dutyAt(FanCurve.MEDIUM, temp);
             case MODE_LARGE:
-                return FanCurve.dutyAt(FanCurve.LARGE, temp);
+                return FanCurve.dutyAt(FanCurve.presetCurve(prefs, mode), temp);
             case MODE_CURVE:
             default:
                 return FanCurve.dutyAt(curve, temp);
@@ -1368,7 +1398,7 @@ public final class FanActivity extends PavoGlassActivity {
         if (mode == MODE_CURVE) {
             curveHint.setText("CURVE · right stick speed · D-pad/left stick point · L1/R1 cards");
             curveHint.setTextColor(0xB3FFFFFF);
-        } else if (FanCurve.presetCurve(mode) != null) {
+        } else if (FanCurve.isPresetMode(mode)) {
             curveHint.setText(Loc.s(this, modeLabel(mode))
                     + " · right stick speed · D-pad/left stick point · L1/R1 cards");
             curveHint.setTextColor(0xB3FFFFFF);

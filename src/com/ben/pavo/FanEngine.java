@@ -80,7 +80,7 @@ final class FanEngine {
         // unconditional SMART write raced the OFF write, so OFF sometimes
         // ended up back on the smart curve.
         final int selected = new Prefs(target).fanAppMode();
-        if (selected != FanActivity.MODE_CURVE && FanCurve.presetCurve(selected) == null
+        if (selected != FanActivity.MODE_CURVE && !FanCurve.isPresetMode(selected)
                 && selected != PerfTuner.FAN_SMART && selected != PerfTuner.FAN_HIGH) {
             return;
         }
@@ -101,7 +101,7 @@ final class FanEngine {
             int appMode = prefs.fanAppMode();
             boolean smart = appMode == PerfTuner.FAN_SMART;
             boolean high = appMode == PerfTuner.FAN_HIGH;
-            String preset = FanCurve.presetCurve(appMode);
+            String preset = FanCurve.presetCurve(prefs, appMode);
             if (appMode != FanActivity.MODE_CURVE && preset == null && !smart && !high) {
                 stop(app);
                 return;
