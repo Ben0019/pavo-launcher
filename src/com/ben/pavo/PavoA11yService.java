@@ -674,10 +674,33 @@ public final class PavoA11yService extends AccessibilityService {
         }
     }
 
+    private long lastRemapWatchdogAt;
+
+    /**
+     * The joystick layer and the button remapper both need the daemon. If it
+     * dies while a game is in front, revive it here so the correction does not
+     * silently fall back to raw input.
+     */
+    private void remapWatchdog() {
+        if (TouchMapManager.isRunning(this) || TouchMapManager.isStarting()) return;
+        boolean wanted = new Prefs(this).controllerRemapEnabled();
+        if (!wanted) {
+            ControllerMapConfig cfg = new ControllerMapConfig();
+            cfg.load(ControllerRemapManager.configFile(this));
+            wanted = cfg.stickEnabled;
+        }
+        if (!wanted || ControllerRemapManager.isRunning(this)) return;
+        long now = SystemClock.uptimeMillis();
+        if (now - lastRemapWatchdogAt < 5000L) return;
+        lastRemapWatchdogAt = now;
+        ControllerRemapManager.start(this, null);
+    }
+
     private final Runnable profileSync = new Runnable() {
         @Override
         public void run() {
             ControllerProfiles.sync(PavoA11yService.this);
+            remapWatchdog();
             // Keep ticking even if the service is briefly unbound, so a reconnect
             // never leaves per-app controller profiles stale.
             main.postDelayed(this, 1200L);

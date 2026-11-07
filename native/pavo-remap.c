@@ -113,6 +113,18 @@ static char config_path[512];
 static char pid_path[512];
 static char device[256];
 static char park_path[512];
+static char learn_path[512];
+static char learn_reset_path[512];
+static int learn_min[STICK_AXES];
+static int learn_max[STICK_AXES];
+static float learn_gate[2][GATE_POINTS];
+static unsigned long learn_samples;
+static int learn_reconnects;
+static int stick_active[2];
+static float learn_rest;
+static float calm_hist[32];
+static int calm_n;
+static long long next_learn_write;
 static char trace_path[512];
 static dev_t src_dev_id;
 static ino_t src_ino;
@@ -812,9 +824,80 @@ static float gate_gain(int stick, float x, float y) {
     return ((1.0f - f) * a + f * b) / 1000.0f;
 }
 
+static void learn_sample(int stick, float x, float y) {
+    float r = sqrtf(x * x + y * y);
+    if (r > 1.60f) return;
+    if (r < 0.05f) {
+        // Rest jitter: median of the last calm samples, so the settling tail
+        // of a release cannot inflate the suggestion.
+        calm_hist[calm_n % 32] = r;
+        calm_n++;
+        if (calm_n >= 15) {
+            int n = calm_n < 32 ? calm_n : 32;
+            float tmp[32];
+            for (int i = 0; i < n; i++) tmp[i] = calm_hist[i];
+            for (int i = 1; i < n; i++) {
+                float v = tmp[i];
+                int j = i - 1;
+                while (j >= 0 && tmp[j] > v) {
+                    tmp[j + 1] = tmp[j];
+                    j--;
+                }
+                tmp[j + 1] = v;
+            }
+            learn_rest = tmp[n / 2];
+        }
+        return;
+    }
+    calm_n = 0;
+    float angle = atan2f(y, x) + 3.14159265359f;
+    int idx = (int) (angle * (GATE_POINTS / 6.28318530718f));
+    if (idx < 0) idx = 0;
+    if (idx >= GATE_POINTS) idx = 0;
+    learn_samples++;
+    if (r > learn_gate[stick][idx]) learn_gate[stick][idx] = r;
+}
+
+static void reset_learn(void) {
+    for (int i = 0; i < STICK_AXES; i++) {
+        learn_min[i] = 32767;
+        learn_max[i] = -32767;
+    }
+    for (int st = 0; st < 2; st++) {
+        for (int i = 0; i < GATE_POINTS; i++) learn_gate[st][i] = 0.0f;
+    }
+    learn_samples = 0;
+    learn_reconnects = 0;
+    learn_rest = 0.0f;
+    calm_n = 0;
+    if (learn_path[0]) unlink(learn_path);
+}
+
+static void write_learn(void) {
+    if (!learn_path[0]) return;
+    FILE *f = fopen(learn_path, "w");
+    if (!f) return;
+    fprintf(f, "samples=%lu\nreconnects=%d\nrest=%d\n",
+            learn_samples, learn_reconnects, (int) lroundf(learn_rest * 1000.0f));
+    for (int i = 0; i < 4; i++) {
+        fprintf(f, "axis_%d=%d:%d\n", i, learn_min[i], learn_max[i]);
+    }
+    for (int st = 0; st < 2; st++) {
+        fprintf(f, st == 0 ? "gate_left=" : "gate_right=");
+        for (int i = 0; i < GATE_POINTS; i++) {
+            if (i > 0) fputc(',', f);
+            fprintf(f, "%d", (int) lroundf(learn_gate[st][i] * 1000.0f));
+        }
+        fputc('\n', f);
+    }
+    fclose(f);
+    chmod(learn_path, 0644);
+}
+
 static void stick_output(int pair, float *out_x, float *out_y) {
     float nx = axis_normalized(pair, raw_axis[pair]);
     float ny = axis_normalized(pair + 1, raw_axis[pair + 1]);
+    learn_sample(pair >> 1, nx, ny);
     float gain = gate_gain(pair >> 1, nx, ny);
     nx *= gain;
     ny *= gain;
@@ -828,7 +911,14 @@ static void stick_output(int pair, float *out_x, float *out_y) {
     float dz = (stick <= 1 ? config.stick_deadzone[stick] : 0) / 1000.0f;
     if (dz < 0.0f) dz = 0.0f;
     if (dz > 0.80f) dz = 0.80f;
-    float m = r <= dz ? 0.0f : (r - dz) / (1.0f - dz);
+    // Hysteresis: leave the deadzone at dz, but only settle back below 75% of
+    // it. Without this, a thumb resting near the edge makes the floor jump
+    // on and off, which reads as a twitch.
+    if (r > dz) stick_active[stick] = 1;
+    else if (r < dz * 0.75f) stick_active[stick] = 0;
+    int active = stick_active[stick];
+    float m = active ? (r - dz) / (1.0f - dz) : 0.0f;
+    if (m < 0.0f) m = 0.0f;
     float gamma = (stick <= 1 ? config.stick_curve[stick] : 100) / 100.0f;
     if (gamma < 0.20f) gamma = 0.20f;
     if (gamma > 4.0f) gamma = 4.0f;
@@ -850,9 +940,14 @@ static void stick_output(int pair, float *out_x, float *out_y) {
     /* Anti-deadzone: land just above the game's own threshold so a gentle
      * push registers as the slowest speed instead of nothing. */
     float floorv = (stick <= 1 ? config.stick_floor[stick] : 0) / 1000.0f;
-    if (m > 0.0f && floorv > 0.0f) {
+    if (active && floorv > 0.0f) {
         if (floorv > 0.90f) floorv = 0.90f;
-        m = floorv + (1.0f - floorv) * m;
+        /* Ramp the floor in over the first 15% of usable travel instead of
+         * stepping to it at the deadzone edge. A step made tiny pushes jump
+         * to the floor and made the response speed unpredictable. */
+        float ramp = m / 0.15f;
+        if (ramp > 1.0f) ramp = 1.0f;
+        m = (1.0f - floorv) * m + floorv * ramp;
     }
     if (r > 0.0f) {
         *out_x = nx / r * m;
@@ -923,6 +1018,7 @@ static int reconnect_source(void) {
         snprintf(device, sizeof(device), "%s", found);
     }
     if (open_source()) {
+        learn_reconnects++;
         fprintf(stderr, "reconnected to %s\n", device);
         fflush(stderr);
         return 1;
@@ -941,6 +1037,8 @@ static void derive_side_path(char *out, size_t size, const char *name) {
 
 static void derive_park_path(void) {
     derive_side_path(park_path, sizeof(park_path), "controller-passthrough");
+    derive_side_path(learn_path, sizeof(learn_path), "controller-learn.conf");
+    derive_side_path(learn_reset_path, sizeof(learn_reset_path), "controller-learn-reset");
     derive_side_path(trace_path, sizeof(trace_path), "controller-trace");
 }
 
@@ -1010,6 +1108,10 @@ int main(int argc, char **argv) {
         return 2;
     }
     derive_park_path();
+    for (int i = 0; i < STICK_AXES; i++) {
+        learn_min[i] = 32767;
+        learn_max[i] = -32767;
+    }
     if (!device[0] && !find_default_device(device, sizeof(device))) {
         fprintf(stderr, "controller not found\n");
         return 1;
@@ -1042,6 +1144,7 @@ int main(int argc, char **argv) {
     write_pid();
     now_ms = monotonic_ms();
     next_source_check = now_ms + 1000;
+    next_learn_write = now_ms + 5000;
     long long next_config_check = now_ms;
 
     while (!stop_requested) {
@@ -1056,6 +1159,14 @@ int main(int argc, char **argv) {
             next_config_check = now_ms + CONFIG_POLL_MS;
         }
         update_grab();
+        if (learn_reset_path[0] && access(learn_reset_path, F_OK) == 0) {
+            unlink(learn_reset_path);
+            reset_learn();
+        }
+        if (config.stick_enabled && now_ms >= next_learn_write) {
+            next_learn_write = now_ms + 5000;
+            write_learn();
+        }
         if (now_ms >= next_source_check) {
             next_source_check = now_ms + 1000;
             if (!source_alive() && reconnect_source()) {
@@ -1137,6 +1248,8 @@ int main(int argc, char **argv) {
                         break;
                     }
                     raw_axis[idx] = ev[i].value;
+                    if (ev[i].value < learn_min[idx]) learn_min[idx] = ev[i].value;
+                    if (ev[i].value > learn_max[idx]) learn_max[idx] = ev[i].value;
                     int pair = idx & ~1;
                     float ox, oy;
                     stick_output(pair, &ox, &oy);
