@@ -265,6 +265,19 @@ final class PerfSampler {
     private String fpsFrameLayer;
     private long fpsFrameLast = -1;
     private long fpsFrameAtNs;
+    private int lastFps;
+    private boolean lastFpsValid;
+    private long lastFpsAtNs;
+    private String lastFpsPkg;
+    private int lastGenMultiplier;
+    private boolean lastGenActive;
+    private float lastGenRatio;
+    private long lastGenAtNs;
+    private String lastGenPkg;
+    private int fpsMisses;
+    /** Keep the last reading across a missed sample rather than blanking it. */
+    private static final long FPS_HOLD_NS = 3_000_000_000L;
+    private static final long FG_HOLD_NS = 3_000_000_000L;
     private String cachedFgPkg;
     private int cachedFgMultiplier = -1;
     private long cachedFgAtSec;
@@ -712,8 +725,40 @@ final class PerfSampler {
 
     private void readFps(PerfStats s, Context context) {
         long now = System.nanoTime();
-        if (cachedLayer == null && now < noLayerUntil) return;
+        if (cachedLayer == null && now < noLayerUntil) {
+            applyFpsHold(s, now);
+            return;
+        }
         readFpsViaPServer(s, context, now);
+        if (!s.fpsValid) applyFpsHold(s, System.nanoTime());
+    }
+
+    /** Keep the last good reading over a missed/blocked sample. */
+    private void applyFpsHold(PerfStats s, long now) {
+        boolean samePkg = lastFpsPkg == null || cachedTargetPkg == null
+                || lastFpsPkg.equals(cachedTargetPkg);
+        if (lastFpsValid && now - lastFpsAtNs <= FPS_HOLD_NS && samePkg) {
+            s.fps = lastFps;
+            s.fpsValid = true;
+        }
+        boolean sameGen = lastGenPkg == null || cachedTargetPkg == null
+                || lastGenPkg.equals(cachedTargetPkg);
+        if (lastGenActive && now - lastGenAtNs <= FG_HOLD_NS && sameGen) {
+            s.frameGenMultiplier = lastGenMultiplier;
+            s.frameGenActive = true;
+            s.frameGenRatio = lastGenRatio;
+        }
+    }
+
+    /** Target app changed: drop the old readings and re-resolve the layer. */
+    private void resetFpsHold() {
+        lastFpsValid = false;
+        lastFpsPkg = null;
+        lastGenActive = false;
+        lastGenPkg = null;
+        fpsMisses = 0;
+        cachedLayer = null;
+        noLayerUntil = 0;
     }
 
     private static boolean pserverActive(Context context, long now) {
@@ -826,7 +871,11 @@ final class PerfSampler {
                 String comp = line.substring("APP:".length()).trim();
                 int slash = comp.indexOf('/');
                 if (slash > 0) {
-                    cachedTargetPkg = comp.substring(0, slash);
+                    String pkg = comp.substring(0, slash);
+                    if (cachedTargetPkg != null && !cachedTargetPkg.equals(pkg)) {
+                        resetFpsHold();
+                    }
+                    cachedTargetPkg = pkg;
                     cachedTargetCls = comp.substring(slash + 1);
                 }
                 continue;
@@ -907,15 +956,30 @@ final class PerfSampler {
             if (actual > newest) newest = actual;
         }
         if (resolved) {
-            cachedLayer = layerFound ? layer : null;
-            if (!layerFound) noLayerUntil = now + 500_000_000L;
+            if (layerFound) {
+                cachedLayer = layer;
+                fpsMisses = 0;
+            }
         }
         s.frameGenMultiplier = cachedFgMultiplier > 1 && cachedTargetPkg != null
                 && cachedTargetPkg.equals(cachedFgPkg) ? cachedFgMultiplier : 0;
         s.frameGenActive = s.frameGenMultiplier > 1 && fgActiveSeen;
         s.frameGenRatio = s.frameGenActive ? fgRatio : 0f;
-        s.frameGenActive = s.frameGenMultiplier > 1 && fgActiveSeen;
-        s.frameGenRatio = s.frameGenActive ? fgRatio : 0f;
+        if (s.frameGenActive) {
+            lastGenMultiplier = s.frameGenMultiplier;
+            lastGenActive = true;
+            lastGenRatio = s.frameGenRatio;
+            lastGenAtNs = now;
+            lastGenPkg = cachedTargetPkg;
+        } else {
+            boolean sameGen = lastGenPkg == null || cachedTargetPkg == null
+                    || lastGenPkg.equals(cachedTargetPkg);
+            if (lastGenActive && now - lastGenAtNs <= FG_HOLD_NS && sameGen) {
+                s.frameGenMultiplier = lastGenMultiplier;
+                s.frameGenActive = true;
+                s.frameGenRatio = lastGenRatio;
+            }
+        }
         if (layerFound && times.isEmpty() && frameCount >= 0) {
             // SurfaceView/BLAST layers expose no --latency rows on this
             // firmware; their frame counter in the layer dump still advances
@@ -932,6 +996,11 @@ final class PerfSampler {
                     if (raw > 0 && raw <= 240) {
                         s.fps = (int) raw;
                         s.fpsValid = true;
+                        lastFps = s.fps;
+                        lastFpsValid = true;
+                        lastFpsAtNs = now;
+                        lastFpsPkg = cachedTargetPkg;
+                        fpsMisses = 0;
                     }
                 }
             }
@@ -942,10 +1011,13 @@ final class PerfSampler {
             return;
         }
         if (!layerFound || times.isEmpty() || newest <= 0) {
-            // An empty dump means the layer went away; resolve again instead of
-            // pinning a dead surface for the rest of the session.
-            cachedLayer = null;
-            noLayerUntil = now + 400_000_000L;
+            // Keep the cached layer for one retry; only re-resolve after a
+            // second consecutive miss. The sticky reading covers the gap.
+            fpsMisses++;
+            if (fpsMisses >= 2) {
+                cachedLayer = null;
+                noLayerUntil = now + 400_000_000L;
+            }
             return;
         }
         s.targetPkg = cachedTargetPkg;
@@ -954,10 +1026,13 @@ final class PerfSampler {
         long age = now - newest;
         if (age > staleLimit) {
             // A stale layer is often the wrong SurfaceView or a just-created one.
-            // Re-resolve, but keep the last reading on screen instead of
-            // flashing a zero for one frame.
-            cachedLayer = null;
-            noLayerUntil = now + 400_000_000L;
+            // Re-resolve after a second miss, but keep the last reading on
+            // screen instead of flashing a zero.
+            fpsMisses++;
+            if (fpsMisses >= 2) {
+                cachedLayer = null;
+                noLayerUntil = now + 400_000_000L;
+            }
             return;
         }
         int count = 0;
@@ -983,6 +1058,13 @@ final class PerfSampler {
             fpsRecentLayer = layer;
             fpsRecentCount = 0;
             fpsRecentIndex = 0;
+            // Seed the new layer with the last good reading so a one-sample
+            // empty window does not flash 1 fps on a layer transition.
+            if (lastFpsValid && now - lastFpsAtNs <= FPS_HOLD_NS) {
+                fpsRecent[0] = lastFps;
+                fpsRecentCount = 1;
+                fpsRecentIndex = 1;
+            }
         }
         fpsRecent[fpsRecentIndex] = raw;
         fpsRecentIndex = (fpsRecentIndex + 1) % fpsRecent.length;
@@ -992,6 +1074,11 @@ final class PerfSampler {
         java.util.Arrays.sort(sorted);
         s.fps = (int) sorted[sorted.length / 2];
         s.fpsValid = true;
+        lastFps = s.fps;
+        lastFpsValid = true;
+        lastFpsAtNs = now;
+        lastFpsPkg = cachedTargetPkg;
+        fpsMisses = 0;
     }
 
     private static long readLong(File f) {
