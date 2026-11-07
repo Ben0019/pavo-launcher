@@ -1999,6 +1999,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             d.fps = s.fps;
             d.fpsValid = s.fpsValid;
             d.frameGenMultiplier = s.frameGenMultiplier;
+            d.frameGenActive = s.frameGenActive;
+            d.frameGenRatio = s.frameGenRatio;
             d.cpuTempC = s.cpuTempC;
             d.gpuTempC = s.gpuTempC;
             d.cpuUsage = s.cpuUsage;

@@ -331,9 +331,12 @@ final class PerfOverlayView extends LinearLayout {
             String fpsText = "\u2014";
             if (s.fpsValid) {
                 fpsText = String.valueOf(s.fps);
-                if (s.frameGenMultiplier > 1) {
-                    fpsText += " (" + Math.round(s.fps * (s.frameGenMultiplier - 1)
-                            / (float) s.frameGenMultiplier) + ")";
+                if (s.frameGenActive) {
+                    int made = s.frameGenRatio > 0f
+                            ? Math.round(s.fps * s.frameGenRatio / (1f + s.frameGenRatio))
+                            : Math.round(s.fps * (s.frameGenMultiplier - 1)
+                                    / (float) s.frameGenMultiplier);
+                    if (made > 0) fpsText += " (" + made + ")";
                 }
             }
             appendSpan(b, fpsText + "  ",

@@ -44,7 +44,7 @@ final class PerfSampler {
             + "echo \"FGAPP:$pkg\"\n"
             + "now=$(date +%s)\n"
             + "if [ \"$fgpkg\" = \"$pkg\" ] && [ -n \"$fgmult\" ] && [ -n \"$fgts\" ] && [ $((now - fgts)) -lt 20 ]; then\n"
-            + "  echo \"FG:$fgmult\"\n"
+            + "  fgm=$fgmult\n"
             + "else\n"
             + "  droot=\"/data/data/$pkg/files\"\n"
             + "  root=\"/data/media/0/Android/data/$pkg/files\"\n"
@@ -92,7 +92,23 @@ final class PerfSampler {
             + "      fi\n"
             + "    fi\n"
             + "  fi\n"
-            + "  echo \"FG:${fgm:-0}\"\n"
+            + "fi\n"
+            + "echo \"FG:${fgm:-0}\"\n"
+            + "if [ \"${fgm:-0}\" -ge 2 ]; then\n"
+            + "  fga=\n"
+            + "  lg=$(logcat -d -t 200 -v epoch -s VkRenderer VkrLsfg 2>/dev/null | grep -i 'framegen delivered' | tail -n 1)\n"
+            + "  if [ -n \"$lg\" ]; then\n"
+            + "    lt=$(printf '%s' \"$lg\" | awk '{print $1}' | cut -d. -f1)\n"
+            + "    rt=$(printf '%s' \"$lg\" | grep -oE 'ratio=[0-9.]+' | head -n 1 | cut -d= -f2)\n"
+            + "    if [ -n \"$lt\" ] && [ $((now - lt)) -le 6 ] && [ -n \"$rt\" ] && awk -v r=\"$rt\" 'BEGIN{exit !(r>0.02)}'; then fga=\"$rt\"; fi\n"
+            + "  fi\n"
+            + "  if [ -z \"$fga\" ]; then\n"
+            + "    grep -qis lsfg /proc/*/maps 2>/dev/null && fga=0\n"
+            + "  fi\n"
+            + "  if [ -z \"$fga\" ]; then\n"
+            + "    case \"$cls\" in *EmulationActivity*) fga=0 ;; esac\n"
+            + "  fi\n"
+            + "  [ -n \"$fga\" ] && echo \"FGA:$fga\"\n"
             + "fi\n"
             + "pid=$(pidof \"$pkg\" 2>/dev/null | awk '{print $1}')\n"
             + "if [ -n \"$pid\" ]; then rss=$(grep VmRSS /proc/$pid/status 2>/dev/null | awk '{print $2}'); [ -n \"$rss\" ] && echo \"RSS:$rss\"; fi\n"
@@ -245,6 +261,8 @@ final class PerfSampler {
     private String cachedFgPkg;
     private int cachedFgMultiplier = -1;
     private long cachedFgAtSec;
+    private float fgRatio;
+    private boolean fgActiveSeen;
     private long prevNetRx = -1;
     private long prevNetTx = -1;
     private long prevNetAt;
@@ -767,6 +785,7 @@ final class PerfSampler {
         long newest = 0;
         long refreshNs = 0;
         String layer = null;
+        fgActiveSeen = false;
         long frameCount = -1;
         List<Long> times = new ArrayList<>();
         String[] lines = out.split("\n");
@@ -797,6 +816,17 @@ final class PerfSampler {
                     if (m >= 0 && m <= 8) {
                         cachedFgMultiplier = m;
                         cachedFgAtSec = System.currentTimeMillis() / 1000L;
+                    }
+                } catch (Throwable ignored) {
+                }
+                continue;
+            }
+            if (line.startsWith("FGA:")) {
+                try {
+                    float r = Float.parseFloat(line.substring("FGA:".length()).trim());
+                    if (r >= 0f && r < 8f) {
+                        fgRatio = r;
+                        fgActiveSeen = true;
                     }
                 } catch (Throwable ignored) {
                 }
@@ -852,6 +882,10 @@ final class PerfSampler {
         }
         s.frameGenMultiplier = cachedFgMultiplier > 1 && cachedTargetPkg != null
                 && cachedTargetPkg.equals(cachedFgPkg) ? cachedFgMultiplier : 0;
+        s.frameGenActive = s.frameGenMultiplier > 1 && fgActiveSeen;
+        s.frameGenRatio = s.frameGenActive ? fgRatio : 0f;
+        s.frameGenActive = s.frameGenMultiplier > 1 && fgActiveSeen;
+        s.frameGenRatio = s.frameGenActive ? fgRatio : 0f;
         if (layerFound && times.isEmpty() && frameCount >= 0) {
             // SurfaceView/BLAST layers expose no --latency rows on this
             // firmware; their frame counter in the layer dump still advances
