@@ -1527,8 +1527,7 @@ public final class FanActivity extends PavoGlassActivity {
                 ? holdDragTargetCurve : prefs.fanHoldCurve();
         int baseTarget = holdDragTargetCurve != null ? holdDragTarget : holdTarget;
         if (custom != null && !custom.isEmpty()) {
-            int delta = t - baseTarget;
-            if (delta != 0) prefs.setFanHoldCurve(FanCurve.shiftCurve(custom, delta));
+            prefs.setFanHoldCurve(FanCurve.stretchCurve(custom, t));
         } else {
             prefs.resetFanHoldCurve();
         }

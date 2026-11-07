@@ -228,6 +228,31 @@ final class FanCurve {
         return ensureTerminal(b.toString());
     }
 
+    /** Stretch the curve horizontally so its hold point lands on newTarget. */
+    static String stretchCurve(String curve, int newTarget) {
+        List<int[]> pts = points(curve);
+        if (pts.isEmpty()) return curve;
+        int anchor = 30;
+        int oldTarget = pts.get(pts.size() - 1)[0];
+        int target = clamp(newTarget, 45, 85);
+        if (oldTarget <= anchor) return curve;
+        float factor = (target - anchor) / (float) (oldTarget - anchor);
+        TreeMap<Integer, Integer> map = new TreeMap<>();
+        for (int[] p : pts) {
+            int t = clamp(anchor + Math.round((p[0] - anchor) * factor), 30, 100);
+            Integer old = map.get(t);
+            if (old == null || p[1] > old) map.put(t, p[1]);
+        }
+        // Make sure the hold point itself lands exactly on the new target.
+        map.put(target, pts.get(pts.size() - 1)[1]);
+        StringBuilder b = new StringBuilder();
+        for (Map.Entry<Integer, Integer> e : map.entrySet()) {
+            if (b.length() > 0) b.append(',');
+            b.append(e.getKey()).append(':').append(e.getValue());
+        }
+        return b.toString();
+    }
+
     /** Move every point by deltaC, keeping the edited shape around the hold. */
     static String shiftCurve(String curve, int deltaC) {
         TreeMap<Integer, Integer> map = new TreeMap<>();
