@@ -305,7 +305,22 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         hideBars();
         hidePerformanceOverlay();
         maybeResumeHold();
+        syncGlobalProfile();
         scheduleRefresh(500L);
+    }
+
+    /** Follow a preset applied by Fan Control while this screen was away. */
+    private void syncGlobalProfile() {
+        if (!selectedAppPkg.isEmpty() || tuneStore == null) return;
+        TuneConfig global = tuneStore.global();
+        if (global == null || global.profile == null || global.profile.isEmpty()) return;
+        if (!PerfProfiles.isProfile(global.profile)) return;
+        if (global.profile.equals(selectedProfile)) return;
+        selectedProfile = global.profile;
+        contextConfig = global;
+        updateProfileLabels();
+        updateProfileStatus();
+        markProfileChips();
     }
 
     @Override
@@ -1926,6 +1941,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
             if (tuneStore != null && contextConfig != null) {
                 tuneStore.setPreset(name, contextConfig);
             }
+            if (selectedAppPkg.isEmpty()) PresetPair.applyFan(this, name);
             startHold();
         }
         io.execute(new Runnable() {

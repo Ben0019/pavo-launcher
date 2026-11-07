@@ -226,6 +226,13 @@ public final class FanActivity extends PavoGlassActivity {
         hidePerformanceOverlay();
         polling = true;
         main.post(poll);
+        if (selectedAppPkg.isEmpty()) {
+            int stored = normalizeMode(prefs.fanAppMode());
+            if (stored != mode) {
+                mode = stored;
+                syncModeUi();
+            }
+        }
         if (profileStore.hasOverrides()) {
             FanControl.stop(this);
             PerAppFanService.start(this);
@@ -1239,6 +1246,9 @@ public final class FanActivity extends PavoGlassActivity {
         previewFanTarget();
         saveCurrentProfile();
         applyProfileFanMode();
+        if (FanCurve.isPresetMode(mode) && selectedAppPkg.isEmpty()) {
+            PresetPair.applyPerformance(this, mode);
+        }
         updateLiveHint();
     }
 
