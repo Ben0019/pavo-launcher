@@ -669,7 +669,30 @@ final class PerfSampler {
             }
             if (tenths > 0) s.batteryTempC = tenths / 10f;
             if (voltageUv > 0 && currentUa != 0 && currentUa != Integer.MIN_VALUE) {
-                s.powerW = Math.abs(currentUa) / 1_000_000f * (voltageUv / 1_000_000f);
+                float battW = currentUa / 1_000_000f * (voltageUv / 1_000_000f);
+                // Plugged in, current_now is the charge current, so battery
+                // power is not what the device is using. Subtract the charge
+                // power from the USB input to report the system's draw.
+                long inUv = 0;
+                long inUa = 0;
+                for (String dir : new String[]{"usb", "wireless"}) {
+                    if (readInt(new File("/sys/class/power_supply/" + dir + "/online"), 0) != 1) {
+                        continue;
+                    }
+                    long uv = readLong(new File("/sys/class/power_supply/" + dir + "/voltage_now"));
+                    long ua = readLong(new File("/sys/class/power_supply/" + dir + "/current_now"));
+                    if (uv > 0 && ua > 0) {
+                        inUv = uv;
+                        inUa = ua;
+                        break;
+                    }
+                }
+                if (inUv > 0 && inUa > 0) {
+                    float inW = inUv / 1_000_000f * (inUa / 1_000_000f);
+                    s.powerW = Math.max(0f, inW - battW);
+                } else {
+                    s.powerW = Math.abs(battW);
+                }
             }
             if (bm != null) {
                 s.chargeCounterUah = bm.getLongProperty(
