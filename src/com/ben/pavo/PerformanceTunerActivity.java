@@ -953,7 +953,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams demoLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        demoLp.topMargin = dp(4);
+        demoLp.bottomMargin = dp(8);
         statsRow.addView(demoChip, demoLp);
         card.addView(statsRow);
     }
