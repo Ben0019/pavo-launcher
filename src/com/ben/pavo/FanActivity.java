@@ -101,6 +101,10 @@ public final class FanActivity extends PavoGlassActivity {
     private TextView holdDutyValue;
     private int holdTarget = 65;
     private int holdDuty = 100;
+    private String holdDragBaseCurve;
+    private int holdDragBaseDuty;
+    private String holdDragTargetCurve;
+    private int holdDragTarget;
     private float currentTemp = 40f;
 
     private int mode;
@@ -651,11 +655,14 @@ public final class FanActivity extends PavoGlassActivity {
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
+                holdDragTargetCurve = prefs.fanHoldCurve();
+                holdDragTarget = holdTarget;
                 Haptics.key(seekBar);
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
+                holdDragTargetCurve = null;
                 Haptics.click(seekBar);
             }
         });
@@ -681,11 +688,14 @@ public final class FanActivity extends PavoGlassActivity {
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
+                holdDragBaseCurve = prefs.fanHoldCurve();
+                holdDragBaseDuty = holdDuty;
                 Haptics.key(seekBar);
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
+                holdDragBaseCurve = null;
                 Haptics.click(seekBar);
             }
         });
@@ -1513,9 +1523,11 @@ public final class FanActivity extends PavoGlassActivity {
     /** Moves the hold point without discarding the edited approach curve. */
     private void changeHoldTarget(int newTarget) {
         int t = Math.max(45, Math.min(85, newTarget));
-        String custom = prefs.fanHoldCurve();
+        String custom = holdDragTargetCurve != null
+                ? holdDragTargetCurve : prefs.fanHoldCurve();
+        int baseTarget = holdDragTargetCurve != null ? holdDragTarget : holdTarget;
         if (custom != null && !custom.isEmpty()) {
-            int delta = t - holdTarget;
+            int delta = t - baseTarget;
             if (delta != 0) prefs.setFanHoldCurve(FanCurve.shiftCurve(custom, delta));
         } else {
             prefs.resetFanHoldCurve();
@@ -1531,9 +1543,17 @@ public final class FanActivity extends PavoGlassActivity {
     /** Changes only the hold point's duty; the approach curve is untouched. */
     private void changeHoldDuty(int newDuty) {
         int d = Math.max(10, Math.min(100, newDuty));
-        String custom = prefs.fanHoldCurve();
+        String custom = holdDragBaseCurve != null
+                ? holdDragBaseCurve : prefs.fanHoldCurve();
+        int baseDuty = holdDragBaseCurve != null ? holdDragBaseDuty : holdDuty;
         if (custom != null && !custom.isEmpty()) {
-            prefs.setFanHoldCurve(FanCurve.setLastDuty(custom, d));
+            List<int[]> pts = FanCurve.points(custom);
+            int base = pts.isEmpty() ? baseDuty : pts.get(pts.size() - 1)[1];
+            if (base > 0) {
+                prefs.setFanHoldCurve(FanCurve.scaleDuties(custom, d / (float) base));
+            } else {
+                prefs.setFanHoldCurve(FanCurve.setLastDuty(custom, d));
+            }
         } else {
             prefs.resetFanHoldCurve();
         }

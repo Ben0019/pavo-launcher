@@ -253,6 +253,15 @@ final class FanCurve {
         return serialize(pts);
     }
 
+    /** Scale every point's duty, keeping the curve's shape. */
+    static String scaleDuties(String curve, float factor) {
+        List<int[]> pts = points(curve);
+        for (int[] p : pts) {
+            p[1] = clamp(Math.round(p[1] * factor), 0, 100);
+        }
+        return serialize(pts);
+    }
+
     /** 15 control points at 5 °C intervals at one duty level. */
     static String flat(int duty) {        int d = clamp(duty, 0, 100);
         StringBuilder b = new StringBuilder();
