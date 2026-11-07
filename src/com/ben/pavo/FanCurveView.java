@@ -33,6 +33,7 @@ final class FanCurveView extends View {
     private final Paint livePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint liveDot = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint targetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint targetDot = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint focusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF plot = new RectF();
     private final Path path = new Path();
@@ -46,6 +47,7 @@ final class FanCurveView extends View {
     private int liveDuty = 30;
     private int liveRpm;
     private float targetC;
+    private int targetDuty = -1;
     private boolean editable = true;
     private boolean focused;
     private long lastHaptic;
@@ -78,6 +80,8 @@ final class FanCurveView extends View {
         targetPaint.setColor(0xCC4DD0E1);
         targetPaint.setPathEffect(new DashPathEffect(new float[]{
                 Ui.dpf(c, 2), Ui.dpf(c, 2)}, 0));
+        targetDot.setStyle(Paint.Style.FILL);
+        targetDot.setColor(0xFF4DD0E1);
         focusPaint.setStyle(Paint.Style.STROKE);
         focusPaint.setStrokeWidth(Ui.dpf(c, 2f));
         focusPaint.setColor(ACCENT);
@@ -99,16 +103,26 @@ final class FanCurveView extends View {
     }
 
     void setCurve(String value) {
-        curve = FanCurve.ensureTerminal(value == null ? FanCurve.DEFAULT : value);
+        setCurve(value, true);
+    }
+
+    /**
+     * @param terminal add a 100 °C end stop. HOLD passes false so the graph
+     *                 ends at the user's hold point.
+     */
+    void setCurve(String value, boolean terminal) {
+        curve = value == null ? FanCurve.DEFAULT
+                : terminal ? FanCurve.ensureTerminal(value) : value;
         points.clear();
         points.addAll(FanCurve.points(curve));
         selected = Math.max(0, Math.min(selected, points.size() - 1));
         invalidate();
     }
 
-    /** HOLD target line; 0 hides it. */
-    void setTarget(float temp) {
+    /** HOLD crosshair at the selected temperature and duty; temp 0 hides it. */
+    void setTarget(float temp, int duty) {
         targetC = temp;
+        targetDuty = duty;
         invalidate();
     }
 
@@ -247,6 +261,11 @@ final class FanCurveView extends View {
         if (targetC > 0f) {
             float tx = xFor(Math.round(targetC));
             c.drawLine(tx, plot.top, tx, plot.bottom, targetPaint);
+            if (targetDuty >= 0) {
+                float ty = yFor(FanCurve.clamp(targetDuty, 0, 100));
+                c.drawLine(plot.left, ty, plot.right, ty, targetPaint);
+                c.drawCircle(tx, ty, Ui.dpf(getContext(), 3.5f), targetDot);
+            }
             textPaint.setTextAlign(Paint.Align.CENTER);
             textPaint.setColor(0xFF4DD0E1);
             c.drawText(Loc.number(getContext(), Math.round(targetC) + "°"),

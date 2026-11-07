@@ -43,6 +43,12 @@ public final class PerfTuneService extends Service {
     private boolean thermalHold;
     private boolean modePaused;
     private volatile float lastTempC;
+    private int holdP0Max;
+    private int holdP6Max;
+    private int holdGpuMax;
+    private String holdCeilingKey;
+    private long lastHoldAdjust;
+    private boolean holdActive;
 
     /**
      * The Odin firmware parks cores 6-7 for apps it does not classify as games:
@@ -243,13 +249,18 @@ public final class PerfTuneService extends Service {
             return new boolean[]{false, false};
         }
         expireBoost();
-        float[] temps = PerfTuner.temperatures();
+        // HOLD and the safety guard use the hottest junction, not the filtered
+        // HAL sensor, so the target cannot be crossed by a lagging value.
+        float[] temps = PerfTuner.readTemperaturesRaw();
         lastTempC = Math.max(temps[0], temps[1]);
+        boolean holdMode = prefs.fanAppMode() == FanActivity.MODE_HOLD;
         // Only step aside when the chip is genuinely hot; the old 72 C limit
         // meant the caps never applied while gaming (junctions run 80-95 C).
+        // HOLD is exempt: its own target is the ceiling and it throttles before
+        // this safety pause would otherwise stop the governor.
         float limit = prefs.perfHoldLimitC();
         if (limit <= 0f) limit = THERMAL_LIMIT_C;
-        if (Math.max(temps[0], temps[1]) >= limit) {
+        if (!holdMode && Math.max(temps[0], temps[1]) >= limit) {
             return new boolean[]{true, false};
         }
         // The firmware's performance mode can be changed outside Pavo (its Quick
@@ -288,6 +299,54 @@ public final class PerfTuneService extends Service {
         }
         PerfTuner.Root.ensure();
         PerfTuner.State state = PerfTuner.readStateForHold(this);
+        // HOLD is a thermal ceiling: the fan curve ends at the user's hold
+        // point, and the CPU/GPU max steps down until the target is met. It
+        // steps back up as the load allows, up to the current preset's caps.
+        if (holdMode) {
+            String ceil = cfg.p0Max + ":" + cfg.p6Max + ":" + cfg.gpuMax
+                    + ":" + cfg.p0Min + ":" + cfg.p6Min + ":" + cfg.gpuMin;
+            if (!holdActive || !ceil.equals(holdCeilingKey)) {
+                holdP0Max = cfg.p0Max;
+                holdP6Max = cfg.p6Max;
+                holdGpuMax = cfg.gpuMax;
+                holdCeilingKey = ceil;
+                holdActive = true;
+                lastHoldAdjust = 0L;
+            }
+            float target = prefs.fanHoldTargetC();
+            float cpu = temps[0];
+            float gpu = temps[1];
+            float source = FanCurve.sourceTemp(cpu, gpu, prefs.fanTempSource());
+            long now = SystemClock.uptimeMillis();
+            if (now - lastHoldAdjust >= 1000L) {
+                lastHoldAdjust = now;
+                if (source > target + 0.5f) {
+                    // Drop two steps per second so a stock-clock burst cannot
+                    // stay above the target; the fan guard is already at 100 %.
+                    if (cpu >= gpu - 2f) {
+                        holdP0Max = stepDown(state.efficiency,
+                                stepDown(state.efficiency, holdP0Max));
+                        holdP6Max = stepDown(state.performance,
+                                stepDown(state.performance, holdP6Max));
+                    }
+                    if (gpu >= cpu - 2f) {
+                        holdGpuMax = stepDownGpu(state.gpu,
+                                stepDownGpu(state.gpu, holdGpuMax));
+                    }
+                } else if (source < target - 5f) {
+                    // Recover slowly and only with a clear margin below target.
+                    holdP0Max = stepUp(state.efficiency, holdP0Max, cfg.p0Max);
+                    holdP6Max = stepUp(state.performance, holdP6Max, cfg.p6Max);
+                    holdGpuMax = stepUpGpu(state.gpu, holdGpuMax, cfg.gpuMax);
+                }
+            }
+            PerfTuner.setCpu(state.efficiency, holdP0Max, cfg.p0Min, cfg.p0Gov);
+            PerfTuner.setCpu(state.performance, holdP6Max, cfg.p6Min, cfg.p6Gov);
+            PerfTuner.setGpu(state.gpu, holdGpuMax, cfg.gpuMin);
+            maybeKickBigCores(prefs);
+            return new boolean[]{false, false};
+        }
+        holdActive = false;
         // performance_mode is the firmware's fan policy switch: writing a
         // non-zero value makes its daemon set fan_mode=0 (fan off). The tuner
         // owns clocks directly, so leave that setting alone.
@@ -296,6 +355,32 @@ public final class PerfTuneService extends Service {
         PerfTuner.setGpu(state.gpu, cfg.gpuMax, cfg.gpuMin);
         maybeKickBigCores(prefs);
         return new boolean[]{false, false};
+    }
+
+    private static int stepDown(PerfTuner.Cpu c, int current) {
+        if (c == null || c.freqs.length == 0) return current;
+        int idx = PerfTuner.closestIndex(c.freqs, current);
+        return c.freqs[Math.max(0, idx - 1)];
+    }
+
+    private static int stepUp(PerfTuner.Cpu c, int current, int ceiling) {
+        if (c == null || c.freqs.length == 0) return current;
+        int idx = PerfTuner.closestIndex(c.freqs, current);
+        int next = c.freqs[Math.min(c.freqs.length - 1, idx + 1)];
+        return Math.min(next, ceiling);
+    }
+
+    private static int stepDownGpu(PerfTuner.Gpu g, int current) {
+        if (g == null || g.freqs.length == 0) return current;
+        int idx = PerfTuner.closestIndex(g.freqs, current);
+        return g.freqs[Math.max(0, idx - 1)];
+    }
+
+    private static int stepUpGpu(PerfTuner.Gpu g, int current, int ceiling) {
+        if (g == null || g.freqs.length == 0) return current;
+        int idx = PerfTuner.closestIndex(g.freqs, current);
+        int next = g.freqs[Math.min(g.freqs.length - 1, idx + 1)];
+        return Math.min(next, ceiling);
     }
 
     /**

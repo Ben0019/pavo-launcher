@@ -154,13 +154,21 @@ final class FanCurve {
         return Math.max(cpu, gpu);
     }
 
-    /** One-sided target curve: full duty at the target, easing below it. */
+    /** One-sided target curve: the chosen duty at the target, guard above. */
     static String holdCurve(float targetC) {
+        return holdCurve(targetC, 100);
+    }
+
+    static String holdCurve(float targetC, int dutyPct) {
         int t = clamp(Math.round(targetC), 45, 85);
+        int d = clamp(dutyPct, 10, 100);
         TreeMap<Integer, Integer> map = new TreeMap<>();
         int[][] pts = {
-                {t - 15, 0}, {t - 10, 10}, {t - 5, 35},
-                {t - 2, 75}, {t, 100}, {t + 5, 100}, {t + 10, 100}
+                {t - 15, 0},
+                {t - 10, Math.round(d * 0.10f)},
+                {t - 5, Math.round(d * 0.35f)},
+                {t - 2, Math.round(d * 0.75f)},
+                {t, d}
         };
         for (int[] p : pts) {
             int temp = clamp(p[0], 30, 100);
@@ -172,7 +180,14 @@ final class FanCurve {
             if (b.length() > 0) b.append(',');
             b.append(e.getKey()).append(':').append(e.getValue());
         }
-        return ensureTerminal(b.toString());
+        return b.toString();
+    }
+
+    /** Saved custom HOLD curve, or the generated curve ending at the target. */
+    static String holdCurve(Prefs prefs, float targetC, int dutyPct) {
+        String saved = prefs == null ? null : prefs.fanHoldCurve();
+        if (saved != null && !saved.isEmpty()) return saved;
+        return holdCurve(targetC, dutyPct);
     }
 
     /** 15 control points at 5 °C intervals at one duty level. */

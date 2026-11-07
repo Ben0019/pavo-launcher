@@ -147,7 +147,7 @@ public final class FanCurveService extends Service {
             // holds a flat duty instead of being re-written every tick.
             String curve = high ? FanCurve.flat(100)
                     : smart ? FanCurve.SMART
-                    : hold ? FanCurve.holdCurve(prefs.fanHoldTargetC())
+                    : hold ? FanCurve.holdCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
                     : preset != null ? preset : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
@@ -160,6 +160,7 @@ public final class FanCurveService extends Service {
             // controller round it down.
             int duty = high ? 100
                     : controller.next(curve, temp, SystemClock.uptimeMillis(), smart, hold);
+            if (hold && temp > prefs.fanHoldTargetC()) duty = 100;
             if (warmup) duty = -1;  // start silently, keep the current speed
             if (duty >= 0) {
                 lastDuty = duty;

@@ -122,7 +122,7 @@ final class FanEngine {
             if (temp <= 0f) temp = 40f;
             String curve = high ? FanCurve.flat(100)
                     : smart ? FanCurve.SMART
-                    : hold ? FanCurve.holdCurve(prefs.fanHoldTargetC())
+                    : hold ? FanCurve.holdCurve(prefs, prefs.fanHoldTargetC(), prefs.fanHoldDuty())
                     : preset != null ? preset : prefs.fanCurve();
             if (!curve.equals(lastCurve)) {
                 lastCurve = curve;
@@ -133,6 +133,7 @@ final class FanEngine {
             // High is a hard maximum: do not ease into it.
             int duty = high ? 100
                     : controller.next(curve, temp, SystemClock.uptimeMillis(), smart, hold);
+            if (hold && temp > prefs.fanHoldTargetC()) duty = 100;
             controlTemp = controller.filteredTemp();
             if (warmup) duty = -1;
             if (duty >= 0) {

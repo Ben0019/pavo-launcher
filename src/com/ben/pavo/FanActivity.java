@@ -97,7 +97,10 @@ public final class FanActivity extends PavoGlassActivity {
     private LinearLayout holdRow;
     private SeekBar holdBar;
     private TextView holdValue;
+    private SeekBar holdDutyBar;
+    private TextView holdDutyValue;
     private int holdTarget = 65;
+    private int holdDuty = 100;
     private float currentTemp = 40f;
 
     private int mode;
@@ -215,6 +218,7 @@ public final class FanActivity extends PavoGlassActivity {
         curve = global.curve;
         fanSource = prefs.fanTempSource();
         holdTarget = prefs.fanHoldTargetC();
+        holdDuty = prefs.fanHoldDuty();
         buildUi();
         styleSourceChips();
         hideBars();
@@ -494,7 +498,29 @@ public final class FanActivity extends PavoGlassActivity {
         curveView.setListener(new FanCurveView.Listener() {
             @Override
             public void onCurveChanged(String value) {
-                if (mode == MODE_HOLD) return;
+                if (mode == MODE_HOLD) {
+                    // HOLD keeps the guard curve editable; save the dragged
+                    // shape and let the crosshair follow its last point.
+                    prefs.setFanHoldCurve(value);
+                    List<int[]> pts = FanCurve.points(value);
+                    if (!pts.isEmpty()) {
+                        int[] last = pts.get(pts.size() - 1);
+                        int t = Math.max(45, Math.min(85, last[0]));
+                        int d = Math.max(10, Math.min(100, last[1]));
+                        holdTarget = t;
+                        holdDuty = d;
+                        prefs.setFanHoldTargetC(t);
+                        prefs.setFanHoldDuty(d);
+                        if (holdBar != null) holdBar.setProgress(t - 45);
+                        if (holdDutyBar != null) holdDutyBar.setProgress(d - 10);
+                        if (holdValue != null) holdValue.setText(t + "°C");
+                        if (holdDutyValue != null) holdDutyValue.setText(d + "%");
+                        if (curveView != null) curveView.setTarget(t, d);
+                    }
+                    curveController.reset();
+                    updateLiveHint();
+                    return;
+                }
                 if (FanCurve.isPresetMode(mode)) {
                     // Editing a preset updates that preset's own default; it
                     // does not fork into the editable CURVE profile.
@@ -537,11 +563,14 @@ public final class FanActivity extends PavoGlassActivity {
         // Target-temperature control for HOLD. Hidden unless HOLD is selected.
         int holdColor = 0xFF4DD0E1;
         holdRow = new LinearLayout(this);
-        holdRow.setOrientation(LinearLayout.HORIZONTAL);
-        holdRow.setGravity(Gravity.CENTER_VERTICAL);
+        holdRow.setOrientation(LinearLayout.VERTICAL);
         holdRow.setPadding(dp(2), dp(6), dp(2), 0);
+
+        LinearLayout targetRow = new LinearLayout(this);
+        targetRow.setOrientation(LinearLayout.HORIZONTAL);
+        targetRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView holdLabel = text(Loc.s(this, "HOLD"), 9.5f, MUTED, true);
-        holdRow.addView(holdLabel, new LinearLayout.LayoutParams(
+        targetRow.addView(holdLabel, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         holdBar = new SeekBar(this);
@@ -563,9 +592,43 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams holdBarLp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         holdBarLp.leftMargin = dp(8);
-        holdRow.addView(holdBar, holdBarLp);
+        targetRow.addView(holdBar, holdBarLp);
         holdValue = text(holdTarget + "°C", 10.5f, holdColor, true);
-        holdRow.addView(holdValue);
+        targetRow.addView(holdValue);
+        holdRow.addView(targetRow);
+
+        LinearLayout dutyRow = new LinearLayout(this);
+        dutyRow.setOrientation(LinearLayout.HORIZONTAL);
+        dutyRow.setGravity(Gravity.CENTER_VERTICAL);
+        dutyRow.setPadding(0, dp(2), 0, 0);
+        TextView dutyLabel = text(Loc.s(this, "SPEED"), 9.5f, MUTED, true);
+        dutyRow.addView(dutyLabel, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        holdDutyBar = new SeekBar(this);
+        holdDutyBar.setMax(90);
+        holdDutyBar.setProgress(Math.max(0, Math.min(90, holdDuty - 10)));
+        holdDutyBar.setProgressTintList(ColorStateList.valueOf(holdColor));
+        GradientDrawable dutyThumb = new GradientDrawable();
+        dutyThumb.setShape(GradientDrawable.OVAL);
+        dutyThumb.setColor(holdColor);
+        dutyThumb.setSize(dp(16), dp(16));
+        holdDutyBar.setThumb(dutyThumb);
+        holdDutyBar.setThumbOffset(0);
+        holdDutyBar.setSplitTrack(false);
+        holdDutyBar.setDefaultFocusHighlightEnabled(false);
+        holdDutyBar.setFocusable(true);
+        holdDutyBar.setFocusableInTouchMode(true);
+        holdDutyBar.setMinimumHeight(dp(30));
+        holdDutyBar.setPadding(dp(12), dp(2), dp(12), dp(2));
+        LinearLayout.LayoutParams dutyBarLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        dutyBarLp.leftMargin = dp(8);
+        dutyRow.addView(holdDutyBar, dutyBarLp);
+        holdDutyValue = text(holdDuty + "%", 10.5f, holdColor, true);
+        dutyRow.addView(holdDutyValue);
+        holdRow.addView(dutyRow);
+
         holdBar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, boolean hasFocus) {
@@ -580,6 +643,38 @@ public final class FanActivity extends PavoGlassActivity {
                 if (holdValue != null) holdValue.setText(holdTarget + "°C");
                 if (!fromUser || suppress) return;
                 prefs.setFanHoldTargetC(holdTarget);
+                prefs.resetFanHoldCurve();
+                refreshCurveDisplay();
+                updateLiveHint();
+                if (mode == MODE_HOLD) FanControl.update(FanActivity.this);
+                Haptics.tick(seekBar);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                Haptics.key(seekBar);
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                Haptics.click(seekBar);
+            }
+        });
+        holdDutyBar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                v.setBackground(hasFocus ? Ui.focusRing(FanActivity.this, dp(10)) : null);
+                if (hasFocus) Haptics.tick(v);
+            }
+        });
+        holdDutyBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                holdDuty = progress + 10;
+                if (holdDutyValue != null) holdDutyValue.setText(holdDuty + "%");
+                if (!fromUser || suppress) return;
+                prefs.setFanHoldDuty(holdDuty);
+                prefs.resetFanHoldCurve();
                 refreshCurveDisplay();
                 updateLiveHint();
                 if (mode == MODE_HOLD) FanControl.update(FanActivity.this);
@@ -1215,9 +1310,14 @@ public final class FanActivity extends PavoGlassActivity {
                     Haptics.longPress(v);
                     if (value == MODE_HOLD) {
                         prefs.setFanHoldTargetC(65);
+                        prefs.setFanHoldDuty(100);
+                        prefs.resetFanHoldCurve();
                         holdTarget = 65;
+                        holdDuty = 100;
                         if (holdBar != null) holdBar.setProgress(20);
                         if (holdValue != null) holdValue.setText("65°C");
+                        if (holdDutyBar != null) holdDutyBar.setProgress(90);
+                        if (holdDutyValue != null) holdDutyValue.setText("100%");
                         if (mode == MODE_HOLD) {
                             refreshCurveDisplay();
                             updateLiveHint();
@@ -1301,7 +1401,7 @@ public final class FanActivity extends PavoGlassActivity {
         styleChips();
         styleSourceChips();
         if (curveView != null) {
-            curveView.setEditable(mode != MODE_HOLD);
+            curveView.setEditable(true);
             refreshCurveDisplay();
         }
         if (holdRow != null) {
@@ -1326,7 +1426,7 @@ public final class FanActivity extends PavoGlassActivity {
         styleChips();
         styleSourceChips();
         if (curveView != null) {
-            curveView.setEditable(mode != MODE_HOLD);
+            curveView.setEditable(true);
             refreshCurveDisplay();
         }
         if (holdRow != null) {
@@ -1336,7 +1436,12 @@ public final class FanActivity extends PavoGlassActivity {
         previewFanTarget();
         saveCurrentProfile();
         applyProfileFanMode();
-        if (FanCurve.isPresetMode(mode) && selectedAppPkg.isEmpty()) {
+        if (mode == MODE_HOLD) {
+            if (selectedAppPkg.isEmpty()) {
+                prefs.setPerfHoldEnabled(true);
+                PerfTuneService.start(this);
+            }
+        } else if (FanCurve.isPresetMode(mode) && selectedAppPkg.isEmpty()) {
             PresetPair.applyPerformance(this, mode);
         }
         updateLiveHint();
@@ -1360,7 +1465,7 @@ public final class FanActivity extends PavoGlassActivity {
             case MODE_LARGE:
                 return FanCurve.presetCurve(prefs, mode);
             case MODE_HOLD:
-                return FanCurve.holdCurve(holdTarget);
+                return FanCurve.holdCurve(prefs, holdTarget, holdDuty);
             case MODE_CURVE:
             default:
                 return curve;
@@ -1369,8 +1474,9 @@ public final class FanActivity extends PavoGlassActivity {
 
     private void refreshCurveDisplay() {
         if (curveView != null) {
-            curveView.setCurve(displayedCurve());
-            curveView.setTarget(mode == MODE_HOLD ? holdTarget : 0f);
+            curveView.setCurve(displayedCurve(), mode != MODE_HOLD);
+            curveView.setTarget(mode == MODE_HOLD ? holdTarget : 0f,
+                    mode == MODE_HOLD ? holdDuty : -1);
         }
     }
 
@@ -1399,7 +1505,7 @@ public final class FanActivity extends PavoGlassActivity {
             case MODE_LARGE:
                 return FanCurve.dutyAt(FanCurve.presetCurve(prefs, mode), temp);
             case MODE_HOLD:
-                return FanCurve.dutyAt(FanCurve.holdCurve(holdTarget), temp);
+                return FanCurve.dutyAt(FanCurve.holdCurve(prefs, holdTarget, holdDuty), temp);
             case MODE_CURVE:
             default:
                 return FanCurve.dutyAt(curve, temp);
@@ -1513,7 +1619,8 @@ public final class FanActivity extends PavoGlassActivity {
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (mode == MODE_HOLD) {
             curveHint.setText(String.format(Loc.s(this, curveNav),
-                    Loc.s(this, "HOLD") + " " + holdTarget + "°C"));
+                    Loc.s(this, "HOLD") + " " + holdTarget + "°C · "
+                            + holdDuty + "%"));
             curveHint.setTextColor(0xB3FFFFFF);
         } else if (mode == PerfTuner.FAN_MANUAL) {
             curveHint.setText(String.format(Loc.s(this,
