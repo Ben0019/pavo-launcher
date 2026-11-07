@@ -24,8 +24,8 @@ final class FanCurve {
             + "65:26,70:36,75:48,80:62,85:80,90:100,95:100,100:100";
     static final String MEDIUM = "30:0,35:0,40:0,45:0,50:6,55:9,60:13,"
             + "65:18,70:26,75:37,80:52,85:72,90:100,95:100,100:100";
-    static final String LARGE = "30:0,35:0,40:0,45:0,50:6,55:10,60:14,"
-            + "65:20,70:28,75:40,80:54,85:72,90:100,95:100,100:100";
+    static final String LARGE = "30:0,35:0,40:0,45:0,50:5,55:7,60:10,"
+            + "65:14,70:20,75:30,80:44,85:64,90:100,95:100,100:100";
 
     /** Fixed low-noise curve for a performance-preset fan mode, or null. */
     static String presetCurve(int mode) {
