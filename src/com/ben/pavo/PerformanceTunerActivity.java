@@ -85,6 +85,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         if ("SMALL".equals(name)) return profileColor(3);
         if ("MEDIUM".equals(name)) return profileColor(1);
         if ("LARGE".equals(name)) return profileColor(0);
+        if (PerfProfiles.STOCK.equals(name)) return 0xFFFFFFFF;
         return AMBER;
     }
 
