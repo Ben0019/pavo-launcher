@@ -1270,6 +1270,11 @@ public final class FanActivity extends PavoGlassActivity {
     }
 
     private int presetColor(int value) {
+        // Match the Performance Tuner's SMALL (red), MEDIUM (yellow-green)
+        // and LARGE (green) preset chips.
+        if (value == MODE_SMALL) return HeatColor.ramp(1f);
+        if (value == MODE_MEDIUM) return HeatColor.ramp(1f / 3f);
+        if (value == MODE_LARGE) return HeatColor.ramp(0f);
         return HeatColor.ramp(HeatColor.severity(presetDuty(value), currentTemp));
     }
 
