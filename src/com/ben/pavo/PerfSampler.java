@@ -31,7 +31,7 @@ final class PerfSampler {
      * writes its output to a file in our cache dir and we poll for it.
      */
     private static final String PSERVER_SCRIPT =
-            "out=\"$1\"; tok=\"$2\"; cached=\"$3\"; fgpkg=\"$4\"; fgmult=\"$5\"\n"
+            "out=\"$1\"; tok=\"$2\"; cached=\"$3\"; fgpkg=\"$4\"; fgmult=\"$5\"; fgts=\"$6\"\n"
             + "tmp=\"$out.$tok.tmp\"\n"
             + "top=$(dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity)\n"
             + "comp=$(printf '%s\\n' \"$top\" | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -n1)\n"
@@ -42,32 +42,52 @@ final class PerfSampler {
             + "echo \"TOKEN:$tok\"\n"
             + "echo \"APP:$full\"\n"
             + "echo \"FGAPP:$pkg\"\n"
-            + "if [ \"$fgpkg\" = \"$pkg\" ] && [ -n \"$fgmult\" ]; then\n"
+            + "now=$(date +%s)\n"
+            + "if [ \"$fgpkg\" = \"$pkg\" ] && [ -n \"$fgmult\" ] && [ -n \"$fgts\" ] && [ $((now - fgts)) -lt 20 ]; then\n"
             + "  echo \"FG:$fgmult\"\n"
             + "else\n"
+            + "  droot=\"/data/data/$pkg/files\"\n"
             + "  root=\"/data/media/0/Android/data/$pkg/files\"\n"
             + "  [ -d \"$root\" ] || root=\"/sdcard/Android/data/$pkg/files\"\n"
-            + "  cfgs=$(for d in \"$root\" \"/data/data/$pkg/files\" \"/data/data/$pkg/shared_prefs\"; do\n"
-            + "    [ -d \"$d\" ] || continue\n"
-            + "    timeout 2 find \"$d\" -maxdepth 3 -type f \\( -iname '*config*' -o -iname '*settings*' -o -iname '*.ini' -o -iname '*.xml' -o -iname '*.conf' \\) -size -512k 2>/dev/null\n"
-            + "  done | head -n 20)\n"
             + "  fgm=\n"
-            + "  if [ -n \"$cfgs\" ]; then\n"
-            + "    gcfg=$(printf '%s\\n' \"$cfgs\" | grep -E '/config\\.ini$|/config/[^/]+\\.(ini|conf|xml)$' | head -n 1)\n"
-            + "    [ -z \"$gcfg\" ] && gcfg=$(printf '%s\\n' \"$cfgs\" | head -n 1)\n"
-            + "    gc=$(awk -F= 'BEGIN{on=0; m=0} index($1,\"\\134\")>0{next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0}' \"$gcfg\" 2>/dev/null)\n"
-            + "    set -- $gc; gon=${1:-0}; gm=${2:-0}\n"
-            + "    [ \"$gon\" = \"1\" ] && [ \"$gm\" -gt 1 ] && fgm=$gm\n"
-            + "    cdir=$(dirname \"$gcfg\")/custom\n"
-            + "    if [ -d \"$cdir\" ]; then\n"
-            + "      ccfg=$(ls -t \"$cdir\"/*.ini 2>/dev/null | head -n 1)\n"
-            + "      if [ -n \"$ccfg\" ]; then\n"
-            + "        cc=$(awk -F= 'BEGIN{on=-1; m=0; ug=1} index($1,\"\\134\")>0{if($1 ~ /frame_gen.use_global$/){ug=(tolower($2) ~ /true/)?1:0} next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0, ug+0}' \"$ccfg\" 2>/dev/null)\n"
-            + "        set -- $cc; con=${1:--1}; cm=${2:-0}; cug=${3:-1}\n"
-            + "        if [ \"$con\" != \"-1\" ] && [ \"$cug\" = \"0\" ]; then\n"
-            + "          [ \"$cm\" -gt 1 ] || cm=$gm\n"
-            + "          fgm=\n"
-            + "          [ \"$con\" = \"1\" ] && [ \"$cm\" -gt 1 ] && fgm=$cm\n"
+            + "  home=$(readlink -f \"$droot/imagefs/home/xuser\" 2>/dev/null)\n"
+            + "  { [ -n \"$home\" ] && [ -d \"$home\" ]; } || home=$(ls -d \"$droot\"/imagefs/home/xuser-* 2>/dev/null | head -n 1)\n"
+            + "  cj=\"$home/.container\"\n"
+            + "  if [ -n \"$home\" ] && [ -f \"$cj\" ]; then\n"
+            + "    jval() { tr ',' '\\n' < \"$cj\" | grep -F \"\\\"$1\\\":\" | tail -n 1 | tr -dc '0-9'; }\n"
+            + "    jstr() { tr ',' '\\n' < \"$cj\" | grep -F \"\\\"$1\\\":\" | tail -n 1 | sed 's/^[^:]*:[[:space:]]*\"//; s/\".*$//'; }\n"
+            + "    fgon=0\n"
+            + "    [ \"$(jval frameGen)\" = \"1\" ] && fgon=1\n"
+            + "    [ \"$(jval disFrameGen)\" = \"1\" ] && fgon=1\n"
+            + "    [ \"$(jval frameGenEnabled)\" = \"1\" ] && fgon=1\n"
+            + "    eng=$(jstr frameGenEngine)\n"
+            + "    case \"$eng\" in \"\"|off|none|0) ;; *) fgon=1 ;; esac\n"
+            + "    m=$(jval frameGenMultiplier)\n"
+            + "    [ -z \"$m\" ] && [ -f \"$home/.config/lsfg-vk/conf.toml\" ] && m=$(grep -iE '^[[:space:]]*multiplier[[:space:]]*=' \"$home/.config/lsfg-vk/conf.toml\" 2>/dev/null | tail -n 1 | grep -oE '[0-9]+')\n"
+            + "    [ \"$fgon\" = \"1\" ] && [ -n \"$m\" ] && [ \"$m\" -ge 2 ] && fgm=$m\n"
+            + "  fi\n"
+            + "  if [ -z \"$fgm\" ]; then\n"
+            + "    cfgs=$(for d in \"$root\" \"/data/data/$pkg/files\" \"/data/data/$pkg/shared_prefs\"; do\n"
+            + "      [ -d \"$d\" ] || continue\n"
+            + "      timeout 2 find \"$d\" -maxdepth 3 -type f \\( -iname '*config*' -o -iname '*settings*' -o -iname '*.ini' -o -iname '*.xml' -o -iname '*.conf' \\) -size -512k 2>/dev/null\n"
+            + "    done | head -n 20)\n"
+            + "    if [ -n \"$cfgs\" ]; then\n"
+            + "      gcfg=$(printf '%s\\n' \"$cfgs\" | grep -E '/config\\.ini$|/config/[^/]+\\.(ini|conf|xml)$' | head -n 1)\n"
+            + "      [ -z \"$gcfg\" ] && gcfg=$(printf '%s\\n' \"$cfgs\" | head -n 1)\n"
+            + "      gc=$(awk -F= 'BEGIN{on=0; m=0} index($1,\"\\134\")>0{next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0}' \"$gcfg\" 2>/dev/null)\n"
+            + "      set -- $gc; gon=${1:-0}; gm=${2:-0}\n"
+            + "      [ \"$gon\" = \"1\" ] && [ \"$gm\" -gt 1 ] && fgm=$gm\n"
+            + "      cdir=$(dirname \"$gcfg\")/custom\n"
+            + "      if [ -d \"$cdir\" ]; then\n"
+            + "        ccfg=$(ls -t \"$cdir\"/*.ini 2>/dev/null | head -n 1)\n"
+            + "        if [ -n \"$ccfg\" ]; then\n"
+            + "          cc=$(awk -F= 'BEGIN{on=-1; m=0; ug=1} index($1,\"\\134\")>0{if($1 ~ /frame_gen.use_global$/){ug=(tolower($2) ~ /true/)?1:0} next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0, ug+0}' \"$ccfg\" 2>/dev/null)\n"
+            + "          set -- $cc; con=${1:--1}; cm=${2:-0}; cug=${3:-1}\n"
+            + "          if [ \"$con\" != \"-1\" ] && [ \"$cug\" = \"0\" ]; then\n"
+            + "            [ \"$cm\" -gt 1 ] || cm=$gm\n"
+            + "            fgm=\n"
+            + "            [ \"$con\" = \"1\" ] && [ \"$cm\" -gt 1 ] && fgm=$cm\n"
+            + "          fi\n"
             + "        fi\n"
             + "      fi\n"
             + "    fi\n"
@@ -224,6 +244,7 @@ final class PerfSampler {
     private long fpsFrameAtNs;
     private String cachedFgPkg;
     private int cachedFgMultiplier = -1;
+    private long cachedFgAtSec;
     private long prevNetRx = -1;
     private long prevNetTx = -1;
     private long prevNetAt;
@@ -698,15 +719,16 @@ final class PerfSampler {
                     : "'" + cachedLayer.replace("'", "'\\''") + "'";
             String fgPkgArg = cachedFgPkg == null ? "''"
                     : "'" + cachedFgPkg.replace("'", "'\\''") + "'";
-            String fgMultArg = cachedFgMultiplier >= 0
-                    ? Integer.toString(cachedFgMultiplier) : "''";
+            boolean fgCached = cachedFgMultiplier >= 0 && cachedFgAtSec > 0;
+            String fgMultArg = fgCached ? Integer.toString(cachedFgMultiplier) : "''";
+            String fgTsArg = fgCached ? Long.toString(cachedFgAtSec) : "''";
             try {
                 out.delete();
             } catch (Throwable ignored) {
             }
             if (!PServer.run("sh " + pserverScript.getAbsolutePath() + " "
                     + out.getAbsolutePath() + " " + token + " " + layerArg
-                    + " " + fgPkgArg + " " + fgMultArg)) {
+                    + " " + fgPkgArg + " " + fgMultArg + " " + fgTsArg)) {
                 pserverOffUntil = now + PSERVER_OFF_NS;
                 return;
             }
@@ -765,13 +787,17 @@ final class PerfSampler {
                 if (!fgPkg.equals(cachedFgPkg)) {
                     cachedFgPkg = fgPkg;
                     cachedFgMultiplier = -1;
+                    cachedFgAtSec = 0;
                 }
                 continue;
             }
             if (line.startsWith("FG:")) {
                 try {
                     int m = Integer.parseInt(line.substring("FG:".length()).trim());
-                    if (m >= 0 && m <= 8) cachedFgMultiplier = m;
+                    if (m >= 0 && m <= 8) {
+                        cachedFgMultiplier = m;
+                        cachedFgAtSec = System.currentTimeMillis() / 1000L;
+                    }
                 } catch (Throwable ignored) {
                 }
                 continue;
