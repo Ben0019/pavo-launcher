@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
   <img alt="Android 12+" src="https://img.shields.io/badge/Android-12%2B-3ddc84?logo=android&logoColor=white">
-  <img alt="Pavo 1.0.0" src="https://img.shields.io/badge/Pavo-1.0.2-14b8a6">
+  <img alt="Pavo 1.0.40" src="https://img.shields.io/badge/Pavo-1.0.40-14b8a6">
 </p>
 
 <p align="center">
@@ -40,6 +40,7 @@ platform (`Activity`, `View`, `Canvas`, `RenderEffect`) with `aapt2` → `javac`
 - OLED protection: 1 px spiral pixel shift and a 10% idle dim, without freezing live data.
 - Performance overlay with CPU/GPU/RAM/FPS, per-core telemetry, lock and direct controls.
 - Tuning, display, fan, RGB, controller, touch, file and media apps built in.
+- SMALL/MEDIUM/LARGE performance presets with paired low-noise fan presets and a HOLD temperature ceiling.
 - 25 languages; resolution, scaling and orientation aware.
 
 ## Build
@@ -107,3 +108,4 @@ the attribution.
 
 - [Kyant0/backdrop](https://github.com/Kyant0/backdrop) for the AGSL liquid-glass lens.
 - AYN for the Odin 3 hardware documentation used while tuning the panel.
+- [AurelioB/ClusterTune](https://github.com/AurelioB/ClusterTune) by Aurelio Bernal, GPL-2.0, for the CQ8725S underclock preset values and the PServer daemon approach.

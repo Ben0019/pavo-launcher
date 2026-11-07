@@ -1,8 +1,13 @@
-Aurora
-Copyright 2026 The Aurora authors
+Pavo
+Copyright 2026 The Pavo authors
 
 This product includes software adapted from Kyant0/backdrop
 (https://github.com/Kyant0/backdrop), licensed under the
 Apache License, Version 2.0.
 
 The liquid-glass material is also inspired by BitChord's implementation.
+
+The CQ8725S underclock preset values and the privileged PServer daemon
+approach are credited to ClusterTune by Aurelio Bernal (AurelioB),
+https://github.com/AurelioB/ClusterTune, licensed under the GNU General
+Public License v2.0.
