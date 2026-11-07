@@ -163,17 +163,11 @@ final class FanCurve {
         int t = clamp(Math.round(targetC), 45, 85);
         int d = clamp(dutyPct, 10, 100);
         TreeMap<Integer, Integer> map = new TreeMap<>();
-        int[][] pts = {
-                {t - 15, 0},
-                {t - 10, Math.round(d * 0.10f)},
-                {t - 5, Math.round(d * 0.35f)},
-                {t - 2, Math.round(d * 0.75f)},
-                {t, d}
-        };
-        for (int[] p : pts) {
-            int temp = clamp(p[0], 30, 100);
-            Integer old = map.get(temp);
-            if (old == null || p[1] > old) map.put(temp, p[1]);
+        // Nine points from target-15 to the hold point, so the approach to the
+        // hold point can be edited in fine steps rather than four coarse ones.
+        int[] offsets = {15, 12, 9, 7, 5, 3, 2, 1, 0};
+        for (int offset : offsets) {
+            map.put(t - offset, holdDutyAt(offset, d));
         }
         StringBuilder b = new StringBuilder();
         for (Map.Entry<Integer, Integer> e : map.entrySet()) {
@@ -181,6 +175,22 @@ final class FanCurve {
             b.append(e.getKey()).append(':').append(e.getValue());
         }
         return b.toString();
+    }
+
+    /** Piecewise shape from no fan at target-15 to the chosen duty at target. */
+    private static int holdDutyAt(int offset, int duty) {
+        if (offset >= 15) return 0;
+        if (offset >= 10) {
+            return Math.round(duty * 0.10f * (15 - offset) / 5f);
+        }
+        if (offset >= 5) {
+            return Math.round(duty * (0.10f + 0.25f * (10 - offset) / 5f));
+        }
+        if (offset >= 2) {
+            return Math.round(duty * (0.35f + 0.40f * (5 - offset) / 3f));
+        }
+        if (offset == 1) return Math.round(duty * 0.875f);
+        return duty;
     }
 
     /** Saved custom HOLD curve, or the generated curve ending at the target. */
