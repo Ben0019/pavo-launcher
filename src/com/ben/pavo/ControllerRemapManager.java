@@ -30,7 +30,7 @@ final class ControllerRemapManager {
     private static final String LOG = "controller-remap.log";
     private static final String VERSION = "controller-daemon.version";
     private static final String PARK = "controller-passthrough";
-    private static final int DAEMON_VERSION = 19;
+    private static final int DAEMON_VERSION = 20;
     static final String SOCKET = "aurora-input";
 
     private static Process process;
@@ -42,16 +42,6 @@ final class ControllerRemapManager {
 
     static File configFile(Context c) {
         return new File(c.getFilesDir(), CONFIG);
-    }
-
-    /** Marker that asks the daemon to forget everything it learned. */
-    static File learnResetFile(Context c) {
-        return new File(c.getFilesDir(), "controller-learn-reset");
-    }
-
-    /** Raw min/max and per-angle radii learned by the daemon. */
-    static File learnFile(Context c) {
-        return new File(c.getFilesDir(), "controller-learn.conf");
     }
 
     static File binaryFile(Context c) {

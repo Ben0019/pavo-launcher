@@ -161,7 +161,6 @@ public final class MainActivity extends Activity {
     private static final String OVERLAY_PKG = "com.ben.pavo.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.pavo.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
-    private static final String JOYSTICK_PKG = "com.ben.pavo.joystick";
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
     private static final String SCREEN_RECORDER_PKG = "com.ben.pavo.screenrecorder";
@@ -376,7 +375,6 @@ public final class MainActivity extends Activity {
     private Apps.Entry screenRecorderEntry;
     private Apps.Entry ftpEntry;
     private Apps.Entry controllerMapEntry;
-    private Apps.Entry joystickEntry;
     private Apps.Entry perfTunerEntry;
 
     private int lastHapticPage = -1;
@@ -2314,7 +2312,6 @@ public final class MainActivity extends Activity {
     private Apps.Entry findEntry(String pkg, String cls) {
         if (PERF_LOG_PKG.equals(pkg)) return perfLogsEntry();
         if (CONTROLLER_MAP_PKG.equals(pkg)) return controllerMapEntry();
-        if (JOYSTICK_PKG.equals(pkg)) return joystickEntry();
         if (PERF_TUNER_PKG.equals(pkg)) return perfTunerEntry();
         if (DISPLAY_PKG.equals(pkg)) return displayEntry();
         if (RGB_PKG.equals(pkg)) return rgbEntry();
@@ -2339,7 +2336,6 @@ public final class MainActivity extends Activity {
 
     private boolean isBuiltinApp(String pkg) {
         return PERF_LOG_PKG.equals(pkg) || CONTROLLER_MAP_PKG.equals(pkg)
-                || JOYSTICK_PKG.equals(pkg)
                 || PERF_TUNER_PKG.equals(pkg) || DISPLAY_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
                 || UPDATES_PKG.equals(pkg)
@@ -2365,16 +2361,6 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return controllerMapEntry;
-    }
-
-    private Apps.Entry joystickEntry() {
-        if (joystickEntry == null) {
-            joystickEntry = new Apps.Entry(Loc.s(MainActivity.this, "JOYSTICKS"),
-                    JOYSTICK_PKG, "");
-            joystickEntry.icon = Apps.joystickIcon(Ui.dp(this, 72),
-                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
-        }
-        return joystickEntry;
     }
 
     private Apps.Entry perfTunerEntry() {
@@ -2498,9 +2484,6 @@ public final class MainActivity extends Activity {
         }
         if (controllerMapEntry != null) {
             controllerMapEntry.icon = Apps.controllerMapIcon(px, accent);
-        }
-        if (joystickEntry != null) {
-            joystickEntry.icon = Apps.joystickIcon(px, accent);
         }
         if (perfTunerEntry != null) {
             perfTunerEntry.icon = Apps.performanceTunerIcon(px, accent);
@@ -6584,10 +6567,6 @@ public final class MainActivity extends Activity {
         }
         if (CONTROLLER_MAP_PKG.equals(item.pkg)) {
             startBuiltIn(new Intent(this, ControllerMapActivity.class), source);
-            return;
-        }
-        if (JOYSTICK_PKG.equals(item.pkg)) {
-            startBuiltIn(new Intent(this, JoystickActivity.class), source);
             return;
         }
         if (PERF_TUNER_PKG.equals(item.pkg)) {
@@ -10751,12 +10730,6 @@ public final class MainActivity extends Activity {
                 || controllerMapEntry.label.toLowerCase(Locale.getDefault()).contains(q)
                 || controllerMapEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
             drawerApps.add(controllerMapEntry);
-        }
-        Apps.Entry joystick = joystickEntry();
-        if (q.isEmpty()
-                || joystick.label.toLowerCase(Locale.getDefault()).contains(q)
-                || joystick.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
-            drawerApps.add(joystick);
         }
         DeviceProfile profile = DeviceProfile.get(this);
         if (profile.rgb) {

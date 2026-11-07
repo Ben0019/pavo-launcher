@@ -16,7 +16,6 @@ final class LiveBuiltinIcons {
     static final String PERF_TUNER = "com.ben.pavo.perftuner";
     static final String DISPLAY = "com.ben.pavo.display";
     static final String CONTROLLER = "com.ben.pavo.controllermap";
-    static final String JOYSTICK = "com.ben.pavo.joystick";
     static final String RGB = "com.ben.pavo.rgb";
     static final String FAN = "com.ben.pavo.fan";
     static final String TOUCH = "com.ben.pavo.touchmapper";
@@ -33,7 +32,6 @@ final class LiveBuiltinIcons {
     static boolean supports(String pkg) {
         return PERF_LOG.equals(pkg) || PERF_TUNER.equals(pkg)
                 || DISPLAY.equals(pkg) || CONTROLLER.equals(pkg)
-                || JOYSTICK.equals(pkg)
                 || RGB.equals(pkg) || FAN.equals(pkg)
                 || TOUCH.equals(pkg) || HEALTH.equals(pkg)
                 || BENCHMARK.equals(pkg) || FILE_MANAGER.equals(pkg)
@@ -47,7 +45,6 @@ final class LiveBuiltinIcons {
         if (PERF_TUNER.equals(pkg)) return 5200L;
         if (DISPLAY.equals(pkg)) return 6200L;
         if (CONTROLLER.equals(pkg)) return 4800L;
-        if (JOYSTICK.equals(pkg)) return 4200L;
         if (PERF_LOG.equals(pkg)) return 4200L;
         if (BENCHMARK.equals(pkg)) return 3600L;
         if (FILE_MANAGER.equals(pkg)) return 6200L;
@@ -70,8 +67,6 @@ final class LiveBuiltinIcons {
             drawDisplay(c, size, accent, phase);
         } else if (CONTROLLER.equals(pkg)) {
             drawController(c, size, accent, phase);
-        } else if (JOYSTICK.equals(pkg)) {
-            drawJoystick(c, size, accent, phase);
         } else if (RGB.equals(pkg)) {
             drawRgb(c, size, accent, phase);
         } else if (FAN.equals(pkg)) {
@@ -310,31 +305,6 @@ final class LiveBuiltinIcons {
                 c.drawCircle(size * xs[i], size * ys[i], size * 0.072f, ring);
             }
         }
-    }
-
-    /** Two live stick pads with dots circling in opposite directions. */
-    private static void drawJoystick(Canvas c, int size, int accent, float phase) {
-        Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
-        ring.setStyle(Paint.Style.STROKE);
-        ring.setStrokeWidth(Math.max(1.4f, size * 0.038f));
-        ring.setColor(alpha(accent, 0xCC));
-        float radius = size * 0.165f;
-        float cy = size * 0.52f;
-        float lx = size * 0.30f;
-        float rx = size * 0.70f;
-        c.drawCircle(lx, cy, radius, ring);
-        c.drawCircle(rx, cy, radius, ring);
-
-        double angle = phase * Math.PI * 2.0;
-        float orbit = radius * 0.62f;
-        Paint left = new Paint(Paint.ANTI_ALIAS_FLAG);
-        left.setColor(accent);
-        c.drawCircle(lx + (float) Math.cos(angle) * orbit,
-                cy + (float) Math.sin(angle) * orbit, size * 0.048f, left);
-        Paint right = new Paint(Paint.ANTI_ALIAS_FLAG);
-        right.setColor(0xFF69D98B);
-        c.drawCircle(rx + (float) Math.cos(angle + Math.PI) * orbit,
-                cy + (float) Math.sin(angle + Math.PI) * orbit, size * 0.048f, right);
     }
 
     private static void drawHealth(Canvas c, int size, int accent, float phase) {

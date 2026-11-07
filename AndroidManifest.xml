@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ben.pavo"
-    android:versionCode="178"
+    android:versionCode="180"
     android:versionName="1.0.39">
 
     <uses-sdk
@@ -342,18 +342,6 @@
             android:taskAffinity="com.ben.pavo.devicehealth"
             android:theme="@style/Theme.Pavo.Transparent" />
 
-
-        <activity
-            android:name=".JoystickActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:label="Joystick Calibration"
-            android:launchMode="singleTask"
-            android:screenOrientation="user"
-            android:stateNotNeeded="true"
-            android:taskAffinity="com.ben.pavo.joystick"
-            android:theme="@style/Theme.Pavo.Transparent" />
 
         <activity
             android:name=".BenchmarkActivity"
