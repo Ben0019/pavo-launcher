@@ -133,7 +133,6 @@ final class FanEngine {
             // High is a hard maximum: do not ease into it.
             int duty = high ? 100
                     : controller.next(curve, temp, SystemClock.uptimeMillis(), smart, hold);
-            if (hold && temp > prefs.fanHoldTargetC()) duty = 100;
             controlTemp = controller.filteredTemp();
             if (warmup) duty = -1;
             if (duty >= 0) {

@@ -201,8 +201,6 @@ public final class PerAppFanService extends Service {
             int duty = curveController.next(activeCurve, temp,
                     SystemClock.uptimeMillis(), false,
                     profile.mode == FanProfile.MODE_HOLD);
-            if (profile.mode == FanProfile.MODE_HOLD
-                    && temp > prefs.fanHoldTargetC()) duty = 100;
             if (duty >= 0) {
                 PerfTuner.setFanManual(duty);
                 lastCurveDuty = duty;
