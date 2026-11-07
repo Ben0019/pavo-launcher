@@ -330,13 +330,11 @@ final class PerfOverlayView extends LinearLayout {
             appendSpan(b, "FPS ", MUTED);
             String fpsText = "\u2014";
             if (s.fpsValid) {
-                fpsText = String.valueOf(s.fps);
-                if (s.frameGenActive) {
-                    int made = s.frameGenRatio > 0f
-                            ? Math.round(s.fps * s.frameGenRatio / (1f + s.frameGenRatio))
-                            : Math.round(s.fps * (s.frameGenMultiplier - 1)
-                                    / (float) s.frameGenMultiplier);
-                    if (made > 0) fpsText += " (" + made + ")";
+                int made = generatedFrames(s);
+                if (made > 0) {
+                    fpsText = Math.max(0, s.fps - made) + " (" + s.fps + ")";
+                } else {
+                    fpsText = String.valueOf(s.fps);
                 }
             }
             appendSpan(b, fpsText + "  ",
@@ -535,7 +533,10 @@ final class PerfOverlayView extends LinearLayout {
         }
 
         if (s.fpsValid) {
-            fpsValue.setText(String.valueOf(s.fps));
+            int made = generatedFrames(s);
+            fpsValue.setText(made > 0
+                    ? Math.max(0, s.fps - made) + " (" + s.fps + ")"
+                    : String.valueOf(s.fps));
             fpsValue.setTextColor(fpsColor(s.fps));
             graph.push(s.fps);
         } else {
@@ -700,6 +701,15 @@ final class PerfOverlayView extends LinearLayout {
     /** Same green-to-red ramp for any 0..1 level, ignoring the lowest quarter. */
     static int levelHeat(float ratio) {
         return heat((ratio - 0.25f) / 0.75f);
+    }
+
+    /** Interpolated frames in the current sample, or 0 when none are being made. */
+    static int generatedFrames(PerfStats s) {
+        if (!s.frameGenActive || s.frameGenMultiplier <= 1) return 0;
+        int made = s.frameGenRatio > 0f
+                ? Math.round(s.fps * s.frameGenRatio / (1f + s.frameGenRatio))
+                : Math.round(s.fps * (s.frameGenMultiplier - 1) / (float) s.frameGenMultiplier);
+        return Math.max(0, Math.min(s.fps, made));
     }
 
     static int fpsColor(int fps) {
