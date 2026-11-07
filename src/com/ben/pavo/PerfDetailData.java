@@ -8,6 +8,7 @@ final class PerfDetailData {
 
     int fps;
     boolean fpsValid;
+    int frameGenMultiplier;
     int avgFps;
     int minFps;
     int maxFps;

@@ -328,7 +328,15 @@ final class PerfOverlayView extends LinearLayout {
         if (p.perfFps()) {
             if (any) stripSep(b);
             appendSpan(b, "FPS ", MUTED);
-            appendSpan(b, (s.fpsValid ? String.valueOf(s.fps) : "\u2014") + "  ",
+            String fpsText = "\u2014";
+            if (s.fpsValid) {
+                fpsText = String.valueOf(s.fps);
+                if (s.frameGenMultiplier > 1) {
+                    fpsText += " (" + Math.round(s.fps * (s.frameGenMultiplier - 1)
+                            / (float) s.frameGenMultiplier) + ")";
+                }
+            }
+            appendSpan(b, fpsText + "  ",
                     s.fpsValid ? fpsColor(s.fps) : 0xFFC4CBD6);
             any = true;
         }

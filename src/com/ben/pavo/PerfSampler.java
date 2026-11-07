@@ -31,7 +31,7 @@ final class PerfSampler {
      * writes its output to a file in our cache dir and we poll for it.
      */
     private static final String PSERVER_SCRIPT =
-            "out=\"$1\"; tok=\"$2\"; cached=\"$3\"\n"
+            "out=\"$1\"; tok=\"$2\"; cached=\"$3\"; fgpkg=\"$4\"; fgmult=\"$5\"\n"
             + "tmp=\"$out.$tok.tmp\"\n"
             + "top=$(dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity)\n"
             + "comp=$(printf '%s\\n' \"$top\" | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -n1)\n"
@@ -41,6 +41,39 @@ final class PerfSampler {
             + "{\n"
             + "echo \"TOKEN:$tok\"\n"
             + "echo \"APP:$full\"\n"
+            + "echo \"FGAPP:$pkg\"\n"
+            + "if [ \"$fgpkg\" = \"$pkg\" ] && [ -n \"$fgmult\" ]; then\n"
+            + "  echo \"FG:$fgmult\"\n"
+            + "else\n"
+            + "  root=\"/data/media/0/Android/data/$pkg/files\"\n"
+            + "  [ -d \"$root\" ] || root=\"/sdcard/Android/data/$pkg/files\"\n"
+            + "  cfgs=$(for d in \"$root\" \"/data/data/$pkg/files\" \"/data/data/$pkg/shared_prefs\"; do\n"
+            + "    [ -d \"$d\" ] || continue\n"
+            + "    timeout 2 find \"$d\" -maxdepth 3 -type f \\( -iname '*config*' -o -iname '*settings*' -o -iname '*.ini' -o -iname '*.xml' -o -iname '*.conf' \\) -size -512k 2>/dev/null\n"
+            + "  done | head -n 20)\n"
+            + "  fgm=\n"
+            + "  if [ -n \"$cfgs\" ]; then\n"
+            + "    gcfg=$(printf '%s\\n' \"$cfgs\" | grep -E '/config\\.ini$|/config/[^/]+\\.(ini|conf|xml)$' | head -n 1)\n"
+            + "    [ -z \"$gcfg\" ] && gcfg=$(printf '%s\\n' \"$cfgs\" | head -n 1)\n"
+            + "    gc=$(awk -F= 'BEGIN{on=0; m=0} index($1,\"\\134\")>0{next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0}' \"$gcfg\" 2>/dev/null)\n"
+            + "    set -- $gc; gon=${1:-0}; gm=${2:-0}\n"
+            + "    [ \"$gon\" = \"1\" ] && [ \"$gm\" -gt 1 ] && fgm=$gm\n"
+            + "    cdir=$(dirname \"$gcfg\")/custom\n"
+            + "    if [ -d \"$cdir\" ]; then\n"
+            + "      ccfg=$(ls -t \"$cdir\"/*.ini 2>/dev/null | head -n 1)\n"
+            + "      if [ -n \"$ccfg\" ]; then\n"
+            + "        cc=$(awk -F= 'BEGIN{on=-1; m=0; ug=1} index($1,\"\\134\")>0{if($1 ~ /frame_gen.use_global$/){ug=(tolower($2) ~ /true/)?1:0} next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0, ug+0}' \"$ccfg\" 2>/dev/null)\n"
+            + "        set -- $cc; con=${1:--1}; cm=${2:-0}; cug=${3:-1}\n"
+            + "        if [ \"$con\" != \"-1\" ] && [ \"$cug\" = \"0\" ]; then\n"
+            + "          [ \"$cm\" -gt 1 ] || cm=$gm\n"
+            + "          fgm=\n"
+            + "          [ \"$con\" = \"1\" ] && [ \"$cm\" -gt 1 ] && fgm=$cm\n"
+            + "        fi\n"
+            + "      fi\n"
+            + "    fi\n"
+            + "  fi\n"
+            + "  echo \"FG:${fgm:-0}\"\n"
+            + "fi\n"
             + "pid=$(pidof \"$pkg\" 2>/dev/null | awk '{print $1}')\n"
             + "if [ -n \"$pid\" ]; then rss=$(grep VmRSS /proc/$pid/status 2>/dev/null | awk '{print $2}'); [ -n \"$rss\" ] && echo \"RSS:$rss\"; fi\n"
             + "cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$full\" "
@@ -189,6 +222,8 @@ final class PerfSampler {
     private String fpsFrameLayer;
     private long fpsFrameLast = -1;
     private long fpsFrameAtNs;
+    private String cachedFgPkg;
+    private int cachedFgMultiplier = -1;
     private long prevNetRx = -1;
     private long prevNetTx = -1;
     private long prevNetAt;
@@ -659,14 +694,19 @@ final class PerfSampler {
         // on the next tick, so the overlay still refreshes once per sample.
         if (pserverToken == null) {
             String token = Long.toString(now);
-            String layerArg = cachedLayer == null ? ""
+            String layerArg = cachedLayer == null ? "''"
                     : "'" + cachedLayer.replace("'", "'\\''") + "'";
+            String fgPkgArg = cachedFgPkg == null ? "''"
+                    : "'" + cachedFgPkg.replace("'", "'\\''") + "'";
+            String fgMultArg = cachedFgMultiplier >= 0
+                    ? Integer.toString(cachedFgMultiplier) : "''";
             try {
                 out.delete();
             } catch (Throwable ignored) {
             }
             if (!PServer.run("sh " + pserverScript.getAbsolutePath() + " "
-                    + out.getAbsolutePath() + " " + token + " " + layerArg)) {
+                    + out.getAbsolutePath() + " " + token + " " + layerArg
+                    + " " + fgPkgArg + " " + fgMultArg)) {
                 pserverOffUntil = now + PSERVER_OFF_NS;
                 return;
             }
@@ -720,6 +760,22 @@ final class PerfSampler {
                 }
                 continue;
             }
+            if (line.startsWith("FGAPP:")) {
+                String fgPkg = line.substring("FGAPP:".length()).trim();
+                if (!fgPkg.equals(cachedFgPkg)) {
+                    cachedFgPkg = fgPkg;
+                    cachedFgMultiplier = -1;
+                }
+                continue;
+            }
+            if (line.startsWith("FG:")) {
+                try {
+                    int m = Integer.parseInt(line.substring("FG:".length()).trim());
+                    if (m >= 0 && m <= 8) cachedFgMultiplier = m;
+                } catch (Throwable ignored) {
+                }
+                continue;
+            }
             if (line.startsWith("RSS:")) {
                 try {
                     cachedAppRamKb = Long.parseLong(line.substring("RSS:".length()).trim());
@@ -768,6 +824,8 @@ final class PerfSampler {
             cachedLayer = layerFound ? layer : null;
             if (!layerFound) noLayerUntil = now + 500_000_000L;
         }
+        s.frameGenMultiplier = cachedFgMultiplier > 1 && cachedTargetPkg != null
+                && cachedTargetPkg.equals(cachedFgPkg) ? cachedFgMultiplier : 0;
         if (layerFound && times.isEmpty() && frameCount >= 0) {
             // SurfaceView/BLAST layers expose no --latency rows on this
             // firmware; their frame counter in the layer dump still advances

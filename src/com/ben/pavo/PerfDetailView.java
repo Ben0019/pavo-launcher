@@ -35,6 +35,7 @@ final class PerfDetailView extends FrameLayout {
     private final TextView appName;
     private final TextView packageName;
     private final TextView fpsBig;
+    private final TextView fpsUnit;
     private final TextView avgFps;
     private final TextView minFps;
     private final TextView maxFps;
@@ -136,7 +137,7 @@ final class PerfDetailView extends FrameLayout {
         fpsBig = text("\u2014", 46f, TEXT, true);
         fpsBig.setPadding(dp(10), 0, dp(4), 0);
         fpsRow.addView(fpsBig);
-        TextView fpsUnit = text("fps", 10f, MUTED, false);
+        fpsUnit = text("fps", 10f, MUTED, false);
         fpsUnit.setPadding(0, 0, 0, dp(7));
         fpsRow.addView(fpsUnit);
         fpsRow.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
@@ -197,6 +198,10 @@ final class PerfDetailView extends FrameLayout {
         packageName.setText(d.pkg == null ? "" : d.pkg);
 
         fpsBig.setText(d.fpsValid ? String.valueOf(d.fps) : "\u2014");
+        fpsUnit.setText(d.fpsValid && d.frameGenMultiplier > 1
+                ? "fps (" + Math.round(d.fps * (d.frameGenMultiplier - 1)
+                        / (float) d.frameGenMultiplier) + ")"
+                : "fps");
         fpsBig.setTextColor(d.fpsValid ? PerfOverlayView.fpsColor(d.fps) : 0x55FFFFFF);
         if (d.maxFps <= 0) {
             avgFps.setText("AVG \u2014");
