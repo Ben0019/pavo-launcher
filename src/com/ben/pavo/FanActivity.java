@@ -1275,6 +1275,11 @@ public final class FanActivity extends PavoGlassActivity {
         if (value == MODE_SMALL) return HeatColor.ramp(1f);
         if (value == MODE_MEDIUM) return HeatColor.ramp(1f / 3f);
         if (value == MODE_LARGE) return HeatColor.ramp(0f);
+        // Control modes stay off the thermal ramp so they read as modes,
+        // not as "how hot is it": grey off, blue auto, violet custom.
+        if (value == PerfTuner.FAN_OFF) return 0xFF8C98A4;
+        if (value == PerfTuner.FAN_SMART) return 0xFF5FB8FF;
+        if (value == MODE_CURVE) return 0xFFB98CFF;
         return HeatColor.ramp(HeatColor.severity(presetDuty(value), currentTemp));
     }
 
