@@ -1,9 +1,13 @@
 package com.ben.pavo;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Temperature-to-duty curve shared by the fan app and its background service. */
 final class FanCurve {
@@ -28,6 +32,12 @@ final class FanCurve {
             + "60:15,65:17,67:19,70:21,75:30,77:36,80:46,85:71,87:83,"
             + "90:100,95:100,100:100";
 
+    /** The factory curves were tuned against the Odin 3's 95 C passive trip. */
+    private static final float REFERENCE_TRIP_C = 95f;
+    private static volatile float tripC = -1f;
+    private static final String[] AUTO = new String[3];
+    private static float autoTrip = -1f;
+
     /** Fixed low-noise curve for a performance-preset fan mode, or null. */
     static String factoryPreset(int mode) {
         if (mode == FanProfile.MODE_SMALL) return SMALL;
@@ -40,12 +50,99 @@ final class FanCurve {
         return factoryPreset(mode) != null;
     }
 
-    /** Saved preset curve, falling back to the factory default. */
+    /** Saved preset curve, falling back to the device-calibrated default. */
     static String presetCurve(Prefs prefs, int mode) {
-        String factory = factoryPreset(mode);
-        if (factory == null) return null;
+        if (factoryPreset(mode) == null) return null;
         String saved = prefs == null ? null : prefs.fanPresetCurve(mode);
-        return saved == null || saved.isEmpty() ? factory : saved;
+        if (saved != null && !saved.isEmpty()) return saved;
+        return calibratedPreset(mode);
+    }
+
+    /** Shift the factory curve so its 95 C anchor follows this device's trip. */
+    private static synchronized String calibratedPreset(int mode) {
+        int index = mode == FanProfile.MODE_SMALL ? 0
+                : mode == FanProfile.MODE_MEDIUM ? 1 : 2;
+        float trip = deviceTripC();
+        if (trip != autoTrip) {
+            float delta = trip - REFERENCE_TRIP_C;
+            AUTO[0] = adapt(SMALL, delta);
+            AUTO[1] = adapt(MEDIUM, delta);
+            AUTO[2] = adapt(LARGE, delta);
+            autoTrip = trip;
+        }
+        String curve = AUTO[index];
+        return curve == null ? factoryPreset(mode) : curve;
+    }
+
+    private static String adapt(String curve, float deltaC) {
+        if (Math.abs(deltaC) < 1f) return curve;
+        TreeMap<Integer, Integer> shifted = new TreeMap<>();
+        for (int[] point : points(curve)) {
+            int t = clamp(Math.round(point[0] + deltaC), 30, 100);
+            Integer old = shifted.get(t);
+            if (old == null || point[1] > old) shifted.put(t, point[1]);
+        }
+        StringBuilder b = new StringBuilder();
+        for (Map.Entry<Integer, Integer> e : shifted.entrySet()) {
+            if (b.length() > 0) b.append(',');
+            b.append(e.getKey()).append(':').append(e.getValue());
+        }
+        return ensureTerminal(b.toString());
+    }
+
+    /** Lowest CPU/GPU passive trip exposed by the kernel, or the Odin default. */
+    static float deviceTripC() {
+        float cached = tripC;
+        if (cached > 0f) return cached;
+        float best = 0f;
+        File[] zones = new File("/sys/class/thermal").listFiles();
+        if (zones != null) {
+            for (File zone : zones) {
+                String type = readWord(new File(zone, "type"));
+                if (type == null) continue;
+                String t = type.toLowerCase(Locale.US);
+                if (!(t.startsWith("cpu-") || t.startsWith("cpuss-")
+                        || t.contains("gpu"))) {
+                    continue;
+                }
+                File[] files = zone.listFiles();
+                if (files == null) continue;
+                for (File f : files) {
+                    String name = f.getName();
+                    if (!name.startsWith("trip_point_") || !name.endsWith("_temp")) {
+                        continue;
+                    }
+                    float value = readTempC(f);
+                    if (value >= 60f && value <= 120f
+                            && (best <= 0f || value < best)) {
+                        best = value;
+                    }
+                }
+            }
+        }
+        if (best <= 0f) best = REFERENCE_TRIP_C;
+        tripC = best;
+        return best;
+    }
+
+    private static String readWord(File file) {
+        try (FileInputStream in = new FileInputStream(file)) {
+            byte[] data = new byte[96];
+            int n = in.read(data);
+            return n <= 0 ? null : new String(data, 0, n).trim();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static float readTempC(File file) {
+        String text = readWord(file);
+        if (text == null || text.isEmpty()) return 0f;
+        try {
+            return Float.parseFloat(text.trim()) / 1000f;
+        } catch (Throwable ignored) {
+            return 0f;
+        }
     }
 
     private FanCurve() {}
