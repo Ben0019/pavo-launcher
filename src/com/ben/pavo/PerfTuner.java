@@ -354,8 +354,16 @@ final class PerfTuner {
         PServer.run("echo " + max + " > " + d + "/scaling_max_freq");
         PServer.run("echo " + min + " > " + d + "/scaling_min_freq");
         for (int cpu : c.cpus) {
+            PServer.run("echo " + lowest + " > /sys/devices/system/cpu/cpu"
+                    + cpu + "/cpufreq/scaling_min_freq");
+        }
+        for (int cpu : c.cpus) {
             PServer.run("echo " + max + " > /sys/devices/system/cpu/cpu"
                     + cpu + "/cpufreq/scaling_max_freq");
+        }
+        for (int cpu : c.cpus) {
+            PServer.run("echo " + min + " > /sys/devices/system/cpu/cpu"
+                    + cpu + "/cpufreq/scaling_min_freq");
         }
     }
 
@@ -421,13 +429,25 @@ final class PerfTuner {
         cmd.append("echo ").append(lowest).append(" >$d/scaling_min_freq; ");
         cmd.append("echo ").append(max).append(" >$d/scaling_max_freq; ");
         cmd.append("echo ").append(min).append(" >$d/scaling_min_freq; ");
-        // The vendor's performance service lifts each core's own max node
-        // independently of the policy cap. Write every core so the underclock
-        // cannot be bypassed for a burst.
+        // The vendor writes per-core max and min nodes independently of the
+        // policy cap. Lower every core's minimum before the max (a max below an
+        // old per-core minimum would clamp that minimum up), then write the max
+        // and restore the target minimum. This keeps the governor free to drop
+        // below the preset cap instead of pinning at it.
+        for (int cpu : c.cpus) {
+            cmd.append("echo ").append(lowest)
+                    .append(" >/sys/devices/system/cpu/cpu").append(cpu)
+                    .append("/cpufreq/scaling_min_freq; ");
+        }
         for (int cpu : c.cpus) {
             cmd.append("echo ").append(max)
                     .append(" >/sys/devices/system/cpu/cpu").append(cpu)
                     .append("/cpufreq/scaling_max_freq; ");
+        }
+        for (int cpu : c.cpus) {
+            cmd.append("echo ").append(min)
+                    .append(" >/sys/devices/system/cpu/cpu").append(cpu)
+                    .append("/cpufreq/scaling_min_freq; ");
         }
         Root.write(cmd.toString());
     }
