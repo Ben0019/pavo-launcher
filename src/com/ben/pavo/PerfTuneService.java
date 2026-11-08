@@ -47,6 +47,13 @@ public final class PerfTuneService extends Service {
     private String holdCeilingKey;
     private long lastHoldAdjust;
     private boolean holdActive;
+    /** Last static (non-HOLD) target that was written, and when. */
+    private String staticKey;
+    private long lastStaticApplyAt;
+    /** Last applied mode; a static preset is not rewritten on every tick. */
+    private volatile boolean lastHoldMode;
+    private PerfTuner.State cachedState;
+    private long cachedStateAt;
 
     /**
      * The Odin firmware parks cores 6-7 for apps it does not classify as games:
@@ -174,8 +181,21 @@ public final class PerfTuneService extends Service {
                                             notification(hot, paused));
                                 }
                             }
-                            schedule(hot || paused ? 1000L
-                                    : (lastTempC >= 45f ? 60L : 150L));
+                            long delay;
+                            if (hot || paused) {
+                                // Thermal pause only needs a slow re-check.
+                                delay = 1000L;
+                            } else if (lastHoldMode) {
+                                // HOLD tracks the ceiling, so keep the fast
+                                // loop that undoes vendor cap lifts.
+                                delay = lastTempC >= 45f ? 60L : 150L;
+                            } else {
+                                // A plain preset is a static cap. Poll twice a
+                                // second so a vendor cap lift is undone quickly;
+                                // the poll only reads nodes, no shell is spawned.
+                                delay = 500L;
+                            }
+                            schedule(delay);
                         }
                     });
                 }
@@ -224,6 +244,8 @@ public final class PerfTuneService extends Service {
             // if that fails do we step aside (which would otherwise leave the old
             // mode's caps in place and make the big cores look disabled).
             if (!PerfTuner.applyModeClocks(this, mode)) return new boolean[]{false, true};
+            // The firmware mode changed; re-assert this preset's caps next.
+            staticKey = null;
             prefs = new Prefs(this);
         }
         // Hold whatever profile was applied last: the per-app watcher stores its
@@ -244,8 +266,8 @@ public final class PerfTuneService extends Service {
         if (cfg == null) {
             return new boolean[]{false, false};
         }
-        PerfTuner.Root.ensure();
-        PerfTuner.State state = PerfTuner.readStateForHold(this);
+        long now = SystemClock.uptimeMillis();
+        lastHoldMode = holdMode;
         // HOLD is a thermal ceiling: the fan curve ends at the user's hold
         // point, and the CPU/GPU max steps down until the target is met. It
         // steps back up as the load allows, up to the current preset's caps.
@@ -264,7 +286,8 @@ public final class PerfTuneService extends Service {
             float cpu = temps[0];
             float gpu = temps[1];
             float source = FanCurve.sourceTemp(cpu, gpu, prefs.fanTempSource());
-            long now = SystemClock.uptimeMillis();
+            PerfTuner.Root.ensure();
+            PerfTuner.State state = holdState();
             if (now - lastHoldAdjust >= 1000L) {
                 lastHoldAdjust = now;
                 if (source > target + 0.5f) {
@@ -294,14 +317,45 @@ public final class PerfTuneService extends Service {
             return new boolean[]{false, false};
         }
         holdActive = false;
-        // performance_mode is the firmware's fan policy switch: writing a
-        // non-zero value makes its daemon set fan_mode=0 (fan off). The tuner
-        // owns clocks directly, so leave that setting alone.
-        PerfTuner.setCpu(state.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
-        PerfTuner.setCpu(state.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
-        PerfTuner.setGpu(state.gpu, cfg.gpuMax, cfg.gpuMin);
+        // A plain preset is a fixed ceiling; the governor does the load
+        // scaling. Re-apply only when something changes (or once every few
+        // seconds to undo a vendor lift) instead of on every tick: writing
+        // clocks continuously spawned pservice shells and kept the CPU awake,
+        // so idle never dropped to its low steps.
+        String key = cfg.p0Max + ":" + cfg.p0Min + ":" + cfg.p0Gov + ":"
+                + cfg.p6Max + ":" + cfg.p6Min + ":" + cfg.p6Gov + ":"
+                + cfg.gpuMax + ":" + cfg.gpuMin;
+        PerfTuner.State state = holdState();
+        // The vendor performance service intermittently lifts the caps back to
+        // the stock maximum. Compare the live nodes each tick and only rewrite
+        // when they moved, so the cap is held without a shell on every tick.
+        boolean drifted = PerfTuner.capsDrifted(state.efficiency,
+                cfg.p0Max, cfg.p0Min, cfg.p0Gov)
+                || PerfTuner.capsDrifted(state.performance,
+                cfg.p6Max, cfg.p6Min, cfg.p6Gov);
+        if (!key.equals(staticKey) || drifted || now - lastStaticApplyAt >= 30000L) {
+            PerfTuner.Root.ensure();
+            // performance_mode is the firmware's fan policy switch: writing a
+            // non-zero value makes its daemon set fan_mode=0 (fan off). The
+            // tuner owns clocks directly, so leave that setting alone.
+            PerfTuner.setCpu(state.efficiency, cfg.p0Max, cfg.p0Min, cfg.p0Gov);
+            PerfTuner.setCpu(state.performance, cfg.p6Max, cfg.p6Min, cfg.p6Gov);
+            PerfTuner.setGpu(state.gpu, cfg.gpuMax, cfg.gpuMin);
+            staticKey = key;
+            lastStaticApplyAt = now;
+        }
         maybeKickBigCores(prefs);
         return new boolean[]{false, false};
+    }
+
+    /** Cached device tables; the frequency lists do not change at runtime. */
+    private PerfTuner.State holdState() {
+        long now = SystemClock.uptimeMillis();
+        if (cachedState == null || now - cachedStateAt >= 5000L) {
+            cachedState = PerfTuner.readStateForHold(this);
+            cachedStateAt = now;
+        }
+        return cachedState;
     }
 
     private static int stepDown(PerfTuner.Cpu c, int current) {

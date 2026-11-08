@@ -108,6 +108,69 @@ final class ScreenCaptureBackdrop {
         }
     }
 
+    /**
+     * Full-resolution frame for the region selector. Unlike the backdrop path
+     * this keeps every pixel, because the user crops an exact rectangle.
+     */
+    static Bitmap captureFull(Context c) {
+        if (c == null) return null;
+        File file = new File(c.getCacheDir(), "aurora_region_capture.raw");
+        file.delete();
+        PServer.run("screencap " + file.getAbsolutePath()
+                + "; chmod 666 " + file.getAbsolutePath());
+
+        long deadline = SystemClock.uptimeMillis() + 1500L;
+        long last = -1L;
+        long stableAt = 0L;
+        while (SystemClock.uptimeMillis() < deadline) {
+            long size = file.length();
+            if (size > 16L && size == last) {
+                if (SystemClock.uptimeMillis() - stableAt >= 25L) break;
+            } else {
+                last = size;
+                stableAt = SystemClock.uptimeMillis();
+            }
+            SystemClock.sleep(10L);
+        }
+        if (file.length() <= 16L) {
+            file.delete();
+            return null;
+        }
+
+        try (FileInputStream in = new FileInputStream(file)) {
+            byte[] header = new byte[16];
+            if (!readFully(in, header, 16)) return null;
+            int w = littleInt(header, 0);
+            int h = littleInt(header, 4);
+            int format = littleInt(header, 8);
+            if (w <= 0 || h <= 0 || format != 1) return null;
+
+            Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            byte[] row = new byte[w * 4];
+            int[] pixels = new int[w];
+            for (int y = 0; y < h; y++) {
+                if (!readFully(in, row, row.length)) {
+                    bitmap.recycle();
+                    return null;
+                }
+                for (int x = 0; x < w; x++) {
+                    int o = x * 4;
+                    int r = row[o] & 0xFF;
+                    int g = row[o + 1] & 0xFF;
+                    int b = row[o + 2] & 0xFF;
+                    int a = row[o + 3] & 0xFF;
+                    pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
+                bitmap.setPixels(pixels, 0, w, 0, y, w, 1);
+            }
+            return bitmap;
+        } catch (Throwable ignored) {
+            return null;
+        } finally {
+            file.delete();
+        }
+    }
+
     /** Build a screen-anchored backdrop from one app-window screenshot. */
     static Backdrop fromWindow(Context c, Bitmap window, Rect bounds) {
         if (c == null || window == null || bounds == null) return null;

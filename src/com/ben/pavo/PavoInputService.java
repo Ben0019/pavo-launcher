@@ -395,6 +395,7 @@ public final class PavoInputService extends Service {
     public void onDestroy() {
         running = false;
         hideDrawerOverlay();
+        QuickPanelHost.dismiss();
         closeSocket();
         main.removeCallbacksAndMessages(null);
         instance = null;
@@ -1200,6 +1201,12 @@ public final class PavoInputService extends Service {
                     @Override
                     public void onSearchFocusRequested(boolean focus) {
                         setDrawerFocusable(focus);
+                    }
+
+                    @Override
+                    public void onQuickPanelRequested() {
+                        hideDrawerOverlay();
+                        QuickPanelHost.show(PavoInputService.this);
                     }
                 });
         view.setScreenBackdrop(backdrop);

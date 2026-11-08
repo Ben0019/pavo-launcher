@@ -422,34 +422,37 @@ final class PerfTuner {
         min = snap(c.freqs, min);
         if (min > max) min = max;
         String d = cpuPath(c);
-        StringBuilder cmd = new StringBuilder("d=").append(d).append("; ");
+        StringBuilder policy = new StringBuilder("d=").append(d).append("; ");
         if (governor != null && !governor.isEmpty()) {
-            cmd.append("echo ").append(governor).append(" >$d/scaling_governor; ");
+            policy.append("echo ").append(governor).append(" >$d/scaling_governor; ");
         }
-        cmd.append("echo ").append(lowest).append(" >$d/scaling_min_freq; ");
-        cmd.append("echo ").append(max).append(" >$d/scaling_max_freq; ");
-        cmd.append("echo ").append(min).append(" >$d/scaling_min_freq; ");
+        policy.append("echo ").append(lowest).append(" >$d/scaling_min_freq; ");
+        policy.append("echo ").append(max).append(" >$d/scaling_max_freq; ");
+        policy.append("echo ").append(min).append(" >$d/scaling_min_freq");
+        Root.write(policy.toString());
         // The vendor writes per-core max and min nodes independently of the
         // policy cap. Lower every core's minimum before the max (a max below an
         // old per-core minimum would clamp that minimum up), then write the max
         // and restore the target minimum. This keeps the governor free to drop
-        // below the preset cap instead of pinning at it.
+        // below the preset cap instead of pinning at it. One shell loop per
+        // cluster: a write per node meant dozens of pservice transactions on
+        // every hold tick, which kept the CPUs busy and defeated idle.
+        StringBuilder cpus = new StringBuilder();
         for (int cpu : c.cpus) {
-            cmd.append("echo ").append(lowest)
-                    .append(" >/sys/devices/system/cpu/cpu").append(cpu)
-                    .append("/cpufreq/scaling_min_freq; ");
+            if (cpus.length() > 0) cpus.append(' ');
+            cpus.append(cpu);
         }
-        for (int cpu : c.cpus) {
-            cmd.append("echo ").append(max)
-                    .append(" >/sys/devices/system/cpu/cpu").append(cpu)
-                    .append("/cpufreq/scaling_max_freq; ");
+        String perCore = "for c in " + cpus + "; do f=/sys/devices/system/cpu/cpu$c/cpufreq; "
+                + "echo " + lowest + " >$f/scaling_min_freq; "
+                + "echo " + max + " >$f/scaling_max_freq; "
+                + "echo " + min + " >$f/scaling_min_freq; done";
+        if (perCore.length() <= 250) {
+            PServer.run(perCore);
+        } else {
+            // Too long for one transaction: run it as a single script so the
+            // shell loop is never split on its internal semicolons.
+            PServer.exec(perCore);
         }
-        for (int cpu : c.cpus) {
-            cmd.append("echo ").append(min)
-                    .append(" >/sys/devices/system/cpu/cpu").append(cpu)
-                    .append("/cpufreq/scaling_min_freq; ");
-        }
-        Root.write(cmd.toString());
     }
 
     static void setGpu(Gpu g, int max, int min) {
@@ -709,6 +712,51 @@ final class PerfTuner {
     private static String cpuPath(Cpu c) {
         if (c.path != null && !c.path.isEmpty()) return c.path;
         return "/sys/devices/system/cpu/cpufreq/policy" + c.policy;
+    }
+
+    /**
+     * Reads a node without the privileged fallback. The hold loop calls this
+     * every tick, so it must never spawn a PServer shell when a node is hidden.
+     */
+    private static int readIntQuiet(String path) {
+        try (BufferedReader r = new BufferedReader(new FileReader(path))) {
+            return parseInt(r.readLine());
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    private static String readWordQuiet(String path) {
+        try (BufferedReader r = new BufferedReader(new FileReader(path))) {
+            String line = r.readLine();
+            return line == null ? null : line.trim();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * True when the vendor (or another writer) pushed a cap or a minimum back
+     * up. A static preset only needs to rewrite the nodes while they differ,
+     * which keeps the hold loop cheap while still undoing those lifts.
+     */
+    static boolean capsDrifted(Cpu c, int max, int min, String governor) {
+        if (c == null || c.freqs.length == 0) return false;
+        int lo = Math.max(c.floorMin, min);
+        int wantMax = snap(c.freqs, Math.max(lo, max));
+        int wantMin = snap(c.freqs, lo);
+        int liveMax = readIntQuiet(cpuPath(c) + "/scaling_max_freq");
+        if (liveMax > 0 && liveMax != wantMax) return true;
+        if (governor != null && !governor.isEmpty()) {
+            String liveGov = readWordQuiet(cpuPath(c) + "/scaling_governor");
+            if (liveGov != null && !governor.equals(liveGov)) return true;
+        }
+        for (int cpu : c.cpus) {
+            int liveMin = readIntQuiet("/sys/devices/system/cpu/cpu" + cpu
+                    + "/cpufreq/scaling_min_freq");
+            if (liveMin > wantMin) return true;
+        }
+        return false;
     }
 
     private static int[] readInts(String path) {

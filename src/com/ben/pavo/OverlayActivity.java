@@ -56,7 +56,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     private int accent;
     private TextView status;
     private TextView overlayChip;
-    private TextView lockChip;
+    private TextView handleChip;
     private TextView shortcutRow;
     private TextView perfShortcutRow;
     private TextView perfComboRow;
@@ -400,9 +400,14 @@ public final class OverlayActivity extends PavoGlassActivity {
 
     /** Card that owns an equal share of its column, so every card lines up. */
     private LinearLayout sectionWeighted(LinearLayout parent, String title, String hint) {
+        return sectionWeighted(parent, title, hint, 1f);
+    }
+
+    private LinearLayout sectionWeighted(LinearLayout parent, String title, String hint,
+                                         float weight) {
         LinearLayout box = sectionBox(title, hint);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, weight);
         lp.topMargin = dp(9);
         parent.addView(box, lp);
         return box;
@@ -494,7 +499,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     }
 
     private void buildMetricsSection(LinearLayout parent) {
-        LinearLayout box = sectionWeighted(parent, "METRICS", null);
+        LinearLayout box = sectionWeighted(parent, "METRICS", null, 0.78f);
         LinearLayout row = null;
         for (int i = 0; i < METRICS.length; i++) {
             if (i % 3 == 0) {
@@ -509,7 +514,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             final int index = i;
             TextView chip = modeChip(METRICS[i]);
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, compact ? 7f : 7.5f);
-            chip.setPadding(dp(3), dp(compact ? 3 : 5), dp(3), dp(compact ? 3 : 5));
+            chip.setPadding(dp(3), dp(compact ? 2 : 3), dp(3), dp(compact ? 2 : 3));
             metricChips.add(chip);
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -526,29 +531,45 @@ public final class OverlayActivity extends PavoGlassActivity {
             row.addView(chip, lp);
         }
 
-        LinearLayout actions = sectionWeighted(parent, "OVERLAY ACTIONS", null);
-        lockChip = toggle(actions, "LOCK POSITION", prefs.perfOverlayLocked(),
+        buildQuickControlsSection(parent);
+    }
+
+    /** Right-edge grab handle: size, opacity and visibility. */
+    private void buildQuickControlsSection(LinearLayout parent) {
+        LinearLayout box = sectionWeighted(parent, "QUICK CONTROLS", null, 1.22f);
+        handleChip = toggle(box, "SHOW HANDLE", prefs.quickHandleVisible(),
                 new Toggle() {
                     @Override
                     public void onChanged(boolean value) {
-                        prefs.setPerfOverlayLocked(value);
-                        PerfOverlayService.refreshIfRunning();
+                        prefs.setQuickHandleVisible(value);
+                        QuickPanelEdgeHandle.refresh();
                         refreshState();
                     }
                 });
-        action(actions, "RESET POSITION", new Runnable() {
-            @Override
-            public void run() {
-                prefs.setPerfOverlayPosition(-1, -1);
-                PerfOverlayService.refreshIfRunning();
-            }
-        });
-        action(actions, "OPEN DETAILS", new Runnable() {
-            @Override
-            public void run() {
-                PerfOverlayService.showDetailFromShortcut(OverlayActivity.this);
-            }
-        });
+        slider(box, "Handle width", 2, 16, prefs.quickHandleWidth(), "dp",
+                new IntValue() {
+                    @Override
+                    public void onValue(int value) {
+                        prefs.setQuickHandleWidth(value);
+                        QuickPanelEdgeHandle.refresh();
+                    }
+                });
+        slider(box, "Handle height", 40, 400, prefs.quickHandleHeight(), "dp",
+                new IntValue() {
+                    @Override
+                    public void onValue(int value) {
+                        prefs.setQuickHandleHeight(value);
+                        QuickPanelEdgeHandle.refresh();
+                    }
+                });
+        slider(box, "Opacity", 10, 100, prefs.quickHandleAlpha(), "%",
+                new IntValue() {
+                    @Override
+                    public void onValue(int value) {
+                        prefs.setQuickHandleAlpha(value);
+                        QuickPanelEdgeHandle.refresh();
+                    }
+                });
     }
 
     // -------------------------------------------------------------- drawer UI
@@ -641,8 +662,8 @@ public final class OverlayActivity extends PavoGlassActivity {
         if (overlayChip != null) {
             setChipSelected(overlayChip, panelShown);
         }
-        if (lockChip != null) {
-            setChipSelected(lockChip, prefs.perfOverlayLocked());
+        if (handleChip != null) {
+            setChipSelected(handleChip, prefs.quickHandleVisible());
         }
         for (int i = 0; i < metricChips.size(); i++) {
             setChipSelected(metricChips.get(i), isMetric(i));

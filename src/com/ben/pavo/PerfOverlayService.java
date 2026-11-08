@@ -197,8 +197,13 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             }
             if (!sampling) {
                 sampling = true;
-                final boolean wantFps = prefs.perfFps() || prefs.perfFpsGraph()
-                        || detailOpen || detail != null || prefs.perfLogging();
+                // The FPS path spawns a PServer dump of SurfaceFlinger every
+                // sample. On our own launcher there is no game to measure, so
+                // skip it: that dump was the main idle cost on the home screen.
+                String fg = PavoA11yService.foregroundPackage();
+                boolean ownApp = fg != null && fg.equals(getPackageName());
+                final boolean wantFps = !ownApp && (prefs.perfFps() || prefs.perfFpsGraph()
+                        || detailOpen || detail != null || prefs.perfLogging());
                 worker.execute(new Runnable() {
                     @Override
                     public void run() {

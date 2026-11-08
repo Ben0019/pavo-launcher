@@ -241,6 +241,35 @@ final class Prefs {
     int updateCheckHours() { return clamp(sp.getInt("update_check_hours", 24), 2, 24); }
     void setUpdateCheckHours(int v) { sp.edit().putInt("update_check_hours", clamp(v, 2, 24)).apply(); }
     int perfOverlayAlpha() { return clamp(sp.getInt("perf_overlay_alpha", 88), 25, 100); }
+
+    // Quick controls edge handle
+    boolean quickHandleVisible() { return sp.getBoolean("quick_handle_visible", true); }
+
+    void setQuickHandleVisible(boolean v) {
+        sp.edit().putBoolean("quick_handle_visible", v).apply();
+    }
+
+    int quickHandleWidth() { return clamp(sp.getInt("quick_handle_width", 4), 2, 16); }
+
+    void setQuickHandleWidth(int v) { sp.edit().putInt("quick_handle_width", v).apply(); }
+
+    int quickHandleHeight() { return clamp(sp.getInt("quick_handle_height", 112), 40, 400); }
+
+    void setQuickHandleHeight(int v) { sp.edit().putInt("quick_handle_height", v).apply(); }
+
+    int quickHandleAlpha() { return clamp(sp.getInt("quick_handle_alpha", 65), 10, 100); }
+
+    void setQuickHandleAlpha(int v) { sp.edit().putInt("quick_handle_alpha", v).apply(); }
+
+    /** 0 right, 1 left, 2 top, 3 bottom. */
+    int quickHandleEdge() { return clamp(sp.getInt("quick_handle_edge", 0), 0, 3); }
+
+    void setQuickHandleEdge(int v) { sp.edit().putInt("quick_handle_edge", v).apply(); }
+
+    /** Position along the current edge, 0-1000. */
+    int quickHandlePos() { return clamp(sp.getInt("quick_handle_pos", 500), 0, 1000); }
+
+    void setQuickHandlePos(int v) { sp.edit().putInt("quick_handle_pos", v).apply(); }
     boolean perfOverlayHorizontal() { return sp.getBoolean("perf_overlay_horizontal", false); }
     void setPerfOverlayHorizontal(boolean v) {
         if (perfOverlayHorizontal() == v) return;

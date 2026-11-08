@@ -212,6 +212,7 @@ public final class PavoA11yService extends AccessibilityService {
     private WindowManager.LayoutParams drawerOverlayParams;
     private boolean drawerOpening;
 
+
     private static final int CAPTURE_PERF = 0;
     private static final int CAPTURE_DRAWER = 1;
     private static final int CAPTURE_PERFLOG = 2;
@@ -557,6 +558,12 @@ public final class PavoA11yService extends AccessibilityService {
                     public void onSearchFocusRequested(boolean focus) {
                         setDrawerFocusable(focus);
                     }
+
+                    @Override
+                    public void onQuickPanelRequested() {
+                        hideDrawerOverlay();
+                        QuickPanelHost.show(PavoA11yService.this);
+                    }
                 });
         view.setScreenBackdrop(backdrop);
         view.setShortcutGrace(400L);
@@ -817,6 +824,7 @@ public final class PavoA11yService extends AccessibilityService {
         main.removeCallbacks(profileSync);
         main.postDelayed(profileSync, 1200L);
         PavoInputService.ensureStarted(this);
+        QuickPanelEdgeHandle.attach(this);
         if (new Prefs(this).controllerRemapEnabled()
                 && !TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()
@@ -1033,6 +1041,8 @@ public final class PavoA11yService extends AccessibilityService {
     public boolean onUnbind(android.content.Intent intent) {
         stopControllerListener();
         hideDrawerOverlay();
+        QuickPanelHost.dismiss();
+        QuickPanelEdgeHandle.detach();
         keyHandler.removeCallbacksAndMessages(null);
         capturing = false;
         mappedDown = null;
@@ -1052,6 +1062,8 @@ public final class PavoA11yService extends AccessibilityService {
         main.removeCallbacks(profileSync);
         stopControllerListener();
         hideDrawerOverlay();
+        QuickPanelHost.dismiss();
+        QuickPanelEdgeHandle.detach();
         keyHandler.removeCallbacksAndMessages(null);
         capturing = false;
         mappedDown = null;

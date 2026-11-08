@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pavo_features</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #05070c; }
+  body {
+    font-family: "DejaVu Sans", "Inter", "Segoe UI", sans-serif;
+    color: #f3f6fa;
+    -webkit-print-color-adjust: exact;
+  }
+  .page {
+    position: relative;
+    width: 210mm; height: 297mm;
+    padding: 17mm 17mm 15mm;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(94,234,212,.16), transparent 60%),
+      radial-gradient(900px 700px at 110% 10%, rgba(255,107,138,.10), transparent 60%),
+      #06080f;
+    overflow: hidden;
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; }
+  .micro {
+    font-size: 7.2pt; letter-spacing: .18em; text-transform: uppercase;
+    color: #6ee7d7; font-weight: 700;
+  }
+  h1 { font-size: 40pt; font-weight: 300; letter-spacing: -.02em; margin: 0; }
+  h2 { font-size: 23pt; font-weight: 400; letter-spacing: -.01em; margin: 4mm 0 2mm; line-height: 1.1; }
+  h3 { font-size: 12pt; font-weight: 600; margin: 0 0 2mm; }
+  p { font-size: 9.3pt; line-height: 1.55; color: #c8d2de; margin: 0 0 3mm; }
+  .muted { color: #94a3b8; }
+  .accent { color: #6ee7d7; }
+  .pink { color: #ff8fa6; }
+  .chip {
+    display: inline-block; padding: 1.6mm 3.4mm; border-radius: 6mm;
+    font-size: 7.2pt; letter-spacing: .12em; font-weight: 700;
+    border: .35mm solid #2dd4bf; color: #5eead4;
+  }
+  .chip.pink { border-color: #ff7a94; color: #ff9fb2; }
+  .rule { height: .25mm; background: rgba(255,255,255,.14); margin: 3mm 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10mm; }
+  .item { display: grid; grid-template-columns: 8mm 1fr; align-items: baseline;
+          padding: 2.1mm 0; border-bottom: .2mm solid rgba(255,255,255,.10); }
+  .item .num { font-size: 7.4pt; color: #5eead4; font-weight: 700; }
+  .item .name { font-size: 9.6pt; color: #eef3f9; }
+  .item.hot .name { color: #ffffff; font-weight: 700; }
+  .card {
+    border: .3mm solid rgba(45,212,191,.35);
+    background: rgba(13,148,136,.10);
+    border-radius: 3mm; padding: 4mm 5mm; margin-top: 5mm;
+  }
+  .card.plain { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.045); }
+  .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 6mm; }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8mm; }
+  ul { margin: 0; padding-left: 4mm; }
+  li { font-size: 8.7pt; line-height: 1.5; color: #cdd7e3; margin-bottom: 1.4mm; }
+  li b { color: #ffffff; }
+  .kv { display: grid; grid-template-columns: 34mm 1fr; gap: 1.2mm 4mm; font-size: 8.8pt; }
+  .kv dt { color: #94a3b8; }
+  .kv dd { margin: 0; color: #e8eef6; }
+  .footer {
+    position: absolute; left: 17mm; right: 17mm; bottom: 9mm;
+    display: flex; justify-content: space-between;
+    font-size: 7pt; letter-spacing: .12em; color: #7c8a9c; text-transform: uppercase;
+  }
+  .hero { padding-top: 16mm; }
+  .kicker { margin-top: 5mm; font-size: 13pt; color: #cfd9e5; line-height: 1.35; font-weight: 300; }
+  .chips { margin-top: 9mm; display: flex; gap: 3mm; }
+  .meta {
+    position: absolute; left: 17mm; right: 17mm; bottom: 26mm;
+    border-top: .3mm solid rgba(255,255,255,.25);
+    padding-top: 3mm;
+    display: grid; grid-template-columns: 1.3fr 1fr 1.2fr .8fr; gap: 4mm;
+  }
+  .meta .k { font-size: 6.6pt; color: #8ea0b4; letter-spacing: .1em; text-transform: uppercase; }
+  .meta .v { font-size: 8.4pt; color: #e8eef6; margin-top: 1mm; }
+  .footline { position: absolute; left: 17mm; right: 17mm; bottom: 14mm; font-size: 7.6pt; color: #8ea0b4; }
+  .stat { text-align: center; }
+  .stat .n { font-size: 26pt; font-weight: 300; color: #fff; }
+  .stat .l { font-size: 7pt; letter-spacing: .18em; color: #94a3b8; text-transform: uppercase; margin-top: 1mm; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 7mm 0 2mm; }
+  .pill { display: inline-block; padding: 1mm 2.6mm; border-radius: 4mm;
+          background: rgba(110,231,215,.14); border: .25mm solid rgba(110,231,215,.4);
+          color: #bff6ee; font-size: 7pt; letter-spacing: .08em; }
+  .note { font-size: 8.3pt; color: #9fb0c2; }
+  .shot { border-radius: 3mm; border: .3mm solid rgba(255,255,255,.18);
+          box-shadow: 0 3mm 8mm rgba(0,0,0,.45); width: 100%; display: block; }
+  .shot.wide { width: 100%; }
+  .split { display: grid; grid-template-columns: 1.05fr .95fr; gap: 8mm; align-items: start; }
+  .cap { font-size: 7.2pt; color: #8ea0b4; letter-spacing: .06em; margin-top: 2mm; }
+</style>
+</head>
+<body>
+
+<!-- 1 · COVER -->
+<section class="page">
+  <div class="micro">Android handheld launcher · Feature overview</div>
+  <div class="hero">
+    <h1 style="font-size:52pt;margin-top:14mm">Pavo.</h1>
+    <div class="kicker">Everything on the device,<br>under the thumbs.</div>
+    <div class="chips">
+      <span class="chip">Version 1.0.45</span>
+      <span class="chip pink">Quick Controls edition</span>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div><div class="k">Package</div><div class="v">com.ben.pavo</div></div>
+    <div><div class="k">Platform</div><div class="v">Android 12 or newer</div></div>
+    <div><div class="k">Reference device</div><div class="v">AYN Odin 3 · Android 15</div></div>
+    <div><div class="k">Licence</div><div class="v">Apache 2.0</div></div>
+  </div>
+  <div class="footline">November 2026 · github.com/Ben0019/pavo-launcher</div>
+</section>
+
+<!-- 2 · CONTENTS -->
+<section class="page">
+  <div class="micro">Contents</div>
+  <h2>Feature areas</h2>
+  <p style="max-width:150mm">A complete replacement for the stock launcher, written against the Android platform with no AndroidX, no Gradle runtime and no root-only hooks.</p>
+
+  <div class="grid2" style="margin-top:4mm">
+    <div>
+      <div class="item"><span class="num">01</span><span class="name">Home screen</span></div>
+      <div class="item"><span class="num">02</span><span class="name">App drawer &amp; navigation</span></div>
+      <div class="item"><span class="num">03</span><span class="name">Appearance &amp; wallpaper</span></div>
+      <div class="item"><span class="num">04</span><span class="name">Performance tuning</span></div>
+      <div class="item"><span class="num">05</span><span class="name">Performance overlay &amp; logs</span></div>
+      <div class="item"><span class="num">06</span><span class="name">Stress testing</span></div>
+      <div class="item"><span class="num">07</span><span class="name">Fan control</span></div>
+      <div class="item hot"><span class="num">15</span><span class="name">Quick controls <span class="accent">· in depth</span></span></div>
+    </div>
+    <div>
+      <div class="item"><span class="num">08</span><span class="name">Device health &amp; charging</span></div>
+      <div class="item"><span class="num">09</span><span class="name">File manager</span></div>
+      <div class="item"><span class="num">10</span><span class="name">FTP host &amp; client</span></div>
+      <div class="item"><span class="num">11</span><span class="name">RGB lighting <span class="accent">· in depth</span></span></div>
+      <div class="item"><span class="num">12</span><span class="name">Controllers, overlays &amp; shortcuts</span></div>
+      <div class="item"><span class="num">13</span><span class="name">Setup, permissions &amp; privacy</span></div>
+      <div class="item"><span class="num">14</span><span class="name">Languages, compatibility &amp; limits</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="micro" style="margin-bottom:2.5mm">New in 1.0.45 · Quick controls</div>
+    <div class="cols3">
+      <ul>
+        <li><b>Edge grab handle</b> — a slim accent bar pinned to any screen edge.</li>
+        <li><b>Swipe inwards</b> to slide the panel over the running app.</li>
+        <li><b>Long-press &amp; drag</b> the handle to park it on the left, right, top or bottom edge.</li>
+      </ul>
+      <ul>
+        <li><b>BRI/VOL</b> vertical sliders that write live while you drag.</li>
+        <li><b>PERF / FAN / REF</b> cards use the tuner and fan-control colours.</li>
+        <li><b>SHOT · REC · MAP</b> actions, with long-press variants.</li>
+      </ul>
+      <ul>
+        <li><b>Region capture</b> — drag, move, resize, then save or reset.</li>
+        <li><b>Single-app recording</b> from the REC long press.</li>
+        <li><b>Per-app mapper</b> — MAP binds the touch map to the app behind the panel.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card plain">
+    <div class="micro" style="margin-bottom:2mm">Also in this build</div>
+    <p style="margin:0">Handle width, height, opacity and visibility are adjustable from Overlay &amp; Drawer, and the handle is hidden from screenshots and screen recordings while a capture runs. Region capture saves to <span class="accent">Pictures/Pavo Screenshots</span> with a <span class="accent">_region</span> suffix. All new strings ship in the 25 launcher languages.</p>
+  </div>
+
+  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.45</span></div>
+</section>
+
+<!-- 3 · QUICK CONTROLS -->
+<section class="page">
+  <div class="micro">15 · Quick controls</div>
+  <h2>One swipe from the edge.<br>Everything, over the game.</h2>
+  <p style="max-width:160mm">A compact glass card that floats above the running app without pausing it. Brightness, volume, performance, fan and refresh rate sit in one reachable column, with capture actions along the bottom.</p>
+
+  <div class="cols2" style="margin-top:4mm">
+    <div>
+      <h3>Panel</h3>
+      <ul>
+        <li><b>BRI / VOL</b> — tall vertical sliders. Both write while you drag: no release step.</li>
+        <li><b>PERF</b> — SMALL / MEDIUM / LARGE / STOCK with the tuner's own profile colours.</li>
+        <li><b>FAN</b> — SMALL, MEDIUM, LARGE, HOLD, OFF, SMART, HIGH, CURVE in a 2×4 grid, coloured like Fan Control.</li>
+        <li><b>REF</b> — Auto, 60 Hz and 120 Hz.</li>
+        <li>Chips wrap tightly, titles are centred, the card is sized to the two-column grid.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Actions</h3>
+      <ul>
+        <li><b>SHOT</b> — full screenshot. <b>Long press</b> opens the region selector.</li>
+        <li><b>REC</b> — whole-screen recording through the built-in recorder, started invisibly. <b>Long press</b> records a single app.</li>
+        <li><b>MAP</b> — opens the in-game Touch Mapper overlay only, never the mapper app.</li>
+        <li>Mapping is bound to the app behind the panel: enabling or editing from here saves to that app's profile.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="micro" style="margin-bottom:2.5mm">Region capture</div>
+    <div class="cols3">
+      <ul>
+        <li><b>Drag</b> a rectangle over the frozen screen.</li>
+        <li><b>Move</b> the box from inside, or drag any of the eight handles to resize.</li>
+      </ul>
+      <ul>
+        <li><b>Live size badge</b> shows the exact pixel crop.</li>
+        <li><b>SAVE · DELETE · RESET · CANCEL</b> bar, styled like the recorder HUD.</li>
+      </ul>
+      <ul>
+        <li>The bar <b>dodges the selection</b>, hopping to the other edge.</li>
+        <li>Saved to <span class="accent">Pictures/Pavo Screenshots</span> with a media scan and toast.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card plain" style="margin-top:5mm">
+    <div class="micro" style="margin-bottom:2mm">Layout</div>
+    <div class="cols2">
+      <dl class="kv">
+        <dt>Row 1</dt><dd>BRI/VOL card (104 dp) + PERF card (78 dp)</dd>
+        <dt>Row 2</dt><dd>FAN card (104 dp) + REF card (78 dp)</dd>
+        <dt>Card height</dt><dd>150 dp for every preset card</dd>
+      </dl>
+      <dl class="kv">
+        <dt>Panel width</dt><dd>Exactly two columns plus padding — 212 dp</dd>
+        <dt>Actions</dt><dd>Three equal buttons along the bottom</dd>
+        <dt>Labels</dt><dd>BRIT · VOL · PERF · FAN · REF, centred and tracked</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="footer"><span>Pavo · Quick controls</span><span>1.0.45</span></div>
+</section>
+
+<!-- 4 · HANDLE -->
+<section class="page">
+  <div class="micro">15 · Quick controls</div>
+  <h2>Park the handle anywhere.</h2>
+  <p style="max-width:155mm">The grab handle is a small accessibility overlay that stays above other apps. It never appears in a screenshot or a recording, and it snaps back to its saved slot after a restart.</p>
+
+  <div class="cols2" style="margin-top:3mm">
+    <div>
+      <h3>Handle</h3>
+      <dl class="kv">
+        <dt>Placement</dt><dd>Right, left, top or bottom edge. Long-press, drag, release to snap.</dd>
+        <dt>Open</dt><dd>Swipe inwards — right edge: left, left edge: right, top: down, bottom: up.</dd>
+        <dt>Size</dt><dd>Width 2–16 dp, length 40–400 dp.</dd>
+        <dt>Opacity</dt><dd>10–100 %, live preview.</dd>
+        <dt>Visibility</dt><dd>Show or hide it entirely from the same card.</dd>
+        <dt>Saved</dt><dd>Edge and slot are remembered; re-applied on every reboot.</dd>
+      </dl>
+    </div>
+    <div>
+      <h3>Overlay &amp; drawer card</h3>
+      <p style="font-size:8.8pt">The old overlay actions card is replaced by <b>QUICK CONTROLS</b>: a show/hide toggle and three sliders for the grab handle. The metrics card gives up room so the column still fits without clipping.</p>
+      <div class="card" style="margin-top:4mm">
+        <div class="mic ro" style="font-size:7pt;letter-spacing:.16em;color:#6ee7d7;font-weight:700">Gesture summary</div>
+        <ul style="margin-top:2mm">
+          <li>Tap a control to act; long-press where a variant exists.</li>
+          <li>The panel dismisses itself before a capture so it never appears in the image.</li>
+          <li>Handle touches are excluded from the system back gesture.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card plain" style="margin-top:6mm">
+    <div class="micro" style="margin-bottom:2mm">Behaviour</div>
+    <ul>
+      <li>The panel is a trusted accessibility overlay, so games that hide non-system overlays still show it.</li>
+      <li>Brightness and volume write through the privileged channel and the audio service; both are throttled to about 50 ms while dragging.</li>
+      <li>The mapper overlay opened from MAP keeps its own per-app layout — buttons, sticks, combos and zones are stored against the package.</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-top:5mm">
+    <div class="micro" style="margin-bottom:2mm">Settings card</div>
+    <div class="cols2">
+      <dl class="kv">
+        <dt>SHOW HANDLE</dt><dd>Adds or removes the handle overlay immediately.</dd>
+        <dt>Handle width</dt><dd>2–16 dp, applied to the bar and its touch strip.</dd>
+        <dt>Handle height</dt><dd>40–400 dp; the bar re-centres on the current edge.</dd>
+      </dl>
+      <dl class="kv">
+        <dt>Opacity</dt><dd>10–100 %, live preview while sliding.</dd>
+        <dt>Metrics card</dt><dd>Gives up column share so the new card fits.</dd>
+        <dt>Saved</dt><dd>All four values persist and re-apply on restart.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="footer"><span>Pavo · Quick controls</span><span>1.0.45</span></div>
+</section>
+
+<!-- 5 · RGB -->
+<section class="page">
+  <div class="micro">11 · RGB lighting</div>
+  <h2>Two rings. Two zones.<br>Full control.</h2>
+  <p style="max-width:158mm">The Odin 3 exposes one SN3112 LED driver per joystick. Each stick has a single live RGB zone, so the launcher paints two independent colours at once — one per hand — with every mode, colour and gesture available from the RGB app.</p>
+
+  <div class="cols2">
+    <div>
+      <h3>What the hardware can do</h3>
+      <ul>
+        <li>One addressable zone per stick; the second logical zone is not wired on the Odin 3.</li>
+        <li>Eight driver channels all address the same physical zone — no gradient around a single ring.</li>
+        <li>Two sticks, two colours simultaneously, each with its own mode.</li>
+      </ul>
+      <h3 style="margin-top:5mm">Modes</h3>
+      <ul>
+        <li><b>STATIC</b> fixed colour · <b>BREATH</b> speed-controlled pulse</li>
+        <li><b>RAINBOW</b> hue rotation · <b>STROBE</b> on/off flashes</li>
+        <li><b>MULTI</b> two hues, 120° apart · <b>SCREEN</b> follows the display</li>
+        <li><b>OFF</b> disables that stick but keeps its colour</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Per-stick editing</h3>
+      <ul>
+        <li><b>BOTH</b> shares one colour and mode; switching adopts the selected stick's settings.</li>
+        <li><b>EACH</b> gives each stick its own colour and mode; long-press toggles one stick off without forgetting its mode.</li>
+        <li>Editable hex field: <span class="accent">#RRGGBB</span>, <span class="accent">RRGGBB</span> and <span class="accent">#RGB</span>, with type, delete, copy, paste and cut. Invalid codes restore the last valid colour.</li>
+        <li>Controller: D-pad or left stick moves focus, A selects, hold A toggles the focused stick.</li>
+      </ul>
+      <h3 style="margin-top:4mm">SCREEN mode</h3>
+      <ul>
+        <li>Left half of the display drives the left stick; right half the right stick.</li>
+        <li>160 ms sampling with a 0.38 blend settles a scene change in roughly 0.25 s.</li>
+        <li>Dominant hue voting plus 22 % of the plain average keeps neutral areas grey and vivid accents vivid.</li>
+        <li>Pauses while the RGB app is open, so it never samples its own UI.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card plain" style="margin-top:5mm">
+    <div class="micro" style="margin-bottom:2mm">Mode behaviour</div>
+    <div class="cols2">
+      <dl class="kv">
+        <dt>STATIC</dt><dd>Fixed colour; each stick keeps its own stored colour.</dd>
+        <dt>BREATH</dt><dd>Slow brightness pulse; speed controls the cycle, colour is preserved.</dd>
+        <dt>RAINBOW</dt><dd>Continuous hue rotation across the spectrum.</dd>
+        <dt>STROBE</dt><dd>On/off flashes at the speed setting.</dd>
+      </dl>
+      <dl class="kv">
+        <dt>MULTI</dt><dd>Two hues at once, one per stick, both cycling with a 120° offset.</dd>
+        <dt>SCREEN</dt><dd>Follows the display; each half drives its stick.</dd>
+        <dt>OFF</dt><dd>Disables that stick without forgetting its last colour or mode.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="cols2" style="margin-top:5mm">
+    <div>
+      <h3>Accuracy choices</h3>
+      <ul>
+        <li>Dominant-hue voting ignores large neutral areas, so a vivid accent is not averaged into grey.</li>
+        <li>22 % of the plain average is mixed back to keep the actual tint.</li>
+        <li>No palette cycling: the result is stable while the screen is stable.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What it cannot do</h3>
+      <ul>
+        <li>Show a spatial gradient around one ring — the ring is a single zone.</li>
+        <li>Show more than two simultaneous colours across both sticks.</li>
+        <li>Capture DRM-protected or secure surfaces.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer"><span>Pavo · RGB lighting</span><span>1.0.45</span></div>
+</section>
+
+<!-- 6 · REST -->
+<section class="page">
+  <div class="micro">The rest of Pavo</div>
+  <h2>A complete handheld home</h2>
+
+  <div class="cols2" style="margin-top:4mm">
+    <div>
+      <div class="item"><span class="num">01</span><span class="name">Home screen</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Paged icon grid, folders, resizable widgets, clock/weather/status header, transparent dock, layout backup and restore as a ZIP.</p>
+      <div class="item"><span class="num">02</span><span class="name">App drawer &amp; navigation</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Full drawer, dock pop-up drawer, predictive back, install shortcuts, focus-first D-pad navigation.</p>
+      <div class="item"><span class="num">03</span><span class="name">Appearance &amp; wallpaper</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Liquid-glass dock, drawers and sheets; wallpaper-derived accent, icon packs, per-surface transparency, OLED protection.</p>
+      <div class="item"><span class="num">04</span><span class="name">Performance tuning</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Per-cluster clocks, governors and GPU frequency table; presets and per-app profiles, background hold, thermal guard.</p>
+      <div class="item"><span class="num">05</span><span class="name">Performance overlay &amp; logs</span></div>
+      <p class="note" style="margin:1mm 0 3mm">CPU/GPU temperature, clock and load, RAM, FPS graph, per-core rows, battery temperature and power draw.</p>
+      <div class="item"><span class="num">06</span><span class="name">Stress testing</span></div>
+      <p class="note" style="margin:1mm 0 3mm">CPU, GPU and combined runs with fixed clocks or a tuning profile; live graph, averages, maxima, throttle and hold figures.</p>
+      <div class="item"><span class="num">07</span><span class="name">Fan control</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Off, Low, Smart, High, Curve and Manual; 15-point curve, CPU/GPU/BOTH source, per-app profiles.</p>
+    </div>
+    <div>
+      <div class="item"><span class="num">08</span><span class="name">Device health &amp; charging</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Battery model, health, cycles, resistance, USB details; 80 % limit with automatic charge separation.</p>
+      <div class="item"><span class="num">09</span><span class="name">File manager</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Dual panes for internal, SD and USB OTG; copy, cut, paste, rename, delete, ZIP, previews and text editing.</p>
+      <div class="item"><span class="num">10</span><span class="name">FTP host &amp; client</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Share storage with read/write switches and QR login; mount a remote server as a pane with live previews.</p>
+      <div class="item"><span class="num">11</span><span class="name">RGB lighting</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Two independent zones, seven modes, per-stick editing, editable hex, gesture toggles, screen-follow colour.</p>
+      <div class="item"><span class="num">12</span><span class="name">Controllers, overlays &amp; shortcuts</span></div>
+      <p class="note" style="margin:1mm 0 3mm">System-wide remapping, per-app layouts, touch mapping, in-game overlay menu and physical shortcuts.</p>
+      <div class="item hot"><span class="num">15</span><span class="name">Quick controls</span></div>
+      <p class="note" style="margin:1mm 0 3mm">Edge-handle panel with live brightness and volume, performance and fan presets, refresh rate, screenshots, region capture and recording.</p>
+      <div class="item"><span class="num">14</span><span class="name">Languages, compatibility &amp; limits</span></div>
+      <p class="note" style="margin:1mm 0 3mm">25 locales; Android 12+; 1920×1080 and 1280×960 with portrait fallback; clock and fan writes remain firmware requests.</p>
+    </div>
+  </div>
+
+  <div class="card plain" style="margin-top:5mm">
+    <div class="micro" style="margin-bottom:2mm">Under the hood</div>
+    <div class="cols3">
+      <ul>
+        <li>Plain Java against the Android platform: no AndroidX, no Gradle runtime.</li>
+        <li>Built-in apps extend one glass activity and share the card material.</li>
+      </ul>
+      <ul>
+        <li>Per-app profiles for performance, fan and touch mappings.</li>
+        <li>PServer is the only privileged channel; nothing else asks for root.</li>
+      </ul>
+      <ul>
+        <li>25 language catalogues are loaded at runtime, no resource rebuild.</li>
+        <li>Everything local — no accounts, no telemetry.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.45</span></div>
+</section>
+
+<!-- 7 · CONTROLLERS / SETUP -->
+<section class="page">
+  <div class="micro">Controller &amp; install</div>
+  <h2>The ring never leaves you stranded</h2>
+
+  <div class="cols2" style="margin-top:3mm">
+    <div>
+      <h3>Home &amp; drawers</h3>
+      <ul>
+        <li><b>A</b> opens the focused app or activates the focused control.</li>
+        <li><b>Hold A</b> opens the item menu: rename, icon, info, remove, folder.</li>
+        <li><b>B</b> backs out of a menu, folder or drawer.</li>
+        <li><b>L1 / R1</b> previous and next page; also page edges in lists.</li>
+        <li><b>L2</b> dock pop-up drawer; <b>R2</b> full drawer.</li>
+      </ul>
+      <h3 style="margin-top:5mm">Quick controls</h3>
+      <ul>
+        <li>Swipe the edge handle inwards with a finger to open the panel.</li>
+        <li>Long-press the handle to drag it to another edge.</li>
+        <li>Long-press <b>SHOT</b> for a region, <b>REC</b> for single-app capture.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>RGB &amp; system shortcuts</h3>
+      <ul>
+        <li><b>A</b> on a joystick selects it; <b>Hold A</b> toggles it off and on.</li>
+        <li><b>BTN_C</b> floating side drawer; hold for its style menu.</li>
+        <li><b>BTN_Z</b> performance overlay; hold for the overlay menu.</li>
+        <li>Perf Logs key — optional third shortcut.</li>
+      </ul>
+      <h3 style="margin-top:5mm">Getting started</h3>
+      <ul>
+        <li><b>01</b> Install <span class="accent">Pavo.apk</span> or run <span class="accent">adb install -r Pavo.apk</span>.</li>
+        <li><b>02</b> Open Pavo once and grant or skip each permission in the setup sheet.</li>
+        <li><b>03</b> Set Pavo as the home app, then press Home.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">2</div><div class="l">RGB zones</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">Lighting modes</div></div>
+    <div class="stat"><div class="n">25</div><div class="l">Languages</div></div>
+  </div>
+
+  <div class="card plain">
+    <div class="micro" style="margin-bottom:2mm">Compatibility &amp; limits</div>
+    <ul>
+      <li>Android 12+ (API 31), 25 languages, 1920×1080 and 1280×960 with portrait fallback.</li>
+      <li>Privileged writes use the vendor PServer channel; no su, Magisk or KernelSU dependency.</li>
+      <li>One RGB zone per stick: two simultaneous colours maximum; clock and fan writes can still be reduced by the vendor thermal manager.</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-top:5mm">
+    <div class="micro" style="margin-bottom:2mm">Shortcuts at a glance</div>
+    <div class="cols3">
+      <ul>
+        <li><b>Edge handle</b> — swipe inwards: panel. Long-press + drag: move it.</li>
+        <li><b>SHOT</b> tap: screenshot. Long press: region.</li>
+      </ul>
+      <ul>
+        <li><b>REC</b> tap: whole screen. Long press: single app.</li>
+        <li><b>MAP</b> tap: in-game mapper overlay for the app behind the panel.</li>
+      </ul>
+      <ul>
+        <li><b>BTN_C</b> drawer, hold for style. <b>BTN_Z</b> overlay, hold for its menu.</li>
+        <li><b>B</b> closes the panel, the region selector and the mapper editor.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card plain" style="margin-top:4mm">
+    <div class="micro" style="margin-bottom:2mm">Where files go</div>
+    <div class="cols3">
+      <ul>
+        <li>Screenshots: <span class="accent">Pictures/Pavo Screenshots</span></li>
+        <li>Region crops: <span class="accent">…/Aurora_&lt;time&gt;_region.png</span></li>
+      </ul>
+      <ul>
+        <li>Recordings: <span class="accent">Movies/Pavo Recordings</span></li>
+        <li>Single-app clips keep the <span class="accent">app_</span> prefix.</li>
+      </ul>
+      <ul>
+        <li>All captures are media-scanned, so they appear in Gallery immediately.</li>
+        <li>Layout backups save as a setup ZIP.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.45</span></div>
+</section>
+
+</body>
+</html>

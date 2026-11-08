@@ -52,6 +52,10 @@ import java.util.Locale;
 /** Built-in screen recorder with full-screen/single-app capture and audio options. */
 public final class ScreenRecorderActivity extends PavoGlassActivity {
     static final String EXTRA_AUTO_FULLSCREEN = "screen_recorder_auto_fullscreen";
+    /** Starts a whole-screen capture without showing the recorder UI at all. */
+    static final String EXTRA_QUICK_START = "screen_recorder_quick_start";
+    /** Quick start limited to the app the user picks in the system prompt. */
+    static final String EXTRA_QUICK_START_SINGLE_APP = "screen_recorder_quick_start_app";
 
     private static final int REQ_PROJECTION = 8101;
     private static final int REQ_PERMISSIONS = 8102;
@@ -98,6 +102,8 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
     private boolean pendingStart;
     private boolean projectionRequestActive;
     private boolean autoStart;
+    private boolean quickStart;
+    private boolean quickSingleApp;
     private boolean updating;
     private ControllerNav controllerNav;
     private final List<View> controllerOrder = new ArrayList<>();
@@ -113,13 +119,31 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
         hidePerformanceOverlay();
         settings = getSharedPreferences(PREFS, MODE_PRIVATE);
         readSettings();
-        autoStart = getIntent() != null
-                && getIntent().getBooleanExtra(EXTRA_AUTO_FULLSCREEN, false);
-        if (autoStart) mode = ScreenRecorderConfig.MODE_FULLSCREEN;
-        buildUi();
-        hideBars();
+        quickSingleApp = getIntent() != null
+                && getIntent().getBooleanExtra(EXTRA_QUICK_START_SINGLE_APP, false);
+        quickStart = quickSingleApp || (getIntent() != null
+                && getIntent().getBooleanExtra(EXTRA_QUICK_START, false));
+        autoStart = quickStart || (getIntent() != null
+                && getIntent().getBooleanExtra(EXTRA_AUTO_FULLSCREEN, false));
+        if (autoStart) {
+            mode = quickSingleApp
+                    ? ScreenRecorderConfig.MODE_SINGLE_APP
+                    : ScreenRecorderConfig.MODE_FULLSCREEN;
+        }
+        if (!quickStart) {
+            buildUi();
+            hideBars();
+        }
         if (!ScreenRecorderService.isRecording() && !ScreenRecorderService.isSaving()) {
             ScreenRecorderService.forceTouchDotsOff(this);
+        }
+        if (quickStart) {
+            main.postDelayed(new Runnable() {
+                @Override public void run() {
+                    requestQuickStart();
+                }
+            }, 150L);
+            return;
         }
         updateAll();
         if (autoStart) {
@@ -156,6 +180,7 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
     protected void onResume() {
         super.onResume();
         hidePerformanceOverlay();
+        if (quickStart) return;
         if (ScreenRecorderService.isRecording() || ScreenRecorderService.isSaving()) {
             main.removeCallbacks(ticker);
             main.post(ticker);
@@ -184,6 +209,10 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
 
     @Override
     public void onBackPressed() {
+        if (quickStart) {
+            finish();
+            return;
+        }
         finishAnimated();
     }
 
@@ -1017,6 +1046,24 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
     // Start flow
     // ------------------------------------------------------------------
 
+    /** Quick start keeps the window invisible: projection prompt, then the service. */
+    private void requestQuickStart() {
+        if (isFinishing() || isDestroyed()) {
+            finish();
+            return;
+        }
+        if (ScreenRecorderService.isRecording() || ScreenRecorderService.isSaving()) {
+            finish();
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            deviceAudio = false;
+            micAudio = false;
+        }
+        requestProjection();
+    }
+
     private void requestStart() {
         if (ScreenRecorderService.isRecording() || ScreenRecorderService.isSaving()) return;
         if (Build.VERSION.SDK_INT < 34) mode = ScreenRecorderConfig.MODE_FULLSCREEN;
@@ -1076,6 +1123,7 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
                     (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
             if (manager == null) {
                 toast("Screen capture is unavailable.");
+                if (quickStart) finish();
                 return;
             }
             Intent intent;
@@ -1089,12 +1137,14 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
                 intent = manager.createScreenCaptureIntent();
             }
             PavoA11yService.armProjectionAutoAccept(
-                    mode == ScreenRecorderConfig.MODE_FULLSCREEN);
+                    mode == ScreenRecorderConfig.MODE_FULLSCREEN
+                            || (quickStart && quickSingleApp));
             startActivityForResult(intent, REQ_PROJECTION);
         } catch (Throwable t) {
             projectionRequestActive = false;
             PavoA11yService.armProjectionAutoAccept(false);
             toast(t.getMessage() == null ? "Could not open screen capture." : t.getMessage());
+            if (quickStart) finish();
         }
     }
 
@@ -1105,6 +1155,11 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
         projectionRequestActive = false;
         PavoA11yService.armProjectionAutoAccept(false);
         if (resultCode != Activity.RESULT_OK || data == null) {
+            if (quickStart) {
+                toast("Screen capture permission was cancelled.");
+                finish();
+                return;
+            }
             status.setText("Screen capture permission was cancelled.");
             return;
         }
@@ -1116,6 +1171,15 @@ public final class ScreenRecorderActivity extends PavoGlassActivity {
                 .putExtra(ScreenRecorderService.EXTRA_RESULT_CODE, resultCode)
                 .putExtra(ScreenRecorderService.EXTRA_RESULT_DATA, data)
                 .putExtra(ScreenRecorderService.EXTRA_CONFIG, configIntent);
+        if (quickStart) {
+            try {
+                startForegroundService(service);
+            } catch (Throwable t) {
+                toast(t.getMessage() == null ? "Could not start recording." : t.getMessage());
+            }
+            finish();
+            return;
+        }
         try {
             startForegroundService(service);
             status.setText("Starting recorder\u2026");

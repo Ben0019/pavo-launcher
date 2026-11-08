@@ -1,12 +1,14 @@
 package com.ben.pavo;
 
 import android.animation.ValueAnimator;
+import android.app.ActivityOptions;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
@@ -50,12 +52,14 @@ final class AppDrawerOverlayView extends FrameLayout {
     interface Listener {
         void onDismiss();
         void onSearchFocusRequested(boolean focus);
+        void onQuickPanelRequested();
     }
 
     private static int accent() {
         return ThemeColors.accent();
     }
     private static final int FAVORITE_SLOTS = 4;
+    private static final String QUICK_PKG = "com.ben.pavo.quick";
     private static final String PERF_TUNER_PKG = "com.ben.pavo.perftuner";
     private static final String PERF_LOG_PKG = "com.ben.pavo.perflogs";
     private static final String DISPLAY_PKG = "com.ben.pavo.display";
@@ -626,6 +630,9 @@ final class AppDrawerOverlayView extends FrameLayout {
         List<Apps.Entry> out = new ArrayList<>();
         DeviceProfile profile = DeviceProfile.get(context);
         int accent = ColorTuning.colour(accent());
+        Apps.Entry quick = new Apps.Entry(Loc.s(context, "Quick Controls"), QUICK_PKG, "");
+        quick.icon = Apps.letterTile("\u2261", px);
+        out.add(quick);
         Apps.Entry tuner = new Apps.Entry(Loc.s(context, "Performance Tuner"), PERF_TUNER_PKG, "");
         tuner.icon = Apps.performanceTunerIcon(px, accent);
         out.add(tuner);
@@ -679,7 +686,8 @@ final class AppDrawerOverlayView extends FrameLayout {
     }
 
     private static boolean isBuiltinPkg(String pkg) {
-        return PERF_TUNER_PKG.equals(pkg) || PERF_LOG_PKG.equals(pkg)
+        return QUICK_PKG.equals(pkg)
+                || PERF_TUNER_PKG.equals(pkg) || PERF_LOG_PKG.equals(pkg)
                 || DISPLAY_PKG.equals(pkg) || CONTROLLER_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
                 || OVERLAY_PKG.equals(pkg)
@@ -689,9 +697,59 @@ final class AppDrawerOverlayView extends FrameLayout {
                 || UPDATES_PKG.equals(pkg);
     }
 
+    /** The drawer was opened over an app that is not one of Pavo's own screens. */
+    private boolean overAnotherApp() {
+        String fg = PavoA11yService.foregroundPackage();
+        return fg != null && !fg.equals(context.getPackageName());
+    }
+
+    /**
+     * Opens a built-in screen as a freeform window so the app underneath keeps
+     * its resumed state. Without this the activity stack pauses that app, which
+     * freezes games sitting behind the side drawer.
+     */
+    private boolean startWindowed(Intent intent) {
+        try {
+            ActivityOptions options = ActivityOptions.makeBasic();
+            options.setLaunchBounds(freeformBounds());
+            // setLaunchWindowingMode is @hide in the SDK but present at runtime.
+            // WindowConfiguration.WINDOWING_MODE_FREEFORM == 5.
+            try {
+                ActivityOptions.class.getMethod("setLaunchWindowingMode", int.class)
+                        .invoke(options, 5);
+            } catch (Throwable ignored) {
+            }
+            context.startActivity(intent, options.toBundle());
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private Rect freeformBounds() {
+        int w = screenW;
+        int h = screenH;
+        if (w <= 0 || h <= 0) {
+            android.util.DisplayMetrics dm = context.getResources().getDisplayMetrics();
+            w = dm.widthPixels;
+            h = dm.heightPixels;
+        }
+        int width = Math.round(w * 0.86f);
+        int height = Math.round(h * 0.88f);
+        int left = (w - width) / 2;
+        int top = (h - height) / 2;
+        return new Rect(left, top, left + width, top + height);
+    }
+
     private void launchEntry(final Apps.Entry e) {
         if (e == null) return;
         Haptics.launch(this);
+        if (QUICK_PKG.equals(e.pkg)) {
+            // The quick panel is its own overlay, not an activity, so the app
+            // underneath keeps running.
+            if (listener != null) listener.onQuickPanelRequested();
+            return;
+        }
         Intent intent = null;
         if (PERF_TUNER_PKG.equals(e.pkg)) {
             intent = new Intent(context, PerformanceTunerActivity.class);
@@ -729,8 +787,16 @@ final class AppDrawerOverlayView extends FrameLayout {
         dismissForLaunch();
         if (intent != null) {
             final Intent builtInIntent = intent;
-            builtInIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                    | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            // The side drawer sits above another app. Opening a built-in screen
+            // fullscreen would pause that app (games stop rendering). Launch it
+            // in a freeform window instead so the app underneath keeps running.
+            final boolean windowed = overAnotherApp();
+            builtInIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (windowed) {
+                builtInIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+            } else {
+                builtInIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            }
             // The side drawer lives above another app. Let it disappear first,
             // then sample that app so the built-in card gets the same frosted
             // backdrop it gets when launched from the home screen.
@@ -741,7 +807,11 @@ final class AppDrawerOverlayView extends FrameLayout {
                     if (backdrop == null) backdrop = WallpaperBackdrop.captureSharp(context);
                     if (backdrop != null) BuiltInBackdrop.put(backdrop);
                     try {
-                        context.startActivity(builtInIntent);
+                        if (!windowed || !startWindowed(builtInIntent)) {
+                            builtInIntent.removeFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+                            builtInIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                            context.startActivity(builtInIntent);
+                        }
                     } catch (Throwable t) {
                         LToast.makeText(context, String.format(
                                 Loc.s(context, "Can't open %s"), e.label),
