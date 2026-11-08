@@ -263,6 +263,9 @@ final class PerfOverlayMenuView extends FrameLayout {
         addToggle(content, "Battery percentage", prefs.perfBattery(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfBattery(v); }
         }));
+        addToggle(content, "Fan speed", prefs.perfFan(), metric(new BoolSetter() {
+            @Override public void set(boolean v) { prefs.setPerfFan(v); }
+        }));
         addToggle(content, "Memory (RAM)", prefs.perfRam(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfRam(v); }
         }));

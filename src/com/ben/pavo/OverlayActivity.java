@@ -45,7 +45,7 @@ public final class OverlayActivity extends PavoGlassActivity {
 
     private static final String[] METRICS = {
             "CPU TEMP", "CPU CLOCK", "CPU LOAD", "GPU TEMP", "GPU CLOCK",
-            "GPU LOAD", "FPS", "FPS GRAPH", "RAM", "BATTERY", "CORES", "NET", "STRIP"
+            "GPU LOAD", "FPS", "FPS GRAPH", "RAM", "BATTERY", "CORES", "NET", "FAN", "STRIP"
     };
 
     private final List<TextView> metricChips = new ArrayList<>();
@@ -746,6 +746,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             case 9: return prefs.perfBattery();
             case 10: return prefs.perfCores();
             case 11: return prefs.perfNet();
+            case 12: return prefs.perfFan();
             default: return prefs.perfOverlayHorizontal();
         }
     }
@@ -764,6 +765,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             case 9: prefs.setPerfBattery(on); break;
             case 10: prefs.setPerfCores(on); break;
             case 11: prefs.setPerfNet(on); break;
+            case 12: prefs.setPerfFan(on); break;
             default: prefs.setPerfOverlayHorizontal(on); break;
         }
     }

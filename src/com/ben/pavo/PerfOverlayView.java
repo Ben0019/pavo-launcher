@@ -41,6 +41,8 @@ final class PerfOverlayView extends LinearLayout {
     private int panelAlphaPct = 88;
 
     private TextView battery;
+    private LinearLayout fanRow;
+    private TextView fanDuty;
     private TextView lockIcon;
     private TextView editDoneBar;
     private Runnable editDoneAction;
@@ -149,6 +151,12 @@ final class PerfOverlayView extends LinearLayout {
         battRow.addView(battTemp, weight(1.0f));
         battRow.addView(battPower, weight(1.4f));
         addView(battRow, rowParams(4));
+
+        fanRow = metricRow();
+        addMetricLabel(fanRow, "FAN");
+        fanDuty = metricValue(Gravity.START);
+        fanRow.addView(fanDuty, weight(1f));
+        addView(fanRow, rowParams(4));
 
         fpsBlock = new LinearLayout(c);
         fpsBlock.setOrientation(VERTICAL);
@@ -345,6 +353,13 @@ final class PerfOverlayView extends LinearLayout {
             if (any) stripSep(b);
             appendSpan(b, "\u00b7 " + s.battery + "%", batteryColor(s.battery));
         }
+        if (p.perfFan()) {
+            if (any) stripSep(b);
+            appendSpan(b, "FAN ", MUTED);
+            int duty = PerfTuner.fanPercent(getContext());
+            appendSpan(b, (duty >= 0 ? duty + "%" : "\u2014") + "  ",
+                    duty >= 0 ? heat(duty / 100f) : 0xFF8792A3);
+        }
         if (!any) appendSpan(b, "no metrics selected", 0xFFC4CBD6);
         stripText.setText(b);
     }
@@ -460,6 +475,7 @@ final class PerfOverlayView extends LinearLayout {
         netRow.setVisibility(p.perfNet() ? VISIBLE : GONE);
         ramRow.setVisibility(p.perfRam() ? VISIBLE : GONE);
         battRow.setVisibility(p.perfBattery() ? VISIBLE : GONE);
+        fanRow.setVisibility(p.perfFan() ? VISIBLE : GONE);
         fpsValue.setVisibility(p.perfFps() ? VISIBLE : GONE);
         fpsRow.setVisibility(p.perfFps() ? VISIBLE : GONE);
         graph.setVisibility(p.perfFpsGraph() ? VISIBLE : GONE);
@@ -515,6 +531,10 @@ final class PerfOverlayView extends LinearLayout {
             ramUsage.setVisibility(GONE);
             setValue(ramAmount, "\u2014", 0xFF8792A3);
         }
+
+        int fanDutyPct = PerfTuner.fanPercent(getContext());
+        setValue(fanDuty, fanDutyPct >= 0 ? fanDutyPct + "%" : "\u2014",
+                fanDutyPct >= 0 ? heat(fanDutyPct / 100f) : 0xFF8792A3);
 
         boolean battTempKnown = s.batteryTempC > 0f;
         setValue(battTemp, battTempKnown ? Math.round(s.batteryTempC) + "\u00b0" : "\u2014",

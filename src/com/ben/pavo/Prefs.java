@@ -322,6 +322,7 @@ final class Prefs {
     boolean perfFps() { return sp.getBoolean("perf_fps", true); }
     boolean perfFpsGraph() { return sp.getBoolean("perf_fps_graph", true); }
     boolean perfBattery() { return sp.getBoolean("perf_battery", true); }
+    boolean perfFan() { return sp.getBoolean("perf_fan", true); }
     boolean perfRam() { return sp.getBoolean("perf_ram", true); }
     boolean perfCores() { return sp.getBoolean("perf_cores", true); }
     String perfControllerRaw() {
@@ -808,6 +809,7 @@ final class Prefs {
     void setPerfFps(boolean v) { sp.edit().putBoolean("perf_fps", v).apply(); }
     void setPerfFpsGraph(boolean v) { sp.edit().putBoolean("perf_fps_graph", v).apply(); }
     void setPerfBattery(boolean v) { sp.edit().putBoolean("perf_battery", v).apply(); }
+    void setPerfFan(boolean v) { sp.edit().putBoolean("perf_fan", v).apply(); }
     void setPerfRam(boolean v) { sp.edit().putBoolean("perf_ram", v).apply(); }
     void setPerfCores(boolean v) {
         android.content.SharedPreferences.Editor e = sp.edit().putBoolean("perf_cores", v);

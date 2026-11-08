@@ -72,7 +72,7 @@ public final class PerAppFanService extends Service {
         Intent intent = new Intent(context, PerAppFanService.class);
         intent.setAction(ACTION_REFRESH);
         try {
-            context.startService(intent);
+            ServiceNotifications.start(context, intent);
         } catch (Throwable ignored) {
         }
     }

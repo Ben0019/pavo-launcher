@@ -969,6 +969,9 @@ public final class FanActivity extends PavoGlassActivity {
         if (managedFanMode()) {
             if (profileStore.hasOverrides()) {
                 if (resumed && mode == MODE_CURVE) startLocalCurve();
+                // The per-app watcher owns the fan while overrides exist; start
+                // it here so a new HOLD/curve mode is applied immediately.
+                PerAppFanService.refresh(this);
             } else {
                 FanControl.start(this);
             }
@@ -1462,7 +1465,7 @@ public final class FanActivity extends PavoGlassActivity {
             case MODE_LARGE:
                 return FanCurve.presetCurve(prefs, mode);
             case MODE_HOLD:
-                return FanCurve.holdCurve(prefs, holdTarget, holdDuty);
+                return FanCurve.holdFlatCurve(holdTarget, holdDuty);
             case MODE_CURVE:
             default:
                 return curve;
@@ -1502,7 +1505,7 @@ public final class FanActivity extends PavoGlassActivity {
             case MODE_LARGE:
                 return FanCurve.dutyAt(FanCurve.presetCurve(prefs, mode), temp);
             case MODE_HOLD:
-                return FanCurve.dutyAt(FanCurve.holdCurve(prefs, holdTarget, holdDuty), temp);
+                return FanCurve.dutyAt(FanCurve.holdFlatCurve(holdTarget, holdDuty), temp);
             case MODE_CURVE:
             default:
                 return FanCurve.dutyAt(curve, temp);

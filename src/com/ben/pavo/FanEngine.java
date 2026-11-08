@@ -145,14 +145,14 @@ final class FanEngine {
                         manualHeld = true;
                     }
                 }
-            } else if (!warmup && manualHeld
+            } else if (!warmup
                     && PerfTuner.fanManualDrifted(app, controller.applied())) {
                 if (!VendorFan.setPercent(controller.applied())) {
                     PerfTuner.setFanManual(controller.applied());
                 }
             }
             Handler h = handler;
-            if (h != null) h.postDelayed(this, smart || high ? 750L : hold ? 1000L : 1500L);
+            if (h != null) h.postDelayed(this, smart || high ? 750L : hold ? 1000L : 500L);
         }
     };
 }

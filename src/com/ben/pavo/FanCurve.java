@@ -24,13 +24,15 @@ final class FanCurve {
      * each preset stays quiet through its own sustained peak and only ramps
      * above it. The deeper the underclock, the longer it stays quiet.
      */
-    static final String SMALL = "30:0,35:0,40:0,45:0,50:10,55:14,60:18,"
-            + "65:26,70:44,75:56,80:70,85:88,90:100,95:100,100:100";
+    static final String SMALL = "30:0,35:0,40:0,45:0,50:8,55:11,60:14,"
+            + "65:20,70:30,75:40,80:46,85:56,88:66,90:76,92:88,94:100,"
+            + "95:100,100:100";
     static final String MEDIUM = "30:0,35:0,40:0,45:0,50:5,55:8,60:11,"
-            + "65:16,70:23,75:33,80:49,85:74,90:100,95:100,100:100";
+            + "65:16,70:23,75:33,80:45,85:58,88:68,90:78,92:90,94:100,"
+            + "95:100,100:100";
     static final String LARGE = "30:0,35:0,40:0,45:0,50:5,55:7,57:10,"
-            + "60:15,65:17,67:19,70:21,75:30,77:36,80:46,85:71,87:83,"
-            + "90:100,95:100,100:100";
+            + "60:15,65:17,67:19,70:21,75:30,77:36,80:44,85:56,87:66,"
+            + "90:78,92:90,94:100,95:100,100:100";
 
     /** The factory curves were tuned against the Odin 3's 95 C passive trip. */
     private static final float REFERENCE_TRIP_C = 95f;
@@ -201,11 +203,34 @@ final class FanCurve {
     }
 
     /**
-     * Hidden service curve for HOLD: the displayed curve stops at the hold
-     * point, but above it the fan steps up by 5 points per °C (capped at
-     * 100) so a small skip is corrected with a little noise, not full blast.
+     * Flat HOLD curve: the fan simply runs at the chosen hold speed, and only
+     * climbs above the target (5 points per °C) as a guard. The old approach
+     * ramp meant low temperatures kept the fan well under the set speed.
+     */
+    static String holdFlatCurve(float targetC, int dutyPct) {
+        int t = clamp(Math.round(targetC), 45, 85);
+        int d = clamp(dutyPct, 10, 100);
+        StringBuilder b = new StringBuilder();
+        b.append(t - 15).append(':').append(d);
+        for (int dt = 0; dt <= 25; dt++) {
+            int temp = t + dt;
+            if (temp > 100) break;
+            int duty = dt == 0 ? d : Math.min(100, d + dt * 5);
+            b.append(',').append(temp).append(':').append(duty);
+        }
+        return ensureTerminal(b.toString());
+    }
+
+    /**
+     * Hidden service curve for HOLD: flat at the set speed, with the guard
+     * above the target.
      */
     static String holdServiceCurve(Prefs prefs, float targetC, int dutyPct) {
+        return holdFlatCurve(targetC, dutyPct);
+    }
+
+    /** @deprecated kept for older callers that still build the ramp. */
+    static String holdRampCurve(Prefs prefs, float targetC, int dutyPct) {
         String base = holdCurve(prefs, targetC, dutyPct);
         int t = clamp(Math.round(targetC), 45, 85);
         int d = clamp(dutyPct, 10, 100);

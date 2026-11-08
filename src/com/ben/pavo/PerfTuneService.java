@@ -272,12 +272,25 @@ public final class PerfTuneService extends Service {
         // point, and the CPU/GPU max steps down until the target is met. It
         // steps back up as the load allows, up to the current preset's caps.
         if (holdMode) {
-            String ceil = cfg.p0Max + ":" + cfg.p6Max + ":" + cfg.gpuMax
+            PerfTuner.State state = holdState();
+            // Anchor the hold at the selected preset's own peak clock. HOLD
+            // always starts at, for example, SMALL's 3.07 GHz and steps down
+            // from there, whatever lower point a manual tune left behind.
+            int ceilP0 = cfg.p0Max;
+            int ceilP6 = cfg.p6Max;
+            int ceilGpu = cfg.gpuMax;
+            if (PerfProfiles.isProfile(cfg.profile)) {
+                PerfProfiles.Spec spec = PerfProfiles.get(cfg.profile, state);
+                if (spec.p0Max > 0) ceilP0 = spec.p0Max;
+                if (spec.p6Max > 0) ceilP6 = spec.p6Max;
+                if (spec.gpuMax > 0) ceilGpu = spec.gpuMax;
+            }
+            String ceil = ceilP0 + ":" + ceilP6 + ":" + ceilGpu
                     + ":" + cfg.p0Min + ":" + cfg.p6Min + ":" + cfg.gpuMin;
             if (!holdActive || !ceil.equals(holdCeilingKey)) {
-                holdP0Max = cfg.p0Max;
-                holdP6Max = cfg.p6Max;
-                holdGpuMax = cfg.gpuMax;
+                holdP0Max = ceilP0;
+                holdP6Max = ceilP6;
+                holdGpuMax = ceilGpu;
                 holdCeilingKey = ceil;
                 holdActive = true;
                 lastHoldAdjust = 0L;
@@ -287,27 +300,25 @@ public final class PerfTuneService extends Service {
             float gpu = temps[1];
             float source = FanCurve.sourceTemp(cpu, gpu, prefs.fanTempSource());
             PerfTuner.Root.ensure();
-            PerfTuner.State state = holdState();
             if (now - lastHoldAdjust >= 1000L) {
                 lastHoldAdjust = now;
-                if (source > target + 0.5f) {
-                    // Drop two steps per second so a stock-clock burst cannot
-                    // stay above the target; the fan guard is already at 100 %.
+                if (source > target + 1f) {
+                    // One step per second with a small band around the target.
+                    // Two steps at the first spike dumped the whole preset peak
+                    // whenever HOLD was set low or the fan ran slowly.
                     if (cpu >= gpu - 2f) {
-                        holdP0Max = stepDown(state.efficiency,
-                                stepDown(state.efficiency, holdP0Max));
-                        holdP6Max = stepDown(state.performance,
-                                stepDown(state.performance, holdP6Max));
+                        holdP0Max = stepDown(state.efficiency, holdP0Max);
+                        holdP6Max = stepDown(state.performance, holdP6Max);
                     }
                     if (gpu >= cpu - 2f) {
-                        holdGpuMax = stepDownGpu(state.gpu,
-                                stepDownGpu(state.gpu, holdGpuMax));
+                        holdGpuMax = stepDownGpu(state.gpu, holdGpuMax);
                     }
-                } else if (source < target - 5f) {
-                    // Recover slowly and only with a clear margin below target.
-                    holdP0Max = stepUp(state.efficiency, holdP0Max, cfg.p0Max);
-                    holdP6Max = stepUp(state.performance, holdP6Max, cfg.p6Max);
-                    holdGpuMax = stepUpGpu(state.gpu, holdGpuMax, cfg.gpuMax);
+                } else if (source < target - 1f) {
+                    // Climb back as soon as the target is met again, instead of
+                    // waiting for a five-degree margin that kept clocks low.
+                    holdP0Max = stepUp(state.efficiency, holdP0Max, ceilP0);
+                    holdP6Max = stepUp(state.performance, holdP6Max, ceilP6);
+                    holdGpuMax = stepUpGpu(state.gpu, holdGpuMax, ceilGpu);
                 }
             }
             PerfTuner.setCpu(state.efficiency, holdP0Max, cfg.p0Min, cfg.p0Gov);

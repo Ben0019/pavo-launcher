@@ -176,7 +176,7 @@ public final class FanCurveService extends Service {
                         manualHeld = true;
                     }
                 }
-            } else if (!warmup && manualHeld
+            } else if (!warmup
                     && PerfTuner.fanManualDrifted(FanCurveService.this,
                             controller.applied())) {
                 // A preset or the game panel moved the fan away from the
@@ -185,7 +185,7 @@ public final class FanCurveService extends Service {
                     PerfTuner.setFanManual(controller.applied());
                 }
             }
-            handler.postDelayed(this, smart || high ? 750L : hold ? 1000L : 1500L);
+            handler.postDelayed(this, smart || high ? 750L : hold ? 1000L : 500L);
         }
     };
 
