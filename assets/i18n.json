@@ -2059,13 +2059,7 @@
     "BRIGHT": "JASNÉ",
     "TREBLE": "VÝŠKY",
     "Applies to every app. Uses the global audio session.": "Platí pro všechny aplikace. Používá globální zvukovou relaci.",
-    "Equalizer unavailable on this device.": "Ekvalizér není na tomto zařízení dostupný.",
-    "GAME AUDIO": "HERNÍ ZVUK",
-    "GAME EQ": "HERNÍ EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Sluchátka připojena",
-    "Connect headphones for direction": "Pro směrový zvuk připojte sluchátka",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Směrový zvuk vytváří hra. Použijte sluchátka a zapněte 3D zvuk nebo HRTF v nastavení zvuku hry."
+    "Equalizer unavailable on this device.": "Ekvalizér není na tomto zařízení dostupný."
   },
   "da": {
     "Quick Controls": "Hurtigbetjening",
@@ -4127,13 +4121,7 @@
     "BRIGHT": "KLAR",
     "TREBLE": "DISKANT",
     "Applies to every app. Uses the global audio session.": "Gælder for alle apps. Bruger den globale lydsession.",
-    "Equalizer unavailable on this device.": "Equalizer er ikke tilgængelig på denne enhed.",
-    "GAME AUDIO": "SPILLYD",
-    "GAME EQ": "SPIL-EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Hovedtelefoner tilsluttet",
-    "Connect headphones for direction": "Tilslut hovedtelefoner for retningsbestemt lyd",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Retningsbestemt lyd kommer fra spillet. Brug hovedtelefoner, og slå 3D-lyd eller HRTF til i spillets lydindstillinger."
+    "Equalizer unavailable on this device.": "Equalizer er ikke tilgængelig på denne enhed."
   },
   "de": {
     "Quick Controls": "Schnellsteuerung",
@@ -6195,13 +6183,7 @@
     "BRIGHT": "HELL",
     "TREBLE": "HÖHEN",
     "Applies to every app. Uses the global audio session.": "Gilt für alle Apps. Nutzt die globale Audiositzung.",
-    "Equalizer unavailable on this device.": "Equalizer ist auf diesem Gerät nicht verfügbar.",
-    "GAME AUDIO": "SPIEL-AUDIO",
-    "GAME EQ": "SPIEL-EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Kopfhörer verbunden",
-    "Connect headphones for direction": "Kopfhörer für Richtungsklang anschließen",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Richtungsklang kommt vom Spiel. Kopfhörer verwenden und 3D-Audio oder HRTF in den Audioeinstellungen des Spiels aktivieren."
+    "Equalizer unavailable on this device.": "Equalizer ist auf diesem Gerät nicht verfügbar."
   },
   "el": {
     "Quick Controls": "Γρήγοροι έλεγχοι",
@@ -8263,13 +8245,7 @@
     "BRIGHT": "ΦΩΤΕΙΝΟ",
     "TREBLE": "ΥΨΗΛΑ",
     "Applies to every app. Uses the global audio session.": "Ισχύει για όλες τις εφαρμογές. Χρησιμοποιεί την καθολική συνεδρία ήχου.",
-    "Equalizer unavailable on this device.": "Ο ισοσταθμιστής δεν είναι διαθέσιμος σε αυτή τη συσκευή.",
-    "GAME AUDIO": "ΗΧΟΣ ΠΑΙΧΝΙΔΙΟΥ",
-    "GAME EQ": "EQ ΠΑΙΧΝΙΔΙΟΥ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Ακουστικά συνδεδεμένα",
-    "Connect headphones for direction": "Συνδέστε ακουστικά για κατευθυντικό ήχο",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Ο κατευθυντικός ήχος προέρχεται από το παιχνίδι. Χρησιμοποιήστε ακουστικά και ενεργοποιήστε 3D Audio ή HRTF στις ρυθμίσεις ήχου του παιχνιδιού."
+    "Equalizer unavailable on this device.": "Ο ισοσταθμιστής δεν είναι διαθέσιμος σε αυτή τη συσκευή."
   },
   "es": {
     "Quick Controls": "Controles rápidos",
@@ -10331,13 +10307,7 @@
     "BRIGHT": "BRILLANTE",
     "TREBLE": "AGUDOS",
     "Applies to every app. Uses the global audio session.": "Se aplica a todas las apps. Usa la sesión de audio global.",
-    "Equalizer unavailable on this device.": "El ecualizador no está disponible en este dispositivo.",
-    "GAME AUDIO": "AUDIO DE JUEGO",
-    "GAME EQ": "EQ DE JUEGO",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Auriculares conectados",
-    "Connect headphones for direction": "Conecta auriculares para audio direccional",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "El audio direccional proviene del juego. Usa auriculares y activa 3D Audio o HRTF en los ajustes de audio del juego."
+    "Equalizer unavailable on this device.": "El ecualizador no está disponible en este dispositivo."
   },
   "fi": {
     "Quick Controls": "Pika-asetukset",
@@ -12399,13 +12369,7 @@
     "BRIGHT": "KIRKAS",
     "TREBLE": "DISKANTTI",
     "Applies to every app. Uses the global audio session.": "Koskee kaikkia sovelluksia. Käyttää yleistä ääni-istuntoa.",
-    "Equalizer unavailable on this device.": "Ekvalisaattori ei ole käytettävissä tällä laitteella.",
-    "GAME AUDIO": "PELIÄÄNI",
-    "GAME EQ": "PELI-EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Kuulokkeet yhdistetty",
-    "Connect headphones for direction": "Yhdistä kuulokkeet suuntaavaa ääntä varten",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Suuntaava ääni tulee pelistä. Käytä kuulokkeita ja ota 3D-ääni tai HRTF käyttöön pelin ääniasetuksissa."
+    "Equalizer unavailable on this device.": "Ekvalisaattori ei ole käytettävissä tällä laitteella."
   },
   "fr": {
     "Quick Controls": "Contrôles rapides",
@@ -14467,13 +14431,7 @@
     "BRIGHT": "BRILLANT",
     "TREBLE": "AIGUS",
     "Applies to every app. Uses the global audio session.": "S'applique à toutes les apps. Utilise la session audio globale.",
-    "Equalizer unavailable on this device.": "L'égaliseur n'est pas disponible sur cet appareil.",
-    "GAME AUDIO": "AUDIO DE JEU",
-    "GAME EQ": "EQ DE JEU",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Casque connecté",
-    "Connect headphones for direction": "Connectez un casque pour l'audio directionnel",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "L'audio directionnel vient du jeu. Utilisez un casque et activez l'audio 3D ou HRTF dans les réglages audio du jeu."
+    "Equalizer unavailable on this device.": "L'égaliseur n'est pas disponible sur cet appareil."
   },
   "he": {
     "Quick Controls": "בקרות מהירות",
@@ -16535,13 +16493,7 @@
     "BRIGHT": "בהיר",
     "TREBLE": "גבוהים",
     "Applies to every app. Uses the global audio session.": "חל על כל האפליקציות. משתמש בהפעלת השמע הגלובלית.",
-    "Equalizer unavailable on this device.": "האקולייזר אינו זמין במכשיר זה.",
-    "GAME AUDIO": "אודיו משחק",
-    "GAME EQ": "EQ משחק",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "אוזניות מחוברות",
-    "Connect headphones for direction": "חברו אוזניות לשמע כיווני",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "שמע כיווני מגיע מהמשחק. השתמשו באוזניות והפעילו 3D Audio או HRTF בהגדרות השמע של המשחק."
+    "Equalizer unavailable on this device.": "האקולייזר אינו זמין במכשיר זה."
   },
   "hu": {
     "Quick Controls": "Gyorsvezérlők",
@@ -18603,13 +18555,7 @@
     "BRIGHT": "FÉNYES",
     "TREBLE": "MAGAS",
     "Applies to every app. Uses the global audio session.": "Minden alkalmazásra érvényes. A globális hangmunkamenetet használja.",
-    "Equalizer unavailable on this device.": "A hangkorrektor nem érhető el ezen az eszközön.",
-    "GAME AUDIO": "JÁTÉK HANG",
-    "GAME EQ": "JÁTÉK EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Fejhallgató csatlakoztatva",
-    "Connect headphones for direction": "Csatlakoztass fejhallgatót a térhatású hanghoz",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "A térhatású hang a játékból jön. Használj fejhallgatót, és kapcsold be a 3D hangot vagy a HRTF-et a játék hangbeállításaiban."
+    "Equalizer unavailable on this device.": "A hangkorrektor nem érhető el ezen az eszközön."
   },
   "id": {
     "Quick Controls": "Kontrol Cepat",
@@ -20671,13 +20617,7 @@
     "BRIGHT": "CERAH",
     "TREBLE": "TREBLE",
     "Applies to every app. Uses the global audio session.": "Berlaku untuk semua aplikasi. Menggunakan sesi audio global.",
-    "Equalizer unavailable on this device.": "Equalizer tidak tersedia di perangkat ini.",
-    "GAME AUDIO": "AUDIO GAME",
-    "GAME EQ": "EQ GAME",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Headphone terhubung",
-    "Connect headphones for direction": "Hubungkan headphone untuk audio terarah",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Audio terarah berasal dari game. Gunakan headphone dan aktifkan 3D Audio atau HRTF di pengaturan audio game."
+    "Equalizer unavailable on this device.": "Equalizer tidak tersedia di perangkat ini."
   },
   "it": {
     "Quick Controls": "Controlli rapidi",
@@ -22739,13 +22679,7 @@
     "BRIGHT": "BRILLANTE",
     "TREBLE": "ALTI",
     "Applies to every app. Uses the global audio session.": "Si applica a tutte le app. Usa la sessione audio globale.",
-    "Equalizer unavailable on this device.": "L'equalizzatore non è disponibile su questo dispositivo.",
-    "GAME AUDIO": "AUDIO DI GIOCO",
-    "GAME EQ": "EQ DI GIOCO",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Cuffie collegate",
-    "Connect headphones for direction": "Collega le cuffie per l'audio direzionale",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "L'audio direzionale proviene dal gioco. Usa le cuffie e attiva Audio 3D o HRTF nelle impostazioni audio del gioco."
+    "Equalizer unavailable on this device.": "L'equalizzatore non è disponibile su questo dispositivo."
   },
   "ja": {
     "Quick Controls": "クイックコントロール",
@@ -24807,13 +24741,7 @@
     "BRIGHT": "ブライト",
     "TREBLE": "高音",
     "Applies to every app. Uses the global audio session.": "すべてのアプリに適用されます。グローバルオーディオセッションを使用します。",
-    "Equalizer unavailable on this device.": "このデバイスではイコライザーを利用できません。",
-    "GAME AUDIO": "ゲームオーディオ",
-    "GAME EQ": "ゲームEQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "ヘッドホン接続済み",
-    "Connect headphones for direction": "方向音声にはヘッドホンを使用",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "方向音声はゲーム側で生成されます。ヘッドホンを使い、ゲームの音声設定で3DオーディオまたはHRTFを有効にしてください。"
+    "Equalizer unavailable on this device.": "このデバイスではイコライザーを利用できません。"
   },
   "ko": {
     "Quick Controls": "빠른 컨트롤",
@@ -26875,13 +26803,7 @@
     "BRIGHT": "밝음",
     "TREBLE": "고음",
     "Applies to every app. Uses the global audio session.": "모든 앱에 적용됩니다. 전역 오디오 세션을 사용합니다.",
-    "Equalizer unavailable on this device.": "이 기기에서는 이퀄라이저를 사용할 수 없습니다.",
-    "GAME AUDIO": "게임 오디오",
-    "GAME EQ": "게임 EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "헤드폰 연결됨",
-    "Connect headphones for direction": "방향 오디오를 위해 헤드폰을 연결하세요",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "방향 오디오는 게임에서 나옵니다. 헤드폰을 사용하고 게임 오디오 설정에서 3D 오디오 또는 HRTF를 켜세요."
+    "Equalizer unavailable on this device.": "이 기기에서는 이퀄라이저를 사용할 수 없습니다."
   },
   "nb": {
     "Quick Controls": "Hurtigkontroller",
@@ -28943,13 +28865,7 @@
     "BRIGHT": "KLAR",
     "TREBLE": "DISKANT",
     "Applies to every app. Uses the global audio session.": "Gjelder alle apper. Bruker den globale lydøkten.",
-    "Equalizer unavailable on this device.": "Equalizer er ikke tilgjengelig på denne enheten.",
-    "GAME AUDIO": "SPILLYD",
-    "GAME EQ": "SPILL-EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Hodetelefoner tilkoblet",
-    "Connect headphones for direction": "Koble til hodetelefoner for retningslyd",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Retningslyd kommer fra spillet. Bruk hodetelefoner og slå på 3D-lyd eller HRTF i lydinnstillingene til spillet."
+    "Equalizer unavailable on this device.": "Equalizer er ikke tilgjengelig på denne enheten."
   },
   "nl": {
     "Quick Controls": "Snelle bediening",
@@ -31011,13 +30927,7 @@
     "BRIGHT": "HELDER",
     "TREBLE": "HOOG",
     "Applies to every app. Uses the global audio session.": "Geldt voor alle apps. Gebruikt de globale audiosessie.",
-    "Equalizer unavailable on this device.": "Equalizer is niet beschikbaar op dit apparaat.",
-    "GAME AUDIO": "SPELGELUID",
-    "GAME EQ": "SPEL-EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Hoofdtelefoon aangesloten",
-    "Connect headphones for direction": "Sluit een hoofdtelefoon aan voor richtingsgeluid",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Richtingsgeluid komt van het spel. Gebruik een hoofdtelefoon en schakel 3D-audio of HRTF in bij de audio-instellingen van het spel."
+    "Equalizer unavailable on this device.": "Equalizer is niet beschikbaar op dit apparaat."
   },
   "pl": {
     "Quick Controls": "Szybkie sterowanie",
@@ -33079,13 +32989,7 @@
     "BRIGHT": "JASNY",
     "TREBLE": "WYSOKIE",
     "Applies to every app. Uses the global audio session.": "Dotyczy wszystkich aplikacji. Używa globalnej sesji audio.",
-    "Equalizer unavailable on this device.": "Korektor nie jest dostępny na tym urządzeniu.",
-    "GAME AUDIO": "DŹWIĘK GRY",
-    "GAME EQ": "EQ GRY",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Słuchawki podłączone",
-    "Connect headphones for direction": "Podłącz słuchawki dla dźwięku kierunkowego",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Dźwięk kierunkowy pochodzi z gry. Użyj słuchawek i włącz 3D Audio lub HRTF w ustawieniach dźwięku gry."
+    "Equalizer unavailable on this device.": "Korektor nie jest dostępny na tym urządzeniu."
   },
   "pt": {
     "Quick Controls": "Controles rápidos",
@@ -35147,13 +35051,7 @@
     "BRIGHT": "BRILHANTE",
     "TREBLE": "AGUDOS",
     "Applies to every app. Uses the global audio session.": "Aplica-se a todos os apps. Usa a sessão de áudio global.",
-    "Equalizer unavailable on this device.": "O equalizador não está disponível neste dispositivo.",
-    "GAME AUDIO": "ÁUDIO DE JOGO",
-    "GAME EQ": "EQ DE JOGO",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Fones conectados",
-    "Connect headphones for direction": "Conecte fones para áudio direcional",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "O áudio direcional vem do jogo. Use fones e ative 3D Audio ou HRTF nas configurações de áudio do jogo."
+    "Equalizer unavailable on this device.": "O equalizador não está disponível neste dispositivo."
   },
   "ro": {
     "Quick Controls": "Comenzi rapide",
@@ -37215,13 +37113,7 @@
     "BRIGHT": "LUMINOS",
     "TREBLE": "ÎNALTE",
     "Applies to every app. Uses the global audio session.": "Se aplică tuturor aplicațiilor. Folosește sesiunea audio globală.",
-    "Equalizer unavailable on this device.": "Egalizatorul nu este disponibil pe acest dispozitiv.",
-    "GAME AUDIO": "AUDIO JOC",
-    "GAME EQ": "EQ JOC",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Căști conectate",
-    "Connect headphones for direction": "Conectează căști pentru sunet direcțional",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Sunetul direcțional vine din joc. Folosește căști și activează 3D Audio sau HRTF în setările audio ale jocului."
+    "Equalizer unavailable on this device.": "Egalizatorul nu este disponibil pe acest dispozitiv."
   },
   "ru": {
     "Quick Controls": "Быстрое управление",
@@ -39283,13 +39175,7 @@
     "BRIGHT": "ЯРКИЙ",
     "TREBLE": "ВЫСОКИЕ",
     "Applies to every app. Uses the global audio session.": "Применяется ко всем приложениям. Использует глобальный аудиосеанс.",
-    "Equalizer unavailable on this device.": "Эквалайзер недоступен на этом устройстве.",
-    "GAME AUDIO": "ЗВУК ИГРЫ",
-    "GAME EQ": "EQ ИГРЫ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Наушники подключены",
-    "Connect headphones for direction": "Подключите наушники для объёмного звука",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Направленный звук создаётся игрой. Используйте наушники и включите 3D-звук или HRTF в настройках звука игры."
+    "Equalizer unavailable on this device.": "Эквалайзер недоступен на этом устройстве."
   },
   "sv": {
     "Quick Controls": "Snabbkontroller",
@@ -41351,13 +41237,7 @@
     "BRIGHT": "LJUS",
     "TREBLE": "DISKANT",
     "Applies to every app. Uses the global audio session.": "Gäller alla appar. Använder den globala ljudsessionen.",
-    "Equalizer unavailable on this device.": "Equalizern är inte tillgänglig på den här enheten.",
-    "GAME AUDIO": "SPELJLUD",
-    "GAME EQ": "SPEL-EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Hörlurar anslutna",
-    "Connect headphones for direction": "Anslut hörlurar för riktningsljud",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Riktningsljud kommer från spelet. Använd hörlurar och aktivera 3D-ljud eller HRTF i spelets ljudinställningar."
+    "Equalizer unavailable on this device.": "Equalizern är inte tillgänglig på den här enheten."
   },
   "th": {
     "Quick Controls": "การควบคุมด่วน",
@@ -43419,13 +43299,7 @@
     "BRIGHT": "สว่าง",
     "TREBLE": "แหลม",
     "Applies to every app. Uses the global audio session.": "มีผลกับทุกแอป ใช้เซสชันเสียงส่วนกลาง",
-    "Equalizer unavailable on this device.": "อีควอไลเซอร์ไม่พร้อมใช้งานบนอุปกรณ์นี้",
-    "GAME AUDIO": "เสียงเกม",
-    "GAME EQ": "EQ เกม",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "เชื่อมต่อหูฟังแล้ว",
-    "Connect headphones for direction": "เชื่อมหูฟังเพื่อเสียงแบบมีทิศทาง",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "เสียงแบบมีทิศทางมาจากเกม ใช้หูฟังและเปิด 3D Audio หรือ HRTF ในการตั้งค่าเสียงของเกม"
+    "Equalizer unavailable on this device.": "อีควอไลเซอร์ไม่พร้อมใช้งานบนอุปกรณ์นี้"
   },
   "tr": {
     "Quick Controls": "Hızlı Kontroller",
@@ -45487,13 +45361,7 @@
     "BRIGHT": "PARLAK",
     "TREBLE": "TİZ",
     "Applies to every app. Uses the global audio session.": "Tüm uygulamalarda geçerlidir. Genel ses oturumunu kullanır.",
-    "Equalizer unavailable on this device.": "Ekolayzer bu cihazda kullanılamıyor.",
-    "GAME AUDIO": "OYUN SESİ",
-    "GAME EQ": "OYUN EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Kulaklık bağlı",
-    "Connect headphones for direction": "Yönlü ses için kulaklık bağlayın",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Yönlü ses oyundan gelir. Kulaklık kullanın ve oyunun ses ayarlarında 3D Audio veya HRTF'yi açın."
+    "Equalizer unavailable on this device.": "Ekolayzer bu cihazda kullanılamıyor."
   },
   "uk": {
     "Quick Controls": "Швидке керування",
@@ -47555,13 +47423,7 @@
     "BRIGHT": "ЯСКРАВИЙ",
     "TREBLE": "ВИСОКІ",
     "Applies to every app. Uses the global audio session.": "Застосовується до всіх програм. Використовує глобальний аудіосеанс.",
-    "Equalizer unavailable on this device.": "Еквалайзер недоступний на цьому пристрої.",
-    "GAME AUDIO": "ЗВУК ГРИ",
-    "GAME EQ": "EQ ГРИ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Навушники підключено",
-    "Connect headphones for direction": "Підключіть навушники для об'ємного звуку",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Спрямований звук створюється грою. Використовуйте навушники та увімкніть 3D-звук або HRTF у налаштуваннях звуку гри."
+    "Equalizer unavailable on this device.": "Еквалайзер недоступний на цьому пристрої."
   },
   "vi": {
     "Quick Controls": "Điều khiển nhanh",
@@ -49623,13 +49485,7 @@
     "BRIGHT": "SÁNG",
     "TREBLE": "CAO",
     "Applies to every app. Uses the global audio session.": "Áp dụng cho mọi ứng dụng. Dùng phiên âm thanh toàn hệ thống.",
-    "Equalizer unavailable on this device.": "Bộ cân bằng không khả dụng trên thiết bị này.",
-    "GAME AUDIO": "ÂM THANH GAME",
-    "GAME EQ": "EQ GAME",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "Đã kết nối tai nghe",
-    "Connect headphones for direction": "Kết nối tai nghe để có âm thanh định hướng",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "Âm thanh định hướng đến từ trò chơi. Dùng tai nghe và bật 3D Audio hoặc HRTF trong cài đặt âm thanh của trò chơi."
+    "Equalizer unavailable on this device.": "Bộ cân bằng không khả dụng trên thiết bị này."
   },
   "zh-CN": {
     "Quick Controls": "快捷控制",
@@ -51691,12 +51547,6 @@
     "BRIGHT": "明亮",
     "TREBLE": "高音",
     "Applies to every app. Uses the global audio session.": "适用于所有应用。使用全局音频会话。",
-    "Equalizer unavailable on this device.": "此设备不支持均衡器。",
-    "GAME AUDIO": "游戏音频",
-    "GAME EQ": "游戏 EQ",
-    "FPS EQ": "FPS EQ",
-    "Headphones connected": "已连接耳机",
-    "Connect headphones for direction": "连接耳机以获得方向性音频",
-    "Directional audio comes from the game. Use headphones and enable 3D Audio or HRTF in its audio settings.": "方向性音频来自游戏。请使用耳机，并在游戏音频设置中开启 3D 音频或 HRTF。"
+    "Equalizer unavailable on this device.": "此设备不支持均衡器。"
   }
 }
