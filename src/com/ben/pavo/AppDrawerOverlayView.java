@@ -73,6 +73,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
+    private static final String GALLERY_PKG = "com.ben.pavo.gallery";
     private static final String SCREEN_RECORDER_PKG = "com.ben.pavo.screenrecorder";
     private static final String FTP_PKG = "com.ben.pavo.ftp";
 
@@ -675,6 +676,10 @@ final class AppDrawerOverlayView extends FrameLayout {
         Apps.Entry files = new Apps.Entry(Loc.s(context, "File Manager"), FILE_MANAGER_PKG, "");
         files.icon = Apps.fileManagerIcon(px, accent);
         out.add(files);
+        Apps.Entry gallery = new Apps.Entry("Pavo " + Loc.s(context, "Gallery"),
+                GALLERY_PKG, "");
+        gallery.icon = Apps.galleryIcon(px, accent);
+        out.add(gallery);
         Apps.Entry recorder = new Apps.Entry(Loc.s(context, "Screen Recorder"),
                 SCREEN_RECORDER_PKG, "");
         recorder.icon = Apps.screenRecorderIcon(px, accent);
@@ -698,6 +703,7 @@ final class AppDrawerOverlayView extends FrameLayout {
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
+                || GALLERY_PKG.equals(pkg)
                 || SCREEN_RECORDER_PKG.equals(pkg) || FTP_PKG.equals(pkg)
                 || UPDATES_PKG.equals(pkg);
     }
@@ -782,6 +788,8 @@ final class AppDrawerOverlayView extends FrameLayout {
             intent = new Intent(context, BenchmarkActivity.class);
         } else if (FILE_MANAGER_PKG.equals(e.pkg)) {
             intent = new Intent(context, FileManagerActivity.class);
+        } else if (GALLERY_PKG.equals(e.pkg)) {
+            intent = new Intent(context, GalleryActivity.class);
         } else if (SCREEN_RECORDER_PKG.equals(e.pkg)) {
             intent = new Intent(context, ScreenRecorderActivity.class);
         } else if (FTP_PKG.equals(e.pkg)) {

@@ -276,7 +276,7 @@ public final class VideoPlayerActivity extends PavoGlassActivity {
         seekBar.setThumbTintList(android.content.res.ColorStateList.valueOf(ThemeColors.accent()));
         seekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0x33FFFFFF));
         seekBar.setFocusable(true);
-        seekBar.setFocusableInTouchMode(true);
+        seekBar.setFocusable(true);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
                 if (fromUser) timeLabel.setText(formatTime(progress) + " / "

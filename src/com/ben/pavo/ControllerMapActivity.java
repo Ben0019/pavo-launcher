@@ -794,7 +794,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         learn.setGravity(Gravity.CENTER);
         learn.setPadding(dp(10), dp(7), dp(10), dp(7));
         learn.setFocusable(true);
-        learn.setFocusableInTouchMode(true);
+        learn.setFocusable(true);
         learn.setBackground(Ui.rounded(ThemeColors.withAlpha(0x1B), dp(10),
                 ThemeColors.withAlpha(0x55), dp(1)));
         learn.setOnClickListener(new View.OnClickListener() {
@@ -856,7 +856,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
                 row.setPadding(dp(12), dp(8), dp(9), dp(8));
                 row.setBackground(Ui.rounded(0x14FFFFFF, dp(12), 0x26FFFFFF, dp(1)));
                 row.setFocusable(true);
-                row.setFocusableInTouchMode(true);
+                row.setFocusable(true);
                 row.setDefaultFocusHighlightEnabled(false);
                 TextView label = text(comboLabel(combo), 11.5f, 0xE6FFFFFF, true);
                 row.addView(label, new LinearLayout.LayoutParams(
@@ -936,7 +936,7 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         row.setPadding(dp(12), dp(5), dp(9), dp(5));
         row.setBackground(Ui.rounded(0x14FFFFFF, dp(12), 0x26FFFFFF, dp(1)));
         row.setFocusable(true);
-        row.setFocusableInTouchMode(true);
+        row.setFocusable(true);
         row.setDefaultFocusHighlightEnabled(false);
         row.setTag(source);
         row.setOnFocusChangeListener(new View.OnFocusChangeListener() {

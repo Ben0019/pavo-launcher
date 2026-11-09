@@ -550,7 +550,7 @@ public final class DisplayActivity extends PavoGlassActivity {
         close.setMinWidth(dp(34));
         close.setMinHeight(dp(32));
         close.setFocusable(true);
-        close.setFocusableInTouchMode(true);
+        close.setFocusable(true);
         close.setDefaultFocusHighlightEnabled(false);
         close.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -607,7 +607,7 @@ public final class DisplayActivity extends PavoGlassActivity {
         Row(LinearLayout parent, String label) {
             this.view = makeRowView(parent, label);
             view.setFocusable(true);
-            view.setFocusableInTouchMode(true);
+            view.setFocusable(true);
             view.setDefaultFocusHighlightEnabled(false);
             view.setOnFocusChangeListener(new OnFocusChangeListener() {
                 @Override

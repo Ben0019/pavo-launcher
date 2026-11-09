@@ -822,7 +822,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         detailScroll = scroll;
         scroll.setFocusable(true);
-        scroll.setFocusableInTouchMode(true);
+        scroll.setFocusable(true);
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -1142,7 +1142,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
             final TextView chip = text(labels[i], 10f, TEXT, true);
             chip.setGravity(Gravity.CENTER);
             chip.setFocusable(true);
-            chip.setFocusableInTouchMode(true);
+            chip.setFocusable(true);
             chip.setDefaultFocusHighlightEnabled(false);
             chip.setPadding(dp(7), dp(6), dp(7), dp(6));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -1196,7 +1196,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
 
         final SeekBar transparencyBar = new SeekBar(this);
         transparencyBar.setFocusable(true);
-        transparencyBar.setFocusableInTouchMode(true);
+        transparencyBar.setFocusable(true);
         transparencyBar.setMax(80);
         transparencyBar.setProgress(Math.max(0, transparency[0] - 20));
         transparencyBar.setProgressTintList(ColorStateList.valueOf(0xFFFFFFFF));
@@ -1471,7 +1471,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
 
     private void attachOptionFocus(final View view, final boolean accent) {
         view.setFocusable(true);
-        view.setFocusableInTouchMode(true);
+        view.setFocusable(true);
         view.setDefaultFocusHighlightEnabled(false);
         view.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override

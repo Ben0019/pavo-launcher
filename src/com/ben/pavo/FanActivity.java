@@ -583,7 +583,7 @@ public final class FanActivity extends PavoGlassActivity {
         holdBar.setSplitTrack(false);
         holdBar.setDefaultFocusHighlightEnabled(false);
         holdBar.setFocusable(true);
-        holdBar.setFocusableInTouchMode(true);
+        holdBar.setFocusable(true);
         holdBar.setMinimumHeight(dp(30));
         holdBar.setPadding(dp(12), dp(2), dp(12), dp(2));
         LinearLayout.LayoutParams holdBarLp = new LinearLayout.LayoutParams(
@@ -615,7 +615,7 @@ public final class FanActivity extends PavoGlassActivity {
         holdDutyBar.setSplitTrack(false);
         holdDutyBar.setDefaultFocusHighlightEnabled(false);
         holdDutyBar.setFocusable(true);
-        holdDutyBar.setFocusableInTouchMode(true);
+        holdDutyBar.setFocusable(true);
         holdDutyBar.setMinimumHeight(dp(30));
         holdDutyBar.setPadding(dp(12), dp(2), dp(12), dp(2));
         LinearLayout.LayoutParams dutyBarLp = new LinearLayout.LayoutParams(
@@ -710,7 +710,7 @@ public final class FanActivity extends PavoGlassActivity {
         demoChip.setPadding(dp(9), dp(4), dp(9), dp(4));
         demoChip.setContentDescription("Demo the fan airflow outline");
         demoChip.setFocusable(true);
-        demoChip.setFocusableInTouchMode(true);
+        demoChip.setFocusable(true);
         demoChip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -811,7 +811,7 @@ public final class FanActivity extends PavoGlassActivity {
         manualBar.setThumbOffset(0);
         manualBar.setSplitTrack(false);
         manualBar.setDefaultFocusHighlightEnabled(false);
-        manualBar.setFocusableInTouchMode(true);
+        manualBar.setFocusable(true);
         manualBar.setMinimumHeight(dp(32));
         manualBar.setPadding(dp(14), dp(2), dp(14), dp(2));
         manual.addView(manualBar, new LinearLayout.LayoutParams(
@@ -1061,7 +1061,7 @@ public final class FanActivity extends PavoGlassActivity {
         appSelector.setBackground(Ui.rounded(0x1EFFFFFF, dp(11), 0x33FFFFFF, dp(1)));
         appSelector.setClickable(true);
         appSelector.setFocusable(true);
-        appSelector.setFocusableInTouchMode(true);
+        appSelector.setFocusable(true);
         appSelector.setDefaultFocusHighlightEnabled(false);
         appSelector.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -1120,7 +1120,7 @@ public final class FanActivity extends PavoGlassActivity {
                 0x55FFC857, dp(1)));
         resetAppChip.setVisibility(View.GONE);
         resetAppChip.setFocusable(true);
-        resetAppChip.setFocusableInTouchMode(true);
+        resetAppChip.setFocusable(true);
         resetAppChip.setDefaultFocusHighlightEnabled(false);
         resetAppChip.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -1271,7 +1271,7 @@ public final class FanActivity extends PavoGlassActivity {
         chip.setMinHeight(dp(40));
         chip.setPadding(dp(4), dp(7), dp(4), dp(7));
         chip.setFocusable(true);
-        chip.setFocusableInTouchMode(true);
+        chip.setFocusable(true);
         chip.setClickable(true);
         chip.setDefaultFocusHighlightEnabled(false);
         final long[] downAt = {0L};

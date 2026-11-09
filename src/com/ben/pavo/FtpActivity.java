@@ -191,7 +191,7 @@ public final class FtpActivity extends PavoGlassActivity {
 
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
-        root.setFocusableInTouchMode(true);
+        root.setFocusable(true);
 
         GlassPanel sheet = new GlassPanel(this, null, ThemeColors.accent(), 0x4D0B0E14, 26, true);
         sheet.setClearGlass(true);

@@ -481,10 +481,13 @@ final class ControllerNav {
     private void decorate(View view) {
         if (view == null) return;
         if (view != root && navigable(view)) {
-            // A card opened after a touch is still in touch mode. Controller
-            // focus must be able to land immediately instead of waiting for
-            // the first hardware key press to leave touch mode.
-            view.setFocusableInTouchMode(true);
+            // Only opt into touch-mode focus when the window is already in
+            // controller (non-touch) mode. In touch mode this flag makes the
+            // first tap focus a control instead of activating it, and the
+            // startup requestFocus() would kick the window out of touch mode.
+            if (!activity.getWindow().getDecorView().isInTouchMode()) {
+                view.setFocusableInTouchMode(true);
+            }
         }
         if (view != root && navigable(view) && view.getForeground() == null) {
             view.setDefaultFocusHighlightEnabled(false);

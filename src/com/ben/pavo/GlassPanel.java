@@ -162,10 +162,8 @@ final class GlassPanel extends LinearLayout {
     }
 
     void setBackdrop(Backdrop b) {
-        if (backdrop != null && backdrop.bitmap != null
-                && (b == null || backdrop.bitmap != b.bitmap)) {
-            backdrop.bitmap.recycle();
-        }
+        // Do not recycle the previous bitmap here: the live-glass renderer and
+        // any in-flight draw may still be reading it. Let the GC reclaim it.
         backdrop = b;
         liquidEffect = sample && b != null && b.bitmap != null;
         // The scrim is derived from the backdrop itself. Recompute it whenever
@@ -407,7 +405,8 @@ final class GlassPanel extends LinearLayout {
 
         float radius = Math.min(radiusPx, Math.min(w, h) / 2f);
         rect.set(0, 0, w, h);
-        if (liquidEffect && backdrop != null) {
+        if (liquidEffect && backdrop != null && backdrop.bitmap != null
+                && !backdrop.bitmap.isRecycled()) {
             if (cardRenderer == null) {
                 cardRenderer = new GlassCardRenderer(this);
                 cardRenderer.setSaturation(backdropSaturation);
@@ -428,7 +427,8 @@ final class GlassPanel extends LinearLayout {
 
         Matrix glassMatrix = null;
         Bitmap background = null;
-        if (sample && backdrop != null && backdrop.bitmap != null) {
+        if (sample && backdrop != null && backdrop.bitmap != null
+                && !backdrop.bitmap.isRecycled()) {
             Bitmap blurred = backdrop.bitmap;
             if (blurred.getWidth() > 0 && blurred.getHeight() > 0) {
                 getLocationOnScreen(location);
@@ -539,7 +539,8 @@ final class GlassPanel extends LinearLayout {
     private void drawFrosted(Canvas canvas, float w, float h, float radius) {
         Bitmap background = null;
         Matrix matrix = null;
-        if (sample && backdrop != null && backdrop.bitmap != null) {
+        if (sample && backdrop != null && backdrop.bitmap != null
+                && !backdrop.bitmap.isRecycled()) {
             Bitmap blurred = backdrop.bitmap;
             if (blurred.getWidth() > 0 && blurred.getHeight() > 0) {
                 getLocationOnScreen(location);
@@ -557,7 +558,8 @@ final class GlassPanel extends LinearLayout {
             }
         }
         boolean liquidDrawn = false;
-        if (liquidEffect && backdrop != null) {
+        if (liquidEffect && backdrop != null && backdrop.bitmap != null
+                && !backdrop.bitmap.isRecycled()) {
             if (cardRenderer == null) {
                 cardRenderer = new GlassCardRenderer(this);
                 cardRenderer.setSaturation(backdropSaturation);

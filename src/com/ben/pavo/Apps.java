@@ -420,6 +420,49 @@ final class Apps {
         return b;
     }
 
+    static Bitmap galleryIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor(alpha(accent, 0x66));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+
+        RectF photo = new RectF(size * 0.20f, size * 0.24f, size * 0.80f, size * 0.76f);
+        Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fill.setColor(alpha(accent, 0x24));
+        c.drawRoundRect(photo, size * 0.06f, size * 0.06f, fill);
+
+        Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        line.setStyle(Paint.Style.STROKE);
+        line.setStrokeWidth(Math.max(1.4f, size * 0.036f));
+        line.setStrokeCap(Paint.Cap.ROUND);
+        line.setStrokeJoin(Paint.Join.ROUND);
+        line.setColor(alpha(accent, 0xD0));
+        c.drawRoundRect(photo, size * 0.06f, size * 0.06f, line);
+
+        Paint sun = new Paint(Paint.ANTI_ALIAS_FLAG);
+        sun.setColor(alpha(0xFFFFC857, 0xE0));
+        c.drawCircle(size * 0.62f, size * 0.39f, size * 0.055f, sun);
+
+        Path hills = new Path();
+        hills.moveTo(size * 0.24f, size * 0.68f);
+        hills.lineTo(size * 0.40f, size * 0.49f);
+        hills.lineTo(size * 0.53f, size * 0.63f);
+        hills.lineTo(size * 0.62f, size * 0.54f);
+        hills.lineTo(size * 0.76f, size * 0.68f);
+        line.setColor(alpha(accent, 0xA0));
+        line.setStrokeWidth(Math.max(1.2f, size * 0.03f));
+        c.drawPath(hills, line);
+        return b;
+    }
+
     static Bitmap screenRecorderIcon(int px, int accent) {
         int size = Math.max(24, px);
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);

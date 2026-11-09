@@ -347,7 +347,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
 
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
-        root.setFocusableInTouchMode(true);
+        root.setFocusable(true);
 
         GlassPanel sheet = new GlassPanel(this, null, accent(), 0x4D0B0E14, 26, true);
         sheet.setClearGlass(true);
@@ -916,7 +916,7 @@ public final class DeviceHealthActivity extends PavoGlassActivity {
     private void addNav(final View v) {
         if (v == null) return;
         v.setFocusable(true);
-        v.setFocusableInTouchMode(true);
+        v.setFocusable(true);
         v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View view, boolean focused) {

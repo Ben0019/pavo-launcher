@@ -681,7 +681,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
         disableDefaultFocusHighlight(root);
         // The controller owns a data cursor, not Android focus. Let the root
         // hold focus so labels and buttons never draw a second, stray ring.
-        root.setFocusableInTouchMode(true);
+        root.setFocusable(true);
         root.requestFocus();
         main.postDelayed(new Runnable() {
             @Override public void run() {
@@ -735,7 +735,7 @@ public final class FileManagerActivity extends PavoGlassActivity {
         }
         if (target == null) target = firstFocusable(controllerRoot);
         if (target != null) {
-            target.setFocusableInTouchMode(true);
+            target.setFocusable(true);
             target.requestFocus();
             Haptics.tick(target);
         }

@@ -209,7 +209,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         enableChip.setGravity(Gravity.CENTER);
         enableChip.setSingleLine(true);
         enableChip.setFocusable(true);
-        enableChip.setFocusableInTouchMode(true);
+        enableChip.setFocusable(true);
         enableChip.setPadding(dp(12), dp(10), dp(12), dp(10));
         enableChip.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -293,7 +293,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         close.setGravity(Gravity.CENTER);
         close.setIncludeFontPadding(false);
         close.setFocusable(true);
-        close.setFocusableInTouchMode(true);
+        close.setFocusable(true);
         close.setPadding(dp(10), 0, dp(2), 0);
         close.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -343,7 +343,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         bar.setSplitTrack(false);
         bar.setPadding(dp(8), dp(2), dp(8), dp(2));
         bar.setFocusable(true);
-        bar.setFocusableInTouchMode(true);
+        bar.setFocusable(true);
         bar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, boolean hasFocus) {
@@ -398,7 +398,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             TextView chip = text(Loc.s(this, PRESET_NAMES[i]), 9f, TEXT, true);
             chip.setGravity(Gravity.CENTER);
             chip.setFocusable(true);
-            chip.setFocusableInTouchMode(true);
+            chip.setFocusable(true);
             chip.setPadding(dp(4), dp(7), dp(4), dp(7));
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override

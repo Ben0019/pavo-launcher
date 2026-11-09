@@ -164,6 +164,7 @@ public final class MainActivity extends Activity {
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
+    private static final String GALLERY_PKG = "com.ben.pavo.gallery";
     private static final String SCREEN_RECORDER_PKG = "com.ben.pavo.screenrecorder";
     private static final String FTP_PKG = "com.ben.pavo.ftp";
 
@@ -374,6 +375,7 @@ public final class MainActivity extends Activity {
     private Apps.Entry deviceHealthEntry;
     private Apps.Entry benchmarkEntry;
     private Apps.Entry fileManagerEntry;
+    private Apps.Entry galleryEntry;
     private Apps.Entry screenRecorderEntry;
     private Apps.Entry ftpEntry;
     private Apps.Entry controllerMapEntry;
@@ -2346,6 +2348,7 @@ public final class MainActivity extends Activity {
         if (DEVICE_HEALTH_PKG.equals(pkg)) return deviceHealthEntry();
         if (BENCHMARK_PKG.equals(pkg)) return benchmarkEntry();
         if (FILE_MANAGER_PKG.equals(pkg)) return fileManagerEntry();
+        if (GALLERY_PKG.equals(pkg)) return galleryEntry();
         if (SCREEN_RECORDER_PKG.equals(pkg)) return screenRecorderEntry();
         if (FTP_PKG.equals(pkg)) return ftpEntry();
         for (Apps.Entry e : allApps) {
@@ -2367,6 +2370,7 @@ public final class MainActivity extends Activity {
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
                 || BENCHMARK_PKG.equals(pkg) || FILE_MANAGER_PKG.equals(pkg)
+                || GALLERY_PKG.equals(pkg)
                 || SCREEN_RECORDER_PKG.equals(pkg) || FTP_PKG.equals(pkg);
     }
 
@@ -2487,6 +2491,16 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return fileManagerEntry;
+    }
+
+    private Apps.Entry galleryEntry() {
+        if (galleryEntry == null) {
+            galleryEntry = new Apps.Entry("Pavo " + Loc.s(MainActivity.this, "Gallery"),
+                    GALLERY_PKG, "");
+            galleryEntry.icon = Apps.galleryIcon(Ui.dp(this, 72),
+                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
+        }
+        return galleryEntry;
     }
 
     private Apps.Entry screenRecorderEntry() {
@@ -6652,6 +6666,10 @@ public final class MainActivity extends Activity {
         }
         if (FILE_MANAGER_PKG.equals(item.pkg)) {
             startBuiltIn(new Intent(this, FileManagerActivity.class), source);
+            return;
+        }
+        if (GALLERY_PKG.equals(item.pkg)) {
+            startBuiltIn(new Intent(this, GalleryActivity.class), source);
             return;
         }
         if (SCREEN_RECORDER_PKG.equals(item.pkg)) {
@@ -10825,6 +10843,12 @@ public final class MainActivity extends Activity {
                 || fileManager.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
             drawerApps.add(fileManager);
         }
+        Apps.Entry gallery = galleryEntry();
+        if (q.isEmpty()
+                || gallery.label.toLowerCase(Locale.getDefault()).contains(q)
+                || gallery.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
+            drawerApps.add(gallery);
+        }
         Apps.Entry recorder = screenRecorderEntry();
         if (q.isEmpty()
                 || recorder.label.toLowerCase(Locale.getDefault()).contains(q)
@@ -10992,6 +11016,11 @@ public final class MainActivity extends Activity {
             if (v.entry != null && FILE_MANAGER_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
                 startBuiltIn(new Intent(MainActivity.this, FileManagerActivity.class), v);
+                return;
+            }
+            if (v.entry != null && GALLERY_PKG.equals(v.entry.pkg)) {
+                Haptics.click(v);
+                startBuiltIn(new Intent(MainActivity.this, GalleryActivity.class), v);
                 return;
             }
             if (v.entry != null && SCREEN_RECORDER_PKG.equals(v.entry.pkg)) {
@@ -11588,6 +11617,10 @@ public final class MainActivity extends Activity {
                                 Ui.dp(MainActivity.this, 72), wallpaper.accent());
                         fileManagerEntry = new Apps.Entry(Loc.s(MainActivity.this, "File Manager"), FILE_MANAGER_PKG, "");
                         fileManagerEntry.icon = Apps.fileManagerIcon(
+                                Ui.dp(MainActivity.this, 72), wallpaper.accent());
+                        galleryEntry = new Apps.Entry("Pavo " + Loc.s(MainActivity.this, "Gallery"),
+                    GALLERY_PKG, "");
+                        galleryEntry.icon = Apps.galleryIcon(
                                 Ui.dp(MainActivity.this, 72), wallpaper.accent());
                         screenRecorderEntry = new Apps.Entry(Loc.s(MainActivity.this, "Screen Recorder"),
                                 SCREEN_RECORDER_PKG, "");

@@ -2646,7 +2646,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     private void addFocusable(final View view, boolean focusRing) {
         if (focusRing) {
             view.setFocusable(true);
-            view.setFocusableInTouchMode(true);
+            view.setFocusable(true);
             view.setDefaultFocusHighlightEnabled(false);
             StateListDrawable ring = new StateListDrawable();
             ring.addState(new int[]{android.R.attr.state_focused},
@@ -2716,7 +2716,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         bar.setProgressBackgroundTintList(
                 android.content.res.ColorStateList.valueOf(0x33FFFFFF));
         bar.setFocusable(true);
-        bar.setFocusableInTouchMode(true);
+        bar.setFocusable(true);
         bar.setDefaultFocusHighlightEnabled(false);
         bar.setOnTouchListener(new View.OnTouchListener() {
             @Override
