@@ -34,6 +34,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -108,6 +109,17 @@ public final class GalleryActivity extends PavoGlassActivity {
     private TextView clearChip;
     private int stickDir = -1;
     private long lastStickMove;
+    private boolean aDown;
+    private boolean aLongFired;
+    private final Runnable aLongPress = new Runnable() {
+        @Override public void run() {
+            if (!aDown) return;
+            aDown = false;
+            aLongFired = true;
+            selectFocused();
+            Haptics.click(grid);
+        }
+    };
     private final Set<String> selectedPaths = new HashSet<>();
     private boolean selectionMode;
     private final List<TextView> tabChips = new ArrayList<>();
@@ -160,6 +172,9 @@ public final class GalleryActivity extends PavoGlassActivity {
 
     @Override
     protected void onPause() {
+        main.removeCallbacks(aLongPress);
+        aDown = false;
+        aLongFired = false;
         if (nav != null) nav.cancel();
         super.onPause();
     }
@@ -251,22 +266,34 @@ public final class GalleryActivity extends PavoGlassActivity {
             selectFocused();
             return true;
         }
-        if ((code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_DPAD_CENTER
-                || code == KeyEvent.KEYCODE_ENTER) && down && !repeat) {
-            if (!gridActive) {
+        if (code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_DPAD_CENTER
+                || code == KeyEvent.KEYCODE_ENTER) {
+            if (down && !repeat) {
                 View focus = getCurrentFocus();
-                if (focus == null || focus == grid) {
-                    gridActive = true;
-                    gridFocus = Math.max(0, gridFocus);
-                    grid.setSelection(gridFocus);
-                    updateFocusRing(grid);
-                    activateFocused();
+                boolean gridContext = gridActive || focus == null || focus == grid;
+                if (gridContext) {
+                    if (!gridActive) {
+                        gridActive = true;
+                        gridFocus = Math.max(0, gridFocus);
+                        grid.setSelection(gridFocus);
+                        updateFocusRing(grid);
+                    }
+                    aDown = true;
+                    aLongFired = false;
+                    main.removeCallbacks(aLongPress);
+                    main.postDelayed(aLongPress,
+                            ViewConfiguration.getLongPressTimeout());
                     return true;
                 }
-            }
-            if (gridActive) {
-                activateFocused();
-                return true;
+            } else if (!down) {
+                if (aDown || aLongFired) {
+                    main.removeCallbacks(aLongPress);
+                    boolean fire = aDown && !aLongFired;
+                    aDown = false;
+                    aLongFired = false;
+                    if (fire) activateFocused();
+                    return true;
+                }
             }
         }
         if (isDirection(code)) {
@@ -610,6 +637,10 @@ public final class GalleryActivity extends PavoGlassActivity {
         rootView.getLocationOnScreen(self);
         int left = loc[0] - self[0];
         int top = loc[1] - self[1];
+        boolean accentFilled = focus == deleteChip
+                || (tabChips.contains(focus) && folderId == null
+                        && tab == tabChips.indexOf(focus));
+        focusRing.setAccent(accentFilled ? 0xFFFFFFFF : accent);
         focusRing.setRingRadius(FocusRingDrawable.radiusFor(focus, this));
         focusRing.setBounds(left, top, left + focus.getWidth(), top + focus.getHeight());
     }
