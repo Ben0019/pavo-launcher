@@ -1384,41 +1384,29 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private int cachedLevel = -1;
     private int cachedWidth;
     private int cachedHeight;
-    private boolean cachedSpread;
 
     /**
-     * Window size for the current scale, dropping metrics when the card is too
-     * small for readable text. Returns {width, height, renderScale*1000}.
-     * The measured size is cached per detail level so pinch frames that stay in
-     * the same level cost nothing but a window resize.
+     * Continuous geometry: the card is the full-width form scaled by the pinch
+     * factor, so every scale value gives a distinct size. Only the row set
+     * changes with the detail level, and only then is the content re-measured.
+     * Returns {width, height, renderScale*1000}.
      */
     private int[] scaledWindowSize() {
-        float render = scale;
         if (panel != null && !panel.horizontal()) {
             int level = smoothLevel(scale);
-            boolean spread = scale >= 0.99f;
-            if (scale < 0.9f) render = 0.9f;
-            if (level != cachedLevel || spread != cachedSpread || cachedWidth == 0) {
+            if (level != cachedLevel || cachedWidth == 0) {
                 panel.setDetailLevel(level);
-                panel.setSpread(spread);
-                int wantW;
-                if (spread) {
-                    wantW = baseWidthPx;
-                } else {
-                    wantW = panel.naturalWidthPx();
-                    if (panel.graphShown()) wantW = Math.max(wantW, Ui.dp(uiContext, 150));
-                    wantW = Math.max(Ui.dp(uiContext, 72),
-                            Math.min(baseWidthPx, wantW));
-                }
+                panel.setSpread(true);
                 FrameLayout.LayoutParams plp = panel.getLayoutParams()
                         instanceof FrameLayout.LayoutParams
                         ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
-                if (plp == null) plp = new FrameLayout.LayoutParams(wantW, baseHeightPx);
-                if (plp.width != wantW) {
-                    plp.width = wantW;
+                if (plp == null) plp = new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx);
+                if (plp.width != baseWidthPx) {
+                    plp.width = baseWidthPx;
                     panel.setLayoutParams(plp);
                 }
-                panel.measure(View.MeasureSpec.makeMeasureSpec(wantW, View.MeasureSpec.EXACTLY),
+                panel.measure(
+                        View.MeasureSpec.makeMeasureSpec(baseWidthPx, View.MeasureSpec.EXACTLY),
                         View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
                 int contentH = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
                 if (plp.height != contentH) {
@@ -1426,15 +1414,14 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     panel.setLayoutParams(plp);
                 }
                 cachedLevel = level;
-                cachedSpread = spread;
-                cachedWidth = wantW;
+                cachedWidth = baseWidthPx;
                 cachedHeight = contentH;
             }
-            return new int[]{Math.round(cachedWidth * render),
-                    Math.round(cachedHeight * render), Math.round(render * 1000f)};
+            return new int[]{Math.round(cachedWidth * scale),
+                    Math.round(cachedHeight * scale), Math.round(scale * 1000f)};
         }
-        return new int[]{Math.round(baseWidthPx * render),
-                Math.round(baseHeightPx * render), Math.round(render * 1000f)};
+        return new int[]{Math.round(baseWidthPx * scale),
+                Math.round(baseHeightPx * scale), Math.round(scale * 1000f)};
     }
 
     private void applyScaleGeometry(boolean keepCenter) {
