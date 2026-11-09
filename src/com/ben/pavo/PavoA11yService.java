@@ -766,6 +766,7 @@ public final class PavoA11yService extends AccessibilityService {
                 }
                 rgbBootRestoreScheduled = false;
                 triggerRgbWake();
+                AudioEq.apply(getApplicationContext());
             }
         }, 800L);
     }
@@ -842,6 +843,11 @@ public final class PavoA11yService extends AccessibilityService {
         instance = this;
         connected = true;
         uiContext = Ui.adaptiveContext(this);
+        new Thread(new Runnable() {
+            @Override public void run() {
+                AudioEq.apply(getApplicationContext());
+            }
+        }, "pavo-eq").start();
         // Host the fan loop here: an accessibility binding keeps the process
         // alive without a foreground service or a persistent notification.
         Prefs fanPrefs = new Prefs(this);

@@ -155,6 +155,7 @@ public final class MainActivity extends Activity {
     private static final String CONTROLLER_MAP_PKG = "com.ben.pavo.controllermap";
     private static final String PERF_TUNER_PKG = "com.ben.pavo.perftuner";
     private static final String DISPLAY_PKG = "com.ben.pavo.display";
+    private static final String SOUND_PKG = "com.ben.pavo.sound";
     private static final String RGB_PKG = "com.ben.pavo.rgb";
     private static final String FAN_PKG = "com.ben.pavo.fan";
     private static final String UPDATES_PKG = "com.ben.pavo.updates";
@@ -364,6 +365,7 @@ public final class MainActivity extends Activity {
     private final List<Apps.Entry> drawerApps = new ArrayList<>();
     private Apps.Entry perfLogEntry;
     private Apps.Entry displayEntry;
+    private Apps.Entry soundEntry;
     private Apps.Entry rgbEntry;
     private Apps.Entry fanEntry;
     private Apps.Entry updatesEntry;
@@ -2335,6 +2337,7 @@ public final class MainActivity extends Activity {
         if (CONTROLLER_MAP_PKG.equals(pkg)) return controllerMapEntry();
         if (PERF_TUNER_PKG.equals(pkg)) return perfTunerEntry();
         if (DISPLAY_PKG.equals(pkg)) return displayEntry();
+        if (SOUND_PKG.equals(pkg)) return soundEntry();
         if (RGB_PKG.equals(pkg)) return rgbEntry();
         if (FAN_PKG.equals(pkg)) return fanEntry();
         if (UPDATES_PKG.equals(pkg)) return updatesEntry();
@@ -2358,6 +2361,7 @@ public final class MainActivity extends Activity {
     private boolean isBuiltinApp(String pkg) {
         return PERF_LOG_PKG.equals(pkg) || CONTROLLER_MAP_PKG.equals(pkg)
                 || PERF_TUNER_PKG.equals(pkg) || DISPLAY_PKG.equals(pkg)
+                || SOUND_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
                 || UPDATES_PKG.equals(pkg)
                 || OVERLAY_PKG.equals(pkg)
@@ -2400,6 +2404,15 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return displayEntry;
+    }
+
+    private Apps.Entry soundEntry() {
+        if (soundEntry == null) {
+            soundEntry = new Apps.Entry(Loc.s(MainActivity.this, "Sound Tuner"), SOUND_PKG, "");
+            soundEntry.icon = Apps.soundIcon(Ui.dp(this, 72),
+                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
+        }
+        return soundEntry;
     }
 
     private Apps.Entry rgbEntry() {
@@ -2511,6 +2524,9 @@ public final class MainActivity extends Activity {
         }
         if (displayEntry != null) {
             displayEntry.icon = Apps.displayIcon(px, accent);
+        }
+        if (soundEntry != null) {
+            soundEntry.icon = Apps.soundIcon(px, accent);
         }
         if (overlayEntry != null) {
             overlayEntry.icon = Apps.overlayIcon(px, accent);
@@ -6596,6 +6612,10 @@ public final class MainActivity extends Activity {
         }
         if (DISPLAY_PKG.equals(item.pkg)) {
             startBuiltIn(new Intent(this, DisplayActivity.class), source);
+            return;
+        }
+        if (SOUND_PKG.equals(item.pkg)) {
+            startBuiltIn(new Intent(this, SoundTunerActivity.class), source);
             return;
         }
         if (RGB_PKG.equals(item.pkg)) {
@@ -10747,6 +10767,12 @@ public final class MainActivity extends Activity {
                 || displayEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
             drawerApps.add(displayEntry);
         }
+        Apps.Entry sound = soundEntry();
+        if (q.isEmpty()
+                || sound.label.toLowerCase(Locale.getDefault()).contains(q)
+                || sound.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
+            drawerApps.add(sound);
+        }
         if (controllerMapEntry != null && (q.isEmpty()
                 || controllerMapEntry.label.toLowerCase(Locale.getDefault()).contains(q)
                 || controllerMapEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
@@ -10926,6 +10952,11 @@ public final class MainActivity extends Activity {
             if (v.entry != null && DISPLAY_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
                 startBuiltIn(new Intent(MainActivity.this, DisplayActivity.class), v);
+                return;
+            }
+            if (v.entry != null && SOUND_PKG.equals(v.entry.pkg)) {
+                Haptics.click(v);
+                startBuiltIn(new Intent(MainActivity.this, SoundTunerActivity.class), v);
                 return;
             }
             if (v.entry != null && RGB_PKG.equals(v.entry.pkg)) {
@@ -11537,6 +11568,9 @@ public final class MainActivity extends Activity {
                         displayEntry = new Apps.Entry(Loc.s(MainActivity.this, "Display"), DISPLAY_PKG, "");
                         displayEntry.icon = Apps.displayIcon(
                                 Ui.dp(MainActivity.this, 72), wallpaper.accent());
+                        soundEntry = new Apps.Entry(Loc.s(MainActivity.this, "Sound Tuner"), SOUND_PKG, "");
+                        soundEntry.icon = Apps.soundIcon(
+                                Ui.dp(MainActivity.this, 72), wallpaper.accent());
                         rgbEntry = new Apps.Entry(Loc.s(MainActivity.this, "RGB Lighting"), RGB_PKG, "");
                         rgbEntry.icon = Apps.rgbIcon(
                                 Ui.dp(MainActivity.this, 72), wallpaper.accent());
@@ -11602,6 +11636,8 @@ public final class MainActivity extends Activity {
             Apps.Entry e = findPkg(pkg);
             if (e != null && favUsed.add(e.pkg)) page.add(Item.app(e.pkg, e.activity));
         }
+        Apps.Entry sound = soundEntry();
+        if (sound != null && favUsed.add(sound.pkg)) page.add(Item.app(sound.pkg, sound.activity));
         for (Apps.Entry e : allApps) {
             if (page.size() >= capacity()) break;
             if (favUsed.add(e.pkg)) page.add(Item.app(e.pkg, e.activity));

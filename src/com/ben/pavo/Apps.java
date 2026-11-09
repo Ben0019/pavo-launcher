@@ -598,6 +598,37 @@ final class Apps {
         return b;
     }
 
+    /** Five-bar equalizer glyph for the built-in Sound Tuner app. */
+    static Bitmap soundIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+
+        Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bar.setStrokeWidth(Math.max(2f, size * 0.075f));
+        bar.setStrokeCap(Paint.Cap.ROUND);
+        int[] colors = {0xFF8BE9FF, 0xFF69D98B, 0xFFFFC857,
+                0xFFFF8A80, 0xFFD26BFF};
+        float[] heights = {0.28f, 0.52f, 0.72f, 0.46f, 0.62f};
+        for (int i = 0; i < colors.length; i++) {
+            bar.setColor(colors[i]);
+            float x = size * (0.22f + i * 0.14f);
+            float mid = size * 0.50f;
+            float half = size * heights[i] * 0.5f;
+            c.drawLine(x, mid - half, x, mid + half, bar);
+        }
+        return b;
+    }
+
     /** Fan / airflow glyph for the built-in Fan Control app. */
     static Bitmap fanIcon(int px, int accent) {
         int size = Math.max(24, px);

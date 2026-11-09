@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ben.pavo"
-    android:versionCode="239"
-    android:versionName="1.0.43">
+    android:versionCode="240"
+    android:versionName="1.0.44">
 
     <uses-sdk
         android:minSdkVersion="31"
@@ -232,6 +232,18 @@
             android:screenOrientation="user"
             android:stateNotNeeded="true"
             android:taskAffinity="com.ben.pavo.display"
+            android:theme="@style/Theme.Pavo.Transparent" />
+
+        <activity
+            android:name=".SoundTunerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="Sound Tuner"
+            android:launchMode="singleTask"
+            android:screenOrientation="user"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.ben.pavo.sound"
             android:theme="@style/Theme.Pavo.Transparent" />
 
         <activity

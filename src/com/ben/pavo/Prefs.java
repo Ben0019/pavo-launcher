@@ -327,6 +327,13 @@ final class Prefs {
     boolean perfFan() { return sp.getBoolean("perf_fan", true); }
     boolean perfRam() { return sp.getBoolean("perf_ram", true); }
     boolean perfCores() { return sp.getBoolean("perf_cores", true); }
+
+    // System-wide five-band equalizer.
+    static final int EQ_BANDS = 5;
+    boolean eqEnabled() { return sp.getBoolean("eq_enabled", false); }
+    int eqBand(int index) {
+        return clamp(sp.getInt("eq_band" + clamp(index, 0, EQ_BANDS - 1), 0), -1500, 1500);
+    }
     String perfControllerRaw() {
         return sp.getString("perf_controller_raw", DEFAULT_CONTROLLER_RAW);
     }
@@ -816,6 +823,11 @@ final class Prefs {
     void setPerfBattery(boolean v) { sp.edit().putBoolean("perf_battery", v).apply(); }
     void setPerfFan(boolean v) { sp.edit().putBoolean("perf_fan", v).apply(); }
     void setPerfRam(boolean v) { sp.edit().putBoolean("perf_ram", v).apply(); }
+    void setEqEnabled(boolean v) { sp.edit().putBoolean("eq_enabled", v).apply(); }
+    void setEqBand(int index, int millibels) {
+        sp.edit().putInt("eq_band" + clamp(index, 0, EQ_BANDS - 1),
+                clamp(millibels, -1500, 1500)).apply();
+    }
     void setPerfCores(boolean v) {
         android.content.SharedPreferences.Editor e = sp.edit().putBoolean("perf_cores", v);
         // Changing cores while the strip is active becomes the state the panel

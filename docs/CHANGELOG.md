@@ -2,6 +2,15 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.44 — 09 Nov 2026
+
+### Sound Tuner
+
+- New built-in Sound Tuner app with a system-wide five-band equalizer that applies to every app.
+- Live EQ curve, per-band ±15 dB sliders, and Flat, Bass, Vocal, Warm, Bright and Treble presets.
+- The chosen EQ is restored automatically after reboot and can be switched off at any time.
+- Translated into all supported languages.
+
 ## 1.0.43 — 09 Nov 2026
 
 ### Setup and wallpaper

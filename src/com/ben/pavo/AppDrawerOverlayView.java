@@ -63,6 +63,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static final String PERF_TUNER_PKG = "com.ben.pavo.perftuner";
     private static final String PERF_LOG_PKG = "com.ben.pavo.perflogs";
     private static final String DISPLAY_PKG = "com.ben.pavo.display";
+    private static final String SOUND_PKG = "com.ben.pavo.sound";
     private static final String CONTROLLER_PKG = "com.ben.pavo.controllermap";
     private static final String RGB_PKG = "com.ben.pavo.rgb";
     private static final String FAN_PKG = "com.ben.pavo.fan";
@@ -646,6 +647,9 @@ final class AppDrawerOverlayView extends FrameLayout {
         Apps.Entry display = new Apps.Entry(Loc.s(context, "Display"), DISPLAY_PKG, "");
         display.icon = Apps.displayIcon(px, accent);
         out.add(display);
+        Apps.Entry sound = new Apps.Entry(Loc.s(context, "Sound Tuner"), SOUND_PKG, "");
+        sound.icon = Apps.soundIcon(px, accent);
+        out.add(sound);
         Apps.Entry controller = new Apps.Entry(Loc.s(context, "Controller Remapper"), CONTROLLER_PKG, "");
         controller.icon = Apps.controllerMapIcon(px, accent);
         out.add(controller);
@@ -688,7 +692,8 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static boolean isBuiltinPkg(String pkg) {
         return QUICK_PKG.equals(pkg)
                 || PERF_TUNER_PKG.equals(pkg) || PERF_LOG_PKG.equals(pkg)
-                || DISPLAY_PKG.equals(pkg) || CONTROLLER_PKG.equals(pkg)
+                || DISPLAY_PKG.equals(pkg) || SOUND_PKG.equals(pkg)
+                || CONTROLLER_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
                 || OVERLAY_PKG.equals(pkg)
                 || TOUCH_MAP_PKG.equals(pkg) || DEVICE_HEALTH_PKG.equals(pkg)
@@ -757,6 +762,8 @@ final class AppDrawerOverlayView extends FrameLayout {
             intent = new Intent(context, PerfLogActivity.class);
         } else if (DISPLAY_PKG.equals(e.pkg)) {
             intent = new Intent(context, DisplayActivity.class);
+        } else if (SOUND_PKG.equals(e.pkg)) {
+            intent = new Intent(context, SoundTunerActivity.class);
         } else if (CONTROLLER_PKG.equals(e.pkg)) {
             intent = new Intent(context, ControllerMapActivity.class);
         } else if (RGB_PKG.equals(e.pkg)) {
