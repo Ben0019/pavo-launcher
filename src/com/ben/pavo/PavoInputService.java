@@ -625,6 +625,7 @@ public final class PavoInputService extends Service {
                 }
                 if (key.equals(comboCaptureFirst)) return;
                 String combo = comboCaptureFirst + "+" + key;
+                final String movedCombo = takeComboFrom(prefs, target, combo);
                 if (target == CAPTURE_PERF_COMBO) prefs.setPerfCombo(combo);
                 else if (target == CAPTURE_QUICK_COMBO) prefs.setQuickCombo(combo);
                 else prefs.setDrawerCombo(combo);
@@ -638,12 +639,14 @@ public final class PavoInputService extends Service {
                 main.post(new Runnable() {
                     @Override
                     public void run() {
-                        LToast.makeText(PavoInputService.this, "Combo: " + label,
+                        LToast.makeText(PavoInputService.this, "Combo: " + label
+                                + (movedCombo == null ? "" : "  ·  moved from " + movedCombo),
                                 Toast.LENGTH_SHORT).show();
                     }
                 });
                 return;
             }
+            final String movedFrom = takeShortcutFrom(prefs, target, key);
             if (target == CAPTURE_DRAWER) prefs.setDrawerControllerRaw(key);
             else if (target == CAPTURE_PERFLOG) prefs.setPerfLogControllerRaw(key);
             else if (target == CAPTURE_QUICK) prefs.setQuickControllerRaw(key);
@@ -659,7 +662,8 @@ public final class PavoInputService extends Service {
                             : target == CAPTURE_PERFLOG ? "Perf Log popup shortcut: "
                             : target == CAPTURE_QUICK ? "Quick controls shortcut: "
                             : "Controller shortcut: ";
-                    LToast.makeText(PavoInputService.this, prefix + label,
+                    LToast.makeText(PavoInputService.this, prefix + label
+                            + (movedFrom == null ? "" : "  ·  moved from " + movedFrom),
                             Toast.LENGTH_SHORT).show();
                 }
             });
@@ -671,7 +675,7 @@ public final class PavoInputService extends Service {
         if (swallowCaptureUp != null) {
             if (key.equals(swallowCaptureUp) && up) {
                 swallowCaptureUp = null;
-                sendSwallow(drawerOverlayVisible);
+                updateSwallow();
             }
             return;
         }
@@ -797,6 +801,48 @@ public final class PavoInputService extends Service {
             default:
                 return raw.replace('_', ' ');
         }
+    }
+
+    /**
+     * A button can only own one action: steal it from whichever surface had it
+     * and report the old owner so the toast can say where it moved from.
+     */
+    private static String takeShortcutFrom(Prefs prefs, int target, String key) {
+        String from = null;
+        if (target != CAPTURE_PERF && key.equals(prefs.perfControllerRaw())) {
+            prefs.setPerfControllerRaw("");
+            from = "performance overlay";
+        }
+        if (target != CAPTURE_DRAWER && key.equals(prefs.drawerControllerRaw())) {
+            prefs.setDrawerControllerRaw("");
+            from = "app drawer";
+        }
+        if (target != CAPTURE_PERFLOG && key.equals(prefs.perfLogControllerRaw())) {
+            prefs.setPerfLogControllerRaw("");
+            from = "Perf Log popup";
+        }
+        if (target != CAPTURE_QUICK && key.equals(prefs.quickControllerRaw())) {
+            prefs.setQuickControllerRaw("");
+            from = "quick controls";
+        }
+        return from;
+    }
+
+    private static String takeComboFrom(Prefs prefs, int target, String combo) {
+        String from = null;
+        if (target != CAPTURE_PERF_COMBO && combo.equals(prefs.perfCombo())) {
+            prefs.setPerfCombo("");
+            from = "performance overlay";
+        }
+        if (target != CAPTURE_DRAWER_COMBO && combo.equals(prefs.drawerCombo())) {
+            prefs.setDrawerCombo("");
+            from = "app drawer";
+        }
+        if (target != CAPTURE_QUICK_COMBO && combo.equals(prefs.quickCombo())) {
+            prefs.setQuickCombo("");
+            from = "quick controls";
+        }
+        return from;
     }
 
     /** Two-button combos, checked before the single-button shortcuts. */
