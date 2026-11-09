@@ -43,6 +43,10 @@ final class PerfOverlayView extends LinearLayout {
     private TextView battery;
     private LinearLayout fanRow;
     private TextView fanDuty;
+    private LinearLayout headerRow;
+    private TextView fpsLabel;
+    private Prefs lastPrefs;
+    private int detailLevel = 4;
     private TextView lockIcon;
     private TextView editDoneBar;
     private Runnable editDoneAction;
@@ -105,6 +109,7 @@ final class PerfOverlayView extends LinearLayout {
         battery.setBackground(Ui.rounded(0x22FFFFFF, dp(9)));
         header.addView(battery);
 
+        headerRow = header;
         addView(header, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -161,7 +166,8 @@ final class PerfOverlayView extends LinearLayout {
         fpsBlock = new LinearLayout(c);
         fpsBlock.setOrientation(VERTICAL);
         fpsRow = metricRow();
-        addMetricLabel(fpsRow, "FPS");
+        fpsLabel = addMetricLabel(fpsRow, "FPS");
+        fpsLabel.setVisibility(View.GONE);
         fpsValue = text("--", 22f, TEXT, true);
         fpsValue.setGravity(Gravity.CENTER_VERTICAL);
         fpsRow.addView(fpsValue, new LinearLayout.LayoutParams(
@@ -452,7 +458,15 @@ final class PerfOverlayView extends LinearLayout {
         }
     }
 
+    /** Detail level chosen from the overlay size: 0 = FPS only, 4 = everything. */
+    void setDetailLevel(int level) {
+        if (detailLevel == level) return;
+        detailLevel = level;
+        if (lastPrefs != null) applyPrefs(lastPrefs);
+    }
+
     void applyPrefs(Prefs p) {
+        lastPrefs = p;
         setPanelAlpha(p.perfOverlayAlpha());
         if (horizontal) {
             renderStrip(lastStats);
@@ -460,29 +474,46 @@ final class PerfOverlayView extends LinearLayout {
             requestLayout();
             return;
         }
-        cpuTemp.setVisibility(p.perfCpuTemp() ? VISIBLE : GONE);
-        cpuClock.setVisibility(p.perfCpuClock() ? VISIBLE : GONE);
-        cpuUsage.setVisibility(p.perfCpuUsage() ? VISIBLE : GONE);
-        cpuRow.setVisibility(p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()
-                ? VISIBLE : GONE);
+        int lvl = detailLevel;
+        boolean showHeader = lvl >= 1;
+        boolean cpuTempOn = p.perfCpuTemp() && lvl >= 1;
+        boolean gpuTempOn = p.perfGpuTemp() && lvl >= 2;
+        boolean battOn = p.perfBattery() && lvl >= 2;
+        boolean cpuUsageOn = p.perfCpuUsage() && lvl >= 3;
+        boolean gpuUsageOn = p.perfGpuUsage() && lvl >= 3;
+        boolean cpuClockOn = p.perfCpuClock() && lvl >= 4;
+        boolean gpuClockOn = p.perfGpuClock() && lvl >= 4;
+        boolean netOn = p.perfNet() && lvl >= 3;
+        boolean ramOn = p.perfRam() && lvl >= 3;
+        boolean fanOn = p.perfFan() && lvl >= 3;
+        boolean graphOn = p.perfFpsGraph() && lvl >= 3;
+        boolean coresOn = p.perfCores() && lvl >= 4;
+        boolean fpsOn = p.perfFps() || lvl == 0;   // the number never disappears
 
-        gpuTemp.setVisibility(p.perfGpuTemp() ? VISIBLE : GONE);
-        gpuClock.setVisibility(p.perfGpuClock() ? VISIBLE : GONE);
-        gpuUsage.setVisibility(p.perfGpuUsage() ? VISIBLE : GONE);
-        gpuRow.setVisibility(p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()
-                ? VISIBLE : GONE);
+        if (headerRow != null) headerRow.setVisibility(showHeader ? VISIBLE : GONE);
+        if (fpsLabel != null) fpsLabel.setVisibility(lvl == 0 ? GONE : VISIBLE);
 
-        netRow.setVisibility(p.perfNet() ? VISIBLE : GONE);
-        ramRow.setVisibility(p.perfRam() ? VISIBLE : GONE);
-        battRow.setVisibility(p.perfBattery() ? VISIBLE : GONE);
-        fanRow.setVisibility(p.perfFan() ? VISIBLE : GONE);
-        fpsValue.setVisibility(p.perfFps() ? VISIBLE : GONE);
-        fpsRow.setVisibility(p.perfFps() ? VISIBLE : GONE);
-        graph.setVisibility(p.perfFpsGraph() ? VISIBLE : GONE);
-        fpsBlock.setVisibility(p.perfFps() || p.perfFpsGraph() ? VISIBLE : GONE);
+        cpuTemp.setVisibility(cpuTempOn ? VISIBLE : GONE);
+        cpuClock.setVisibility(cpuClockOn ? VISIBLE : GONE);
+        cpuUsage.setVisibility(cpuUsageOn ? VISIBLE : GONE);
+        cpuRow.setVisibility(cpuTempOn || cpuClockOn || cpuUsageOn ? VISIBLE : GONE);
 
-        battery.setVisibility(p.perfBattery() ? VISIBLE : GONE);
-        coresBox.setVisibility(p.perfCores() ? VISIBLE : GONE);
+        gpuTemp.setVisibility(gpuTempOn ? VISIBLE : GONE);
+        gpuClock.setVisibility(gpuClockOn ? VISIBLE : GONE);
+        gpuUsage.setVisibility(gpuUsageOn ? VISIBLE : GONE);
+        gpuRow.setVisibility(gpuTempOn || gpuClockOn || gpuUsageOn ? VISIBLE : GONE);
+
+        netRow.setVisibility(netOn ? VISIBLE : GONE);
+        ramRow.setVisibility(ramOn ? VISIBLE : GONE);
+        battRow.setVisibility(battOn ? VISIBLE : GONE);
+        fanRow.setVisibility(fanOn ? VISIBLE : GONE);
+        fpsValue.setVisibility(fpsOn ? VISIBLE : GONE);
+        fpsRow.setVisibility(fpsOn ? VISIBLE : GONE);
+        graph.setVisibility(graphOn ? VISIBLE : GONE);
+        fpsBlock.setVisibility(fpsOn || graphOn ? VISIBLE : GONE);
+
+        battery.setVisibility(showHeader && p.perfBattery() ? VISIBLE : GONE);
+        coresBox.setVisibility(coresOn ? VISIBLE : GONE);
         graph.setRefreshMs(p.perfRefreshMs());
         requestLayout();
     }
@@ -584,11 +615,12 @@ final class PerfOverlayView extends LinearLayout {
         return row;
     }
 
-    private void addMetricLabel(LinearLayout row, String text) {
+    private TextView addMetricLabel(LinearLayout row, String text) {
         TextView v = label(text, 9.5f, MUTED);
         v.setLetterSpacing(0.12f);
         row.addView(v, new LinearLayout.LayoutParams(dp(38),
                 ViewGroup.LayoutParams.WRAP_CONTENT));
+        return v;
     }
 
     private TextView metricValue(int gravity) {

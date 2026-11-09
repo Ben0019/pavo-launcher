@@ -1340,17 +1340,51 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         return Math.max(0.55f, Math.min(max, wanted));
     }
 
+    /** Detail level for the vertical card, derived from how small it is. */
+    private static int levelForScale(float s) {
+        if (s >= 0.99f) return 4;
+        if (s >= 0.92f) return 3;
+        if (s >= 0.84f) return 2;
+        if (s >= 0.74f) return 1;
+        return 0;
+    }
+
     private void applyScaleGeometry(boolean keepCenter) {
         if (container == null || panel == null || params == null) return;
         scale = clampScale(scale);
-        int newW = Math.round(baseWidthPx * scale);
-        int newH = Math.round(baseHeightPx * scale);
+        float render = scale;
+        int newW;
+        int newH;
+        if (!panel.horizontal()) {
+            int level = levelForScale(scale);
+            panel.setDetailLevel(level);
+            // Below the readable floor, drop metrics instead of shrinking text.
+            if (scale < 0.9f) render = 0.9f;
+            int wantW = level == 0
+                    ? Math.min(baseWidthPx, Ui.dp(uiContext, 136)) : baseWidthPx;
+            FrameLayout.LayoutParams plp = panel.getLayoutParams()
+                    instanceof FrameLayout.LayoutParams
+                    ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
+            if (plp == null) plp = new FrameLayout.LayoutParams(wantW, baseHeightPx);
+            plp.width = wantW;
+            panel.setLayoutParams(plp);
+            panel.measure(View.MeasureSpec.makeMeasureSpec(wantW, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            int contentH = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
+            plp.height = contentH;
+            panel.setLayoutParams(plp);
+            newW = Math.round(wantW * render);
+            newH = Math.round(contentH * render);
+        } else {
+            newW = Math.round(baseWidthPx * render);
+            newH = Math.round(baseHeightPx * render);
+        }
         int cx = params.x + params.width / 2;
         int cy = params.y + params.height / 2;
         params.width = newW;
         params.height = newH;
-        panel.setScaleX(scale);
-        panel.setScaleY(scale);
+        panel.setScaleX(render);
+        panel.setScaleY(render);
         if (keepCenter) {
             params.x = cx - newW / 2;
             params.y = cy - newH / 2;
