@@ -1659,10 +1659,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     lastTapUpX = e.getRawX();
                     lastTapUpY = e.getRawY();
                     main.removeCallbacks(tapAction);
-                    if (tapCount == 2) {
-                        // Hold the mode switch briefly so a third tap can cancel it.
-                        main.postDelayed(tapAction, TAP_SETTLE_MS);
-                    } else if (tapCount >= 3) {
+                    if (tapCount >= 3) {
                         tapCount = 0;
                         lastTapUpMs = 0L;
                         cycleModeNext();

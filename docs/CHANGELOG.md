@@ -9,6 +9,9 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Rebuilt the performance overlay to work like Bannerlator's Fusion HUD.
 - Five modes — Minimal, Pill, Tiles, Full and Mega — with colour-coded monospace readouts: FPS and frame time, GPU and CPU load, clocks and temperatures, RAM, battery, network, per-core load and clocks, average and 1% / 0.1% lows, and a live frametime graph.
 - Minimal now shows only the FPS number, plus the frame-generation figure when frames are being generated.
+- Fan speed now shows in every mode except Minimal.
+- The time-of-day readout has been removed from every mode.
+- Triple-tap changes the overlay mode; the horizontal strip is still available from the overlay menu.
 - Pinching or the − / + size buttons now resizes the selected mode; the card, text and graph scale together.
 - Triple-tapping the overlay switches to the next mode.
 - The overlay remembers both the mode and the size you leave it on.

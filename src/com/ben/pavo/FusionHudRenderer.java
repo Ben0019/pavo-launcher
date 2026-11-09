@@ -42,6 +42,7 @@ final class FusionHudRenderer {
     private static final int COL_DIM = 0xFF9AA4B2;
     private static final int COL_LO = 0xFFE4E8EE;
     private static final int COL_LOCK = 0xFFFFD27F;
+    private static final int COL_FAN = 0xFF4DD0E1;
 
     private static final int GRAPH_CAP = 60;
     private static final int HISTORY_CAP = 180;
@@ -615,7 +616,6 @@ final class FusionHudRenderer {
             placeRun(pad + leftBlockW + midGap, sy - ascent(stkPx), l);
             sy += stkH + lineGap;
         }
-        addClock(pad, pad + leftBlockW / 2f);
         pill = true;
     }
 
@@ -688,6 +688,12 @@ final class FusionHudRenderer {
             tiles.add(new Tile("API", COL_FPS, listOf(span(engineLabel, COL_VALUE, valPx)),
                     "Android"));
         }
+        if (showFan) {
+            int duty = PerfTuner.fanPercent(ctx);
+            tiles.add(new Tile("FAN", COL_FAN,
+                    numUnit(duty >= 0 ? String.valueOf(duty) : null, "%", valPx, unitPx),
+                    null));
+        }
         if (tiles.isEmpty()) return;
 
         float keyH = lineH(keyPx);
@@ -721,7 +727,6 @@ final class FusionHudRenderer {
         if (col != 0) y += tileH + tileGap;
         contentW = pad + fullW + pad;
         contentH = y + (pad - tileGap);
-        addClock(pad, null);
     }
 
     private void placeTile(String key, int keyColor, List<Span> value, String sub,
@@ -799,6 +804,12 @@ final class FusionHudRenderer {
             }
             if (any) rows.add(new Row("BAT", COL_BAT, v, false));
         }
+        if (showFan) {
+            int duty = PerfTuner.fanPercent(ctx);
+            rows.add(new Row("FAN", COL_FAN,
+                    numUnit(duty >= 0 ? String.valueOf(duty) : null, "%", rowPx, unitPx),
+                    false));
+        }
         if (showFps) {
             List<Span> v = new ArrayList<>();
             v.addAll(numUnit(fpsText(), "FPS", rowPx, unitPx));
@@ -846,7 +857,6 @@ final class FusionHudRenderer {
         }
         contentW = maxRight + pad;
         contentH = y + pad;
-        addClock(pad, null);
     }
 
     private void buildMega() {
@@ -932,6 +942,12 @@ final class FusionHudRenderer {
             }
             if (any) right.add(new Row("BAT", COL_BAT, v, false));
         }
+        if (showFan) {
+            int duty = PerfTuner.fanPercent(ctx);
+            right.add(new Row("FAN", COL_FAN,
+                    numUnit(duty >= 0 ? String.valueOf(duty) : null, "%", rowPx, unitPx),
+                    false));
+        }
         if (showFps) {
             List<Span> v = new ArrayList<>();
             v.addAll(numUnit(fpsText(), "FPS", rowPx, unitPx));
@@ -975,7 +991,6 @@ final class FusionHudRenderer {
         }
         contentW = maxRight + pad;
         contentH = y + pad;
-        addClock(pad, null);
     }
 
     private float[] layoutColumn(List<Row> rows, float x, float y0, float rowPx,
