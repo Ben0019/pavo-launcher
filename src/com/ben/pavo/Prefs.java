@@ -238,6 +238,8 @@ final class Prefs {
         float v = sp.getFloat("perf_overlay_scale", 1f);
         return Math.max(0.55f, Math.min(1.8f, v));
     }
+    /** Selected Fusion HUD mode: 0 Minimal, 1 Pill, 2 Tiles, 3 Full, 4 Mega. */
+    int perfOverlayMode() { return clamp(sp.getInt("perf_overlay_mode", 4), 0, 4); }
     int updateCheckHours() { return clamp(sp.getInt("update_check_hours", 24), 2, 24); }
     void setUpdateCheckHours(int v) { sp.edit().putInt("update_check_hours", clamp(v, 2, 24)).apply(); }
     int perfOverlayAlpha() { return clamp(sp.getInt("perf_overlay_alpha", 88), 25, 100); }
@@ -794,6 +796,9 @@ final class Prefs {
     }
     void setPerfOverlayScale(float v) {
         sp.edit().putFloat("perf_overlay_scale", Math.max(0.55f, Math.min(1.8f, v))).apply();
+    }
+    void setPerfOverlayMode(int v) {
+        sp.edit().putInt("perf_overlay_mode", clamp(v, 0, 4)).apply();
     }
     void setPerfOverlayAlpha(int v) {
         sp.edit().putInt("perf_overlay_alpha", clamp(v, 25, 100)).apply();

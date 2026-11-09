@@ -39,6 +39,7 @@ final class PerfOverlayMenuView extends FrameLayout {
         void onOpacityChanged(int percent);
         void onScaleChanged(float scale);
         void onSizeStep(int delta);
+        void onOverlayLocked(boolean locked);
         void onPerformanceMode(int mode);
         void onResetPosition();
         void onEditPlacement();
@@ -421,6 +422,12 @@ final class PerfOverlayMenuView extends FrameLayout {
         content.addView(drawerHint);
 
         addSection(content, "POSITION & SIZE");
+        addToggle(content, "Lock position", prefs.perfOverlayLocked(), new BoolCallback() {
+            @Override
+            public void onChanged(boolean value) {
+                listener.onOverlayLocked(value);
+            }
+        });
         LinearLayout sizeRow = new LinearLayout(c);
         sizeRow.setOrientation(LinearLayout.HORIZONTAL);
         sizeRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -430,7 +437,7 @@ final class PerfOverlayMenuView extends FrameLayout {
         TextView sizeMinus = stepButton("\u2212");
         scaleValue = text(Math.round(overlayScale * 100f) + "%", 10f, accent, true);
         scaleValue.setGravity(Gravity.CENTER);
-        scaleValue.setMinWidth(dp(64));
+        scaleValue.setMinWidth(dp(92));
         TextView sizePlus = stepButton("+");
         sizeMinus.setOnClickListener(new OnClickListener() {
             @Override

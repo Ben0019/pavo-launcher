@@ -46,8 +46,8 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
         menu = new PerfOverlayMenuView(this, backdrop, prefs, mode,
                 prefs.perfOverlayScale(), this);
         menu.setMapperMode(TouchMapService.isMapperEnabledForForeground(this));
-        menu.setSizeLabel(PerfOverlayService.overlayModeName(
-                PerfOverlayService.formForScale(prefs.perfOverlayScale())));
+        menu.setSizeLabel(PerfOverlayService.overlayModeName(prefs.perfOverlayMode())
+                + "  " + Math.round(prefs.perfOverlayScale() * 100f) + "%");
         setContentView(menu);
 
         Window window = getWindow();
@@ -185,17 +185,23 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
         prefs.setPerfOverlayScale(scale);
         PerfOverlayService.setOverlayScale(scale);
         if (menu != null) menu.setSizeLabel(PerfOverlayService.overlayModeName(
-                PerfOverlayService.formForScale(scale)));
+                prefs.perfOverlayMode()) + "  " + Math.round(scale * 100f) + "%");
     }
 
     @Override
     public void onSizeStep(int delta) {
-        int form = Math.max(0, Math.min(PerfOverlayService.FORM_COUNT - 1,
-                PerfOverlayService.formForScale(prefs.perfOverlayScale()) + delta));
-        float scale = PerfOverlayService.scaleForForm(form);
+        float scale = Math.max(0.55f, Math.min(1.8f,
+                prefs.perfOverlayScale() + delta * 0.10f));
         prefs.setPerfOverlayScale(scale);
         PerfOverlayService.setOverlayScale(scale);
-        if (menu != null) menu.setSizeLabel(PerfOverlayService.overlayModeName(form));
+        if (menu != null) menu.setSizeLabel(PerfOverlayService.overlayModeName(
+                prefs.perfOverlayMode()) + "  " + Math.round(scale * 100f) + "%");
+    }
+
+    @Override
+    public void onOverlayLocked(boolean locked) {
+        prefs.setPerfOverlayLocked(locked);
+        PerfOverlayService.setOverlayLocked(locked);
     }
 
     @Override
