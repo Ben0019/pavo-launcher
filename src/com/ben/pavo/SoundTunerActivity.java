@@ -37,12 +37,15 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     private static final int GREEN = 0xFF69D98B;
 
     private static final String[] PRESET_NAMES = {
-            "PAVO", "FLAT", "BASS", "VOCAL", "WARM", "BRIGHT", "TREBLE"
+            "PAVO", "GAME", "FLAT", "BASS", "VOCAL", "WARM", "BRIGHT", "TREBLE"
     };
     private static final int[][] PRESET_LEVELS = {
             // Tuned on the Odin 3 speakers: trim the ~230 Hz boom and the
             // bright 4-5 kHz/treble region, with a touch of sub weight.
             {150, -250, 0, -150, -150},
+            // More punch and presence for games, without piling onto the
+            // measured 230 Hz boom.
+            {350, 100, 0, 350, 100},
             {0, 0, 0, 0, 0},
             {600, 450, 100, -100, -200},
             {-250, 0, 500, 350, 0},
