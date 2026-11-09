@@ -253,11 +253,11 @@ final class Prefs {
 
     void setQuickHandleWidth(int v) { sp.edit().putInt("quick_handle_width", v).apply(); }
 
-    int quickHandleHeight() { return clamp(sp.getInt("quick_handle_height", 112), 40, 400); }
+    int quickHandleHeight() { return clamp(sp.getInt("quick_handle_height", 44), 40, 400); }
 
     void setQuickHandleHeight(int v) { sp.edit().putInt("quick_handle_height", v).apply(); }
 
-    int quickHandleAlpha() { return clamp(sp.getInt("quick_handle_alpha", 65), 10, 100); }
+    int quickHandleAlpha() { return clamp(sp.getInt("quick_handle_alpha", 55), 10, 100); }
 
     void setQuickHandleAlpha(int v) { sp.edit().putInt("quick_handle_alpha", v).apply(); }
 
@@ -267,7 +267,7 @@ final class Prefs {
     void setQuickHandleEdge(int v) { sp.edit().putInt("quick_handle_edge", v).apply(); }
 
     /** Position along the current edge, 0-1000. */
-    int quickHandlePos() { return clamp(sp.getInt("quick_handle_pos", 500), 0, 1000); }
+    int quickHandlePos() { return clamp(sp.getInt("quick_handle_pos", 72), 0, 1000); }
 
     void setQuickHandlePos(int v) { sp.edit().putInt("quick_handle_pos", v).apply(); }
     boolean perfOverlayHorizontal() { return sp.getBoolean("perf_overlay_horizontal", false); }
