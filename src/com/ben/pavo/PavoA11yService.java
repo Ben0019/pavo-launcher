@@ -780,6 +780,9 @@ public final class PavoA11yService extends AccessibilityService {
                 android.os.PowerManager pm = (android.os.PowerManager)
                         getSystemService(POWER_SERVICE);
                 boolean last = pm != null && pm.isInteractive();
+                android.media.AudioManager am = (android.media.AudioManager)
+                        getSystemService(AUDIO_SERVICE);
+                boolean lastMusic = false;
                 while (wakeWatcherRunning) {
                     boolean now = pm != null && pm.isInteractive();
                     if (now && !last) {
@@ -788,6 +791,11 @@ public final class PavoA11yService extends AccessibilityService {
                         RgbService.onScreenOff();
                     }
                     last = now;
+                    boolean music = am != null && am.isMusicActive();
+                    if (music && !lastMusic) {
+                        AudioEq.apply(getApplicationContext());
+                    }
+                    lastMusic = music;
                     try {
                         Thread.sleep(60L);
                     } catch (InterruptedException ignored) {

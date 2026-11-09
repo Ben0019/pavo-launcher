@@ -332,7 +332,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 int level = min + progress;
                 AudioEq.setBand(SoundTunerActivity.this, index, level);
                 values.get(index).setText(formatDb(level));
-                curve.setLevels(currentLevels(), -1500, 1500);
+                curve.setLevels(currentLevels(), -1200, 1200);
                 updatePresetSelection();
             }
 
@@ -423,7 +423,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             bars.get(i).setProgress(Math.max(0, Math.min(bars.get(i).getMax(), level - min)));
             values.get(i).setText(formatDb(level));
         }
-        curve.setLevels(currentLevels(), -1500, 1500);
+        curve.setLevels(currentLevels(), -1200, 1200);
         updating = false;
         updatePresetSelection();
         for (SeekBar bar : bars) bar.setEnabled(available);

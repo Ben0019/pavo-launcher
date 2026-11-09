@@ -6,7 +6,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 
 ### Sound Tuner
 
-- New built-in Sound Tuner app with a system-wide five-band equalizer that applies to every app.
+- New built-in Sound Tuner app with a system-wide five-band equalizer that applies to every app, with changes taking effect live.
 - Live EQ curve, per-band ±15 dB sliders, and Flat, Bass, Vocal, Warm, Bright and Treble presets.
 - The chosen EQ is restored automatically after reboot and can be switched off at any time.
 - Translated into all supported languages.

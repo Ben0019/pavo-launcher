@@ -1,58 +1,70 @@
 package com.ben.pavo;
 
 import android.content.Context;
-import android.media.audiofx.Equalizer;
+import android.media.audiofx.DynamicsProcessing;
 
 /**
- * Owns the system-wide equalizer on audio session 0. The effect is created in
- * the app process and kept alive by the accessibility service, so it applies to
- * every app rather than only to Pavo's own playback.
+ * System-wide five-band equalizer built on Android's DynamicsProcessing
+ * effect. The legacy Equalizer effect is deprecated for the global (session 0)
+ * mix, and the Odin audio HAL keeps that old chain suspended until a track is
+ * rebuilt. DynamicsProcessing is the API used by rootless system EQ apps and
+ * applies to the live output mix.
  */
 final class AudioEq {
-    private static Equalizer eq;
+    private static final float[] FREQ_HZ = {60f, 230f, 910f, 3600f, 14000f};
+    private static final int BANDS = FREQ_HZ.length;
+    private static final float MAX_GAIN_DB = 12f;
+    private static final int CHANNELS = 2;
+
+    private static DynamicsProcessing dp;
     private static boolean failed;
-    private static short bands = (short) Prefs.EQ_BANDS;
-    private static short[] range = {-1500, 1500};
 
     private AudioEq() {}
 
     static synchronized boolean available(Context c) {
-        if (eq != null) return true;
+        if (dp != null) return true;
         if (failed) return false;
         try {
-            eq = new Equalizer(-1, 0);
-            bands = eq.getNumberOfBands();
-            range = eq.getBandLevelRange();
+            DynamicsProcessing.Config config = new DynamicsProcessing.Config.Builder(
+                    DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+                    CHANNELS,
+                    true, BANDS,      // pre-EQ
+                    false, 0,         // multiband compressor
+                    false, 0,         // post-EQ
+                    false             // limiter
+            ).build();
+            for (int ch = 0; ch < CHANNELS; ch++) {
+                DynamicsProcessing.Eq eq = config.getPreEqByChannelIndex(ch);
+                for (int i = 0; i < BANDS; i++) {
+                    eq.setBand(i, new DynamicsProcessing.EqBand(true, FREQ_HZ[i], 0f));
+                }
+                config.setPreEqByChannelIndex(ch, eq);
+            }
+            dp = new DynamicsProcessing(-1, 0, config);
             return true;
         } catch (Throwable t) {
             failed = true;
-            eq = null;
+            dp = null;
             return false;
         }
     }
 
     static synchronized int bandCount(Context c) {
         available(c);
-        return bands;
+        return BANDS;
     }
 
     static synchronized int minLevel(Context c) {
-        available(c);
-        return range[0];
+        return Math.round(-MAX_GAIN_DB * 100f);
     }
 
     static synchronized int maxLevel(Context c) {
-        available(c);
-        return range[1];
+        return Math.round(MAX_GAIN_DB * 100f);
     }
 
     static synchronized int centerHz(Context c, int band) {
-        if (!available(c) || band < 0 || band >= bands) return 0;
-        try {
-            return Math.round(eq.getCenterFreq((short) band) / 1000f);
-        } catch (Throwable t) {
-            return 0;
-        }
+        if (band < 0 || band >= BANDS) return 0;
+        return Math.round(FREQ_HZ[band]);
     }
 
     static synchronized boolean enabled(Context c) {
@@ -81,10 +93,12 @@ final class AudioEq {
         if (!available(c)) return;
         Prefs p = new Prefs(c);
         try {
-            eq.setEnabled(p.eqEnabled());
-            for (int i = 0; i < bands && i < Prefs.EQ_BANDS; i++) {
-                int level = Math.max(range[0], Math.min(range[1], p.eqBand(i)));
-                eq.setBandLevel((short) i, (short) level);
+            dp.setEnabled(p.eqEnabled());
+            for (int i = 0; i < BANDS; i++) {
+                float gainDb = p.eqBand(i) / 100f;
+                gainDb = Math.max(-MAX_GAIN_DB, Math.min(MAX_GAIN_DB, gainDb));
+                dp.setPreEqBandAllChannelsTo(i,
+                        new DynamicsProcessing.EqBand(true, FREQ_HZ[i], gainDb));
             }
         } catch (Throwable ignored) {
         }
