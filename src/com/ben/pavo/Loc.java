@@ -1,6 +1,7 @@
 package com.ben.pavo;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Build;
@@ -72,8 +73,18 @@ final class Loc {
     private Loc() {}
 
     static String configured(Context c) {
-        String v = c.getSharedPreferences(Prefs.FILE, Context.MODE_PRIVATE)
-                .getString("language", AUTO);
+        SharedPreferences sp;
+        try {
+            sp = c.getSharedPreferences(Prefs.FILE, Context.MODE_PRIVATE);
+        } catch (IllegalStateException locked) {
+            // The accessibility service can start before the user unlocks, when
+            // credential-encrypted preferences are unavailable. Use the
+            // device-protected copy so boot never crashes; the normal store is
+            // used again as soon as it is readable.
+            sp = c.createDeviceProtectedStorageContext()
+                    .getSharedPreferences(Prefs.FILE, Context.MODE_PRIVATE);
+        }
+        String v = sp.getString("language", AUTO);
         return v == null || v.trim().isEmpty() ? AUTO : v.trim();
     }
 

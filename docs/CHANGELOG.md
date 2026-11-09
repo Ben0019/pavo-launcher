@@ -20,6 +20,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - The Overlay & Drawer app now has a Mode row (Min, Pill, Tiles, Full, Mega) under Update Rate, and the strip toggle sits beside it instead of in Metrics.
 - Renamed the shortcut cards to Performance Overlay Shortcuts and Sideview Drawer Shortcuts.
 - Rearranged the Overlay & Drawer cards into an aligned two-row grid, with equal card heights in each row.
+- Fixed the launcher crash on boot before the device is unlocked: the accessibility service no longer reads encrypted preferences too early.
 - Position lock is now a toggle in the overlay menu.
 
 ## 1.0.42 — 08 Nov 2026
