@@ -2145,9 +2145,10 @@ final class AppDrawerOverlayView extends FrameLayout {
             }
         });
 
-        ImageView icon = new ImageView(context);
+        BuiltinIconView icon = new BuiltinIconView(context);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         icon.setImageBitmap(iconFor(e));
+        icon.setBuiltInPackage(e.pkg);
         cell.addView(icon, new LinearLayout.LayoutParams(iconPx, iconPx));
         if (showLabels) {
             String labelText = store.labelFor(Item.app(e.pkg, e.activity), e.label);

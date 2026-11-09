@@ -2069,7 +2069,9 @@
     "No media": "Žádná média",
     "photos": "fotky",
     "videos": "videa",
-    "folders": "složky"
+    "folders": "složky",
+    "Could not delete": "Nelze smazat",
+    "Could not copy": "Nelze kopírovat"
   },
   "da": {
     "Quick Controls": "Hurtigbetjening",
@@ -4141,7 +4143,9 @@
     "No media": "Ingen medier",
     "photos": "fotos",
     "videos": "videoer",
-    "folders": "mapper"
+    "folders": "mapper",
+    "Could not delete": "Kunne ikke slette",
+    "Could not copy": "Kunne ikke kopiere"
   },
   "de": {
     "Quick Controls": "Schnellsteuerung",
@@ -6213,7 +6217,9 @@
     "No media": "Keine Medien",
     "photos": "Fotos",
     "videos": "Videos",
-    "folders": "Ordner"
+    "folders": "Ordner",
+    "Could not delete": "Löschen fehlgeschlagen",
+    "Could not copy": "Kopieren fehlgeschlagen"
   },
   "el": {
     "Quick Controls": "Γρήγοροι έλεγχοι",
@@ -8285,7 +8291,9 @@
     "No media": "Δεν υπάρχουν μέσα",
     "photos": "φωτογραφίες",
     "videos": "βίντεο",
-    "folders": "φάκελοι"
+    "folders": "φάκελοι",
+    "Could not delete": "Δεν ήταν δυνατή η διαγραφή",
+    "Could not copy": "Δεν ήταν δυνατή η αντιγραφή"
   },
   "es": {
     "Quick Controls": "Controles rápidos",
@@ -10357,7 +10365,9 @@
     "No media": "Sin contenido",
     "photos": "fotos",
     "videos": "vídeos",
-    "folders": "carpetas"
+    "folders": "carpetas",
+    "Could not delete": "No se pudo eliminar",
+    "Could not copy": "No se pudo copiar"
   },
   "fi": {
     "Quick Controls": "Pika-asetukset",
@@ -12429,7 +12439,9 @@
     "No media": "Ei mediaa",
     "photos": "kuvaa",
     "videos": "videota",
-    "folders": "kansiota"
+    "folders": "kansiota",
+    "Could not delete": "Poistaminen epäonnistui",
+    "Could not copy": "Kopiointi epäonnistui"
   },
   "fr": {
     "Quick Controls": "Contrôles rapides",
@@ -14501,7 +14513,9 @@
     "No media": "Aucun média",
     "photos": "photos",
     "videos": "vidéos",
-    "folders": "dossiers"
+    "folders": "dossiers",
+    "Could not delete": "Impossible de supprimer",
+    "Could not copy": "Impossible de copier"
   },
   "he": {
     "Quick Controls": "בקרות מהירות",
@@ -16573,7 +16587,9 @@
     "No media": "אין מדיה",
     "photos": "תמונות",
     "videos": "סרטונים",
-    "folders": "תיקיות"
+    "folders": "תיקיות",
+    "Could not delete": "לא ניתן למחוק",
+    "Could not copy": "לא ניתן להעתיק"
   },
   "hu": {
     "Quick Controls": "Gyorsvezérlők",
@@ -18645,7 +18661,9 @@
     "No media": "Nincs média",
     "photos": "fotó",
     "videos": "videó",
-    "folders": "mappa"
+    "folders": "mappa",
+    "Could not delete": "Nem sikerült törölni",
+    "Could not copy": "Nem sikerült másolni"
   },
   "id": {
     "Quick Controls": "Kontrol Cepat",
@@ -20717,7 +20735,9 @@
     "No media": "Tidak ada media",
     "photos": "foto",
     "videos": "video",
-    "folders": "folder"
+    "folders": "folder",
+    "Could not delete": "Tidak dapat menghapus",
+    "Could not copy": "Tidak dapat menyalin"
   },
   "it": {
     "Quick Controls": "Controlli rapidi",
@@ -22789,7 +22809,9 @@
     "No media": "Nessun contenuto",
     "photos": "foto",
     "videos": "video",
-    "folders": "cartelle"
+    "folders": "cartelle",
+    "Could not delete": "Impossibile eliminare",
+    "Could not copy": "Impossibile copiare"
   },
   "ja": {
     "Quick Controls": "クイックコントロール",
@@ -24861,7 +24883,9 @@
     "No media": "メディアがありません",
     "photos": "写真",
     "videos": "動画",
-    "folders": "フォルダー"
+    "folders": "フォルダー",
+    "Could not delete": "削除できませんでした",
+    "Could not copy": "コピーできませんでした"
   },
   "ko": {
     "Quick Controls": "빠른 컨트롤",
@@ -26933,7 +26957,9 @@
     "No media": "미디어 없음",
     "photos": "사진",
     "videos": "동영상",
-    "folders": "폴더"
+    "folders": "폴더",
+    "Could not delete": "삭제할 수 없습니다",
+    "Could not copy": "복사할 수 없습니다"
   },
   "nb": {
     "Quick Controls": "Hurtigkontroller",
@@ -29005,7 +29031,9 @@
     "No media": "Ingen medier",
     "photos": "bilder",
     "videos": "videoer",
-    "folders": "mapper"
+    "folders": "mapper",
+    "Could not delete": "Kunne ikke slette",
+    "Could not copy": "Kunne ikke kopiere"
   },
   "nl": {
     "Quick Controls": "Snelle bediening",
@@ -31077,7 +31105,9 @@
     "No media": "Geen media",
     "photos": "foto's",
     "videos": "video's",
-    "folders": "mappen"
+    "folders": "mappen",
+    "Could not delete": "Kan niet verwijderen",
+    "Could not copy": "Kan niet kopiëren"
   },
   "pl": {
     "Quick Controls": "Szybkie sterowanie",
@@ -33149,7 +33179,9 @@
     "No media": "Brak multimediów",
     "photos": "zdjęć",
     "videos": "filmów",
-    "folders": "folderów"
+    "folders": "folderów",
+    "Could not delete": "Nie można usunąć",
+    "Could not copy": "Nie można skopiować"
   },
   "pt": {
     "Quick Controls": "Controles rápidos",
@@ -35221,7 +35253,9 @@
     "No media": "Sem mídia",
     "photos": "fotos",
     "videos": "vídeos",
-    "folders": "pastas"
+    "folders": "pastas",
+    "Could not delete": "Não foi possível excluir",
+    "Could not copy": "Não foi possível copiar"
   },
   "ro": {
     "Quick Controls": "Comenzi rapide",
@@ -37293,7 +37327,9 @@
     "No media": "Fără media",
     "photos": "fotografii",
     "videos": "videoclipuri",
-    "folders": "dosare"
+    "folders": "dosare",
+    "Could not delete": "Nu s-a putut șterge",
+    "Could not copy": "Nu s-a putut copia"
   },
   "ru": {
     "Quick Controls": "Быстрое управление",
@@ -39365,7 +39401,9 @@
     "No media": "Нет медиафайлов",
     "photos": "фото",
     "videos": "видео",
-    "folders": "папки"
+    "folders": "папки",
+    "Could not delete": "Не удалось удалить",
+    "Could not copy": "Не удалось скопировать"
   },
   "sv": {
     "Quick Controls": "Snabbkontroller",
@@ -41437,7 +41475,9 @@
     "No media": "Inga medier",
     "photos": "foton",
     "videos": "videor",
-    "folders": "mappar"
+    "folders": "mappar",
+    "Could not delete": "Kunde inte ta bort",
+    "Could not copy": "Kunde inte kopiera"
   },
   "th": {
     "Quick Controls": "การควบคุมด่วน",
@@ -43509,7 +43549,9 @@
     "No media": "ไม่มีสื่อ",
     "photos": "รูป",
     "videos": "วิดีโอ",
-    "folders": "โฟลเดอร์"
+    "folders": "โฟลเดอร์",
+    "Could not delete": "ลบไม่สำเร็จ",
+    "Could not copy": "คัดลอกไม่สำเร็จ"
   },
   "tr": {
     "Quick Controls": "Hızlı Kontroller",
@@ -45581,7 +45623,9 @@
     "No media": "Medya yok",
     "photos": "fotoğraf",
     "videos": "video",
-    "folders": "klasör"
+    "folders": "klasör",
+    "Could not delete": "Silinemedi",
+    "Could not copy": "Kopyalanamadı"
   },
   "uk": {
     "Quick Controls": "Швидке керування",
@@ -47653,7 +47697,9 @@
     "No media": "Немає медіа",
     "photos": "фото",
     "videos": "відео",
-    "folders": "папки"
+    "folders": "папки",
+    "Could not delete": "Не вдалося видалити",
+    "Could not copy": "Не вдалося скопіювати"
   },
   "vi": {
     "Quick Controls": "Điều khiển nhanh",
@@ -49725,7 +49771,9 @@
     "No media": "Không có media",
     "photos": "ảnh",
     "videos": "video",
-    "folders": "thư mục"
+    "folders": "thư mục",
+    "Could not delete": "Không thể xóa",
+    "Could not copy": "Không thể sao chép"
   },
   "zh-CN": {
     "Quick Controls": "快捷控制",
@@ -51797,6 +51845,8 @@
     "No media": "没有媒体",
     "photos": "照片",
     "videos": "视频",
-    "folders": "文件夹"
+    "folders": "文件夹",
+    "Could not delete": "无法删除",
+    "Could not copy": "无法复制"
   }
 }

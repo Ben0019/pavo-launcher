@@ -1,8 +1,12 @@
 package com.ben.pavo;
 
 import android.Manifest;
+import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentUris;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -13,6 +17,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaMetadataRetriever;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -32,6 +37,7 @@ import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
@@ -39,6 +45,7 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -83,7 +90,14 @@ public final class GalleryActivity extends PavoGlassActivity {
     private TextView subtitle;
     private TextView status;
     private TextView backChip;
+    private LinearLayout statusRow;
+    private LinearLayout selectionRow;
+    private TextView selectionCount;
+    private TextView copyChip;
+    private String selectedFolderId;
     private GridView grid;
+    private final Set<String> selectedPaths = new HashSet<>();
+    private boolean selectionMode;
     private final List<TextView> tabChips = new ArrayList<>();
     private TileAdapter adapter;
 
@@ -169,7 +183,9 @@ public final class GalleryActivity extends PavoGlassActivity {
 
     @Override
     public void onBackPressed() {
-        if (folderId != null) {
+        if (selectionMode) {
+            clearSelection();
+        } else if (folderId != null) {
             folderId = null;
             populate();
             grid.setSelection(0);
@@ -184,7 +200,9 @@ public final class GalleryActivity extends PavoGlassActivity {
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         if ((code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B)
                 && down && event.getRepeatCount() == 0) {
-            if (folderId != null) {
+            if (selectionMode) {
+                clearSelection();
+            } else if (folderId != null) {
                 folderId = null;
                 populate();
                 grid.setSelection(0);
@@ -231,7 +249,7 @@ public final class GalleryActivity extends PavoGlassActivity {
         column.addView(buildTabs(), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        LinearLayout statusRow = new LinearLayout(this);
+        statusRow = new LinearLayout(this);
         statusRow.setOrientation(LinearLayout.HORIZONTAL);
         statusRow.setGravity(Gravity.CENTER_VERTICAL);
         statusRow.setPadding(dp(4), dp(4), dp(4), dp(2));
@@ -244,6 +262,7 @@ public final class GalleryActivity extends PavoGlassActivity {
         backChip.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Haptics.click(v);
+                clearSelection();
                 folderId = null;
                 populate();
                 grid.setSelection(0);
@@ -258,6 +277,41 @@ public final class GalleryActivity extends PavoGlassActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         column.addView(statusRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        selectionRow = new LinearLayout(this);
+        selectionRow.setOrientation(LinearLayout.HORIZONTAL);
+        selectionRow.setGravity(Gravity.CENTER_VERTICAL);
+        selectionRow.setPadding(dp(4), dp(4), dp(4), dp(4));
+        selectionRow.setVisibility(View.GONE);
+        selectionCount = text("", 9f, TEXT, true);
+        selectionCount.setPadding(dp(6), 0, dp(3), 0);
+        selectionCount.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        TextView selDelete = actionChip(Loc.s(this, "DELETE"), true);
+        selDelete.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                confirmDeleteSelection();
+            }
+        });
+        selectionRow.addView(selDelete, chipLp(0));
+        copyChip = actionChip(Loc.s(this, "COPY"), false);
+        copyChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                copySelection();
+            }
+        });
+        selectionRow.addView(copyChip, chipLp(4));
+        TextView selClear = actionChip("\u00d7", false);
+        selClear.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                clearSelection();
+            }
+        });
+        selectionRow.addView(selClear, chipLp(4));
+        selectionRow.addView(selectionCount, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         grid = new GridView(this);
         int columns = Ui.widthDp(this) >= 700 ? 6 : 4;
@@ -274,6 +328,8 @@ public final class GalleryActivity extends PavoGlassActivity {
         grid.setAdapter(adapter);
         column.addView(grid, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        column.addView(selectionRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
     }
@@ -332,6 +388,7 @@ public final class GalleryActivity extends PavoGlassActivity {
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     Haptics.click(v);
+                    clearSelection();
                     tab = index;
                     folderId = null;
                     populate();
@@ -664,6 +721,7 @@ public final class GalleryActivity extends PavoGlassActivity {
         else if (folders.isEmpty() && items.isEmpty()) status.setText(Loc.s(this, "No media"));
         adapter.notifyDataSetChanged();
         updateTabs();
+        updateSelectionUi();
     }
 
     private void open(MediaItem item) {
@@ -677,6 +735,329 @@ public final class GalleryActivity extends PavoGlassActivity {
     // ------------------------------------------------------------------
     // Grid
     // ------------------------------------------------------------------
+
+    private LinearLayout.LayoutParams chipLp(int leftMargin) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(32));
+        lp.leftMargin = dp(leftMargin);
+        return lp;
+    }
+
+    private TextView actionChip(String label, boolean primary) {
+        TextView b = text(label, 9f, primary ? 0xFF071018 : TEXT, true);
+        b.setGravity(Gravity.CENTER);
+        b.setFocusable(true);
+        b.setClickable(true);
+        b.setPadding(dp(10), 0, dp(10), 0);
+        b.setBackground(Ui.rounded(primary ? accent : 0x18FFFFFF, dp(9),
+                primary ? accent : 0x22FFFFFF, dp(1)));
+        return b;
+    }
+
+    private void select(MediaItem item) {
+        selectedFolderId = null;
+        selectedPaths.add(item.path);
+        selectionMode = true;
+        updateSelectionUi();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void toggleSelection(MediaItem item) {
+        selectedFolderId = null;
+        if (!selectedPaths.remove(item.path)) selectedPaths.add(item.path);
+        selectionMode = !selectedPaths.isEmpty();
+        updateSelectionUi();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void clearSelection() {
+        if (selectedPaths.isEmpty() && !selectionMode) return;
+        selectedPaths.clear();
+        selectedFolderId = null;
+        selectionMode = false;
+        updateSelectionUi();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void updateSelectionUi() {
+        if (selectionRow == null) return;
+        selectionRow.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
+        if (statusRow != null) {
+            statusRow.setVisibility(selectionMode ? View.GONE : View.VISIBLE);
+        }
+        if (copyChip != null) {
+            copyChip.setVisibility(selectedFolderId == null ? View.VISIBLE : View.GONE);
+        }
+        if (selectionMode && selectionCount != null) {
+            selectionCount.setText(selectedPaths.size() + " " + Loc.s(this, "items"));
+        }
+    }
+
+    private void selectFolder(Folder folder) {
+        selectedFolderId = folder.id;
+        for (MediaItem m : allPhotos) {
+            if (folder.id.equals(m.bucketId)) selectedPaths.add(m.path);
+        }
+        for (MediaItem m : allVideos) {
+            if (folder.id.equals(m.bucketId)) selectedPaths.add(m.path);
+        }
+        selectionMode = !selectedPaths.isEmpty();
+        updateSelectionUi();
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
+    private void toggleFolder(Folder folder) {
+        if (folder.id.equals(selectedFolderId)) {
+            selectedFolderId = null;
+            for (MediaItem m : allPhotos) {
+                if (folder.id.equals(m.bucketId)) selectedPaths.remove(m.path);
+            }
+            for (MediaItem m : allVideos) {
+                if (folder.id.equals(m.bucketId)) selectedPaths.remove(m.path);
+            }
+            selectionMode = !selectedPaths.isEmpty();
+            updateSelectionUi();
+            if (adapter != null) adapter.notifyDataSetChanged();
+            return;
+        }
+        selectedFolderId = folder.id;
+        boolean all = folderFullySelected(folder);
+        for (MediaItem m : allPhotos) {
+            if (!folder.id.equals(m.bucketId)) continue;
+            if (all) selectedPaths.remove(m.path); else selectedPaths.add(m.path);
+        }
+        for (MediaItem m : allVideos) {
+            if (!folder.id.equals(m.bucketId)) continue;
+            if (all) selectedPaths.remove(m.path); else selectedPaths.add(m.path);
+        }
+        selectionMode = !selectedPaths.isEmpty();
+        updateSelectionUi();
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
+    private boolean folderFullySelected(Folder folder) {
+        int total = 0;
+        int selected = 0;
+        for (MediaItem m : allPhotos) {
+            if (!folder.id.equals(m.bucketId)) continue;
+            total++;
+            if (selectedPaths.contains(m.path)) selected++;
+        }
+        for (MediaItem m : allVideos) {
+            if (!folder.id.equals(m.bucketId)) continue;
+            total++;
+            if (selectedPaths.contains(m.path)) selected++;
+        }
+        return total > 0 && selected == total;
+    }
+
+    private List<MediaItem> selectedItems() {
+        List<MediaItem> out = new ArrayList<>();
+        for (MediaItem m : allPhotos) {
+            if (selectedPaths.contains(m.path)) out.add(m);
+        }
+        for (MediaItem m : allVideos) {
+            if (selectedPaths.contains(m.path)) out.add(m);
+        }
+        return out;
+    }
+
+    private void confirmDeleteSelection() {
+        final List<MediaItem> targets = selectedItems();
+        if (targets.isEmpty()) return;
+        showDeleteDialog(targets.size() + " " + Loc.s(this, "items"),
+                Loc.s(this, "This cannot be undone."), new Runnable() {
+                    @Override public void run() {
+                        deleteItems(targets);
+                        clearSelection();
+                    }
+                });
+    }
+
+    private void copySelection() {
+        List<MediaItem> targets = selectedItems();
+        if (targets.isEmpty()) return;
+        try {
+            String label = "Pavo " + Loc.s(this, "Gallery");
+            ClipData clip = null;
+            for (MediaItem m : targets) {
+                Uri uri = clipboardUri(m);
+                if (uri == null) continue;
+                if (clip == null) {
+                    clip = ClipData.newUri(getContentResolver(), label, uri);
+                } else {
+                    clip.addItem(new ClipData.Item(uri));
+                }
+            }
+            if (clip == null) throw new IllegalStateException();
+            ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (cm == null) throw new IllegalStateException();
+            cm.setPrimaryClip(clip);
+            LToast.makeText(this, Loc.s(this, "Copied"), Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            LToast.makeText(this, Loc.s(this, "Could not copy"),
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private Uri clipboardUri(MediaItem item) {
+        if (item.uri != null && "content".equals(item.uri.getScheme())) return item.uri;
+        try {
+            return PavoFileProvider.uriFor(new File(item.path));
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private void showDeleteConfirm(final MediaItem item) {
+        String name = item.name == null ? new File(item.path).getName() : item.name;
+        showDeleteDialog(name, Loc.s(this, "This cannot be undone."), new Runnable() {
+            @Override public void run() {
+                deleteItems(Collections.singletonList(item));
+            }
+        });
+    }
+
+    private void showDeleteFolder(final Folder folder) {
+        final List<MediaItem> targets = new ArrayList<>();
+        for (MediaItem m : allPhotos) if (folder.id.equals(m.bucketId)) targets.add(m);
+        for (MediaItem m : allVideos) if (folder.id.equals(m.bucketId)) targets.add(m);
+        if (targets.isEmpty()) return;
+        String message = targets.size() + " " + Loc.s(this, "items")
+                + " \u00b7 " + Loc.s(this, "This cannot be undone.");
+        showDeleteDialog(folder.name, message, new Runnable() {
+            @Override public void run() {
+                deleteItems(targets);
+            }
+        });
+    }
+
+    private void showDeleteDialog(String headingText, String message, final Runnable onConfirm) {
+        final Dialog dialog = new Dialog(this, android.R.style.Theme_Translucent_NoTitleBar);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        Backdrop backdrop = null;
+        try {
+            backdrop = Backdrop.capture(getWindow().getDecorView(), 12);
+        } catch (Throwable ignored) {
+        }
+        GlassPanel panel = new GlassPanel(this, backdrop, accent, 0x800B0E14, 20, true);
+        panel.setClearGlass(true);
+        panel.setClearBodyAlpha(0xD8);
+        panel.setSurfaceAlpha(prefs.builtinTransparency() / 100f);
+        panel.setBackdropScreenAnchored(true);
+        panel.setPadding(dp(20), dp(15), dp(20), dp(13));
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        TextView eyebrow = text(Loc.s(this, "DELETE ITEM(S)?"), 10f, 0xFFFFFFFF, false);
+        eyebrow.setLetterSpacing(0.12f);
+        col.addView(eyebrow);
+        TextView heading = text(headingText, 17f, TEXT, false);
+        heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        heading.setSingleLine(true);
+        heading.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        heading.setPadding(0, dp(3), 0, dp(4));
+        col.addView(heading);
+        TextView body = text(message, 10f, MUTED, false);
+        body.setPadding(0, dp(2), 0, dp(10));
+        col.addView(body);
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        TextView cancel = dialogButton(Loc.s(this, "CANCEL"), false);
+        TextView ok = dialogButton(Loc.s(this, "DELETE"), true);
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+        ok.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                dialog.dismiss();
+                onConfirm.run();
+            }
+        });
+        buttons.addView(cancel, new LinearLayout.LayoutParams(0, dp(36), 1f));
+        LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(0, dp(36), 1f);
+        okLp.leftMargin = dp(8);
+        buttons.addView(ok, okLp);
+        col.addView(buttons, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        panel.addView(col);
+
+        dialog.setContentView(panel);
+        dialog.setCanceledOnTouchOutside(true);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams lp = window.getAttributes();
+            lp.width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(28), dp(460));
+            lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            lp.gravity = Gravity.CENTER;
+            lp.dimAmount = 0.52f;
+            window.setAttributes(lp);
+        }
+        final ControllerNav dialogNav = new ControllerNav(this,
+                dialog.getWindow().getDecorView());
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override public void onDismiss(DialogInterface d) {
+                dialogNav.release();
+            }
+        });
+        dialog.show();
+        dialogNav.attachDialog(dialog, panel);
+    }
+
+    private TextView dialogButton(String label, boolean primary) {
+        TextView b = text(label, 10f, primary ? 0xFF071018 : TEXT, true);
+        b.setGravity(Gravity.CENTER);
+        b.setFocusable(true);
+        b.setClickable(true);
+        b.setBackground(Ui.rounded(primary ? accent : 0x18FFFFFF, dp(10),
+                primary ? accent : 0x22FFFFFF, dp(1)));
+        return b;
+    }
+
+    private void deleteItems(List<MediaItem> targets) {
+        boolean any = false;
+        for (MediaItem item : targets) any |= deleteFile(item);
+        if (!any) {
+            LToast.makeText(this, Loc.s(this, "Could not delete"),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        for (MediaItem item : targets) {
+            cache.remove(item.path + "|" + (item.video ? 1 : 0));
+            allPhotos.remove(item);
+            allVideos.remove(item);
+        }
+        allFolders.clear();
+        allFolders.addAll(buildFolders(allPhotos, allVideos));
+        populate();
+        LToast.makeText(this, Loc.s(this, "Deleted"), Toast.LENGTH_SHORT).show();
+    }
+
+    private boolean deleteFile(MediaItem item) {
+        boolean ok = false;
+        try {
+            if (item.uri != null && "content".equals(item.uri.getScheme())) {
+                ok = getContentResolver().delete(item.uri, null, null) > 0;
+            }
+        } catch (Throwable ignored) {
+        }
+        try {
+            File file = new File(item.path);
+            if (file.exists()) ok = file.delete() || ok;
+            if (!file.exists()) ok = true;
+        } catch (Throwable ignored) {
+        }
+        try {
+            MediaScannerConnection.scanFile(this, new String[]{item.path}, null, null);
+        } catch (Throwable ignored) {
+        }
+        return ok;
+    }
 
     private final class TileAdapter extends BaseAdapter {
         @Override public int getCount() {
@@ -707,13 +1088,15 @@ public final class GalleryActivity extends PavoGlassActivity {
         private final TextView label;
         private final TextView badge;
         private final TextView play;
+        private final TextView check;
         private String boundKey = "";
+        private boolean selectedNow;
 
         Tile() {
             super(GalleryActivity.this);
             setFocusable(true);
             setClipToOutline(true);
-            setBackground(tileBackground(false));
+            setBackground(tileBackground(false, false));
 
             image = new ImageView(GalleryActivity.this);
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -756,16 +1139,31 @@ public final class GalleryActivity extends PavoGlassActivity {
             plp.gravity = Gravity.CENTER;
             addView(play, plp);
 
+            check = new TextView(GalleryActivity.this);
+            check.setText("\u2713");
+            check.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
+            check.setTextColor(0xFF071018);
+            check.setGravity(Gravity.CENTER);
+            check.setPadding(dp(4), dp(1), dp(4), dp(2));
+            check.setBackground(Ui.rounded(accent, dp(9)));
+            check.setVisibility(View.GONE);
+            FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            clp.gravity = Gravity.TOP | Gravity.START;
+            clp.setMargins(dp(6), dp(6), dp(6), dp(6));
+            addView(check, clp);
+
             setOnFocusChangeListener(new View.OnFocusChangeListener() {
                 @Override public void onFocusChange(View v, boolean hasFocus) {
-                    v.setBackground(tileBackground(hasFocus));
+                    v.setBackground(tileBackground(hasFocus, selectedNow));
                 }
             });
         }
 
-        private GradientDrawable tileBackground(boolean focused) {
-            return Ui.rounded(focused ? 0x33FFFFFF : 0x18FFFFFF, dp(10),
-                    focused ? accent : 0x22FFFFFF, dp(focused ? 2 : 1));
+        private GradientDrawable tileBackground(boolean focused, boolean selected) {
+            int fill = selected ? 0x44FFFFFF : (focused ? 0x33FFFFFF : 0x18FFFFFF);
+            int stroke = selected || focused ? accent : 0x22FFFFFF;
+            return Ui.rounded(fill, dp(10), stroke, dp(selected || focused ? 2 : 1));
         }
 
         void bindFolder(final Folder f) {
@@ -773,10 +1171,21 @@ public final class GalleryActivity extends PavoGlassActivity {
             setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     Haptics.click(v);
-                    folderId = f.id;
-                    folderName = f.name;
-                    populate();
-                    grid.setSelection(0);
+                    if (selectionMode) {
+                        toggleFolder(f);
+                    } else {
+                        folderId = f.id;
+                        folderName = f.name;
+                        populate();
+                        grid.setSelection(0);
+                    }
+                }
+            });
+            setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) {
+                    Haptics.click(v);
+                    selectFolder(f);
+                    return true;
                 }
             });
             label.setVisibility(View.VISIBLE);
@@ -784,6 +1193,9 @@ public final class GalleryActivity extends PavoGlassActivity {
             badge.setVisibility(f.count > 0 ? View.VISIBLE : View.GONE);
             badge.setText(String.valueOf(f.count));
             play.setVisibility(View.GONE);
+            selectedNow = folderFullySelected(f);
+            check.setVisibility(selectedNow ? View.VISIBLE : View.GONE);
+            setBackground(tileBackground(hasFocus(), selectedNow));
             setContentDescription(f.name);
             if (f.cover != null) showThumb(f.cover, boundKey); else clearThumb();
         }
@@ -793,7 +1205,18 @@ public final class GalleryActivity extends PavoGlassActivity {
             setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     Haptics.click(v);
-                    open(m);
+                    if (selectionMode) {
+                        toggleSelection(m);
+                    } else {
+                        open(m);
+                    }
+                }
+            });
+            setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) {
+                    Haptics.click(v);
+                    select(m);
+                    return true;
                 }
             });
             label.setVisibility(View.GONE);
@@ -804,6 +1227,9 @@ public final class GalleryActivity extends PavoGlassActivity {
             } else {
                 badge.setVisibility(View.GONE);
             }
+            selectedNow = selectedPaths.contains(m.path);
+            check.setVisibility(selectedNow ? View.VISIBLE : View.GONE);
+            setBackground(tileBackground(hasFocus(), selectedNow));
             setContentDescription(m.name == null ? "" : m.name);
             showThumb(m, boundKey);
         }

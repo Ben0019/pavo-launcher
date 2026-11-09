@@ -26,6 +26,8 @@ final class LiveBuiltinIcons {
     static final String OVERLAY = "com.ben.pavo.overlay";
     static final String FTP = "com.ben.pavo.ftp";
     static final String UPDATES = "com.ben.pavo.updates";
+    static final String SOUND = "com.ben.pavo.sound";
+    static final String GALLERY = "com.ben.pavo.gallery";
 
     private LiveBuiltinIcons() {}
 
@@ -36,7 +38,8 @@ final class LiveBuiltinIcons {
                 || TOUCH.equals(pkg) || HEALTH.equals(pkg)
                 || BENCHMARK.equals(pkg) || FILE_MANAGER.equals(pkg)
                 || SCREEN_RECORDER.equals(pkg) || OVERLAY.equals(pkg)
-                || FTP.equals(pkg) || UPDATES.equals(pkg);
+                || FTP.equals(pkg) || UPDATES.equals(pkg)
+                || SOUND.equals(pkg) || GALLERY.equals(pkg);
     }
 
     static long duration(String pkg) {
@@ -53,6 +56,8 @@ final class LiveBuiltinIcons {
         if (OVERLAY.equals(pkg)) return 4200L;
         if (FTP.equals(pkg)) return 3000L;
         if (UPDATES.equals(pkg)) return 3400L;
+        if (SOUND.equals(pkg)) return 3000L;
+        if (GALLERY.equals(pkg)) return 6200L;
         return 2400L;
     }
 
@@ -87,6 +92,10 @@ final class LiveBuiltinIcons {
             drawFtp(c, size, accent, phase);
         } else if (UPDATES.equals(pkg)) {
             drawUpdates(c, size, accent, phase);
+        } else if (SOUND.equals(pkg)) {
+            drawSound(c, size, accent, phase);
+        } else if (GALLERY.equals(pkg)) {
+            drawGallery(c, size, accent, phase);
         }
         if (UPDATES.equals(pkg) && Updater.isUpdateAvailable()) {
             drawUpdateBadge(c, size, phase);
@@ -736,5 +745,66 @@ final class LiveBuiltinIcons {
         int g = Math.round(Color.green(from) * (1f - f) + Color.green(to) * f);
         int b = Math.round(Color.blue(from) * (1f - f) + Color.blue(to) * f);
         return Color.rgb(r, g, b);
+    }
+
+    /** Sound Tuner: the original five coloured bars, gently animating. */
+    private static void drawSound(Canvas c, int size, int accent, float phase) {
+        Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bar.setStrokeWidth(Math.max(2f, size * 0.075f));
+        bar.setStrokeCap(Paint.Cap.ROUND);
+        int[] colors = {0xFF8BE9FF, 0xFF69D98B, 0xFFFFC857,
+                0xFFFF8A80, 0xFFD26BFF};
+        float[] heights = {0.28f, 0.52f, 0.72f, 0.46f, 0.62f};
+        for (int i = 0; i < colors.length; i++) {
+            bar.setColor(colors[i]);
+            float x = size * (0.22f + i * 0.14f);
+            float mid = size * 0.50f;
+            float wobble = (float) Math.sin(phase * Math.PI * 2.0 + i * 0.7) * 0.12f;
+            float h = Math.max(0.16f, Math.min(0.88f, heights[i] + wobble));
+            float half = size * h * 0.5f;
+            c.drawLine(x, mid - half, x, mid + half, bar);
+        }
+    }
+
+    /** Pavo Gallery: a photo card with a moving sun and a shimmer sweep. */
+    private static void drawGallery(Canvas c, int size, int accent, float phase) {
+        RectF photo = new RectF(size * 0.20f, size * 0.24f,
+                size * 0.80f, size * 0.76f);
+        Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fill.setColor(alpha(accent, 0x24));
+        c.drawRoundRect(photo, size * 0.06f, size * 0.06f, fill);
+
+        Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        line.setStyle(Paint.Style.STROKE);
+        line.setStrokeWidth(Math.max(1.4f, size * 0.036f));
+        line.setStrokeCap(Paint.Cap.ROUND);
+        line.setStrokeJoin(Paint.Join.ROUND);
+        line.setColor(alpha(accent, 0xD0));
+        c.drawRoundRect(photo, size * 0.06f, size * 0.06f, line);
+
+        float wave = (float) Math.sin(phase * Math.PI * 2.0);
+        Paint sun = new Paint(Paint.ANTI_ALIAS_FLAG);
+        sun.setColor(alpha(0xFFFFC857, 0xE0));
+        c.drawCircle(size * 0.62f, size * (0.39f - 0.035f * wave),
+                size * 0.055f, sun);
+
+        Path hills = new Path();
+        hills.moveTo(size * 0.24f, size * 0.68f);
+        hills.lineTo(size * 0.40f, size * 0.49f);
+        hills.lineTo(size * 0.53f, size * 0.63f);
+        hills.lineTo(size * 0.62f, size * 0.54f);
+        hills.lineTo(size * 0.76f, size * 0.68f);
+        line.setColor(alpha(accent, 0xA8));
+        line.setStrokeWidth(Math.max(1.2f, size * 0.03f));
+        c.drawPath(hills, line);
+
+        c.save();
+        c.clipRect(photo);
+        float sx = photo.left + (photo.width() + size * 0.24f) * phase;
+        Paint shimmer = new Paint(Paint.ANTI_ALIAS_FLAG);
+        shimmer.setColor(0x55FFFFFF);
+        c.drawRect(sx - size * 0.045f, photo.top,
+                sx + size * 0.045f, photo.bottom, shimmer);
+        c.restore();
     }
 }
