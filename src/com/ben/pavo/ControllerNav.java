@@ -32,6 +32,7 @@ final class ControllerNav {
     private final Activity activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private View root;
+    private View initialFocus;
 
     private final Set<Integer> heldDpad = new HashSet<>();
     private int pendingDpadDir = -1;
@@ -100,8 +101,16 @@ final class ControllerNav {
         handler.removeCallbacksAndMessages(null);
     }
 
+    /** Prefer a specific control when controller focus first lands. */
+    void setInitialFocus(View view) {
+        initialFocus = view;
+    }
+
     void focusFirst() {
-        View focus = findFirst(root);
+        View focus = initialFocus;
+        if (focus == null || !navigable(focus) || !withinRoot(focus)) {
+            focus = findFirst(root);
+        }
         if (focus != null) focusView(focus);
     }
 

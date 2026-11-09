@@ -24,6 +24,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.LruCache;
@@ -36,8 +37,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
@@ -96,6 +99,15 @@ public final class GalleryActivity extends PavoGlassActivity {
     private TextView copyChip;
     private String selectedFolderId;
     private GridView grid;
+    private View rootView;
+    private FocusRingDrawable focusRing;
+    private boolean gridActive;
+    private int gridFocus = -1;
+    private int gridColumns = 6;
+    private TextView deleteChip;
+    private TextView clearChip;
+    private int stickDir = -1;
+    private long lastStickMove;
     private final Set<String> selectedPaths = new HashSet<>();
     private boolean selectionMode;
     private final List<TextView> tabChips = new ArrayList<>();
@@ -175,10 +187,14 @@ public final class GalleryActivity extends PavoGlassActivity {
 
     private void installController() {
         nav = new ControllerNav(this, getWindow().getDecorView());
-        // Views stay focusable for the controller but not focusable in touch
-        // mode, so a touch tap activates a tile immediately instead of only
-        // giving it focus. The controller focuses the first view on its first
-        // D-pad press.
+        nav.setInitialFocus(grid);
+        gridActive = !getWindow().getDecorView().isInTouchMode();
+        if (gridActive) gridFocus = 0;
+        grid.postDelayed(new Runnable() {
+            @Override public void run() {
+                if (gridActive) updateGridRing();
+            }
+        }, 250L);
     }
 
     @Override
@@ -198,18 +214,75 @@ public final class GalleryActivity extends PavoGlassActivity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         int code = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+        boolean repeat = down && event.getRepeatCount() > 0;
         if ((code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B)
-                && down && event.getRepeatCount() == 0) {
+                && down && !repeat) {
             if (selectionMode) {
                 clearSelection();
             } else if (folderId != null) {
                 folderId = null;
                 populate();
-                grid.setSelection(0);
+                resetGridFocus();
             } else {
                 finishAnimated();
             }
             return true;
+        }
+        if ((code == KeyEvent.KEYCODE_BUTTON_L1 || code == KeyEvent.KEYCODE_BUTTON_R1)
+                && down && !repeat) {
+            int direction = code == KeyEvent.KEYCODE_BUTTON_R1 ? 1 : -1;
+            clearSelection();
+            folderId = null;
+            tab = (tab + direction + TAB_KEYS.length) % TAB_KEYS.length;
+            populate();
+            resetGridFocus();
+            return true;
+        }
+        if (code == KeyEvent.KEYCODE_BUTTON_X && down && !repeat) {
+            if (!gridActive) {
+                View focus = getCurrentFocus();
+                if (focus == null || focus == grid) {
+                    gridActive = true;
+                    gridFocus = Math.max(0, gridFocus);
+                    grid.setSelection(gridFocus);
+                    updateFocusRing(grid);
+                }
+            }
+            selectFocused();
+            return true;
+        }
+        if ((code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_DPAD_CENTER
+                || code == KeyEvent.KEYCODE_ENTER) && down && !repeat) {
+            if (!gridActive) {
+                View focus = getCurrentFocus();
+                if (focus == null || focus == grid) {
+                    gridActive = true;
+                    gridFocus = Math.max(0, gridFocus);
+                    grid.setSelection(gridFocus);
+                    updateFocusRing(grid);
+                    activateFocused();
+                    return true;
+                }
+            }
+            if (gridActive) {
+                activateFocused();
+                return true;
+            }
+        }
+        if (isDirection(code)) {
+            View focus = getCurrentFocus();
+            boolean onActions = focus == deleteChip || focus == copyChip || focus == clearChip;
+            if (!gridActive && !onActions) {
+                gridActive = true;
+                if (gridFocus < 0) gridFocus = 0;
+                grid.setSelection(gridFocus);
+                updateFocusRing(grid);
+                return true;
+            }
+            if (gridActive) {
+                moveGrid(code);
+                return true;
+            }
         }
         if (nav != null && nav.dispatchKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
@@ -217,8 +290,130 @@ public final class GalleryActivity extends PavoGlassActivity {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (gridActive && SliderStick.isGamepad(event)
+                && event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            float x = event.getAxisValue(MotionEvent.AXIS_X);
+            float y = event.getAxisValue(MotionEvent.AXIS_Y);
+            float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+            float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+            if (Math.abs(hatX) > Math.abs(x)) x = hatX;
+            if (Math.abs(hatY) > Math.abs(y)) y = hatY;
+            if (Math.max(Math.abs(x), Math.abs(y)) >= 0.62f) {
+                int dir = Math.abs(x) >= Math.abs(y)
+                        ? (x < 0 ? KeyEvent.KEYCODE_DPAD_LEFT
+                                : KeyEvent.KEYCODE_DPAD_RIGHT)
+                        : (y < 0 ? KeyEvent.KEYCODE_DPAD_UP
+                                : KeyEvent.KEYCODE_DPAD_DOWN);
+                long now = SystemClock.uptimeMillis();
+                if (dir != stickDir || now - lastStickMove > 190L) {
+                    stickDir = dir;
+                    lastStickMove = now;
+                    moveGrid(dir);
+                }
+                return true;
+            }
+            stickDir = -1;
+        }
         if (nav != null && nav.dispatchGenericMotionEvent(event)) return true;
         return super.dispatchGenericMotionEvent(event);
+    }
+
+    private static boolean isDirection(int code) {
+        return code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN
+                || code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT;
+    }
+
+    private int currentCount() {
+        return folders.isEmpty() ? items.size() : folders.size();
+    }
+
+    private void resetGridFocus() {
+        gridActive = true;
+        gridFocus = 0;
+        grid.setSelection(0);
+        updateFocusRing(grid);
+    }
+
+    private void moveGrid(int code) {
+        int count = currentCount();
+        if (count <= 0) return;
+        if (gridFocus < 0) gridFocus = 0;
+        int col = gridFocus % gridColumns;
+        int row = gridFocus / gridColumns;
+        if (code == KeyEvent.KEYCODE_DPAD_LEFT && col > 0) {
+            gridFocus--;
+        } else if (code == KeyEvent.KEYCODE_DPAD_RIGHT
+                && col < gridColumns - 1 && gridFocus + 1 < count) {
+            gridFocus++;
+        } else if (code == KeyEvent.KEYCODE_DPAD_UP) {
+            if (row > 0) {
+                gridFocus -= gridColumns;
+            } else {
+                gridActive = false;
+                if (tab >= 0 && tab < tabChips.size()) tabChips.get(tab).requestFocus();
+                return;
+            }
+        } else if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (gridFocus + gridColumns < count) {
+                gridFocus += gridColumns;
+            } else if (selectionMode && deleteChip != null) {
+                gridActive = false;
+                deleteChip.requestFocus();
+                return;
+            } else {
+                return;
+            }
+        }
+        gridFocus = Math.max(0, Math.min(count - 1, gridFocus));
+        grid.setSelection(gridFocus);
+        grid.post(new Runnable() {
+            @Override public void run() { updateGridRing(); }
+        });
+    }
+
+    private void activateFocused() {
+        int count = currentCount();
+        if (gridFocus < 0 || gridFocus >= count) return;
+        if (folders.isEmpty()) {
+            MediaItem m = items.get(gridFocus);
+            if (selectionMode) toggleSelection(m); else open(m);
+        } else {
+            Folder f = folders.get(gridFocus);
+            if (selectionMode) {
+                toggleFolder(f);
+            } else {
+                folderId = f.id;
+                folderName = f.name;
+                populate();
+                resetGridFocus();
+            }
+        }
+    }
+
+    private void selectFocused() {
+        if (gridActive) {
+            int count = currentCount();
+            if (gridFocus < 0 || gridFocus >= count) return;
+            if (folders.isEmpty()) {
+                MediaItem m = items.get(gridFocus);
+                if (selectionMode) toggleSelection(m); else select(m);
+            } else {
+                Folder f = folders.get(gridFocus);
+                if (selectionMode) toggleFolder(f); else selectFolder(f);
+            }
+            return;
+        }
+        View focus = getCurrentFocus();
+        if (focus instanceof Tile) {
+            Tile tile = (Tile) focus;
+            if (tile.mediaItem != null) {
+                if (selectionMode) toggleSelection(tile.mediaItem);
+                else select(tile.mediaItem);
+            } else if (tile.folderItem != null) {
+                if (selectionMode) toggleFolder(tile.folderItem);
+                else selectFolder(tile.folderItem);
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -227,6 +422,7 @@ public final class GalleryActivity extends PavoGlassActivity {
 
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
+        rootView = root;
         GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
         card.setClearGlass(true);
         card.setClearBodyAlpha(0);
@@ -265,7 +461,10 @@ public final class GalleryActivity extends PavoGlassActivity {
                 clearSelection();
                 folderId = null;
                 populate();
+                gridActive = true;
+                gridFocus = 0;
                 grid.setSelection(0);
+                updateFocusRing(grid);
             }
         });
         statusRow.addView(backChip, new LinearLayout.LayoutParams(
@@ -293,6 +492,7 @@ public final class GalleryActivity extends PavoGlassActivity {
                 confirmDeleteSelection();
             }
         });
+        deleteChip = selDelete;
         selectionRow.addView(selDelete, chipLp(0));
         copyChip = actionChip(Loc.s(this, "COPY"), false);
         copyChip.setOnClickListener(new View.OnClickListener() {
@@ -309,12 +509,14 @@ public final class GalleryActivity extends PavoGlassActivity {
                 clearSelection();
             }
         });
+        clearChip = selClear;
         selectionRow.addView(selClear, chipLp(4));
         selectionRow.addView(selectionCount, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         grid = new GridView(this);
         int columns = Ui.widthDp(this) >= 700 ? 6 : 4;
+        gridColumns = columns;
         grid.setNumColumns(columns);
         grid.setHorizontalSpacing(dp(4));
         grid.setVerticalSpacing(dp(4));
@@ -332,6 +534,84 @@ public final class GalleryActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
+
+        focusRing = new FocusRingDrawable(this, accent);
+        root.getOverlay().add(focusRing);
+        root.getViewTreeObserver().addOnGlobalFocusChangeListener(
+                new ViewTreeObserver.OnGlobalFocusChangeListener() {
+                    @Override public void onGlobalFocusChanged(View oldFocus, View newFocus) {
+                        if (newFocus == grid) {
+                            gridActive = true;
+                            if (gridFocus < 0) gridFocus = 0;
+                            grid.post(new Runnable() {
+                                @Override public void run() { updateGridRing(); }
+                            });
+                        } else if (newFocus != null) {
+                            if (!tabChips.contains(newFocus)) gridActive = false;
+                            updateFocusRing(newFocus);
+                        } else {
+                            updateFocusRing(null);
+                        }
+                    }
+                });
+        root.getViewTreeObserver().addOnTouchModeChangeListener(
+                new ViewTreeObserver.OnTouchModeChangeListener() {
+                    @Override public void onTouchModeChanged(boolean isInTouchMode) {
+                        if (isInTouchMode) gridActive = false;
+                        updateFocusRing(getCurrentFocus());
+                    }
+                });
+        grid.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override public void onScrollStateChanged(AbsListView view, int scrollState) { }
+            @Override public void onScroll(AbsListView view, int firstVisibleItem,
+                    int visibleItemCount, int totalItemCount) {
+                updateFocusRing(getCurrentFocus());
+            }
+        });
+    }
+
+    private void updateFocusRing(View focus) {
+        if (focusRing == null) return;
+        if (gridActive) {
+            updateGridRing();
+            return;
+        }
+        if (focus == null || !focus.isShown() || rootView == null
+                || getWindow().getDecorView().isInTouchMode()) {
+            focusRing.setBounds(0, 0, 0, 0);
+            return;
+        }
+        positionRing(focus);
+    }
+
+    private void updateGridRing() {
+        if (focusRing == null) return;
+        if (!gridActive || grid == null) {
+            updateFocusRing(getCurrentFocus());
+            return;
+        }
+        int first = grid.getFirstVisiblePosition();
+        View child = grid.getChildAt(gridFocus - first);
+        if (child != null && child.isShown()) {
+            positionRing(child);
+        } else {
+            focusRing.setBounds(0, 0, 0, 0);
+        }
+    }
+
+    private void positionRing(View focus) {
+        if (focus == null || rootView == null || focusRing == null) {
+            if (focusRing != null) focusRing.setBounds(0, 0, 0, 0);
+            return;
+        }
+        int[] loc = new int[2];
+        int[] self = new int[2];
+        focus.getLocationOnScreen(loc);
+        rootView.getLocationOnScreen(self);
+        int left = loc[0] - self[0];
+        int top = loc[1] - self[1];
+        focusRing.setRingRadius(FocusRingDrawable.radiusFor(focus, this));
+        focusRing.setBounds(left, top, left + focus.getWidth(), top + focus.getHeight());
     }
 
     private View buildHeader() {
@@ -392,7 +672,10 @@ public final class GalleryActivity extends PavoGlassActivity {
                     tab = index;
                     folderId = null;
                     populate();
+                    gridActive = true;
+                    gridFocus = 0;
                     grid.setSelection(0);
+                    updateFocusRing(grid);
                 }
             });
             chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
@@ -417,10 +700,7 @@ public final class GalleryActivity extends PavoGlassActivity {
         if (index < 0 || index >= tabChips.size()) return;
         TextView chip = tabChips.get(index);
         boolean selected = tab == index && folderId == null;
-        if (hasFocus) {
-            chip.setTextColor(0xFF071018);
-            chip.setBackground(Ui.rounded(accent, dp(10), accent, dp(1)));
-        } else if (selected) {
+        if (selected) {
             chip.setTextColor(0xFF071018);
             chip.setBackground(Ui.rounded(accent, dp(10), accent, dp(1)));
         } else {
@@ -722,6 +1002,14 @@ public final class GalleryActivity extends PavoGlassActivity {
         adapter.notifyDataSetChanged();
         updateTabs();
         updateSelectionUi();
+        int count = currentCount();
+        if (gridFocus >= count) gridFocus = Math.max(0, count - 1);
+        if (gridActive && grid != null) {
+            grid.setSelection(Math.max(0, gridFocus));
+            grid.post(new Runnable() {
+                @Override public void run() { updateGridRing(); }
+            });
+        }
     }
 
     private void open(MediaItem item) {
@@ -1091,12 +1379,14 @@ public final class GalleryActivity extends PavoGlassActivity {
         private final TextView check;
         private String boundKey = "";
         private boolean selectedNow;
+        private MediaItem mediaItem;
+        private Folder folderItem;
 
         Tile() {
             super(GalleryActivity.this);
             setFocusable(true);
             setClipToOutline(true);
-            setBackground(tileBackground(false, false));
+            setBackground(tileBackground(false));
 
             image = new ImageView(GalleryActivity.this);
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -1155,19 +1445,21 @@ public final class GalleryActivity extends PavoGlassActivity {
 
             setOnFocusChangeListener(new View.OnFocusChangeListener() {
                 @Override public void onFocusChange(View v, boolean hasFocus) {
-                    v.setBackground(tileBackground(hasFocus, selectedNow));
+                    v.setBackground(tileBackground(selectedNow));
                 }
             });
         }
 
-        private GradientDrawable tileBackground(boolean focused, boolean selected) {
-            int fill = selected ? 0x44FFFFFF : (focused ? 0x33FFFFFF : 0x18FFFFFF);
-            int stroke = selected || focused ? accent : 0x22FFFFFF;
-            return Ui.rounded(fill, dp(10), stroke, dp(selected || focused ? 2 : 1));
+        private GradientDrawable tileBackground(boolean selected) {
+            int fill = selected ? 0x44FFFFFF : 0x18FFFFFF;
+            int stroke = selected ? accent : 0x22FFFFFF;
+            return Ui.rounded(fill, dp(10), stroke, dp(selected ? 2 : 1));
         }
 
         void bindFolder(final Folder f) {
             boundKey = "folder:" + f.id;
+            mediaItem = null;
+            folderItem = f;
             setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     Haptics.click(v);
@@ -1195,13 +1487,15 @@ public final class GalleryActivity extends PavoGlassActivity {
             play.setVisibility(View.GONE);
             selectedNow = folderFullySelected(f);
             check.setVisibility(selectedNow ? View.VISIBLE : View.GONE);
-            setBackground(tileBackground(hasFocus(), selectedNow));
+            setBackground(tileBackground(selectedNow));
             setContentDescription(f.name);
             if (f.cover != null) showThumb(f.cover, boundKey); else clearThumb();
         }
 
         void bindMedia(final MediaItem m) {
             boundKey = "media:" + m.path;
+            mediaItem = m;
+            folderItem = null;
             setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     Haptics.click(v);
@@ -1229,7 +1523,7 @@ public final class GalleryActivity extends PavoGlassActivity {
             }
             selectedNow = selectedPaths.contains(m.path);
             check.setVisibility(selectedNow ? View.VISIBLE : View.GONE);
-            setBackground(tileBackground(hasFocus(), selectedNow));
+            setBackground(tileBackground(selectedNow));
             setContentDescription(m.name == null ? "" : m.name);
             showThumb(m, boundKey);
         }
