@@ -497,46 +497,24 @@ final class FusionHudRenderer {
     }
 
     private void buildMinimal() {
+        // Smallest mode: just the FPS number, and the frame-generation figure
+        // when frames are being generated. Everything else stays in the larger
+        // modes, so this card stays a tiny pill that hugs its one number.
         float bigPx = sp(34f);
         float unitPx = bigPx * 0.32f;
-        float subPx = sp(11.5f);
         float pad = sp(10f);
-        float lineGap = sp(6f);
         boolean gen = generating();
+        float textPx = gen ? bigPx * 0.60f : bigPx;
 
         List<Span> big = new ArrayList<>();
-        big.add(span(fpsText(), COL_VALUE, gen ? bigPx * 0.55f : bigPx));
+        big.add(span(fpsText(), COL_VALUE, textPx));
         big.add(span("fps", COL_DIM, gen ? unitPx * 0.8f : unitPx));
 
-        List<Span> sub = new ArrayList<>();
-        sub.add(span("1% ", COL_DIM, subPx));
-        sub.add(span(lowText(1) == null ? "\u2014" : lowText(1), COL_FPS, subPx));
-        sub.add(span("  \u00b7  0.1% ", COL_DIM, subPx));
-        sub.add(span(lowText(1) == null ? "\u2014" : lowText(0), COL_FPS, subPx));
-        sub.add(span("  \u00b7  0.01% ", COL_DIM, subPx));
-        sub.add(span(lowText(0) == null ? "\u2014" : lowText(0), COL_FPS, subPx));
-
         float bigW = runWidth(big);
-        float bigH = lineH(bigPx);
-        float subW = runWidth(sub);
-        float subH = lineH(subPx);
-        float gw = sp(120f), gh = sp(22f);
-        boolean graphOn = showGraph && hasGraphSamples();
-        float inner = Math.max(Math.max(bigW, subW), graphOn ? gw : 0f);
-        contentW = inner + pad * 2f;
-
-        float y = pad;
-        placeRun(pad + (inner - bigW) / 2f, y - ascent(bigPx), big);
-        y += bigH + lineGap;
-        placeRun(pad + (inner - subW) / 2f, y - ascent(subPx), sub);
-        y += subH + lineGap;
-        if (graphOn) {
-            float gx = pad + (inner - gw) / 2f;
-            graphRect = new RectF(gx, y, gx + gw, y + gh);
-            y += gh;
-        }
-        contentH = y + pad;
-        addClock(pad, null);
+        float bigH = lineH(textPx);
+        contentW = bigW + pad * 2f;
+        contentH = bigH + pad * 2f;
+        placeRun(pad, pad - ascent(textPx), big);
     }
 
     private void buildPill() {
