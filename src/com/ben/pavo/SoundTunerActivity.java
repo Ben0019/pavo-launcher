@@ -10,6 +10,8 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.content.res.ColorStateList;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -82,6 +84,8 @@ public final class SoundTunerActivity extends PavoGlassActivity {
 
     private TextView enableChip;
     private TextView status;
+    private TextView gameAudioStatus;
+    private TextView headphoneStatus;
     private EqCurveView curve;
     private final List<SeekBar> bars = new ArrayList<>();
     private final List<TextView> values = new ArrayList<>();
@@ -263,6 +267,32 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         body.addView(presetsLabel, plp);
         addPresetRows(body);
 
+        TextView gameLabel = sectionLabel(Loc.s(this, "GAME AUDIO"));
+        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        glp.topMargin = dp(12);
+        body.addView(gameLabel, glp);
+
+        gameAudioStatus = text("", 9f, MUTED, false);
+        gameAudioStatus.setPadding(dp(3), dp(4), dp(3), dp(2));
+        body.addView(gameAudioStatus);
+
+        headphoneStatus = text("", 9f, MUTED, false);
+        headphoneStatus.setPadding(dp(3), dp(2), dp(3), dp(6));
+        body.addView(headphoneStatus);
+
+        LinearLayout gameRow = new LinearLayout(this);
+        gameRow.setOrientation(LinearLayout.HORIZONTAL);
+        TextView gameChip = gameChip("GAME EQ", "GAME");
+        TextView fpsChip = gameChip("FPS EQ", "FPS");
+        LinearLayout.LayoutParams gclp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        gclp.rightMargin = dp(4);
+        gameRow.addView(gameChip, gclp);
+        gameRow.addView(fpsChip, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        body.addView(gameRow);
+
         setContentView(root);
     }
 
@@ -441,6 +471,25 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 : "Equalizer unavailable on this device."));
         status.setTextColor(available ? MUTED : 0xFFFF8A80);
 
+        if (gameAudioStatus != null) {
+            String pkg = PavoA11yService.foregroundPackage();
+            String appLabel = null;
+            if (pkg != null && !pkg.equals(getPackageName())) {
+                try {
+                    appLabel = getPackageManager().getApplicationLabel(
+                            getPackageManager().getApplicationInfo(pkg, 0)).toString();
+                } catch (Throwable ignored) {
+                }
+            }
+            String hint = Loc.s(this, "Directional audio comes from the game."
+                    + " Use headphones and enable 3D Audio or HRTF in its audio settings.");
+            gameAudioStatus.setText(appLabel == null ? hint : appLabel + "\n" + hint);
+            boolean headphones = headphonesConnected();
+            headphoneStatus.setText(Loc.s(this, headphones
+                    ? "Headphones connected" : "Connect headphones for direction"));
+            headphoneStatus.setTextColor(headphones ? GREEN : MUTED);
+        }
+
         updating = true;
         int min = AudioEq.minLevel(this);
         int max = AudioEq.maxLevel(this);
@@ -454,6 +503,54 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         updating = false;
         updatePresetSelection();
         for (SeekBar bar : bars) bar.setEnabled(available);
+    }
+
+    private TextView gameChip(final String label, final String preset) {
+        TextView chip = text(Loc.s(this, label), 9f, TEXT, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setFocusable(true);
+        chip.setFocusableInTouchMode(true);
+        chip.setPadding(dp(4), dp(8), dp(4), dp(8));
+        chip.setBackground(Ui.rounded(0x18FFFFFF, dp(10), 0x22FFFFFF, dp(1)));
+        chip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                int index = 0;
+                for (int i = 0; i < PRESET_NAMES.length; i++) {
+                    if (PRESET_NAMES[i].equals(preset)) {
+                        index = i;
+                        break;
+                    }
+                }
+                AudioEq.setBands(SoundTunerActivity.this, PRESET_LEVELS[index]);
+                AudioEq.setEnabled(SoundTunerActivity.this, true);
+                refresh();
+            }
+        });
+        chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean hasFocus) {
+                v.setBackground(Ui.rounded(hasFocus ? 0x26FFFFFF : 0x18FFFFFF, dp(10),
+                        hasFocus ? accent : 0x22FFFFFF, dp(1)));
+            }
+        });
+        return chip;
+    }
+
+    private boolean headphonesConnected() {
+        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (am == null) return false;
+        for (AudioDeviceInfo device : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+            int type = device.getType();
+            if (type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+                    || type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+                    || type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                    || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    || type == AudioDeviceInfo.TYPE_USB_HEADSET
+                    || type == AudioDeviceInfo.TYPE_BLE_HEADSET) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int[] currentLevels() {
