@@ -47,6 +47,7 @@ final class PerfOverlayView extends LinearLayout {
     private TextView fpsLabel;
     private Prefs lastPrefs;
     private int detailLevel = 4;
+    private boolean spread;
     private TextView lockIcon;
     private TextView editDoneBar;
     private Runnable editDoneAction;
@@ -649,6 +650,34 @@ final class PerfOverlayView extends LinearLayout {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = dp(8);
         return lp;
+    }
+
+    /**
+     * Full-size form keeps the original spread columns; smaller forms pack the
+     * values so nothing is wasted.
+     */
+    void setSpread(boolean value) {
+        if (spread == value) return;
+        spread = value;
+        cpuTemp.setLayoutParams(cellOr(0.9f));
+        cpuClock.setLayoutParams(cellOr(1.05f));
+        cpuUsage.setLayoutParams(cellOr(0.85f));
+        gpuTemp.setLayoutParams(cellOr(0.9f));
+        gpuClock.setLayoutParams(cellOr(1.05f));
+        gpuUsage.setLayoutParams(cellOr(0.85f));
+        netUp.setLayoutParams(cellOr(1.3f));
+        netDown.setLayoutParams(cellOr(1.3f));
+        ramUsage.setLayoutParams(cellOr(1.0f));
+        ramAmount.setLayoutParams(cellOr(1.4f));
+        battTemp.setLayoutParams(cellOr(1.0f));
+        battPower.setLayoutParams(cellOr(1.4f));
+        fanDuty.setLayoutParams(cellOr(1f));
+        fpsValue.setLayoutParams(cellOr(1f));
+        requestLayout();
+    }
+
+    private ViewGroup.LayoutParams cellOr(float w) {
+        return spread ? weight(w) : cell();
     }
 
     /** Natural width of the visible metrics, for a card that hugs its content. */

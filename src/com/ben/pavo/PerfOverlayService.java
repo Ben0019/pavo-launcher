@@ -1360,10 +1360,18 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             panel.setDetailLevel(level);
             // Below the readable floor, drop metrics instead of shrinking text.
             if (scale < 0.9f) render = 0.9f;
-            int wantW = panel.naturalWidthPx();
-            if (panel.graphShown()) wantW = Math.max(wantW, Ui.dp(uiContext, 150));
-            wantW = Math.max(Ui.dp(uiContext, 72),
-                    Math.min(baseWidthPx, wantW));
+            boolean spread = scale >= 0.99f;
+            panel.setSpread(spread);
+            int wantW;
+            if (spread) {
+                // At the largest size keep the original spread-column form.
+                wantW = baseWidthPx;
+            } else {
+                wantW = panel.naturalWidthPx();
+                if (panel.graphShown()) wantW = Math.max(wantW, Ui.dp(uiContext, 150));
+                wantW = Math.max(Ui.dp(uiContext, 72),
+                        Math.min(baseWidthPx, wantW));
+            }
             FrameLayout.LayoutParams plp = panel.getLayoutParams()
                     instanceof FrameLayout.LayoutParams
                     ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
