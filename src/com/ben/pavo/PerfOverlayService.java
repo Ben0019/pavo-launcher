@@ -154,7 +154,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 return;
             }
             float diff = targetScale - scale;
-            if (Math.abs(diff) < 0.002f) {
+            if (Math.abs(diff) < 0.0015f) {
                 scale = targetScale;
                 applyScaleAt(scale, pinchCenterX, pinchCenterY);
                 scaleTickerRunning = false;
@@ -164,7 +164,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 }
                 return;
             }
-            scale += diff * 0.30f;
+            // Gentle approach so the card glides to the finger position instead
+            // of snapping; 0.18 at 60 fps settles in roughly a third of a second.
+            scale += diff * 0.18f;
             applyScaleAt(scale, pinchCenterX, pinchCenterY);
             main.postDelayed(this, 16);
         }
@@ -1341,6 +1343,33 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     }
 
     /** Detail level for the vertical card, derived from how small it is. */
+    /** Level with a small hysteresis band, so rows do not flicker at a boundary. */
+    private int smoothLevel(float s) {
+        int target = levelForScale(s);
+        if (target == cachedLevel) return target;
+        float m = 0.015f;
+        switch (cachedLevel) {
+            case 4:
+                if (s > 0.99f - m) return 4;
+                break;
+            case 3:
+                if (s > 0.92f - m && s < 0.99f + m) return 3;
+                break;
+            case 2:
+                if (s > 0.84f - m && s < 0.92f + m) return 2;
+                break;
+            case 1:
+                if (s > 0.74f - m && s < 0.84f + m) return 1;
+                break;
+            case 0:
+                if (s < 0.74f + m) return 0;
+                break;
+            default:
+                break;
+        }
+        return target;
+    }
+
     private static int levelForScale(float s) {
         if (s >= 0.99f) return 4;
         if (s >= 0.92f) return 3;
@@ -1348,6 +1377,10 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         if (s >= 0.74f) return 1;
         return 0;
     }
+
+    private int cachedLevel = -1;
+    private int cachedWidth;
+    private int cachedHeight;
 
     /**
      * Window size for the current scale, dropping metrics when the card is too
@@ -1372,19 +1405,28 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 wantW = Math.max(Ui.dp(uiContext, 72),
                         Math.min(baseWidthPx, wantW));
             }
-            FrameLayout.LayoutParams plp = panel.getLayoutParams()
-                    instanceof FrameLayout.LayoutParams
-                    ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
-            if (plp == null) plp = new FrameLayout.LayoutParams(wantW, baseHeightPx);
-            plp.width = wantW;
-            panel.setLayoutParams(plp);
-            panel.measure(View.MeasureSpec.makeMeasureSpec(wantW, View.MeasureSpec.EXACTLY),
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-            int contentH = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
-            plp.height = contentH;
-            panel.setLayoutParams(plp);
+            if (level != cachedLevel || wantW != cachedWidth) {
+                FrameLayout.LayoutParams plp = panel.getLayoutParams()
+                        instanceof FrameLayout.LayoutParams
+                        ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
+                if (plp == null) plp = new FrameLayout.LayoutParams(wantW, baseHeightPx);
+                if (plp.width != wantW) {
+                    plp.width = wantW;
+                    panel.setLayoutParams(plp);
+                }
+                panel.measure(View.MeasureSpec.makeMeasureSpec(wantW, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                int contentH = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
+                if (plp.height != contentH) {
+                    plp.height = contentH;
+                    panel.setLayoutParams(plp);
+                }
+                cachedLevel = level;
+                cachedWidth = wantW;
+                cachedHeight = contentH;
+            }
             return new int[]{Math.round(wantW * render),
-                    Math.round(contentH * render), Math.round(render * 1000f)};
+                    Math.round(cachedHeight * render), Math.round(render * 1000f)};
         }
         return new int[]{Math.round(baseWidthPx * render),
                 Math.round(baseHeightPx * render), Math.round(render * 1000f)};
@@ -1392,6 +1434,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void applyScaleGeometry(boolean keepCenter) {
         if (container == null || panel == null || params == null) return;
+        // Prefs or a direct size change may alter the visible rows: re-measure.
+        cachedLevel = -1;
         scale = clampScale(scale);
         int[] size = scaledWindowSize();
         int newW = size[0];
@@ -1517,7 +1561,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                             if (ratio > 0.98f && ratio < 1.02f) return true;
                             // A sub-linear response plus eased motion avoids the twitchy
                             // feel of directly mapping every raw touch delta to window size.
-                            float exponent = scale < 0.9f ? 0.48f : 0.60f;
+                            // Near-linear response: the card follows the finger
+                            // span closely, so a given spread maps to a size.
+                            float exponent = 0.85f;
                             float damped = (float) Math.pow(Math.max(0.01f, ratio), exponent);
                             targetScale = clampScale(pinchStartScale * damped);
                             if (!scaleTickerRunning) {
