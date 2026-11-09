@@ -492,7 +492,7 @@ final class PerfOverlayView extends LinearLayout {
         int lvl = detailLevel;
         boolean showHeader = lvl >= 1;
         boolean cpuTempOn = p.perfCpuTemp() && lvl >= 1;
-        boolean gpuTempOn = p.perfGpuTemp() && lvl >= 2;
+        boolean gpuTempOn = p.perfGpuTemp() && lvl >= 1;
         boolean battOn = p.perfBattery() && lvl >= 2;
         boolean cpuUsageOn = p.perfCpuUsage() && lvl >= 3;
         boolean gpuUsageOn = p.perfGpuUsage() && lvl >= 3;
