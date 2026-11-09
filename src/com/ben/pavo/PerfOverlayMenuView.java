@@ -422,7 +422,7 @@ final class PerfOverlayMenuView extends FrameLayout {
         content.addView(drawerHint);
 
         addSection(content, "POSITION & SIZE");
-        addToggle(content, "Lock position", prefs.perfOverlayLocked(), new BoolCallback() {
+        addToggle(content, Loc.s(getContext(), "Lock position"), prefs.perfOverlayLocked(), new BoolCallback() {
             @Override
             public void onChanged(boolean value) {
                 listener.onOverlayLocked(value);

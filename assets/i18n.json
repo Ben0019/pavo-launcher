@@ -2018,7 +2018,17 @@
     "SMALL": "MALÝ",
     "LARGE": "VELKÝ",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · rychlost pravé páčky · bod D-pad/levé páčky · karty L1/R1",
-    "Mode": "Režim"
+    "Mode": "Režim",
+    "PILL": "PIL",
+    "TILES": "DLAŽ",
+    "FULL": "PLNÝ",
+    "MEGA": "MEGA",
+    "STRIP MODE": "REŽIM PRUHU",
+    "PERFORMANCE OVERLAY SHORTCUTS": "ZKRATKY OVERLAYE",
+    "SIDEVIEW DRAWER SHORTCUTS": "ZKRATKY BOČNÍHO PANELU",
+    "Background whitelist": "Povolit na pozadí",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Udržuje overlay a služby na pozadí spuštěné. Přidáno automaticky přes PServer.",
+    "Lock position": "Zamknout pozici"
   },
   "da": {
     "Quick Controls": "Hurtigbetjening",
@@ -4039,7 +4049,17 @@
     "SMALL": "LILLE",
     "LARGE": "STOR",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · højre stiks hastighed · D-pad/venstre stik punkt · L1/R1-kort",
-    "Mode": "Tilstand"
+    "Mode": "Tilstand",
+    "PILL": "PILLE",
+    "TILES": "FLIS",
+    "FULL": "FULD",
+    "MEGA": "MEGA",
+    "STRIP MODE": "STRIPTILSTAND",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY-GENVEJE",
+    "SIDEVIEW DRAWER SHORTCUTS": "SIDEPANEL-GENVEJE",
+    "Background whitelist": "Tillad i baggrunden",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Holder overlay og baggrundstjenester kørende. Tilføjet automatisk via PServer.",
+    "Lock position": "Lås position"
   },
   "de": {
     "Quick Controls": "Schnellsteuerung",
@@ -6060,7 +6080,17 @@
     "SMALL": "KLEIN",
     "LARGE": "GROSS",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · Geschwindigkeit rechter Stick · Punkt Steuerkreuz/linker Stick · L1/R1-Karten",
-    "Mode": "Modus"
+    "Mode": "Modus",
+    "PILL": "PILLE",
+    "TILES": "KACH",
+    "FULL": "VOLL",
+    "MEGA": "MEGA",
+    "STRIP MODE": "STREIFENMODUS",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY-TASTENKÜRZEL",
+    "SIDEVIEW DRAWER SHORTCUTS": "SEITENLEISTE-TASTENKÜRZEL",
+    "Background whitelist": "Im Hintergrund erlauben",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Hält Overlay und Hintergrunddienste am Laufen. Automatisch über PServer hinzugefügt.",
+    "Lock position": "Position sperren"
   },
   "el": {
     "Quick Controls": "Γρήγοροι έλεγχοι",
@@ -8081,7 +8111,17 @@
     "SMALL": "ΜΙΚΡΟ",
     "LARGE": "ΜΕΓΑΛΟ",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · ταχύτητα δεξιού μοχλού · σημείο D-pad/αριστερού μοχλού · κάρτες L1/R1",
-    "Mode": "Λειτουργία"
+    "Mode": "Λειτουργία",
+    "PILL": "ΧΑΠΙ",
+    "TILES": "ΠΛΑΚ",
+    "FULL": "ΠΛΗΡ",
+    "MEGA": "ΜΕΓΑ",
+    "STRIP MODE": "ΛΕΙΤΟΥΡΓΙΑ ΛΩΡΙΔΑΣ",
+    "PERFORMANCE OVERLAY SHORTCUTS": "ΣΥΝΤΟΜΕΥΣΕΙΣ OVERLAY",
+    "SIDEVIEW DRAWER SHORTCUTS": "ΣΥΝΤΟΜΕΥΣΕΙΣ ΠΛΕΥΡΙΚΟΥ ΠΑΝΕΛ",
+    "Background whitelist": "Να επιτρέπεται στο παρασκήνιο",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Διατηρεί το overlay και τις υπηρεσίες παρασκηνίου. Προστίθεται αυτόματα μέσω PServer.",
+    "Lock position": "Κλείδωμα θέσης"
   },
   "es": {
     "Quick Controls": "Controles rápidos",
@@ -10102,7 +10142,17 @@
     "SMALL": "PEQUEÑO",
     "LARGE": "GRANDE",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · velocidad del stick derecho · punto del D-pad/stick izquierdo · tarjetas L1/R1",
-    "Mode": "Modo"
+    "Mode": "Modo",
+    "PILL": "PIL",
+    "TILES": "MOS",
+    "FULL": "LLEN",
+    "MEGA": "MEGA",
+    "STRIP MODE": "MODO FRANJA",
+    "PERFORMANCE OVERLAY SHORTCUTS": "ATAJOS DEL OVERLAY",
+    "SIDEVIEW DRAWER SHORTCUTS": "ATAJOS DEL CAJÓN LATERAL",
+    "Background whitelist": "Permitir en segundo plano",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Mantiene el overlay y los servicios en segundo plano. Se añade automáticamente mediante PServer.",
+    "Lock position": "Bloquear posición"
   },
   "fi": {
     "Quick Controls": "Pika-asetukset",
@@ -12123,7 +12173,17 @@
     "SMALL": "PIENI",
     "LARGE": "SUURI",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · oikean sauvan nopeus · D-pad/vasemman sauvan piste · L1/R1-kortit",
-    "Mode": "Tila"
+    "Mode": "Tila",
+    "PILL": "PIL",
+    "TILES": "LAAT",
+    "FULL": "TÄYSI",
+    "MEGA": "MEGA",
+    "STRIP MODE": "NAUHATILA",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY-PIKAKUVAKKEET",
+    "SIDEVIEW DRAWER SHORTCUTS": "SIVUPANEELIN PIKAKUVAKKEET",
+    "Background whitelist": "Salli taustalla",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Pitää overlayn ja taustapalvelut käynnissä. Lisätään automaattisesti PServerin kautta.",
+    "Lock position": "Lukitse sijainti"
   },
   "fr": {
     "Quick Controls": "Contrôles rapides",
@@ -14144,7 +14204,17 @@
     "SMALL": "PETIT",
     "LARGE": "GRAND",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · vitesse du stick droit · point de la croix/stick gauche · cartes L1/R1",
-    "Mode": "Mode"
+    "Mode": "Mode",
+    "PILL": "PIL",
+    "TILES": "TUI",
+    "FULL": "COMP",
+    "MEGA": "MÉGA",
+    "STRIP MODE": "MODE BANDEAU",
+    "PERFORMANCE OVERLAY SHORTCUTS": "RACCOURCIS OVERLAY",
+    "SIDEVIEW DRAWER SHORTCUTS": "RACCOURCIS DU PANNEAU LATÉRAL",
+    "Background whitelist": "Autoriser en arrière-plan",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Garde l'overlay et les services d'arrière-plan actifs. Ajouté automatiquement via PServer.",
+    "Lock position": "Verrouiller la position"
   },
   "he": {
     "Quick Controls": "בקרות מהירות",
@@ -16165,7 +16235,17 @@
     "SMALL": "קטן",
     "LARGE": "גדול",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · מהירות מקל ימני · נקודת D-pad/מקל שמאלי · כרטיסי L1/R1",
-    "Mode": "מצב"
+    "Mode": "מצב",
+    "PILL": "גלולה",
+    "TILES": "אריח",
+    "FULL": "מלא",
+    "MEGA": "מגה",
+    "STRIP MODE": "מצב פס",
+    "PERFORMANCE OVERLAY SHORTCUTS": "קיצורי OVERLAY",
+    "SIDEVIEW DRAWER SHORTCUTS": "קיצורי פאנל צד",
+    "Background whitelist": "אפשר ברקע",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "משאיר את השכבה ושירותי הרקע פועלים. מתווסף אוטומטית דרך PServer.",
+    "Lock position": "נעל מיקום"
   },
   "hu": {
     "Quick Controls": "Gyorsvezérlők",
@@ -18186,7 +18266,17 @@
     "SMALL": "KICSI",
     "LARGE": "NAGY",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · jobb bot sebessége · D-pad/bal bot pont · L1/R1 kártyák",
-    "Mode": "Mód"
+    "Mode": "Mód",
+    "PILL": "TABLE",
+    "TILES": "CSEM",
+    "FULL": "TELE",
+    "MEGA": "MEGA",
+    "STRIP MODE": "CSÍKMÓD",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY GYORSGOMBOK",
+    "SIDEVIEW DRAWER SHORTCUTS": "OLDALPANEL GYORSGOMBOK",
+    "Background whitelist": "Engedélyezés háttérben",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Futva tartja az overlayt és a háttérszolgáltatásokat. Automatikusan hozzáadva a PServeren keresztül.",
+    "Lock position": "Pozíció zárolása"
   },
   "id": {
     "Quick Controls": "Kontrol Cepat",
@@ -20207,7 +20297,17 @@
     "SMALL": "KECIL",
     "LARGE": "BESAR",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · kecepatan stik kanan · titik D-pad/stik kiri · kartu L1/R1",
-    "Mode": "Mode"
+    "Mode": "Mode",
+    "PILL": "PIL",
+    "TILES": "UBIN",
+    "FULL": "PENUH",
+    "MEGA": "MEGA",
+    "STRIP MODE": "MODE STRIP",
+    "PERFORMANCE OVERLAY SHORTCUTS": "PINTASAN OVERLAY",
+    "SIDEVIEW DRAWER SHORTCUTS": "PINTASAN PANEL SAMPING",
+    "Background whitelist": "Izinkan di latar belakang",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Menjaga overlay dan layanan latar belakang tetap berjalan. Ditambahkan otomatis melalui PServer.",
+    "Lock position": "Kunci posisi"
   },
   "it": {
     "Quick Controls": "Controlli rapidi",
@@ -22228,7 +22328,17 @@
     "SMALL": "PICCOLO",
     "LARGE": "GRANDE",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · velocità stick destro · punto D-pad/stick sinistro · schede L1/R1",
-    "Mode": "Modalità"
+    "Mode": "Modalità",
+    "PILL": "PIL",
+    "TILES": "RIQ",
+    "FULL": "PIENO",
+    "MEGA": "MEGA",
+    "STRIP MODE": "MODALITÀ STRISCIA",
+    "PERFORMANCE OVERLAY SHORTCUTS": "SCORCIATOIE OVERLAY",
+    "SIDEVIEW DRAWER SHORTCUTS": "SCORCIATOIE PANNELLO LATERALE",
+    "Background whitelist": "Consenti in background",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Mantiene l'overlay e i servizi in background attivi. Aggiunto automaticamente tramite PServer.",
+    "Lock position": "Blocca posizione"
   },
   "ja": {
     "Quick Controls": "クイックコントロール",
@@ -24249,7 +24359,17 @@
     "SMALL": "小",
     "LARGE": "大",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · 右スティックの速さ · 方向キー/左スティックのポイント · L1/R1 カード",
-    "Mode": "モード"
+    "Mode": "モード",
+    "PILL": "ピル",
+    "TILES": "タイル",
+    "FULL": "フル",
+    "MEGA": "メガ",
+    "STRIP MODE": "ストリップモード",
+    "PERFORMANCE OVERLAY SHORTCUTS": "オーバーレイのショートカット",
+    "SIDEVIEW DRAWER SHORTCUTS": "サイドパネルのショートカット",
+    "Background whitelist": "バックグラウンドで許可",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "オーバーレイとバックグラウンドサービスを実行し続けます。PServer 経由で自動追加されます。",
+    "Lock position": "位置をロック"
   },
   "ko": {
     "Quick Controls": "빠른 컨트롤",
@@ -26270,7 +26390,17 @@
     "SMALL": "작음",
     "LARGE": "큼",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · 오른쪽 스틱 속도 · D패드/왼쪽 스틱 지점 · L1/R1 카드",
-    "Mode": "모드"
+    "Mode": "모드",
+    "PILL": "필",
+    "TILES": "타일",
+    "FULL": "전체",
+    "MEGA": "메가",
+    "STRIP MODE": "스트립 모드",
+    "PERFORMANCE OVERLAY SHORTCUTS": "오버레이 단축키",
+    "SIDEVIEW DRAWER SHORTCUTS": "사이드 패널 단축키",
+    "Background whitelist": "백그라운드에서 허용",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "오버레이와 백그라운드 서비스를 계속 실행합니다. PServer를 통해 자동으로 추가됩니다.",
+    "Lock position": "위치 잠금"
   },
   "nb": {
     "Quick Controls": "Hurtigkontroller",
@@ -28291,7 +28421,17 @@
     "SMALL": "LITEN",
     "LARGE": "STOR",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · høyre stikks hastighet · D-pad/venstre stikk punkt · L1/R1-kort",
-    "Mode": "Modus"
+    "Mode": "Modus",
+    "PILL": "PILLE",
+    "TILES": "FLIS",
+    "FULL": "FULL",
+    "MEGA": "MEGA",
+    "STRIP MODE": "STRIPEMODUS",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY-SNAVVEIER",
+    "SIDEVIEW DRAWER SHORTCUTS": "SIDEPANEL-SNAVVEIER",
+    "Background whitelist": "Tillat i bakgrunnen",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Holder overlegget og bakgrunnstjenestene i gang. Legges til automatisk via PServer.",
+    "Lock position": "Lås posisjon"
   },
   "nl": {
     "Quick Controls": "Snelle bediening",
@@ -30312,7 +30452,17 @@
     "SMALL": "KLEIN",
     "LARGE": "GROOT",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · snelheid rechterstick · D-pad/linkerstickpunt · L1/R1-kaarten",
-    "Mode": "Modus"
+    "Mode": "Modus",
+    "PILL": "PIL",
+    "TILES": "TEG",
+    "FULL": "VOL",
+    "MEGA": "MEGA",
+    "STRIP MODE": "STROOKMODUS",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY-SNELTOETSEN",
+    "SIDEVIEW DRAWER SHORTCUTS": "ZIJLADE-SNELTOETSEN",
+    "Background whitelist": "Toestaan op achtergrond",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Houdt de overlay en achtergronddiensten actief. Automatisch toegevoegd via PServer.",
+    "Lock position": "Positie vergrendelen"
   },
   "pl": {
     "Quick Controls": "Szybkie sterowanie",
@@ -32333,7 +32483,17 @@
     "SMALL": "MAŁY",
     "LARGE": "DUŻY",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · prędkość prawego drążka · punkt D-pad/lewego drążka · karty L1/R1",
-    "Mode": "Tryb"
+    "Mode": "Tryb",
+    "PILL": "PIL",
+    "TILES": "KAF",
+    "FULL": "PEŁNY",
+    "MEGA": "MEGA",
+    "STRIP MODE": "TRYB PASA",
+    "PERFORMANCE OVERLAY SHORTCUTS": "SKRÓTY OVERLAYA",
+    "SIDEVIEW DRAWER SHORTCUTS": "SKRÓTY PANELU BOCZNEGO",
+    "Background whitelist": "Zezwól w tle",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Utrzymuje nakładkę i usługi w tle. Dodawane automatycznie przez PServer.",
+    "Lock position": "Zablokuj pozycję"
   },
   "pt": {
     "Quick Controls": "Controles rápidos",
@@ -34354,7 +34514,17 @@
     "SMALL": "PEQUENO",
     "LARGE": "GRANDE",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · velocidade do stick direito · ponto do D-pad/stick esquerdo · cartões L1/R1",
-    "Mode": "Modo"
+    "Mode": "Modo",
+    "PILL": "PIL",
+    "TILES": "MOS",
+    "FULL": "CHEIO",
+    "MEGA": "MEGA",
+    "STRIP MODE": "MODO FAIXA",
+    "PERFORMANCE OVERLAY SHORTCUTS": "ATALHOS DA SOBREPOSIÇÃO",
+    "SIDEVIEW DRAWER SHORTCUTS": "ATALHOS DO PAINEL LATERAL",
+    "Background whitelist": "Permitir em segundo plano",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Mantém a sobreposição e os serviços em segundo plano ativos. Adicionado automaticamente via PServer.",
+    "Lock position": "Bloquear posição"
   },
   "ro": {
     "Quick Controls": "Comenzi rapide",
@@ -36375,7 +36545,17 @@
     "SMALL": "MIC",
     "LARGE": "MARE",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · viteza stickului dreapta · punct D-pad/stick stânga · cartele L1/R1",
-    "Mode": "Mod"
+    "Mode": "Mod",
+    "PILL": "PIL",
+    "TILES": "PLĂCI",
+    "FULL": "PLIN",
+    "MEGA": "MEGA",
+    "STRIP MODE": "MOD BANDĂ",
+    "PERFORMANCE OVERLAY SHORTCUTS": "SCURTĂTURI OVERLAY",
+    "SIDEVIEW DRAWER SHORTCUTS": "SCURTĂTURI PANOU LATERAL",
+    "Background whitelist": "Permite în fundal",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Menține overlay-ul și serviciile de fundal active. Adăugat automat prin PServer.",
+    "Lock position": "Blochează poziția"
   },
   "ru": {
     "Quick Controls": "Быстрое управление",
@@ -38396,7 +38576,17 @@
     "SMALL": "МАЛЫЙ",
     "LARGE": "БОЛЬШОЙ",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · скорость правого стика · точка D-pad/левого стика · карты L1/R1",
-    "Mode": "Режим"
+    "Mode": "Режим",
+    "PILL": "ПИЛ",
+    "TILES": "ПЛИТ",
+    "FULL": "ПОЛН",
+    "MEGA": "МЕГА",
+    "STRIP MODE": "РЕЖИМ ПОЛОСЫ",
+    "PERFORMANCE OVERLAY SHORTCUTS": "ЯРЛЫКИ ОВЕРЛЕЯ",
+    "SIDEVIEW DRAWER SHORTCUTS": "ЯРЛЫКИ БОКОВОЙ ПАНЕЛИ",
+    "Background whitelist": "Разрешить в фоне",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Поддерживает работу оверлея и фоновых служб. Добавляется автоматически через PServer.",
+    "Lock position": "Заблокировать позицию"
   },
   "sv": {
     "Quick Controls": "Snabbkontroller",
@@ -40417,7 +40607,17 @@
     "SMALL": "LITEN",
     "LARGE": "STOR",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · höger spaks hastighet · styrkors/vänster spak punkt · L1/R1-kort",
-    "Mode": "Läge"
+    "Mode": "Läge",
+    "PILL": "PILLER",
+    "TILES": "PLAT",
+    "FULL": "FULL",
+    "MEGA": "MEGA",
+    "STRIP MODE": "REMSLÄGE",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY-GENVÄGAR",
+    "SIDEVIEW DRAWER SHORTCUTS": "SIDPANEL-GENVÄGAR",
+    "Background whitelist": "Tillåt i bakgrunden",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Håller överlägget och bakgrundstjänsterna igång. Läggs till automatiskt via PServer.",
+    "Lock position": "Lås position"
   },
   "th": {
     "Quick Controls": "การควบคุมด่วน",
@@ -42438,7 +42638,17 @@
     "SMALL": "เล็ก",
     "LARGE": "ใหญ่",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · ความเร็วสติกขวา · จุด D-pad/สติกซ้าย · การ์ด L1/R1",
-    "Mode": "โหมด"
+    "Mode": "โหมด",
+    "PILL": "พิล",
+    "TILES": "ไทล์",
+    "FULL": "เต็ม",
+    "MEGA": "เมกะ",
+    "STRIP MODE": "โหมดแถบ",
+    "PERFORMANCE OVERLAY SHORTCUTS": "ทางลัดโอเวอร์เลย์",
+    "SIDEVIEW DRAWER SHORTCUTS": "ทางลัดแผงด้านข้าง",
+    "Background whitelist": "อนุญาตเบื้องหลัง",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "คงโอเวอร์เลย์และบริการพื้นหลังให้ทำงาน เพิ่มอัตโนมัติผ่าน PServer",
+    "Lock position": "ล็อกตำแหน่ง"
   },
   "tr": {
     "Quick Controls": "Hızlı Kontroller",
@@ -44459,7 +44669,17 @@
     "SMALL": "KÜÇÜK",
     "LARGE": "BÜYÜK",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · sağ çubuk hızı · D-pad/sol çubuk noktası · L1/R1 kartları",
-    "Mode": "Mod"
+    "Mode": "Mod",
+    "PILL": "HAP",
+    "TILES": "KARE",
+    "FULL": "TAM",
+    "MEGA": "MEGA",
+    "STRIP MODE": "ŞERİT MODU",
+    "PERFORMANCE OVERLAY SHORTCUTS": "OVERLAY KISAYOLLARI",
+    "SIDEVIEW DRAWER SHORTCUTS": "YAN PANEL KISAYOLLARI",
+    "Background whitelist": "Arka planda izin ver",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Yer paylaşımını ve arka plan hizmetlerini çalışır tutar. PServer üzerinden otomatik eklenir.",
+    "Lock position": "Konumu kilitle"
   },
   "uk": {
     "Quick Controls": "Швидке керування",
@@ -46480,7 +46700,17 @@
     "SMALL": "МАЛИЙ",
     "LARGE": "ВЕЛИКИЙ",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · швидкість правого стіка · точка D-pad/лівого стіка · карти L1/R1",
-    "Mode": "Режим"
+    "Mode": "Режим",
+    "PILL": "ПІЛ",
+    "TILES": "ПЛИТ",
+    "FULL": "ПОВН",
+    "MEGA": "МЕГА",
+    "STRIP MODE": "РЕЖИМ СМУГИ",
+    "PERFORMANCE OVERLAY SHORTCUTS": "ЯРЛИКИ ОВЕРЛЕЯ",
+    "SIDEVIEW DRAWER SHORTCUTS": "ЯРЛИКИ БІЧНОЇ ПАНЕЛІ",
+    "Background whitelist": "Дозволити у фоні",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Підтримує роботу оверлея та фонових служб. Додається автоматично через PServer.",
+    "Lock position": "Заблокувати позицію"
   },
   "vi": {
     "Quick Controls": "Điều khiển nhanh",
@@ -48501,7 +48731,17 @@
     "SMALL": "NHỎ",
     "LARGE": "LỚN",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · tốc độ cần phải · điểm D-pad/cần trái · thẻ L1/R1",
-    "Mode": "Chế độ"
+    "Mode": "Chế độ",
+    "PILL": "VIÊN",
+    "TILES": "Ô",
+    "FULL": "ĐẦY",
+    "MEGA": "MEGA",
+    "STRIP MODE": "CHẾ ĐỘ DẢI",
+    "PERFORMANCE OVERLAY SHORTCUTS": "PHÍM TẮT LỚP PHỦ",
+    "SIDEVIEW DRAWER SHORTCUTS": "PHÍM TẮT BẢNG BÊN",
+    "Background whitelist": "Cho phép nền",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "Giữ lớp phủ và dịch vụ nền hoạt động. Tự động thêm qua PServer.",
+    "Lock position": "Khóa vị trí"
   },
   "zh-CN": {
     "Quick Controls": "快捷控制",
@@ -50522,6 +50762,16 @@
     "SMALL": "小",
     "LARGE": "大",
     "%s · right stick speed · D-pad/left stick point · L1/R1 cards": "%s · 右摇杆速度 · 方向键/左摇杆控制点 · L1/R1 卡片",
-    "Mode": "模式"
+    "Mode": "模式",
+    "PILL": "药丸",
+    "TILES": "平铺",
+    "FULL": "完整",
+    "MEGA": "巨型",
+    "STRIP MODE": "条带模式",
+    "PERFORMANCE OVERLAY SHORTCUTS": "叠加层快捷键",
+    "SIDEVIEW DRAWER SHORTCUTS": "侧边栏快捷键",
+    "Background whitelist": "允许后台运行",
+    "Lets Odin keep the overlay and background services running. Added automatically through PServer.": "保持叠加层和后台服务运行。通过 PServer 自动添加。",
+    "Lock position": "锁定位置"
   }
 }

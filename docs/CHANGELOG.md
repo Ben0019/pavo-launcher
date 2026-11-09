@@ -10,6 +10,11 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - A fresh install now uses the wallpaper already applied on the device instead of a Pavo backdrop.
 - If the system wallpaper is still binding right after the home-role change, the launcher retries it instead of keeping a placeholder.
 - Setup now adds Pavo to Odin's background whitelist automatically through PServer, so the overlay, RGB, Quick Controls and other background services keep running.
+- The background whitelist setup step is translated into all supported languages.
+
+### Credits
+
+- Bannerlator is credited for the Fusion performance HUD design and its five size modes.
 
 ### Performance overlay
 
@@ -23,6 +28,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Pinching or the − / + size buttons now resizes the selected mode; the card, text and graph scale together.
 - Triple-tapping the overlay switches to the next mode.
 - The overlay remembers both the mode and the size you leave it on.
+- The new overlay modes and Overlay & Drawer controls are translated into all supported languages.
 - Pill at 69% is the default panel mode and size on a fresh install.
 - The Overlay & Drawer app now has a Mode row (Min, Pill, Tiles, Full, Mega) under Update Rate, and the strip toggle sits beside it instead of in Metrics.
 - Renamed the shortcut cards to Performance Overlay Shortcuts and Sideview Drawer Shortcuts.

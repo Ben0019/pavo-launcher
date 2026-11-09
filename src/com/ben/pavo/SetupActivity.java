@@ -223,8 +223,8 @@ public final class SetupActivity extends Activity {
                 null, new Runnable() {
                     @Override public void run() { requestBattery(); }
                 });
-        addItem("whitelist", "Background whitelist",
-                "Lets Odin keep the overlay and background services running. Added automatically through PServer.",
+        addItem("whitelist", Loc.s(this, "Background whitelist"),
+                Loc.s(this, "Lets Odin keep the overlay and background services running. Added automatically through PServer."),
                 null, new Runnable() {
                     @Override public void run() { ensureWhitelist(); }
                 });

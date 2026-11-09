@@ -11,3 +11,7 @@ The CQ8725S underclock preset values and the privileged PServer daemon
 approach are credited to ClusterTune by Aurelio Bernal (AurelioB),
 https://github.com/AurelioB/ClusterTune, licensed under the GNU General
 Public License v2.0.
+
+The Fusion performance HUD design and its five size modes are adapted from
+Bannerlator (https://github.com/The412Banner/Bannerlator), licensed under the
+GNU General Public License v3.0.

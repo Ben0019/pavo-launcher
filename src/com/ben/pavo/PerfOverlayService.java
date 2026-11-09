@@ -969,7 +969,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 s.main.removeCallbacks(s.scaleTicker);
                 s.applyScaleGeometry(true);
                 s.prefs.setPerfOverlayScale(s.scale);
-                if (s.menu != null) s.menu.setSizeLabel(overlayModeName(s.form));
+                if (s.menu != null) s.menu.setSizeLabel(overlayModeName(s, s.form));
             }
         });
     }
@@ -1394,14 +1394,16 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     // the selected mode, it never switches to a different one.
     static final int FORM_COUNT = 5;
 
-    static String overlayModeName(int f) {
+    static String overlayModeName(Context c, int f) {
+        String key;
         switch (Math.max(0, Math.min(FORM_COUNT - 1, f))) {
-            case 0: return "MIN";
-            case 1: return "PILL";
-            case 2: return "TILES";
-            case 3: return "FULL";
-            default: return "MEGA";
+            case 0: key = "MIN"; break;
+            case 1: key = "PILL"; break;
+            case 2: key = "TILES"; break;
+            case 3: key = "FULL"; break;
+            default: key = "MEGA"; break;
         }
+        return c == null ? key : Loc.s(c, key);
     }
 
     private int form = -1;
@@ -1410,7 +1412,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private int cachedHeight;
 
     private String sizeLabel() {
-        return overlayModeName(form) + "  " + Math.round(scale * 100f) + "%";
+        return overlayModeName(this, form) + "  " + Math.round(scale * 100f) + "%";
     }
 
     /**

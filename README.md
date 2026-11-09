@@ -109,3 +109,4 @@ the attribution.
 - [Kyant0/backdrop](https://github.com/Kyant0/backdrop) for the AGSL liquid-glass lens.
 - AYN for the Odin 3 hardware documentation used while tuning the panel.
 - [AurelioB/ClusterTune](https://github.com/AurelioB/ClusterTune) by Aurelio Bernal, GPL-2.0, for the CQ8725S underclock preset values and the PServer daemon approach.
+- [The412Banner/Bannerlator](https://github.com/The412Banner/Bannerlator) for the Fusion performance HUD design and its five size modes.

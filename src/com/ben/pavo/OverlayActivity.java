@@ -532,7 +532,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             refreshRow.addView(chip, lp);
         }
 
-        TextView modeLabel = text("MODE", 8.5f, MUTED, true);
+        TextView modeLabel = text(Loc.s(this, "MODE"), 8.5f, MUTED, true);
         modeLabel.setLetterSpacing(0.08f);
         modeLabel.setPadding(dp(2), dp(7), 0, 0);
         box.addView(modeLabel);
@@ -542,7 +542,7 @@ public final class OverlayActivity extends PavoGlassActivity {
         box.addView(modeRow);
         for (int i = 0; i < MODES.length; i++) {
             final int mode = i;
-            TextView chip = modeChip(MODES[i]);
+            TextView chip = modeChip(Loc.s(this, MODES[i]));
             modeChips.add(chip);
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -559,7 +559,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             modeRow.addView(chip, lp);
         }
 
-        stripChip = toggle(box, "STRIP MODE", prefs.perfOverlayHorizontal(),
+        stripChip = toggle(box, Loc.s(this, "STRIP MODE"), prefs.perfOverlayHorizontal(),
                 new Toggle() {
                     @Override
                     public void onChanged(boolean value) {
@@ -571,7 +571,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     }
 
     private void buildShortcutsSection(LinearLayout parent) {
-        LinearLayout shortcuts = sectionWeighted(parent, "PERFORMANCE OVERLAY SHORTCUTS", null);
+        LinearLayout shortcuts = sectionWeighted(parent, Loc.s(this, "PERFORMANCE OVERLAY SHORTCUTS"), null);
 
         perfShortcutRow = text("", 10f, TEXT, false);
         perfShortcutRow.setPadding(dp(10), dp(8), dp(10), dp(8));
@@ -788,7 +788,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     // -------------------------------------------------------------- drawer UI
 
     private void buildDrawerSection(LinearLayout parent) {
-        LinearLayout box = sectionWeighted(parent, "SIDEVIEW DRAWER SHORTCUTS",
+        LinearLayout box = sectionWeighted(parent, Loc.s(this, "SIDEVIEW DRAWER SHORTCUTS"),
                 "Floating app drawer above any app.");
 
         action(box, "OPEN DRAWER", new Runnable() {
