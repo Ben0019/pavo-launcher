@@ -15,8 +15,14 @@ final class Defaults {
         if (context == null) return;
         Context app = context.getApplicationContext();
         Prefs prefs = new Prefs(app);
+        boolean fresh = !prefs.defaultsApplied();
         prefs.setFanAppMode(PerfTuner.FAN_SMART);
         prefs.setDefaultsApplied(true);
+        if (fresh) {
+            // A fresh install follows the wallpaper that is already on the
+            // device; only an explicit backdrop choice should replace it.
+            prefs.setWallpaperMode(Prefs.MODE_DEVICE);
+        }
         // PServer can still be coming up on the very first launch; make sure the
         // channel exists, then apply and re-apply once it has settled.
         PerfTuner.preparePServer();

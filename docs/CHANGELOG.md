@@ -4,6 +4,12 @@ Every release in plain language: what changed, why it matters, and nothing else.
 
 ## 1.0.43 — 09 Nov 2026
 
+### Setup and wallpaper
+
+- Choosing Pavo as the default home app no longer closes setup; it returns to the remaining setup steps.
+- A fresh install now uses the wallpaper already applied on the device instead of a Pavo backdrop.
+- If the system wallpaper is still binding right after the home-role change, the launcher retries it instead of keeping a placeholder.
+
 ### Performance overlay
 
 - Rebuilt the performance overlay to work like Bannerlator's Fusion HUD.

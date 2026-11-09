@@ -1350,7 +1350,15 @@ public final class MainActivity extends Activity {
                 }
             }, 180L);
         }
-        if (wallpaper != null) wallpaper.refreshWallpaper();
+        if (wallpaper != null) {
+            int wallMode = prefs.wallpaperMode() == Prefs.MODE_VIDEO
+                    ? Prefs.MODE_DEVICE : prefs.wallpaperMode();
+            if (wallpaper.getMode() != wallMode) {
+                wallpaper.setMode(wallMode);
+            } else {
+                wallpaper.refreshWallpaper();
+            }
+        }
         if (pendingLiveWallpaper) {
             pendingLiveWallpaper = false;
             try {
@@ -1403,13 +1411,24 @@ public final class MainActivity extends Activity {
         BatteryGuardService.armIfNeeded(this);
         if (!prefs.defaultsApplied() && !defaultsShown) {
             defaultsShown = true;
+            // A fresh install should follow the wallpaper already on the
+            // device. Do this synchronously so the home view picks it up in
+            // this resume, even if Android restored an old backdrop choice.
+            if (prefs.wallpaperMode() != Prefs.MODE_DEVICE) {
+                prefs.setWallpaperMode(Prefs.MODE_DEVICE);
+                if (wallpaper != null) wallpaper.setMode(Prefs.MODE_DEVICE);
+            }
             new Thread(new Runnable() {
                 @Override public void run() {
                     Defaults.apply(MainActivity.this);
                 }
             }, "pavo-defaults").start();
         }
-        if (!prefs.setupDone() && !setupShown) {
+        if (!prefs.setupDone()) {
+            // Choosing Pavo as the home app brings this activity forward and
+            // can clear the setup task. Bring setup back until it is finished
+            // or skipped, instead of dropping the user straight onto the home
+            // screen mid-setup.
             setupShown = true;
             try {
                 startActivity(new Intent(this, SetupActivity.class));

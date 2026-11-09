@@ -38,6 +38,8 @@ final class WallpaperView extends View {
     private int mode = Prefs.MODE_DEVICE;
     private Listener listener;
     private boolean wallpaperReceiverRegistered;
+    private boolean systemWallpaperMissing;
+    private int systemWallpaperRetries;
 
     private final BroadcastReceiver wallpaperReceiver = new BroadcastReceiver() {
         @Override
@@ -74,6 +76,7 @@ final class WallpaperView extends View {
             return;
         }
         mode = m;
+        systemWallpaperRetries = 0;
         clearSourceCache();
         reload();
     }
@@ -89,6 +92,13 @@ final class WallpaperView extends View {
 
     /** Reload after the system wallpaper changes. */
     void refreshWallpaper() {
+        systemWallpaperRetries = 0;
+        clearSourceCache();
+        reload();
+    }
+
+    /** Retry only the source load, without resetting the retry budget. */
+    private void retrySystemWallpaper() {
         clearSourceCache();
         reload();
     }
@@ -188,6 +198,16 @@ final class WallpaperView extends View {
         syncSystemWallpaper(next, w, h);
         if (listener != null) listener.onWallpaperChanged();
         invalidate();
+        if (systemWallpaperMissing && mode == Prefs.MODE_DEVICE
+                && systemWallpaperRetries < 8) {
+            systemWallpaperRetries++;
+            postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    retrySystemWallpaper();
+                }
+            }, 1200L);
+        }
     }
 
     private String syncedKey = "";
@@ -243,7 +263,16 @@ final class WallpaperView extends View {
         }
         // MODE_DEVICE follows the device's actual wallpaper instead of only the
         // bundled Odin artwork.
-        if (source == null) source = loadSystemWallpaper();
+        systemWallpaperMissing = false;
+        if (source == null) {
+            source = loadSystemWallpaper();
+            if (source == null) {
+                // The wallpaper service can still be binding on the first
+                // launch after a home-role change. Use the placeholder now and
+                // try again shortly instead of caching it until the next resume.
+                systemWallpaperMissing = mode == Prefs.MODE_DEVICE;
+            }
+        }
         if (source == null) source = fallback(w, h);
         sourceCache = source;
         return source;
