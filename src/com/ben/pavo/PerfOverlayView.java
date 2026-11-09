@@ -118,9 +118,12 @@ final class PerfOverlayView extends LinearLayout {
         cpuTemp = metricValue(Gravity.START);
         cpuClock = metricValue(Gravity.START);
         cpuUsage = metricValue(Gravity.END);
-        cpuRow.addView(cpuTemp, weight(0.9f));
-        cpuRow.addView(cpuClock, weight(1.05f));
-        cpuRow.addView(cpuUsage, weight(0.85f));
+        cpuTemp.setMinWidth(dp(38));
+        cpuClock.setMinWidth(dp(62));
+        cpuUsage.setMinWidth(dp(42));
+        cpuRow.addView(cpuTemp, cell());
+        cpuRow.addView(cpuClock, cell());
+        cpuRow.addView(cpuUsage, cell());
         addView(cpuRow, rowParams(10));
 
         gpuRow = metricRow();
@@ -128,39 +131,49 @@ final class PerfOverlayView extends LinearLayout {
         gpuTemp = metricValue(Gravity.START);
         gpuClock = metricValue(Gravity.START);
         gpuUsage = metricValue(Gravity.END);
-        gpuRow.addView(gpuTemp, weight(0.9f));
-        gpuRow.addView(gpuClock, weight(1.05f));
-        gpuRow.addView(gpuUsage, weight(0.85f));
+        gpuTemp.setMinWidth(dp(38));
+        gpuClock.setMinWidth(dp(62));
+        gpuUsage.setMinWidth(dp(42));
+        gpuRow.addView(gpuTemp, cell());
+        gpuRow.addView(gpuClock, cell());
+        gpuRow.addView(gpuUsage, cell());
         addView(gpuRow, rowParams(4));
 
         netRow = metricRow();
         addMetricLabel(netRow, "NET");
         netUp = metricValue(Gravity.START);
         netDown = metricValue(Gravity.END);
-        netRow.addView(netUp, weight(1.3f));
-        netRow.addView(netDown, weight(1.3f));
+        netUp.setMinWidth(dp(62));
+        netDown.setMinWidth(dp(62));
+        netRow.addView(netUp, cell());
+        netRow.addView(netDown, cell());
         addView(netRow, rowParams(4));
 
         ramRow = metricRow();
         addMetricLabel(ramRow, "RAM");
         ramUsage = metricValue(Gravity.START);
         ramAmount = metricValue(Gravity.END);
-        ramRow.addView(ramUsage, weight(1.0f));
-        ramRow.addView(ramAmount, weight(1.4f));
+        ramUsage.setMinWidth(dp(54));
+        ramAmount.setMinWidth(dp(58));
+        ramRow.addView(ramUsage, cell());
+        ramRow.addView(ramAmount, cell());
         addView(ramRow, rowParams(4));
 
         battRow = metricRow();
         addMetricLabel(battRow, "BATT");
         battTemp = metricValue(Gravity.START);
         battPower = metricValue(Gravity.END);
-        battRow.addView(battTemp, weight(1.0f));
-        battRow.addView(battPower, weight(1.4f));
+        battTemp.setMinWidth(dp(38));
+        battPower.setMinWidth(dp(56));
+        battRow.addView(battTemp, cell());
+        battRow.addView(battPower, cell());
         addView(battRow, rowParams(4));
 
         fanRow = metricRow();
         addMetricLabel(fanRow, "FAN");
         fanDuty = metricValue(Gravity.START);
-        fanRow.addView(fanDuty, weight(1f));
+        fanDuty.setMinWidth(dp(38));
+        fanRow.addView(fanDuty, cell());
         addView(fanRow, rowParams(4));
 
         fpsBlock = new LinearLayout(c);
@@ -171,7 +184,8 @@ final class PerfOverlayView extends LinearLayout {
         fpsValue = text("--", 22f, TEXT, true);
         fpsValue.setGravity(Gravity.CENTER_VERTICAL);
         fpsRow.addView(fpsValue, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         TextView fpsUnit = label("fps", 9.5f, MUTED);
         fpsUnit.setPadding(dp(5), 0, 0, 0);
         fpsRow.addView(fpsUnit);
@@ -627,6 +641,25 @@ final class PerfOverlayView extends LinearLayout {
         TextView v = text("--", 12.5f, TEXT, true);
         v.setGravity(gravity | Gravity.CENTER_VERTICAL);
         return v;
+    }
+
+    /** Packed value cell: the row takes only as much width as its text needs. */
+    private LinearLayout.LayoutParams cell() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = dp(8);
+        return lp;
+    }
+
+    /** Natural width of the visible metrics, for a card that hugs its content. */
+    int naturalWidthPx() {
+        measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        return getMeasuredWidth();
+    }
+
+    boolean graphShown() {
+        return graph != null && graph.getVisibility() == View.VISIBLE;
     }
 
     private LinearLayout.LayoutParams weight(float w) {
