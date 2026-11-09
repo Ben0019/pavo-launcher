@@ -71,6 +71,7 @@ final class AppDrawerOverlayView extends FrameLayout {
     private static final String OVERLAY_PKG = "com.ben.pavo.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.pavo.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
+    private static final String JOYSTICK_PKG = "com.ben.pavo.joystick";
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
     private static final String GALLERY_PKG = "com.ben.pavo.gallery";
@@ -654,6 +655,10 @@ final class AppDrawerOverlayView extends FrameLayout {
         Apps.Entry controller = new Apps.Entry(Loc.s(context, "Controller Remapper"), CONTROLLER_PKG, "");
         controller.icon = Apps.controllerMapIcon(px, accent);
         out.add(controller);
+        Apps.Entry joystick = new Apps.Entry(Loc.s(context, "JOYSTICKS"),
+                JOYSTICK_PKG, "");
+        joystick.icon = Apps.joystickIcon(px, accent);
+        out.add(joystick);
         if (profile.rgb) {
             Apps.Entry rgb = new Apps.Entry(Loc.s(context, "RGB Lighting"), RGB_PKG, "");
             rgb.icon = Apps.rgbIcon(px, accent);
@@ -772,6 +777,8 @@ final class AppDrawerOverlayView extends FrameLayout {
             intent = new Intent(context, SoundTunerActivity.class);
         } else if (CONTROLLER_PKG.equals(e.pkg)) {
             intent = new Intent(context, ControllerMapActivity.class);
+        } else if (JOYSTICK_PKG.equals(e.pkg)) {
+            intent = new Intent(context, JoystickActivity.class);
         } else if (RGB_PKG.equals(e.pkg)) {
             intent = new Intent(context, RgbActivity.class);
         } else if (OVERLAY_PKG.equals(e.pkg)) {

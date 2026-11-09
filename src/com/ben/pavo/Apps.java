@@ -559,6 +559,43 @@ final class Apps {
     }
 
 
+    /** Two live stick pads with centre crosses for Joystick Calibration. */
+    static Bitmap joystickIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+        Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
+        ring.setStyle(Paint.Style.STROKE);
+        ring.setStrokeWidth(Math.max(1.4f, size * 0.040f));
+        ring.setColor(accent);
+        float cy = size * 0.55f;
+        float rr = size * 0.145f;
+        c.drawCircle(size * 0.31f, cy, rr, ring);
+        c.drawCircle(size * 0.69f, cy, rr, ring);
+        Paint cross = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cross.setStyle(Paint.Style.STROKE);
+        cross.setStrokeWidth(Math.max(1f, size * 0.022f));
+        cross.setColor(0x99A9BEFF);
+        c.drawLine(size * 0.31f - rr, cy, size * 0.31f + rr, cy, cross);
+        c.drawLine(size * 0.31f, cy - rr, size * 0.31f, cy + rr, cross);
+        c.drawLine(size * 0.69f - rr, cy, size * 0.69f + rr, cy, cross);
+        c.drawLine(size * 0.69f, cy - rr, size * 0.69f, cy + rr, cross);
+        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dot.setColor(0xFF69D98B);
+        c.drawCircle(size * 0.31f, cy, size * 0.028f, dot);
+        c.drawCircle(size * 0.69f, cy, size * 0.028f, dot);
+        return b;
+    }
+
     /** A small monitor glyph for the built-in Display app. */
     static Bitmap displayIcon(int px, int accent) {
         int size = Math.max(24, px);
