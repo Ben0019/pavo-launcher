@@ -62,6 +62,7 @@ public final class PavoA11yService extends AccessibilityService {
     private volatile boolean wakeWatcherRunning;
     private Thread wakeWatcher;
     private long lastRgbWake;
+    private boolean rgbBootRestoreScheduled;
     private static volatile long foregroundAt;
 
     /**
@@ -741,6 +742,34 @@ public final class PavoA11yService extends AccessibilityService {
         }, "PavoRgbWake").start();
     }
 
+    /**
+     * The LED enable is lost on reboot, but the screen is already on when this
+     * service connects, so the wake watcher never sees a false-to-true edge.
+     * Restore the saved RGB mode once the user is unlocked (the settings live
+     * in credential-encrypted storage) and the panel has settled.
+     */
+    private void scheduleRgbBootRestore() {
+        if (rgbBootRestoreScheduled) return;
+        rgbBootRestoreScheduled = true;
+        main.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!connected) {
+                    rgbBootRestoreScheduled = false;
+                    return;
+                }
+                android.os.UserManager um = (android.os.UserManager)
+                        getSystemService(USER_SERVICE);
+                if (um != null && !um.isUserUnlocked()) {
+                    main.postDelayed(this, 1000L);
+                    return;
+                }
+                rgbBootRestoreScheduled = false;
+                triggerRgbWake();
+            }
+        }, 800L);
+    }
+
     private void startWakeWatcher() {
         if (wakeWatcherRunning) return;
         wakeWatcherRunning = true;
@@ -826,6 +855,7 @@ public final class PavoA11yService extends AccessibilityService {
         RgbService.dropForegroundRow();
         registerScreenOn();
         startWakeWatcher();
+        scheduleRgbBootRestore();
         main.removeCallbacks(profileSync);
         main.postDelayed(profileSync, 1200L);
         PavoInputService.ensureStarted(this);

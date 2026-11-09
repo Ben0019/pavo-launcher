@@ -21,6 +21,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Renamed the shortcut cards to Performance Overlay Shortcuts and Sideview Drawer Shortcuts.
 - Rearranged the Overlay & Drawer cards into an aligned two-row grid, with equal card heights in each row.
 - Fixed the launcher crash on boot before the device is unlocked: the accessibility service no longer reads encrypted preferences too early.
+- RGB lighting restores its saved mode automatically after reboot instead of waiting for the RGB Lighting app to be opened.
 - Position lock is now a toggle in the overlay menu.
 
 ## 1.0.42 — 08 Nov 2026
