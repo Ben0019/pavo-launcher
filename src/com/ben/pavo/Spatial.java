@@ -1,6 +1,7 @@
 package com.ben.pavo;
 
 import android.content.Context;
+import android.media.audiofx.PresetReverb;
 import android.media.audiofx.Virtualizer;
 
 import java.util.HashMap;
@@ -10,9 +11,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * System-wide stereo widener built on Android's Virtualizer effect. It runs on
- * the global session (0) and on every currently playing media session, because
- * apps such as music players get their own effect chain and bypass session 0.
+ * System-wide spatial effect. It uses a Virtualizer for headphones, which the
+ * Odin HAL refuses on the built-in speakers, and a short reverb for the
+ * speakers, where the HAL does accept it. Both run on the playing app's own
+ * session as well as the global session.
  */
 final class Spatial {
     private static final int MIN_STRENGTH = 0;
@@ -21,6 +23,10 @@ final class Spatial {
     private static Virtualizer virtualizer;
     private static boolean failed;
     private static final Map<Integer, Virtualizer> perSession = new HashMap<>();
+    private static final Map<Integer, PresetReverb> perSessionReverb = new HashMap<>();
+    private static int lastStrength = -1;
+    private static short lastReverbPreset = -1;
+    private static boolean lastEnabled;
 
     private Spatial() {}
 
@@ -55,15 +61,7 @@ final class Spatial {
 
     static synchronized void setEnabled(Context c, boolean on) {
         new Prefs(c).setSpatialEnabled(on);
-        // Rebuild the per-session effects: a chain created before the track
-        // settles can be left disabled by the HAL, while a fresh one enables.
-        for (Virtualizer effect : perSession.values()) {
-            try {
-                effect.release();
-            } catch (Throwable ignored) {
-            }
-        }
-        perSession.clear();
+        releaseSessions();
         refreshSessions(c, SessionFx.activeMediaSessions());
         apply(c);
     }
@@ -71,6 +69,23 @@ final class Spatial {
     static synchronized void setStrength(Context c, int value) {
         new Prefs(c).setSpatialStrength(value);
         apply(c);
+    }
+
+    private static void releaseSessions() {
+        for (Virtualizer effect : perSession.values()) {
+            try {
+                effect.release();
+            } catch (Throwable ignored) {
+            }
+        }
+        perSession.clear();
+        for (PresetReverb effect : perSessionReverb.values()) {
+            try {
+                effect.release();
+            } catch (Throwable ignored) {
+            }
+        }
+        perSessionReverb.clear();
     }
 
     /** Create effects for newly started media sessions and drop stale ones. */
@@ -89,32 +104,51 @@ final class Spatial {
             }
             it.remove();
         }
+        Iterator<Map.Entry<Integer, PresetReverb>> rit = perSessionReverb.entrySet().iterator();
+        while (rit.hasNext()) {
+            Map.Entry<Integer, PresetReverb> e = rit.next();
+            if (active.contains(e.getKey())) continue;
+            try {
+                e.getValue().release();
+            } catch (Throwable ignored) {
+            }
+            rit.remove();
+        }
         Prefs p = new Prefs(c);
         if (!p.spatialEnabled()) {
-            for (Virtualizer effect : perSession.values()) {
-                try {
-                    effect.release();
-                } catch (Throwable ignored) {
-                }
-            }
-            perSession.clear();
+            releaseSessions();
             return;
         }
         for (int session : active) {
-            if (perSession.containsKey(session)) continue;
-            try {
-                // The HAL proxy sometimes leaves the first instance disabled
-                // until the chain is rebuilt; a fresh second instance enables.
-                Virtualizer first = new Virtualizer(0, session);
+            if (!perSession.containsKey(session)) {
                 try {
-                    first.release();
+                    // The HAL proxy sometimes leaves the first instance
+                    // disabled until the chain is rebuilt; recreate once.
+                    Virtualizer first = new Virtualizer(0, session);
+                    try {
+                        first.release();
+                    } catch (Throwable ignored) {
+                    }
+                    Virtualizer effect = new Virtualizer(0, session);
+                    applyVirtualizer(effect, p);
+                    effect.setEnabled(true);
+                    perSession.put(session, effect);
                 } catch (Throwable ignored) {
                 }
-                Virtualizer effect = new Virtualizer(0, session);
-                applyTo(effect, p);
-                effect.setEnabled(p.spatialEnabled());
-                perSession.put(session, effect);
-            } catch (Throwable ignored) {
+            }
+            if (!perSessionReverb.containsKey(session)) {
+                try {
+                    PresetReverb first = new PresetReverb(0, session);
+                    try {
+                        first.release();
+                    } catch (Throwable ignored) {
+                    }
+                    PresetReverb reverb = new PresetReverb(0, session);
+                    applyReverb(reverb, p);
+                    reverb.setEnabled(true);
+                    perSessionReverb.put(session, reverb);
+                } catch (Throwable ignored) {
+                }
             }
         }
         // A freshly created session effect can be left disabled until its
@@ -124,23 +158,62 @@ final class Spatial {
 
     static synchronized void apply(Context c) {
         Prefs p = new Prefs(c);
+        boolean on = p.spatialEnabled();
+        int value = Math.max(MIN_STRENGTH, Math.min(MAX_STRENGTH, p.spatialStrength()));
+        short preset = reverbPreset(value);
+
         if (available(c)) {
             try {
-                applyTo(virtualizer, p);
-                virtualizer.setEnabled(p.spatialEnabled());
+                if (virtualizer.getStrengthSupported()) {
+                    virtualizer.setStrength((short) value);
+                }
             } catch (Throwable ignored) {
             }
         }
-        for (Virtualizer effect : perSession.values()) {
-            try {
-                applyTo(effect, p);
-                effect.setEnabled(p.spatialEnabled());
-            } catch (Throwable ignored) {
+        if (on != lastEnabled) {
+            if (available(c)) {
+                try {
+                    virtualizer.setEnabled(on);
+                } catch (Throwable ignored) {
+                }
             }
+            for (Virtualizer effect : perSession.values()) {
+                try {
+                    effect.setEnabled(on);
+                } catch (Throwable ignored) {
+                }
+            }
+            for (PresetReverb effect : perSessionReverb.values()) {
+                try {
+                    effect.setEnabled(on);
+                } catch (Throwable ignored) {
+                }
+            }
+            lastEnabled = on;
+        }
+        if (value != lastStrength) {
+            for (Virtualizer effect : perSession.values()) {
+                try {
+                    if (effect.getStrengthSupported()) {
+                        effect.setStrength((short) value);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+            lastStrength = value;
+        }
+        if (preset != lastReverbPreset) {
+            for (PresetReverb effect : perSessionReverb.values()) {
+                try {
+                    effect.setPreset(preset);
+                } catch (Throwable ignored) {
+                }
+            }
+            lastReverbPreset = preset;
         }
     }
 
-    private static void applyTo(Virtualizer effect, Prefs p) {
+    private static void applyVirtualizer(Virtualizer effect, Prefs p) {
         int value = Math.max(MIN_STRENGTH, Math.min(MAX_STRENGTH, p.spatialStrength()));
         try {
             if (effect.getStrengthSupported()) {
@@ -152,5 +225,18 @@ final class Spatial {
             effect.forceVirtualizationMode(Virtualizer.VIRTUALIZATION_MODE_TRANSAURAL);
         } catch (Throwable ignored) {
         }
+    }
+
+    private static void applyReverb(PresetReverb effect, Prefs p) {
+        try {
+            effect.setPreset(reverbPreset(p.spatialStrength()));
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static short reverbPreset(int strength) {
+        if (strength < 340) return PresetReverb.PRESET_SMALLROOM;
+        if (strength < 670) return PresetReverb.PRESET_MEDIUMROOM;
+        return PresetReverb.PRESET_LARGEROOM;
     }
 }

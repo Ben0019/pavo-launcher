@@ -13,7 +13,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Added Rock, Pop, Dance, Jazz, FPS and Small Speakers presets, adapted from widely used 5-band curves.
 - Added the iPhone/iTunes presets (Acoustic, Bass, Bass Cut, Classical, Dance, Deep, Electronic, Hip Hop, Jazz, Latin, Loudness, Lounge, Piano, Pop, R&B, Rock, Small Speakers, Spoken Word, Treble, Treble Cut and Vocal), folded from Apple's 10-band curves onto Pavo's five bands.
 - The chosen EQ is restored automatically after reboot and can be switched off at any time.
-- New Surround control with an adjustable width. It attaches a stereo widener to each playing app's own audio session as well as the global mix, so music apps that bypass the global chain still get the effect.
+- New Surround control with an adjustable width. It uses a stereo widener for headphones and a short room reverb for the built-in speakers, and attaches to each playing app's own audio session as well as the global mix.
 - Translated into all supported languages.
 
 ## 1.0.43 — 09 Nov 2026
