@@ -1384,31 +1384,32 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private int cachedLevel = -1;
     private int cachedWidth;
     private int cachedHeight;
+    private boolean cachedSpread;
 
     /**
      * Window size for the current scale, dropping metrics when the card is too
      * small for readable text. Returns {width, height, renderScale*1000}.
+     * The measured size is cached per detail level so pinch frames that stay in
+     * the same level cost nothing but a window resize.
      */
     private int[] scaledWindowSize() {
         float render = scale;
         if (panel != null && !panel.horizontal()) {
-            int level = levelForScale(scale);
-            panel.setDetailLevel(level);
-            // Below the readable floor, drop metrics instead of shrinking text.
-            if (scale < 0.9f) render = 0.9f;
+            int level = smoothLevel(scale);
             boolean spread = scale >= 0.99f;
-            panel.setSpread(spread);
-            int wantW;
-            if (spread) {
-                // At the largest size keep the original spread-column form.
-                wantW = baseWidthPx;
-            } else {
-                wantW = panel.naturalWidthPx();
-                if (panel.graphShown()) wantW = Math.max(wantW, Ui.dp(uiContext, 150));
-                wantW = Math.max(Ui.dp(uiContext, 72),
-                        Math.min(baseWidthPx, wantW));
-            }
-            if (level != cachedLevel || wantW != cachedWidth) {
+            if (scale < 0.9f) render = 0.9f;
+            if (level != cachedLevel || spread != cachedSpread || cachedWidth == 0) {
+                panel.setDetailLevel(level);
+                panel.setSpread(spread);
+                int wantW;
+                if (spread) {
+                    wantW = baseWidthPx;
+                } else {
+                    wantW = panel.naturalWidthPx();
+                    if (panel.graphShown()) wantW = Math.max(wantW, Ui.dp(uiContext, 150));
+                    wantW = Math.max(Ui.dp(uiContext, 72),
+                            Math.min(baseWidthPx, wantW));
+                }
                 FrameLayout.LayoutParams plp = panel.getLayoutParams()
                         instanceof FrameLayout.LayoutParams
                         ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
@@ -1425,10 +1426,11 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     panel.setLayoutParams(plp);
                 }
                 cachedLevel = level;
+                cachedSpread = spread;
                 cachedWidth = wantW;
                 cachedHeight = contentH;
             }
-            return new int[]{Math.round(wantW * render),
+            return new int[]{Math.round(cachedWidth * render),
                     Math.round(cachedHeight * render), Math.round(render * 1000f)};
         }
         return new int[]{Math.round(baseWidthPx * render),
@@ -1686,24 +1688,21 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     }
 
     /**
-     * Live pinch frame: uniform scaling of the current card only. Level and
-     * compact-width changes are held back until the gesture settles, which is
-     * what makes the drag feel continuous instead of jumping between layouts.
+     * Live pinch frame: the level updates as the size crosses its threshold, but
+     * the measured content size is cached so only that one frame re-lays out.
      */
     private void applyScaleAt(float newScale, int centerX, int centerY) {
         if (params == null) return;
         scale = clampScale(newScale);
-        int pw = panel != null && panel.getWidth() > 0 ? panel.getWidth() : baseWidthPx;
-        int ph = panel != null && panel.getHeight() > 0 ? panel.getHeight() : baseHeightPx;
-        int nw = Math.round(pw * scale);
-        int nh = Math.round(ph * scale);
-        params.width = nw;
-        params.height = nh;
-        params.x = centerX - nw / 2;
-        params.y = centerY - nh / 2;
+        int[] size = scaledWindowSize();
+        params.width = size[0];
+        params.height = size[1];
+        params.x = centerX - size[0] / 2;
+        params.y = centerY - size[1] / 2;
         if (panel != null) {
-            panel.setScaleX(scale);
-            panel.setScaleY(scale);
+            float render = size[2] / 1000f;
+            panel.setScaleX(render);
+            panel.setScaleY(render);
         }
         clampPosition(false);
     }
