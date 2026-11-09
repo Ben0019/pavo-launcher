@@ -7,9 +7,10 @@ Every release in plain language: what changed, why it matters, and nothing else.
 ### Sound Tuner
 
 - New built-in Sound Tuner app with a system-wide five-band equalizer that applies to every app, with changes taking effect live.
-- Live EQ curve, per-band ±12 dB sliders, and Pavo, Game, Flat, Bass, Vocal, Warm, Bright and Treble presets.
+- Live EQ curve and per-band ±12 dB sliders, with Pavo, Game and a library of popular presets: Flat, Bass, Vocal, Warm, Bright, Treble, Rock, Pop, Dance, Jazz, FPS and Small Speakers.
 - New Pavo preset tuned on the Odin 3 speakers: trims the ~230 Hz boom and the bright 4–5 kHz region, with a little sub weight.
 - New Game preset adds low-end punch and presence without piling onto the boom.
+- Added Rock, Pop, Dance, Jazz, FPS and Small Speakers presets, adapted from widely used 5-band curves.
 - The chosen EQ is restored automatically after reboot and can be switched off at any time.
 - Translated into all supported languages.
 

@@ -37,7 +37,8 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     private static final int GREEN = 0xFF69D98B;
 
     private static final String[] PRESET_NAMES = {
-            "PAVO", "GAME", "FLAT", "BASS", "VOCAL", "WARM", "BRIGHT", "TREBLE"
+            "PAVO", "GAME", "FLAT", "BASS", "VOCAL", "WARM", "BRIGHT", "TREBLE",
+            "ROCK", "POP", "DANCE", "JAZZ", "FPS", "SMALL"
     };
     private static final int[][] PRESET_LEVELS = {
             // Tuned on the Odin 3 speakers: trim the ~230 Hz boom and the
@@ -51,7 +52,14 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             {-250, 0, 500, 350, 0},
             {300, 200, 100, 0, -100},
             {-100, 0, 100, 300, 500},
-            {-200, -100, 0, 400, 600}
+            {-200, -100, 0, 400, 600},
+            // Popular online curves, adapted to these five band centres.
+            {400, 200, -100, 300, 400},   // ROCK: V-curve, scoop the mids
+            {200, 300, 0, 200, 100},      // POP: vocals forward
+            {500, 200, -200, 200, 400},   // DANCE: deep bass, crisp highs
+            {100, 300, 0, 100, 400},      // JAZZ: warm lows, cymbal air
+            {-400, -300, 200, 500, 100},  // FPS: cut bass, boost footsteps
+            {-400, 100, 300, 200, -300}   // SMALL: small-speaker correction
     };
 
     private Prefs prefs;
