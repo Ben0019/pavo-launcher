@@ -82,6 +82,9 @@ public final class SoundTunerActivity extends PavoGlassActivity {
 
     private TextView enableChip;
     private TextView status;
+    private TextView surroundChip;
+    private SeekBar widthBar;
+    private TextView widthValue;
     private EqCurveView curve;
     private final List<SeekBar> bars = new ArrayList<>();
     private final List<TextView> values = new ArrayList<>();
@@ -97,6 +100,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         hideBars();
         installController();
         AudioEq.apply(this);
+        Spatial.apply(this);
         refresh();
     }
 
@@ -106,6 +110,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         hideBars();
         hidePerformanceOverlay();
         AudioEq.apply(this);
+        Spatial.apply(this);
         refresh();
     }
 
@@ -255,6 +260,82 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         for (int i = 0; i < count; i++) {
             addBandRow(body, i, min, max);
         }
+
+        TextView surroundLabel = sectionLabel(Loc.s(this, "SURROUND"));
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        slp.topMargin = dp(10);
+        body.addView(surroundLabel, slp);
+
+        surroundChip = text("", 10.5f, TEXT, true);
+        surroundChip.setGravity(Gravity.CENTER);
+        surroundChip.setSingleLine(true);
+        surroundChip.setFocusable(true);
+        surroundChip.setFocusableInTouchMode(true);
+        surroundChip.setPadding(dp(12), dp(10), dp(12), dp(10));
+        surroundChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Haptics.click(v);
+                Spatial.setEnabled(SoundTunerActivity.this,
+                        !Spatial.enabled(SoundTunerActivity.this));
+                refresh();
+            }
+        });
+        LinearLayout.LayoutParams sclp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sclp.topMargin = dp(4);
+        body.addView(surroundChip, sclp);
+
+        LinearLayout widthRow = new LinearLayout(this);
+        widthRow.setOrientation(LinearLayout.HORIZONTAL);
+        widthRow.setGravity(Gravity.CENTER_VERTICAL);
+        widthRow.setPadding(dp(6), dp(3), dp(6), dp(3));
+        widthRow.setBackground(Ui.rounded(0x0CFFFFFF, dp(10), 0x12FFFFFF, dp(1)));
+
+        TextView widthName = text(Loc.s(this, "WIDTH"), 9.5f, MUTED, true);
+        widthName.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        widthRow.addView(widthName, new LinearLayout.LayoutParams(dp(66),
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        widthBar = new SeekBar(this);
+        widthBar.setMax(100);
+        widthBar.setProgress(Math.round(Spatial.strength(this) / 10f));
+        widthBar.setProgressTintList(ColorStateList.valueOf(accent));
+        GradientDrawable widthThumb = new GradientDrawable();
+        widthThumb.setShape(GradientDrawable.OVAL);
+        widthThumb.setColor(accent);
+        widthThumb.setSize(dp(16), dp(16));
+        widthBar.setThumb(widthThumb);
+        widthBar.setThumbOffset(0);
+        widthBar.setSplitTrack(false);
+        widthBar.setPadding(dp(8), dp(2), dp(8), dp(2));
+        widthBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (!fromUser) return;
+                Spatial.setStrength(SoundTunerActivity.this, progress * 10);
+                widthValue.setText(progress + "%");
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) { }
+            @Override public void onStopTrackingTouch(SeekBar seekBar) { }
+        });
+        widthRow.addView(widthBar, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        widthValue = text("", 10f, accent, true);
+        widthValue.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        widthRow.addView(widthValue, new LinearLayout.LayoutParams(dp(72),
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout.LayoutParams wrlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        wrlp.topMargin = dp(4);
+        body.addView(widthRow, wrlp);
+
+        TextView surroundStatus = text(Loc.s(this, "Widens the stereo image."), 9f, MUTED, false);
+        surroundStatus.setPadding(dp(3), dp(4), dp(3), dp(4));
+        body.addView(surroundStatus);
 
         TextView presetsLabel = sectionLabel(Loc.s(this, "PRESETS"));
         LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
@@ -440,6 +521,20 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 ? "Applies to every app. Uses the global audio session."
                 : "Equalizer unavailable on this device."));
         status.setTextColor(available ? MUTED : 0xFFFF8A80);
+
+        if (surroundChip != null) {
+            boolean spatialAvailable = Spatial.available(this);
+            boolean spatialOn = spatialAvailable && Spatial.enabled(this);
+            surroundChip.setText(Loc.s(this, "SURROUND") + "   \u00b7   "
+                    + Loc.s(this, spatialOn ? "ON" : "OFF"));
+            surroundChip.setTextColor(spatialOn ? 0xFF071018 : TEXT);
+            surroundChip.setBackground(Ui.rounded(spatialOn ? accent : 0x1AFFFFFF, dp(12),
+                    spatialOn ? accent : 0x33FFFFFF, dp(1)));
+            int strength = Spatial.strength(this);
+            widthBar.setProgress(Math.max(0, Math.min(100, Math.round(strength / 10f))));
+            widthValue.setText(Math.round(strength / 10f) + "%");
+            widthBar.setEnabled(spatialAvailable);
+        }
 
         updating = true;
         int min = AudioEq.minLevel(this);

@@ -331,6 +331,8 @@ final class Prefs {
     // System-wide five-band equalizer.
     static final int EQ_BANDS = 5;
     boolean eqEnabled() { return sp.getBoolean("eq_enabled", false); }
+    boolean spatialEnabled() { return sp.getBoolean("spatial_enabled", false); }
+    int spatialStrength() { return clamp(sp.getInt("spatial_strength", 600), 0, 1000); }
     int eqBand(int index) {
         return clamp(sp.getInt("eq_band" + clamp(index, 0, EQ_BANDS - 1), 0), -1200, 1200);
     }
@@ -824,6 +826,8 @@ final class Prefs {
     void setPerfFan(boolean v) { sp.edit().putBoolean("perf_fan", v).apply(); }
     void setPerfRam(boolean v) { sp.edit().putBoolean("perf_ram", v).apply(); }
     void setEqEnabled(boolean v) { sp.edit().putBoolean("eq_enabled", v).apply(); }
+    void setSpatialEnabled(boolean v) { sp.edit().putBoolean("spatial_enabled", v).apply(); }
+    void setSpatialStrength(int v) { sp.edit().putInt("spatial_strength", clamp(v, 0, 1000)).apply(); }
     void setEqBand(int index, int millibels) {
         sp.edit().putInt("eq_band" + clamp(index, 0, EQ_BANDS - 1),
                 clamp(millibels, -1200, 1200)).apply();

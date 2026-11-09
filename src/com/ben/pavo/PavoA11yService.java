@@ -767,6 +767,7 @@ public final class PavoA11yService extends AccessibilityService {
                 rgbBootRestoreScheduled = false;
                 triggerRgbWake();
                 AudioEq.apply(getApplicationContext());
+                Spatial.apply(getApplicationContext());
             }
         }, 800L);
     }
@@ -783,6 +784,7 @@ public final class PavoA11yService extends AccessibilityService {
                 android.media.AudioManager am = (android.media.AudioManager)
                         getSystemService(AUDIO_SERVICE);
                 boolean lastMusic = false;
+                long lastFxPoll = 0L;
                 while (wakeWatcherRunning) {
                     boolean now = pm != null && pm.isInteractive();
                     if (now && !last) {
@@ -794,8 +796,15 @@ public final class PavoA11yService extends AccessibilityService {
                     boolean music = am != null && am.isMusicActive();
                     if (music && !lastMusic) {
                         AudioEq.apply(getApplicationContext());
+                        Spatial.apply(getApplicationContext());
                     }
                     lastMusic = music;
+                    long nowMs = android.os.SystemClock.uptimeMillis();
+                    if (nowMs - lastFxPoll >= 2000L) {
+                        lastFxPoll = nowMs;
+                        int[] sessions = SessionFx.activeMediaSessions();
+                        Spatial.refreshSessions(getApplicationContext(), sessions);
+                    }
                     try {
                         Thread.sleep(60L);
                     } catch (InterruptedException ignored) {
@@ -854,6 +863,7 @@ public final class PavoA11yService extends AccessibilityService {
         new Thread(new Runnable() {
             @Override public void run() {
                 AudioEq.apply(getApplicationContext());
+                Spatial.apply(getApplicationContext());
             }
         }, "pavo-eq").start();
         // Host the fan loop here: an accessibility binding keeps the process
