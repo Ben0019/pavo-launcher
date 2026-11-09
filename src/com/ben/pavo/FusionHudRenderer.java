@@ -423,6 +423,15 @@ final class FusionHudRenderer {
                 : String.format(Locale.US, "%02d:%02d", m, s);
     }
 
+    /** Use the same preset colours as the Performance Tuner chips. */
+    private int presetColor() {
+        if (!showEngine || engineLabel == null || engineLabel.isEmpty()
+                || "FPS".equals(engineLabel)) {
+            return COL_FPS;
+        }
+        return PerformanceTunerActivity.profileColor(engineLabel);
+    }
+
     private String readPreset() {
         try {
             TuneConfig cfg = new TuneStore(ctx).global();
@@ -607,7 +616,7 @@ final class FusionHudRenderer {
         float ly = pad + (innerH - leftColH) / 2f;
         if (hasApi) {
             placeRun(pad + (leftBlockW - apiW) / 2f, ly - ascent(stkPx),
-                    listOf(span(api, COL_FPS, stkPx)));
+                    listOf(span(api, presetColor(), stkPx)));
             ly += lineH(stkPx) + lineGap;
         }
         placeRun(pad + (leftBlockW - leftW) / 2f, ly - ascent(bigPx), left);
@@ -685,8 +694,8 @@ final class FusionHudRenderer {
                     activityUp(stats.netTxBps)));
         }
         if (showEngine) {
-            tiles.add(new Tile("API", COL_FPS, listOf(span(engineLabel, COL_VALUE, valPx)),
-                    "Android"));
+            tiles.add(new Tile("API", COL_FPS,
+                    listOf(span(engineLabel, presetColor(), valPx)), "Android"));
         }
         if (showFan) {
             int duty = PerfTuner.fanPercent(ctx);
@@ -816,7 +825,7 @@ final class FusionHudRenderer {
             v.add(gap(unitPx));
             v.addAll(numUnit(fmt1(1000f / Math.max(1f, fpsNow())), "ms", rowPx, unitPx));
             String api = showEngine && !engineLabel.isEmpty() ? engineLabel : "FPS";
-            rows.add(new Row(api, COL_FPS, v, false));
+            rows.add(new Row(api, presetColor(), v, false));
             if (avgText() != null)
                 rows.add(new Row("AVG", COL_LO, numUnit(avgText(), "FPS", rowPx, unitPx), false));
             if (lowText(1) != null)
@@ -954,7 +963,7 @@ final class FusionHudRenderer {
             v.add(gap(unitPx));
             v.addAll(numUnit(fmt1(1000f / Math.max(1f, fpsNow())), "ms", rowPx, unitPx));
             String api = showEngine && !engineLabel.isEmpty() ? engineLabel : "FPS";
-            right.add(new Row(api, COL_FPS, v, false));
+            right.add(new Row(api, presetColor(), v, false));
             if (avgText() != null)
                 right.add(new Row("AVG", COL_LO, numUnit(avgText(), "FPS", rowPx, unitPx), false));
             if (lowText(1) != null)
