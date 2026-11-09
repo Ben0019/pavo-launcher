@@ -117,8 +117,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private long lastTapUpMs;
     private float lastTapUpX, lastTapUpY;
     private int tapCount;
-    /** Grace window for a third tap before a double tap switches modes. */
-    private static final int TAP_SETTLE_MS = 170;
+    /** Two taps this close count as double/triple; the settle lets a third arrive. */
+    private static final int TAP_WINDOW_MS = 420;
+    private static final int TAP_SETTLE_MS = 440;
 
     /** Fires only if a second tap is not followed by a third. */
     private final Runnable tapAction = new Runnable() {
@@ -1227,6 +1228,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         scale = clampScale(prefs.perfOverlayScale());
         form = prefs.perfOverlayMode();
         targetScale = scale;
+        panel.setForm(form);
         panel.setScaleX(1f);
         panel.setScaleY(1f);
         container.addView(panel, new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx));
@@ -1464,26 +1466,67 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         clampPosition(false);
     }
 
+    /**
+     * Swaps the panel and the strip in the same window instead of destroying
+     * and recreating it. The chosen Fusion mode and resize scale are applied
+     * before the new view is shown, so returning to the panel keeps exactly the
+     * mode you left it on, and the change fades instead of flashing.
+     */
+    private void swapPanelOrientation() {
+        if (container == null || params == null) return;
+        boolean toStrip = prefs.perfOverlayHorizontal();
+        int oldCx = params.x + params.width / 2;
+        int oldCy = params.y + params.height / 2;
+        if (panel != null) container.removeView(panel);
+        baseWidthPx = Ui.dp(uiContext, toStrip ? BASE_WIDTH_DP : BASE_WIDTH_DP + 30);
+        panel = new PerfOverlayView(uiContext);
+        overlayLocked = prefs.perfOverlayLocked();
+        panel.applyPrefs(prefs);
+        if (lastSample != null) panel.update(lastSample);
+        panel.setLocked(overlayLocked);
+        panel.setPanelAlpha(prefs.perfOverlayAlpha());
+        panel.setPivotX(0f);
+        panel.setPivotY(0f);
+        scale = clampScale(prefs.perfOverlayScale());
+        targetScale = scale;
+        form = prefs.perfOverlayMode();
+        panel.setForm(form);
+        container.addView(panel, 0, new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx));
+        panel.setAlpha(0f);
+        if (panel.horizontal()) measurePanel();
+        int[] size = scaledWindowSize();
+        params.width = size[0];
+        params.height = size[1];
+        if (toStrip) {
+            params.x = Math.max(0, (screenWidthPx() - size[0]) / 2);
+            params.y = Ui.dp(uiContext, 16);
+        } else {
+            int sx = prefs.perfOverlayX();
+            int sy = prefs.perfOverlayY();
+            if (sx >= 0 && sy >= 0) {
+                params.x = sx;
+                params.y = sy;
+            } else {
+                params.x = oldCx - size[0] / 2;
+                params.y = oldCy - size[1] / 2;
+            }
+        }
+        float render = size[2] / 1000f;
+        panel.setScaleX(render);
+        panel.setScaleY(render);
+        clampPosition(false);
+        try {
+            windowManager.updateViewLayout(container, params);
+        } catch (Throwable ignored) {
+        }
+        panel.animate().alpha(1f).setDuration(170).start();
+        applyCardTouchability();
+    }
+
     private void applyPrefs() {
         if (panel == null) return;
         if (prefs.perfOverlayHorizontal() != panel.horizontal()) {
-            // Orientation is baked into the layout, so rebuild the panel once.
-            int px = params != null ? params.x : -1;
-            int py = params != null ? params.y : -1;
-            if (container != null) {
-                try {
-                    windowManager.removeView(container);
-                } catch (Throwable ignored) {
-                }
-                container = null;
-                panel = null;
-            }
-            addOverlay();
-            if (container != null && params != null && px >= 0 && !prefs.perfOverlayHorizontal()) {
-                params.x = px;
-                params.y = py;
-                clampPosition(false);
-            }
+            swapPanelOrientation();
             return;
         }
         panel.applyPrefs(prefs);
@@ -1649,7 +1692,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     long now = SystemClock.uptimeMillis();
                     float tdx = e.getRawX() - lastTapUpX;
                     float tdy = e.getRawY() - lastTapUpY;
-                    if (now - lastTapUpMs <= ViewConfiguration.getDoubleTapTimeout()
+                    if (now - lastTapUpMs <= TAP_WINDOW_MS
                             && Math.hypot(tdx, tdy) <= touchSlop * 2f) {
                         tapCount++;
                     } else {
@@ -1659,7 +1702,10 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     lastTapUpX = e.getRawX();
                     lastTapUpY = e.getRawY();
                     main.removeCallbacks(tapAction);
-                    if (tapCount >= 3) {
+                    if (tapCount == 2) {
+                        // Give a third tap time to arrive before switching orientation.
+                        main.postDelayed(tapAction, TAP_SETTLE_MS);
+                    } else if (tapCount >= 3) {
                         tapCount = 0;
                         lastTapUpMs = 0L;
                         cycleModeNext();

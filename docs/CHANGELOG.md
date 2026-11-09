@@ -11,7 +11,8 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Minimal now shows only the FPS number, plus the frame-generation figure when frames are being generated.
 - Fan speed now shows in every mode except Minimal.
 - The time-of-day readout has been removed from every mode.
-- Triple-tap changes the overlay mode; the horizontal strip is still available from the overlay menu.
+- Double-tap switches between the panel and the horizontal strip; triple-tap changes the panel mode.
+- Switching between panel and strip keeps your chosen mode and size, and fades instead of flashing.
 - Pinching or the − / + size buttons now resizes the selected mode; the card, text and graph scale together.
 - Triple-tapping the overlay switches to the next mode.
 - The overlay remembers both the mode and the size you leave it on.
