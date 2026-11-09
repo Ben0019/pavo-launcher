@@ -185,6 +185,14 @@ public final class PerfControlActivity extends Activity implements PerfOverlayMe
     }
 
     @Override
+    public void onSizeStep(int delta) {
+        float scale = PerfOverlayService.scaleForForm(
+                PerfOverlayService.formForScale(prefs.perfOverlayScale()) + delta);
+        prefs.setPerfOverlayScale(scale);
+        PerfOverlayService.setOverlayScale(scale);
+    }
+
+    @Override
     public void onPerformanceMode(int mode) {
         applyPerformanceMode(mode);
     }

@@ -46,7 +46,7 @@ final class PerfOverlayView extends LinearLayout {
     private LinearLayout headerRow;
     private TextView fpsLabel;
     private Prefs lastPrefs;
-    private int detailLevel = 4;
+    private int form = 5;   // 0 = FPS only ... 5 = full spread card
     private boolean spread;
     private TextView lockIcon;
     private TextView editDoneBar;
@@ -69,6 +69,11 @@ final class PerfOverlayView extends LinearLayout {
     private long presetReadAt;
     private PerfStats lastStats;
     private final CoreView[] cores = new CoreView[PerfStats.MAX_CORES];
+    private LinearLayout stackedBox;
+    private WrapLayout compactBox;
+    private boolean compactMode;
+    private TextView chipFps, chipCpu, chipGpu, chipBatt, chipRam, chipNet, chipFan;
+    private FusionHudRenderer fusion;
 
     PerfOverlayView(Context c) {
         super(c);
@@ -78,6 +83,19 @@ final class PerfOverlayView extends LinearLayout {
         setOrientation(VERTICAL);
         setWillNotDraw(false);
         setClickable(false);
+        if (!horizontal) {
+            corner = dp(22);
+            initFusion(c);
+            return;
+        }
+        stackedBox = new LinearLayout(c);
+        stackedBox.setOrientation(VERTICAL);
+        addView(stackedBox, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        compactBox = new WrapLayout(c, (int) dp(6f), (int) dp(4f));
+        addView(compactBox, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        compactBox.setVisibility(GONE);
         setClipChildren(false);
         setPadding(dp(16), dp(12), dp(16), dp(13));
         corner = dp(22);
@@ -111,7 +129,7 @@ final class PerfOverlayView extends LinearLayout {
         header.addView(battery);
 
         headerRow = header;
-        addView(header, new LinearLayout.LayoutParams(
+        stackedBox.addView(header, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         cpuRow = metricRow();
@@ -125,7 +143,7 @@ final class PerfOverlayView extends LinearLayout {
         cpuRow.addView(cpuTemp, cell());
         cpuRow.addView(cpuClock, cell());
         cpuRow.addView(cpuUsage, cell());
-        addView(cpuRow, rowParams(10));
+        stackedBox.addView(cpuRow, rowParams(10));
 
         gpuRow = metricRow();
         addMetricLabel(gpuRow, Loc.s(getContext(), "GPU"));
@@ -138,7 +156,7 @@ final class PerfOverlayView extends LinearLayout {
         gpuRow.addView(gpuTemp, cell());
         gpuRow.addView(gpuClock, cell());
         gpuRow.addView(gpuUsage, cell());
-        addView(gpuRow, rowParams(4));
+        stackedBox.addView(gpuRow, rowParams(4));
 
         netRow = metricRow();
         addMetricLabel(netRow, "NET");
@@ -148,7 +166,7 @@ final class PerfOverlayView extends LinearLayout {
         netDown.setMinWidth(dp(62));
         netRow.addView(netUp, cell());
         netRow.addView(netDown, cell());
-        addView(netRow, rowParams(4));
+        stackedBox.addView(netRow, rowParams(4));
 
         ramRow = metricRow();
         addMetricLabel(ramRow, "RAM");
@@ -158,7 +176,7 @@ final class PerfOverlayView extends LinearLayout {
         ramAmount.setMinWidth(dp(58));
         ramRow.addView(ramUsage, cell());
         ramRow.addView(ramAmount, cell());
-        addView(ramRow, rowParams(4));
+        stackedBox.addView(ramRow, rowParams(4));
 
         battRow = metricRow();
         addMetricLabel(battRow, "BATT");
@@ -168,14 +186,14 @@ final class PerfOverlayView extends LinearLayout {
         battPower.setMinWidth(dp(56));
         battRow.addView(battTemp, cell());
         battRow.addView(battPower, cell());
-        addView(battRow, rowParams(4));
+        stackedBox.addView(battRow, rowParams(4));
 
         fanRow = metricRow();
         addMetricLabel(fanRow, "FAN");
         fanDuty = metricValue(Gravity.START);
         fanDuty.setMinWidth(dp(38));
         fanRow.addView(fanDuty, cell());
-        addView(fanRow, rowParams(4));
+        stackedBox.addView(fanRow, rowParams(4));
 
         fpsBlock = new LinearLayout(c);
         fpsBlock.setOrientation(VERTICAL);
@@ -184,6 +202,7 @@ final class PerfOverlayView extends LinearLayout {
         fpsLabel.setVisibility(View.GONE);
         fpsValue = text("--", 22f, TEXT, true);
         fpsValue.setGravity(Gravity.CENTER_VERTICAL);
+        fpsValue.setMinWidth(dp(56));
         fpsRow.addView(fpsValue, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -196,7 +215,7 @@ final class PerfOverlayView extends LinearLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
         glp.topMargin = dp(5);
         fpsBlock.addView(graph, glp);
-        addView(fpsBlock, rowParams(10));
+        stackedBox.addView(fpsBlock, rowParams(10));
 
         coresBox = new LinearLayout(c);
         coresBox.setOrientation(VERTICAL);
@@ -222,7 +241,7 @@ final class PerfOverlayView extends LinearLayout {
             rlp.topMargin = dp(3);
             coresBox.addView(row, rlp);
         }
-        addView(coresBox, rowParams(10));
+        stackedBox.addView(coresBox, rowParams(10));
         coresBox.setVisibility(View.GONE);
 
         editDoneBar = text("DONE", 11f, 0xFF061015, false);
@@ -244,6 +263,7 @@ final class PerfOverlayView extends LinearLayout {
         doneLp.topMargin = dp(6);
         addView(editDoneBar, doneLp);
 
+        if (!horizontal) buildCompactChips();
         if (horizontal) buildHorizontalStrip(c);
     }
 
@@ -434,6 +454,7 @@ final class PerfOverlayView extends LinearLayout {
 
     /** True when a panel-local point lands on the preset title. */
     boolean hitPresetLabel(float x, float y) {
+        if (fusion != null) return false;
         if (x < 0f || y < 0f || x > getWidth() || y > getHeight()) return false;
         if (titleView == null) return false;
         float tx = titleView.getLeft();
@@ -461,6 +482,11 @@ final class PerfOverlayView extends LinearLayout {
     }
 
     void setLocked(boolean locked) {
+        if (fusion != null) {
+            fusion.setLocked(locked);
+            invalidate();
+            return;
+        }
         if (lockIcon != null) {
             lockIcon.setVisibility(locked ? View.VISIBLE : View.GONE);
         }
@@ -473,40 +499,199 @@ final class PerfOverlayView extends LinearLayout {
         }
     }
 
-    /** Detail level chosen from the overlay size: 0 = FPS only, 4 = everything. */
-    void setDetailLevel(int level) {
-        if (detailLevel == level) return;
-        detailLevel = level;
-        if (lastPrefs != null) applyPrefs(lastPrefs);
+    /** Bannerlator Fusion HUD: canvas-drawn, five size modes, hugging card. */
+    private void initFusion(Context c) {
+        fusion = new FusionHudRenderer(c);
+        lastPrefs = new Prefs(c);
+        setClipChildren(false);
+        editDoneBar = text("DONE", 11f, 0xFF061015, false);
+        editDoneBar.setGravity(Gravity.CENTER);
+        editDoneBar.setSingleLine(true);
+        editDoneBar.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        editDoneBar.setPadding(dp(8), dp(7), dp(8), dp(7));
+        editDoneBar.setBackground(Ui.rounded(accent, dp(9)));
+        editDoneBar.setContentDescription("Finish moving and resizing the overlay");
+        editDoneBar.setVisibility(View.GONE);
+        editDoneBar.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (editDoneAction != null) editDoneAction.run();
+            }
+        });
+        addView(editDoneBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        fusion.applyPrefs(lastPrefs);
+    }
+
+    private void buildCompactChips() {
+        chipFps = compactChip("FPS", 0xFF7CFF6B);
+        chipCpu = compactChip("CPU", 0xFF42A5F5);
+        chipGpu = compactChip("GPU", 0xFFEF5350);
+        chipBatt = compactChip("BATT", 0xFFBDBDBD);
+        chipRam = compactChip("RAM", 0xFFFFEE58);
+        chipNet = compactChip("NET", 0xFFB8C4CE);
+        chipFan = compactChip("FAN", 0xFF4DD0E1);
+        for (TextView chip : new TextView[]{chipFps, chipCpu, chipGpu, chipBatt, chipRam,
+                chipNet, chipFan}) {
+            compactBox.addView(chip);
+        }
+    }
+
+    private TextView compactChip(String label, int color) {
+        TextView v = text(label, 9.5f, color, false);
+        v.setSingleLine(true);
+        v.setPadding(dp(5), dp(2), dp(5), dp(2));
+        v.setBackground(Ui.rounded(0x18FFFFFF, dp(7), 0x22FFFFFF, dp(1)));
+        return v;
+    }
+
+    /** Compact, Bannerlator-style wrap form; text keeps its size at any card width. */
+    void setCompact(boolean compact) {
+        if (fusion != null) return;
+        setForm(compact ? Math.min(form, 3) : Math.max(form, 4));
+    }
+
+    /** Size form: 0 = FPS only, 3 = compact wrap with every chip, 4 = stacked, 5 = spread. */
+    void setForm(int f) {
+        if (fusion != null) {
+            if (fusion.mode() == Math.max(0, Math.min(FusionHudRenderer.MODE_COUNT - 1, f))) return;
+            fusion.setMode(f);
+            requestLayout();
+            invalidate();
+            return;
+        }
+        f = Math.max(0, Math.min(5, f));
+        boolean compact = f <= 3;
+        form = f;
+        compactMode = compact;
+        stackedBox.setVisibility(compact ? GONE : VISIBLE);
+        compactBox.setVisibility(compact ? VISIBLE : GONE);
+        int hpad = compact ? 10 : 16;
+        int vpad = compact ? 7 : 12;
+        setPadding(dp(hpad), dp(vpad), dp(hpad), dp(vpad + 1));
+        if (chipFps != null) {
+            chipFps.setTextSize(TypedValue.COMPLEX_UNIT_SP, compact && f == 0 ? 16f : 10f);
+            chipFps.setPadding(dp(f == 0 ? 7 : 5), dp(f == 0 ? 4 : 2),
+                    dp(f == 0 ? 7 : 5), dp(f == 0 ? 4 : 2));
+            chipFps.setBackground(f == 0 ? null
+                    : Ui.rounded(0x18FFFFFF, dp(7), 0x22FFFFFF, dp(1)));
+        }
+        if (lastPrefs != null) applyVisibility(lastPrefs);
+        requestLayout();
+    }
+
+    private static String nonEmpty(TextView v) {
+        if (v == null || v.getVisibility() != VISIBLE) return "";
+        CharSequence t = v.getText();
+        return t == null ? "" : t.toString();
+    }
+
+    private static String joinParts(String label, TextView... parts) {
+        StringBuilder b = new StringBuilder(label);
+        for (TextView v : parts) {
+            String t = nonEmpty(v);
+            if (!t.isEmpty()) b.append(' ').append(t);
+        }
+        return b.toString();
+    }
+
+    private static String textOf(TextView v) {
+        if (v == null) return "";
+        CharSequence t = v.getText();
+        return t == null ? "" : t.toString();
+    }
+
+    private void syncCompactChips() {
+        if (chipFps == null || lastPrefs == null) return;
+        Prefs p = lastPrefs;
+        int f = form;
+
+        chipFps.setText(f == 0 ? textOf(fpsValue) : joinParts("FPS", fpsValue));
+        chipFps.setVisibility(VISIBLE);
+
+        StringBuilder cpu = new StringBuilder("CPU");
+        if (f >= 1) cpu.append(' ').append(textOf(cpuTemp));
+        if (f >= 2) cpu.append(' ').append(textOf(cpuUsage));
+        if (f >= 3) cpu.append(' ').append(textOf(cpuClock));
+        chipCpu.setText(cpu.toString());
+        chipCpu.setVisibility(f >= 1 && (p.perfCpuTemp() || p.perfCpuUsage()
+                || p.perfCpuClock()) ? VISIBLE : GONE);
+
+        StringBuilder gpu = new StringBuilder("GPU");
+        if (f >= 1) gpu.append(' ').append(textOf(gpuTemp));
+        if (f >= 2) gpu.append(' ').append(textOf(gpuUsage));
+        if (f >= 3) gpu.append(' ').append(textOf(gpuClock));
+        chipGpu.setText(gpu.toString());
+        chipGpu.setVisibility(f >= 1 && (p.perfGpuTemp() || p.perfGpuUsage()
+                || p.perfGpuClock()) ? VISIBLE : GONE);
+
+        StringBuilder batt = new StringBuilder("BATT");
+        if (f >= 1) batt.append(' ').append(textOf(battTemp));
+        if (f >= 3) {
+            batt.append(' ').append(textOf(battPower));
+            batt.append(' ').append(textOf(battery));
+        }
+        chipBatt.setText(batt.toString());
+        chipBatt.setVisibility(f >= 1 && p.perfBattery() ? VISIBLE : GONE);
+
+        chipRam.setText("RAM " + textOf(ramAmount));
+        chipRam.setVisibility(f >= 3 && p.perfRam() ? VISIBLE : GONE);
+
+        chipNet.setText("NET " + textOf(netUp) + " " + textOf(netDown));
+        chipNet.setVisibility(f >= 3 && p.perfNet() ? VISIBLE : GONE);
+
+        chipFan.setText("FAN " + textOf(fanDuty));
+        chipFan.setVisibility(f >= 3 && p.perfFan() ? VISIBLE : GONE);
     }
 
     void applyPrefs(Prefs p) {
         lastPrefs = p;
         setPanelAlpha(p.perfOverlayAlpha());
+        if (fusion != null) {
+            fusion.applyPrefs(p);
+            requestLayout();
+            invalidate();
+            return;
+        }
         if (horizontal) {
             renderStrip(lastStats);
             graph.setRefreshMs(p.perfRefreshMs());
             requestLayout();
             return;
         }
-        int lvl = detailLevel;
-        boolean showHeader = lvl >= 1;
-        boolean cpuTempOn = p.perfCpuTemp() && lvl >= 1;
-        boolean gpuTempOn = p.perfGpuTemp() && lvl >= 1;
-        boolean battOn = p.perfBattery() && lvl >= 2;
-        boolean cpuUsageOn = p.perfCpuUsage() && lvl >= 3;
-        boolean gpuUsageOn = p.perfGpuUsage() && lvl >= 3;
-        boolean cpuClockOn = p.perfCpuClock() && lvl >= 4;
-        boolean gpuClockOn = p.perfGpuClock() && lvl >= 4;
-        boolean netOn = p.perfNet() && lvl >= 3;
-        boolean ramOn = p.perfRam() && lvl >= 3;
-        boolean fanOn = p.perfFan() && lvl >= 3;
-        boolean graphOn = p.perfFpsGraph() && lvl >= 3;
-        boolean coresOn = p.perfCores() && lvl >= 4;
-        boolean fpsOn = p.perfFps() || lvl == 0;   // the number never disappears
+        applyVisibility(p);
+        graph.setRefreshMs(p.perfRefreshMs());
+        syncCompactChips();
+        requestLayout();
+    }
+
+    /**
+     * Rows revealed as the card grows, in the Bannerlator order: FPS first,
+     * then temperatures, then usage, then the remaining metrics, then graphs
+     * and cores. The full spread form still shows every row.
+     */
+    private void applyVisibility(Prefs p) {
+        int f = form;
+        boolean compact = f <= 3;
+        boolean showHeader = f >= 4;
+        boolean showCores = f >= 5;
+        boolean showGraph = f >= 4 && p.perfFpsGraph();
+
+        boolean cpuTempOn = p.perfCpuTemp() && f >= 1;
+        boolean cpuUsageOn = p.perfCpuUsage() && f >= 2;
+        boolean cpuClockOn = p.perfCpuClock() && f >= 3;
+        boolean gpuTempOn = p.perfGpuTemp() && f >= 1;
+        boolean gpuUsageOn = p.perfGpuUsage() && f >= 2;
+        boolean gpuClockOn = p.perfGpuClock() && f >= 3;
+        boolean battTempOn = p.perfBattery() && f >= 1;
+        boolean battPowerOn = p.perfBattery() && f >= 3;
+        boolean netOn = p.perfNet() && f >= 3;
+        boolean ramOn = p.perfRam() && f >= 3;
+        boolean fanOn = p.perfFan() && f >= 3;
+        boolean fpsOn = p.perfFps() || f == 0;
 
         if (headerRow != null) headerRow.setVisibility(showHeader ? VISIBLE : GONE);
-        if (fpsLabel != null) fpsLabel.setVisibility(lvl == 0 ? GONE : VISIBLE);
+        if (fpsLabel != null) fpsLabel.setVisibility(f == 0 ? GONE : VISIBLE);
 
         cpuTemp.setVisibility(cpuTempOn ? VISIBLE : GONE);
         cpuClock.setVisibility(cpuClockOn ? VISIBLE : GONE);
@@ -520,20 +705,28 @@ final class PerfOverlayView extends LinearLayout {
 
         netRow.setVisibility(netOn ? VISIBLE : GONE);
         ramRow.setVisibility(ramOn ? VISIBLE : GONE);
-        battRow.setVisibility(battOn ? VISIBLE : GONE);
+        battRow.setVisibility(battTempOn || battPowerOn ? VISIBLE : GONE);
+        battTemp.setVisibility(battTempOn ? VISIBLE : GONE);
+        battPower.setVisibility(battPowerOn ? VISIBLE : GONE);
         fanRow.setVisibility(fanOn ? VISIBLE : GONE);
         fpsValue.setVisibility(fpsOn ? VISIBLE : GONE);
         fpsRow.setVisibility(fpsOn ? VISIBLE : GONE);
-        graph.setVisibility(graphOn ? VISIBLE : GONE);
-        fpsBlock.setVisibility(fpsOn || graphOn ? VISIBLE : GONE);
+        graph.setVisibility(showGraph ? VISIBLE : GONE);
+        fpsBlock.setVisibility(fpsOn || showGraph ? VISIBLE : GONE);
 
         battery.setVisibility(showHeader && p.perfBattery() ? VISIBLE : GONE);
-        coresBox.setVisibility(coresOn ? VISIBLE : GONE);
-        graph.setRefreshMs(p.perfRefreshMs());
-        requestLayout();
+        coresBox.setVisibility(showCores ? VISIBLE : GONE);
+        syncCompactChips();
     }
 
     void update(PerfStats s) {
+        if (fusion != null) {
+            lastStats = s;
+            fusion.update(s);
+            requestLayout();
+            invalidate();
+            return;
+        }
         refreshPresetChip();
         if (horizontal) {
             lastStats = s;
@@ -610,6 +803,8 @@ final class PerfOverlayView extends LinearLayout {
             fpsValue.setTextColor(0xFF8792A3);
         }
 
+        if (compactMode) syncCompactChips();
+
         for (int i = 0; i < cores.length; i++) {
             CoreView cv = cores[i];
             if (cv == null) continue;
@@ -657,6 +852,7 @@ final class PerfOverlayView extends LinearLayout {
      * values so nothing is wasted.
      */
     void setSpread(boolean value) {
+        if (fusion != null) return;
         if (spread == value) return;
         spread = value;
         cpuTemp.setLayoutParams(cellOr(0.9f));
@@ -682,12 +878,18 @@ final class PerfOverlayView extends LinearLayout {
 
     /** Natural width of the visible metrics, for a card that hugs its content. */
     int naturalWidthPx() {
+        if (fusion != null) {
+            measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            return getMeasuredWidth();
+        }
         measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         return getMeasuredWidth();
     }
 
     boolean graphShown() {
+        if (fusion != null) return fusion.graphShown();
         return graph != null && graph.getVisibility() == View.VISIBLE;
     }
 
@@ -726,6 +928,7 @@ final class PerfOverlayView extends LinearLayout {
 
     void setPanelAlpha(int percent) {
         panelAlphaPct = Math.max(25, Math.min(100, percent));
+        if (fusion != null) fusion.setOpacity(panelAlphaPct);
         invalidate();
     }
 
@@ -748,7 +951,46 @@ final class PerfOverlayView extends LinearLayout {
     }
 
     @Override
+    protected void onMeasure(int widthSpec, int heightSpec) {
+        if (fusion != null) {
+            int extra = 0;
+            if (editDoneBar != null && editDoneBar.getVisibility() == View.VISIBLE) {
+                editDoneBar.measure(View.MeasureSpec.makeMeasureSpec(
+                                View.MeasureSpec.getSize(widthSpec),
+                                View.MeasureSpec.getMode(widthSpec) == View.MeasureSpec.UNSPECIFIED
+                                        ? View.MeasureSpec.UNSPECIFIED : View.MeasureSpec.AT_MOST),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                extra = editDoneBar.getMeasuredHeight() + dp(6);
+            }
+            int w = (int) Math.ceil(fusion.width());
+            int h = (int) Math.ceil(fusion.height()) + extra;
+            setMeasuredDimension(resolveSize(Math.max(dp(64), w), widthSpec),
+                    resolveSize(Math.max(dp(36), h), heightSpec));
+            return;
+        }
+        super.onMeasure(widthSpec, heightSpec);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        if (fusion != null) {
+            if (editDoneBar != null && editDoneBar.getVisibility() == View.VISIBLE) {
+                int m = dp(10);
+                int bw = r - l - m * 2;
+                int bh = editDoneBar.getMeasuredHeight();
+                editDoneBar.layout(m, b - t - bh - dp(5), m + bw, b - t - dp(5));
+            }
+            return;
+        }
+        super.onLayout(changed, l, t, r, b);
+    }
+
+    @Override
     protected void onDraw(Canvas canvas) {
+        if (fusion != null) {
+            fusion.draw(canvas, getWidth(), getHeight());
+            return;
+        }
         float w = getWidth();
         float h = getHeight();
         if (w <= 0 || h <= 0) return;

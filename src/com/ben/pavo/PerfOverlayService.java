@@ -227,11 +227,16 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                                 // the first drag frame after a pinch.
                                 if (running && panel != null && !interacting) {
                                     panel.update(stats);
+                                    int oldW = params != null ? params.width : 0;
+                                    int oldH = params != null ? params.height : 0;
                                     if (panel.horizontal()) {
                                         // The strip's width follows its text; a
                                         // changed value can change the width.
                                         measurePanel();
-                                        applyScaleGeometry(true);
+                                    }
+                                    applyScaleGeometry(true);
+                                    if (params != null && (params.width != oldW
+                                            || params.height != oldH)) {
                                         try {
                                             windowManager.updateViewLayout(container, params);
                                         } catch (Throwable ignored) {
@@ -921,13 +926,16 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         s.main.post(new Runnable() {
             @Override
             public void run() {
-                s.targetScale = s.clampScale(requested);
-                s.scale = s.targetScale;
+                s.form = formForScale(requested);
+                s.scale = scaleForForm(s.form);
+                s.targetScale = s.scale;
+                s.cachedLevel = -1;
                 s.scaleTickerRunning = false;
                 s.scaleSettleSave = false;
                 s.main.removeCallbacks(s.scaleTicker);
                 s.applyScaleGeometry(true);
                 s.prefs.setPerfOverlayScale(s.scale);
+                if (s.menu != null) s.menu.setSizeLabel(overlayModeName(s.form));
             }
         });
     }
@@ -1204,10 +1212,13 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel.setPivotX(0f);
         panel.setPivotY(0f);
         measurePanel();
-        scale = clampScale(prefs.perfOverlayScale());
+        scale = prefs.perfOverlayScale();
+        form = formForScale(scale);
+        scale = scaleForForm(form);
+        targetForm = form;
         targetScale = scale;
-        panel.setScaleX(scale);
-        panel.setScaleY(scale);
+        panel.setScaleX(1f);
+        panel.setScaleY(1f);
         container.addView(panel, new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx));
         dimOverlay = new View(uiContext);
         dimOverlay.setBackgroundColor(0xFF000000);
@@ -1345,89 +1356,108 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         return Math.max(0.55f, Math.min(max, wanted));
     }
 
-    /** Detail level for the vertical card, derived from how small it is. */
-    /** Level with a small hysteresis band, so rows do not flicker at a boundary. */
-    private int smoothLevel(float s) {
-        int target = levelForScale(s);
-        if (target == cachedLevel) return target;
-        float m = 0.015f;
-        switch (cachedLevel) {
-            case 4:
-                if (s > 0.99f - m) return 4;
-                break;
-            case 3:
-                if (s > 0.92f - m && s < 0.99f + m) return 3;
-                break;
-            case 2:
-                if (s > 0.84f - m && s < 0.92f + m) return 2;
-                break;
-            case 1:
-                if (s > 0.74f - m && s < 0.84f + m) return 1;
-                break;
-            case 0:
-                if (s < 0.74f + m) return 0;
-                break;
-            default:
-                break;
+    // Size forms, smallest to biggest. Resizing steps through these so every
+    // intermediate overlay is reachable instead of snapping straight from the
+    // tiny FPS pill to the full card.
+    static final int FORM_COUNT = 5;
+    // Minimal, Pill, Tiles, Full, Mega.
+    private static final float[] FORM_SCALE = {0.60f, 0.72f, 0.82f, 0.92f, 1.0f};
+
+    static float scaleForForm(int f) {
+        return FORM_SCALE[Math.max(0, Math.min(FORM_COUNT - 1, f))];
+    }
+
+    static int formForScale(float s) {
+        if (s < 0.66f) return 0;
+        if (s < 0.77f) return 1;
+        if (s < 0.87f) return 2;
+        if (s < 0.96f) return 3;
+        return 4;
+    }
+
+    /**
+     * Walks one form at a time toward the size the pinch asked for. A fast
+     * two-finger spread can cross several thresholds in a single touch event;
+     * stepping here guarantees every intermediate overlay is actually shown
+     * instead of skipping from the full card straight to the smallest one.
+     */
+    private final Runnable formTicker = new Runnable() {
+        @Override
+        public void run() {
+            if (container == null || panel == null || params == null || targetForm < 0) {
+                formTickerRunning = false;
+                return;
+            }
+            if (form == targetForm) {
+                formTickerRunning = false;
+                prefs.setPerfOverlayScale(scaleForForm(form));
+                return;
+            }
+            form += form < targetForm ? 1 : -1;
+            scale = scaleForForm(form);
+            cachedLevel = -1;
+            applyScaleGeometry(true);
+            try {
+                windowManager.updateViewLayout(container, params);
+            } catch (Throwable ignored) {
+            }
+            main.postDelayed(this, 55);
         }
-        return target;
+    };
+
+    private void stepFormTo(int target) {
+        targetForm = Math.max(0, Math.min(FORM_COUNT - 1, target));
+        if (!formTickerRunning) {
+            formTickerRunning = true;
+            main.post(formTicker);
+        }
     }
 
-    private static int levelForScale(float s) {
-        if (s >= 0.99f) return 4;
-        if (s >= 0.92f) return 3;
-        if (s >= 0.84f) return 2;
-        if (s >= 0.74f) return 1;
-        return 0;
-    }
-
+    private int form = -1;
+    private int targetForm = -1;
+    private boolean formTickerRunning;
     private int cachedLevel = -1;
     private int cachedWidth;
     private int cachedHeight;
+    private int pinchStartForm;
 
     /**
-     * Continuous geometry: the card is the full-width form scaled by the pinch
-     * factor, so every scale value gives a distinct size. Only the row set
-     * changes with the detail level, and only then is the content re-measured.
-     * Returns {width, height, renderScale*1000}.
+     * Window size for the current form. Compact forms hug their chips, the
+     * stacked form uses a slightly narrower card, and the largest form keeps the
+     * original spread width. Text is never scaled: the card grows by revealing
+     * content, so it stays readable at every step.
      */
     private int[] scaledWindowSize() {
-        if (panel != null && !panel.horizontal()) {
-            int level = smoothLevel(scale);
-            if (level != cachedLevel || cachedWidth == 0) {
-                panel.setDetailLevel(level);
-                panel.setSpread(true);
-                FrameLayout.LayoutParams plp = panel.getLayoutParams()
-                        instanceof FrameLayout.LayoutParams
-                        ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
-                if (plp == null) plp = new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx);
-                if (plp.width != baseWidthPx) {
-                    plp.width = baseWidthPx;
-                    panel.setLayoutParams(plp);
-                }
-                panel.measure(
-                        View.MeasureSpec.makeMeasureSpec(baseWidthPx, View.MeasureSpec.EXACTLY),
-                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-                int contentH = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
-                if (plp.height != contentH) {
-                    plp.height = contentH;
-                    panel.setLayoutParams(plp);
-                }
-                cachedLevel = level;
-                cachedWidth = baseWidthPx;
-                cachedHeight = contentH;
-            }
-            return new int[]{Math.round(cachedWidth * scale),
-                    Math.round(cachedHeight * scale), Math.round(scale * 1000f)};
+        if (panel == null || panel.horizontal()) {
+            return new int[]{Math.round(baseWidthPx * scale),
+                    Math.round(baseHeightPx * scale), Math.round(scale * 1000f)};
         }
-        return new int[]{Math.round(baseWidthPx * scale),
-                Math.round(baseHeightPx * scale), Math.round(scale * 1000f)};
+        if (form < 0) form = formForScale(scale);
+        scale = scaleForForm(form);
+        panel.setForm(form);
+        panel.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        int maxW = screenWidthPx() - Ui.dp(uiContext, 16);
+        int maxH = screenHeightPx() - Ui.dp(uiContext, 16);
+        int w = Math.max(Ui.dp(uiContext, 96), Math.min(maxW, panel.getMeasuredWidth()));
+        int h = Math.max(Ui.dp(uiContext, 40), Math.min(maxH, panel.getMeasuredHeight()));
+        FrameLayout.LayoutParams plp = panel.getLayoutParams()
+                instanceof FrameLayout.LayoutParams
+                ? (FrameLayout.LayoutParams) panel.getLayoutParams() : null;
+        if (plp == null) plp = new FrameLayout.LayoutParams(w, h);
+        if (plp.width != w || plp.height != h) {
+            plp.width = w;
+            plp.height = h;
+            panel.setLayoutParams(plp);
+        }
+        cachedWidth = w;
+        cachedHeight = h;
+        cachedLevel = form;
+        return new int[]{w, h, 1000};
     }
 
     private void applyScaleGeometry(boolean keepCenter) {
         if (container == null || panel == null || params == null) return;
-        // Prefs or a direct size change may alter the visible rows: re-measure.
-        cachedLevel = -1;
         scale = clampScale(scale);
         int[] size = scaledWindowSize();
         int newW = size[0];
@@ -1470,6 +1500,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         }
         panel.applyPrefs(prefs);
         panel.setPanelAlpha(prefs.perfOverlayAlpha());
+        cachedLevel = -1;
+        cachedHeight = 0;
         measurePanel();
         // In strip mode the width follows the visible metrics, so keep it centred
         // instead of leaving it pinned by its left edge.
@@ -1506,6 +1538,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         saveGeometry();
                     }
                 }
+                main.removeCallbacks(formTicker);
+                formTickerRunning = false;
+                targetForm = form;
                 downRawX = e.getRawX();
                 downRawY = e.getRawY();
                 downX = params.x;
@@ -1538,8 +1573,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 tapCount = 0;
                 longPressed = false;
                 pinchStartSpan = span(e);
-                pinchStartScale = scale;
-                targetScale = scale;
+                pinchStartForm = form >= 0 ? form : formForScale(scale);
                 pinchCenterX = params.x + params.width / 2;
                 pinchCenterY = params.y + params.height / 2;
                 return true;
@@ -1551,16 +1585,14 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         if (pinchStartSpan > 1f) {
                             float ratio = s / pinchStartSpan;
                             if (ratio > 0.98f && ratio < 1.02f) return true;
-                            // A sub-linear response plus eased motion avoids the twitchy
-                            // feel of directly mapping every raw touch delta to window size.
-                            // Near-linear response: the card follows the finger
-                            // span closely, so a given spread maps to a size.
-                            float exponent = 0.85f;
-                            float damped = (float) Math.pow(Math.max(0.01f, ratio), exponent);
-                            targetScale = clampScale(pinchStartScale * damped);
-                            if (!scaleTickerRunning) {
-                                scaleTickerRunning = true;
-                                main.post(scaleTicker);
+                            // One form per ~12% of finger-span change: a comfortable
+                            // spread crosses several forms, a full pinch crosses all.
+                            int delta = Math.round((float) (Math.log(Math.max(0.05f, ratio))
+                                    / Math.log(1.12f)));
+                            int f = Math.max(0, Math.min(FORM_COUNT - 1,
+                                    pinchStartForm + delta));
+                            if (f != targetForm) {
+                                stepFormTo(f);
                             }
                         }
                     }
@@ -1696,7 +1728,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void saveGeometry() {
         if (params == null) return;
-        prefs.setPerfOverlayScale(scaleTickerRunning ? targetScale : scale);
+        prefs.setPerfOverlayScale(scaleForForm(form));
+        targetForm = form;
         prefs.setPerfOverlayPosition(params.x, params.y);
     }
 
@@ -1770,6 +1803,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                 prefs, mode, scale, this);
         captureMenuBackdrop(menu);
         menu.setMapperMode(mapperMode);
+        menu.setSizeLabel(overlayModeName(form >= 0 ? form : formForScale(scale)));
         menu.blockTouchesFor(650);
         setOverlayTouchable(false);
         int type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
@@ -2237,9 +2271,37 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     @Override
     public void onScaleChanged(float newScale) {
-        scale = clampScale(newScale);
+        form = formForScale(newScale);
+        scale = scaleForForm(form);
+        cachedLevel = -1;
         applyScaleGeometry(true);
         prefs.setPerfOverlayScale(scale);
+    }
+
+    static String overlayModeName(int f) {
+        f = Math.max(0, Math.min(FORM_COUNT - 1, f));
+        switch (f) {
+            case 0: return "MIN";
+            case 1: return "PILL";
+            case 2: return "TILES";
+            case 3: return "FULL";
+            default: return "MEGA";
+        }
+    }
+
+    @Override
+    public void onSizeStep(int delta) {
+        int f = (form >= 0 ? form : formForScale(scale)) + delta;
+        form = Math.max(0, Math.min(FORM_COUNT - 1, f));
+        scale = scaleForForm(form);
+        cachedLevel = -1;
+        applyScaleGeometry(true);
+        prefs.setPerfOverlayScale(scale);
+        try {
+            windowManager.updateViewLayout(container, params);
+        } catch (Throwable ignored) {
+        }
+        if (menu != null) menu.setSizeLabel(overlayModeName(form >= 0 ? form : formForScale(scale)));
     }
 
     @Override

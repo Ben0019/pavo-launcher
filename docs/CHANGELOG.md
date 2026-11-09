@@ -2,6 +2,15 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.43 — 09 Nov 2026
+
+### Performance overlay
+
+- Rebuilt the performance overlay to work like Bannerlator's Fusion HUD.
+- Five sizes — Minimal, Pill, Tiles, Full and Mega — and pinching or the − / + size buttons now step through every one in order instead of jumping between two.
+- Each size hugs its content and uses colour-coded monospace readouts: FPS and frame time, GPU and CPU load, clocks and temperatures, RAM, battery, network, per-core load and clocks, average and 1% / 0.1% lows, and a live frametime graph.
+- The overlay remembers the size you leave it on.
+
 ## 1.0.42 — 08 Nov 2026
 
 ### Performance presets

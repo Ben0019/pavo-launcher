@@ -38,6 +38,7 @@ final class PerfOverlayMenuView extends FrameLayout {
         void onRefreshChanged(int ms);
         void onOpacityChanged(int percent);
         void onScaleChanged(float scale);
+        void onSizeStep(int delta);
         void onPerformanceMode(int mode);
         void onResetPosition();
         void onEditPlacement();
@@ -429,7 +430,7 @@ final class PerfOverlayMenuView extends FrameLayout {
         TextView sizeMinus = stepButton("\u2212");
         scaleValue = text(Math.round(overlayScale * 100f) + "%", 10f, accent, true);
         scaleValue.setGravity(Gravity.CENTER);
-        scaleValue.setMinWidth(dp(42));
+        scaleValue.setMinWidth(dp(64));
         TextView sizePlus = stepButton("+");
         sizeMinus.setOnClickListener(new OnClickListener() {
             @Override
@@ -806,10 +807,20 @@ final class PerfOverlayMenuView extends FrameLayout {
         if (opacityValue != null) opacityValue.setText(opacityPercent + "%");
     }
 
+    /** Steps to the next whole overlay form instead of nudging a raw scale. */
     private void adjustScale(float delta) {
-        overlayScale = Math.max(0.55f, Math.min(1.8f, overlayScale + delta));
+        listener.onSizeStep(delta > 0f ? 1 : -1);
+    }
+
+    /** Called back by the service with the overlay mode's short name. */
+    void setSizeLabel(String label) {
+        if (scaleValue != null) scaleValue.setText(label);
+    }
+
+    /** Called back by the service with the form's representative percentage. */
+    void setScalePercent(float value) {
+        overlayScale = value;
         if (scaleValue != null) scaleValue.setText(Math.round(overlayScale * 100f) + "%");
-        listener.onScaleChanged(overlayScale);
     }
 
     private TextView stepButton(String s) {
