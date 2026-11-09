@@ -1284,6 +1284,11 @@ final class QuickPanelView extends FrameLayout {
         return Ui.dp(c, 24);
     }
 
+    /** Space the card occupies at the right edge, for overlays that dodge it. */
+    int occupiedWidthPx() {
+        return cardW + edge;
+    }
+
     void dismissAnimated() {
         if (closing) return;
         closing = true;

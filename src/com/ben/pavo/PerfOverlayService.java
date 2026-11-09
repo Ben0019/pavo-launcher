@@ -65,6 +65,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private PerfOverlayView panel;
     private WindowManager.LayoutParams params;
     private boolean editMode;
+    private boolean shiftedForPanel;
+    private int panelHomeX;
+    private int panelHomeY;
     private boolean mapperMode;
     private boolean mapperCheckInFlight;
     private int baseWidthPx;
@@ -842,6 +845,44 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     if (!visible && s.editMode) s.exitEditMode();
                     s.container.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
                     s.applyCardTouchability();
+                }
+            }
+        });
+    }
+
+    /**
+     * Slide the panel out of the quick controls card's way while that menu is
+     * open, then put it back where the user had it.
+     */
+    static void shiftForQuickPanel(final boolean open, final int reservedPx) {
+        final PerfOverlayService s = instance;
+        if (s == null) return;
+        s.main.post(new Runnable() {
+            @Override
+            public void run() {
+                if (s.container == null || s.params == null) return;
+                float density = s.getResources().getDisplayMetrics().density;
+                int screenW = s.getResources().getDisplayMetrics().widthPixels;
+                int limit = screenW - reservedPx - Math.round(8 * density);
+                if (open) {
+                    if (s.shiftedForPanel) return;
+                    if (s.params.x + s.params.width <= limit) return;
+                    s.panelHomeX = s.params.x;
+                    s.panelHomeY = s.params.y;
+                    s.shiftedForPanel = true;
+                    s.params.x = Math.max(0, limit - s.params.width);
+                    try {
+                        s.windowManager.updateViewLayout(s.container, s.params);
+                    } catch (Throwable ignored) {
+                    }
+                } else if (s.shiftedForPanel) {
+                    s.shiftedForPanel = false;
+                    s.params.x = s.panelHomeX;
+                    s.params.y = s.panelHomeY;
+                    try {
+                        s.windowManager.updateViewLayout(s.container, s.params);
+                    } catch (Throwable ignored) {
+                    }
                 }
             }
         });

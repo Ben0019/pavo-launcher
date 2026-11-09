@@ -132,8 +132,9 @@ final class QuickPanelHost {
         panel = view;
         params = lp;
         windowManager = wm;
-        // Take the controller: the app behind must not react while the panel is up.
+        // Take the controller and nudge the performance overlay aside.
         PavoInputService.setQuickPanelOpen(host, true);
+        PerfOverlayService.shiftForQuickPanel(true, view.occupiedWidthPx());
         TouchMapService.notifyModalOverlayChanged();
     }
 
@@ -144,6 +145,7 @@ final class QuickPanelHost {
         params = null;
         windowManager = null;
         PavoInputService.setQuickPanelOpen(null, false);
+        PerfOverlayService.shiftForQuickPanel(false, 0);
         TouchMapService.notifyModalOverlayChanged();
         if (view == null) return;
         view.closeNow();
