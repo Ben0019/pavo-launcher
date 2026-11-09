@@ -197,6 +197,10 @@ final class Prefs {
     boolean bluetoothStatusVisible() { return sp.getBoolean("bt_status", true); }
     boolean soundStatusVisible() { return sp.getBoolean("sound_status", true); }
     boolean controllerRemapEnabled() { return sp.getBoolean("remap_enabled", false); }
+    boolean controllerStickAutoApp() { return sp.getBoolean("controller_auto_app", true); }
+    void setControllerStickAutoApp(boolean value) {
+        sp.edit().putBoolean("controller_auto_app", value).apply();
+    }
     boolean burnInProtection() { return sp.getBoolean("burn_in_protection", true); }
     boolean autoHidePageDots() { return sp.getBoolean("dots_auto_hide", true); }
     boolean dockDrawerButton() { return sp.getBoolean("dock_drawer_button", true); }

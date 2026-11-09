@@ -8,11 +8,15 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
+import android.graphics.DashPathEffect;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.os.Looper;
+import android.content.res.ColorStateList;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -24,6 +28,7 @@ import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -100,6 +105,35 @@ public final class JoystickActivity extends PavoGlassActivity {
     private float restMax;
     private long lastStatusAt;
 
+    // Guided one-pass calibration: rest, then a single roll around the edge.
+    private static final int GUIDE_NONE = 0;
+    private static final int GUIDE_REST = 1;
+    private static final int GUIDE_ROLL = 2;
+    private static final long GUIDE_REST_MS = 1800L;
+    private static final long GUIDE_ROLL_MS = 6000L;
+    private int guidePhase = GUIDE_NONE;
+    private long guidePhaseStart;
+    private int guideScore = -1;
+    private int restCount;
+    private float restJitter;
+    private final float[] restSum = new float[4];
+    private final float[] restMinSeen = new float[4];
+    private final float[] restMaxSeen = new float[4];
+    private final float[] rollDxL = new float[GATE_POINTS];
+    private final float[] rollDyL = new float[GATE_POINTS];
+    private final float[] rollDxR = new float[GATE_POINTS];
+    private final float[] rollDyR = new float[GATE_POINTS];
+    private final float[] rollRL = new float[GATE_POINTS];
+    private final float[] rollRR = new float[GATE_POINTS];
+    private ProgressBar guideBar;
+    private TextView guideText;
+    private TextView autoChip;
+    private final TextView[] presetChips = new TextView[5];
+    private static final String[] PRESET_KEYS =
+            {"LINEAR", "SMOOTH", "PRECISE", "FAST", "RACING"};
+    private static final int[] PRESET_CURVE = {100, 130, 170, 70, 200};
+    private static final int[] PRESET_FLOOR = {0, 0, 0, 0, 60};
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -131,9 +165,15 @@ public final class JoystickActivity extends PavoGlassActivity {
     protected void onPause() {
         handler.removeCallbacks(rangeDone);
         handler.removeCallbacks(gateDone);
+        handler.removeCallbacks(guideTick);
         handler.removeCallbacks(healthTick);
         rangeCapturing = false;
         gateCapturing = false;
+        if (guidePhase != GUIDE_NONE) {
+            guidePhase = GUIDE_NONE;
+            if (guideBar != null) guideBar.setVisibility(View.GONE);
+            if (guideText != null) guideText.setVisibility(View.GONE);
+        }
         ControllerRemapManager.setPassthrough(this, false);
         ControllerProfiles.activityOpen = false;
         ControllerProfiles.markDirty();
@@ -320,6 +360,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         if (floorValue != null) floorValue.setText(percent(floor[selectedStick]));
         stickEnabled = false;
         updateLayerChip();
+        updatePresetChips();
         clearCalibration();
         pads.setAxes(rawLx, rawLy, rawRx, rawRy);
     }
@@ -393,6 +434,264 @@ public final class JoystickActivity extends PavoGlassActivity {
                     Toast.LENGTH_SHORT).show();
         }
     };
+
+    // ---- Guided calibration -------------------------------------------------
+
+    /** One pass: rest for a stable centre, then a full roll for range and gate. */
+    private void startGuided() {
+        if (guidePhase != GUIDE_NONE) {
+            cancelGuided();
+            return;
+        }
+        rangeCapturing = false;
+        gateCapturing = false;
+        handler.removeCallbacks(rangeDone);
+        handler.removeCallbacks(gateDone);
+        guidePhase = GUIDE_REST;
+        guidePhaseStart = SystemClock.uptimeMillis();
+        guideScore = -1;
+        restCount = 0;
+        restJitter = 0f;
+        Arrays.fill(restSum, 0f);
+        Arrays.fill(restMinSeen, 1f);
+        Arrays.fill(restMaxSeen, -1f);
+        if (guideText != null) {
+            guideText.setVisibility(View.VISIBLE);
+            guideText.setText(Loc.s(this, "Release both sticks"));
+        }
+        if (guideBar != null) {
+            guideBar.setVisibility(View.VISIBLE);
+            guideBar.setProgress(0);
+        }
+        handler.removeCallbacks(guideTick);
+        handler.post(guideTick);
+    }
+
+    private void cancelGuided() {
+        guidePhase = GUIDE_NONE;
+        handler.removeCallbacks(guideTick);
+        if (guideBar != null) guideBar.setVisibility(View.GONE);
+        if (guideText != null) guideText.setVisibility(View.GONE);
+    }
+
+    private final Runnable guideTick = new Runnable() {
+        @Override public void run() {
+            if (isFinishing() || isDestroyed()) return;
+            if (guidePhase == GUIDE_NONE) return;
+            long now = SystemClock.uptimeMillis();
+            long elapsed = now - guidePhaseStart;
+            if (guidePhase == GUIDE_REST) {
+                sampleRest(rawLx, rawLy, rawRx, rawRy);
+                int pct = (int) Math.min(100, elapsed * 100 / GUIDE_REST_MS);
+                if (guideBar != null) guideBar.setProgress(pct);
+                if (guideText != null) {
+                    guideText.setText(Loc.s(JoystickActivity.this, "Release both sticks")
+                            + "  " + pct + "%");
+                }
+                if (elapsed >= GUIDE_REST_MS) beginRoll(now);
+                handler.postDelayed(this, 100L);
+                return;
+            }
+            if (guidePhase == GUIDE_ROLL) {
+                sampleRollRange(rawLx, rawLy, rawRx, rawRy);
+                if (rangeCapturing || gateCapturing) {
+                    rangeCapturing = false;
+                    gateCapturing = false;
+                }
+                int pct = (int) Math.min(100, elapsed * 100 / GUIDE_ROLL_MS);
+                if (guideBar != null) guideBar.setProgress(pct);
+                if (guideText != null) {
+                    guideText.setText(Loc.s(JoystickActivity.this,
+                            "Roll both sticks fully around the edge") + "  " + pct + "%");
+                }
+                if (elapsed >= GUIDE_ROLL_MS) finishGuided();
+                else handler.postDelayed(this, 100L);
+            }
+        }
+    };
+
+    private void sampleRest(float lx, float ly, float rx, float ry) {
+        if ((float) Math.hypot(lx, ly) > 0.28f
+                || (float) Math.hypot(rx, ry) > 0.28f) {
+            return;
+        }
+        float[] v = {lx, ly, rx, ry};
+        restCount++;
+        for (int i = 0; i < 4; i++) {
+            restSum[i] += v[i];
+            restMinSeen[i] = Math.min(restMinSeen[i], v[i]);
+            restMaxSeen[i] = Math.max(restMaxSeen[i], v[i]);
+        }
+    }
+
+    private void beginRoll(long now) {
+        if (restCount >= 3) {
+            for (int i = 0; i < 4; i++) {
+                centers[i] = Math.round(restSum[i] / restCount * 32767f);
+            }
+        }
+        restJitter = 0.02f;
+        if (restCount > 0) {
+            restJitter = 0f;
+            for (int i = 0; i < 4; i++) {
+                restJitter = Math.max(restJitter, (restMaxSeen[i] - restMinSeen[i]) * 0.5f);
+            }
+        }
+        for (int i = 0; i < rangeMin.length; i++) {
+            rangeMin[i] = Integer.MAX_VALUE;
+            rangeMax[i] = Integer.MIN_VALUE;
+        }
+        Arrays.fill(rollDxL, 0f);
+        Arrays.fill(rollDyL, 0f);
+        Arrays.fill(rollDxR, 0f);
+        Arrays.fill(rollDyR, 0f);
+        Arrays.fill(rollRL, 0f);
+        Arrays.fill(rollRR, 0f);
+        guidePhase = GUIDE_ROLL;
+        guidePhaseStart = now;
+        if (guideText != null) {
+            guideText.setText(Loc.s(this, "Roll both sticks fully around the edge"));
+        }
+    }
+
+    /** Captures raw range and the raw point at the outer edge of every angle. */
+    private void sampleRoll(float lx, float ly, float rx, float ry) {
+        if (guidePhase != GUIDE_ROLL) return;
+        sampleRollRange(lx, ly, rx, ry);
+        sampleRawGate(rollDxL, rollDyL, rollRL, 0, 1,
+                Math.round(lx * 32767f), Math.round(ly * 32767f));
+        sampleRawGate(rollDxR, rollDyR, rollRR, 2, 3,
+                Math.round(rx * 32767f), Math.round(ry * 32767f));
+    }
+
+    private void sampleRollRange(float lx, float ly, float rx, float ry) {
+        if (guidePhase != GUIDE_ROLL) return;
+        int[] raw = {
+                Math.round(lx * 32767f), Math.round(ly * 32767f),
+                Math.round(rx * 32767f), Math.round(ry * 32767f)
+        };
+        for (int i = 0; i < 4; i++) {
+            if (raw[i] < rangeMin[i]) rangeMin[i] = raw[i];
+            if (raw[i] > rangeMax[i]) rangeMax[i] = raw[i];
+        }
+    }
+
+    private void sampleRawGate(float[] dxs, float[] dys, float[] radii,
+                               int ix, int iy, int x, int y) {
+        float dx = x - centers[ix];
+        float dy = y - centers[iy];
+        float r = (float) Math.hypot(dx, dy) / 32767f;
+        if (r < 0.30f) return;
+        int i = gateIndex(dx, dy);
+        if (r > radii[i]) {
+            radii[i] = r;
+            dxs[i] = dx;
+            dys[i] = dy;
+        }
+    }
+
+    private void finishGuided() {
+        guidePhase = GUIDE_NONE;
+        handler.removeCallbacks(guideTick);
+        for (int i = 0; i < 4; i++) {
+            if (rangeMax[i] != Integer.MIN_VALUE
+                    && rangeMax[i] - rangeMin[i] > 4000) {
+                mins[i] = rangeMin[i];
+                maxs[i] = rangeMax[i];
+            }
+        }
+        float[] rl = normalizedGateRadii(rollDxL, rollDyL, rollRL, 0, 1);
+        float[] rr = normalizedGateRadii(rollDxR, rollDyR, rollRR, 2, 3);
+        int[] left = buildGate(rl);
+        int[] right = buildGate(rr);
+        if (left != null) {
+            System.arraycopy(left, 0, gateGain[0], 0, GATE_POINTS);
+            gateEnabled = true;
+        }
+        if (right != null) {
+            System.arraycopy(right, 0, gateGain[1], 0, GATE_POINTS);
+            gateEnabled = true;
+        }
+        guideScore = guidedScore(rl, rr, restJitter);
+        stickEnabled = true;
+        saveCalibration(true, true);
+        syncTuningUi();
+        if (guideBar != null) guideBar.setProgress(100);
+        if (guideText != null) {
+            guideText.setText(String.format(Locale.US, "%s %d%%  ·  %s",
+                    Loc.s(this, "QUALITY"), guideScore, Loc.s(this, guidedGrade(guideScore))));
+            guideText.setVisibility(View.VISIBLE);
+        }
+        handler.postDelayed(new Runnable() {
+            @Override public void run() {
+                if (guidePhase == GUIDE_NONE && guideBar != null) {
+                    guideBar.setVisibility(View.GONE);
+                }
+            }
+        }, 5000L);
+        LToast.makeText(this, Loc.s(this, "Saved"), Toast.LENGTH_SHORT).show();
+    }
+
+    /** Converts raw edge points to the per-angle radius used by buildGate. */
+    private float[] normalizedGateRadii(float[] dxs, float[] dys, float[] rawRadii,
+                                        int ix, int iy) {
+        float[] out = new float[GATE_POINTS];
+        for (int i = 0; i < GATE_POINTS; i++) {
+            if (rawRadii[i] <= 0.05f) continue;
+            float dx = dxs[i];
+            float dy = dys[i];
+            float nx = dx >= 0f
+                    ? dx / (float) Math.max(1, maxs[ix] - centers[ix])
+                    : dx / (float) Math.max(1, centers[ix] - mins[ix]);
+            float ny = dy >= 0f
+                    ? dy / (float) Math.max(1, maxs[iy] - centers[iy])
+                    : dy / (float) Math.max(1, centers[iy] - mins[iy]);
+            out[i] = (float) Math.hypot(nx, ny);
+        }
+        return out;
+    }
+
+    private int guidedScore(float[] rl, float[] rr, float jitter) {
+        // 48 of 64 angles is a complete roll; buildGate interpolates the rest.
+        float coverage = Math.min(1f, Math.min(coverage(rl), coverage(rr)) * 64f / 48f);
+        float roundness = Math.min(roundness(rl), roundness(rr));
+        float steady = 1f - Math.min(1f, jitter / 0.08f);
+        int score = Math.round(100f * (0.35f * coverage + 0.45f * roundness
+                + 0.20f * steady));
+        return Math.max(0, Math.min(100, score));
+    }
+
+    private static float coverage(float[] radii) {
+        int valid = 0;
+        for (float r : radii) if (r > 0.05f) valid++;
+        return valid / (float) GATE_POINTS;
+    }
+
+    private static float roundness(float[] radii) {
+        float sum = 0f;
+        int n = 0;
+        for (float r : radii) {
+            if (r > 0.05f) {
+                sum += r;
+                n++;
+            }
+        }
+        if (n < 8) return 0f;
+        float mean = sum / n;
+        float var = 0f;
+        for (float r : radii) {
+            if (r > 0.05f) var += (r - mean) * (r - mean);
+        }
+        float sd = (float) Math.sqrt(var / n);
+        return Math.max(0f, Math.min(1f, 1f - sd / Math.max(0.08f, mean)));
+    }
+
+    private String guidedGrade(int score) {
+        if (score >= 90) return "Excellent";
+        if (score >= 75) return "Good";
+        if (score >= 55) return "Fair";
+        return "Poor";
+    }
 
     /** Records the furthest radius seen at each angle while the stick is rolled. */
     private static void sampleGate(float[] table, float x, float y) {
@@ -475,6 +774,9 @@ public final class JoystickActivity extends PavoGlassActivity {
     private void refreshPreview() {
         float[] c = corrected(rawLx, rawLy, rawRx, rawRy);
         pads.setAxes(c[0], c[1], c[2], c[3]);
+        pads.setRaw(axisNormalized(rawLx, 0), axisNormalized(rawLy, 1),
+                axisNormalized(rawRx, 2), axisNormalized(rawRy, 3));
+        pads.setGate(gateGain[0], gateGain[1], gateEnabled);
         values.setText(String.format(Locale.US,
                 "L  %+.2f / %+.2f        R  %+.2f / %+.2f", c[0], c[1], c[2], c[3]));
     }
@@ -590,6 +892,25 @@ public final class JoystickActivity extends PavoGlassActivity {
         values.setPadding(0, dp(1), 0, dp(2));
         column.addView(values);
 
+        LinearLayout guideRow = new LinearLayout(this);
+        guideRow.setOrientation(LinearLayout.VERTICAL);
+        guideText = text("", 8.5f, ACCENT, true);
+        guideText.setGravity(Gravity.CENTER);
+        guideText.setVisibility(View.GONE);
+        guideRow.addView(guideText, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        guideBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        guideBar.setMax(100);
+        guideBar.setProgressTintList(ColorStateList.valueOf(ACCENT));
+        guideBar.setProgressBackgroundTintList(ColorStateList.valueOf(0x33FFFFFF));
+        guideBar.setVisibility(View.GONE);
+        LinearLayout.LayoutParams guideBarLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(4));
+        guideBarLp.topMargin = dp(1);
+        guideBarLp.bottomMargin = dp(2);
+        guideRow.addView(guideBar, guideBarLp);
+        column.addView(guideRow);
+
         LinearLayout statusRow = new LinearLayout(this);
         statusRow.setOrientation(LinearLayout.HORIZONTAL);
         statusRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -606,6 +927,30 @@ public final class JoystickActivity extends PavoGlassActivity {
         });
         statusRow.addView(statusText, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        autoChip = text("AUTO", 8.5f, 0xFF69D98B, true);
+        autoChip.setPadding(dp(8), dp(4), dp(8), dp(4));
+        autoChip.setFocusable(true);
+        autoChip.setDefaultFocusHighlightEnabled(false);
+        autoChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                boolean on = !prefs.controllerStickAutoApp();
+                prefs.setControllerStickAutoApp(on);
+                ControllerProfiles.markDirty();
+                updateAutoChip();
+            }
+        });
+        autoChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateAutoChip();
+            }
+        });
+        tapClicks(autoChip);
+        addNav(autoChip);
+        LinearLayout.LayoutParams autoLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        autoLp.rightMargin = dp(6);
+        statusRow.addView(autoChip, autoLp);
         clearLearnedChip = text("CLEAR", 8.5f, 0xFFFFC857, true);
         clearLearnedChip.setPadding(dp(8), dp(4), dp(8), dp(4));
         clearLearnedChip.setBackground(Ui.rounded(0x22FFC857, dp(9),
@@ -685,6 +1030,40 @@ public final class JoystickActivity extends PavoGlassActivity {
         tuning.addView(tuningRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        LinearLayout presetRow = new LinearLayout(this);
+        presetRow.setOrientation(LinearLayout.HORIZONTAL);
+        presetRow.setGravity(Gravity.CENTER_VERTICAL);
+        for (int i = 0; i < PRESET_KEYS.length; i++) {
+            final int preset = i;
+            TextView chip = text(PRESET_KEYS[i], 8f, TEXT, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(4), dp(5), dp(4), dp(5));
+            chip.setFocusable(true);
+            chip.setDefaultFocusHighlightEnabled(false);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    Haptics.click(v);
+                    applyPreset(preset);
+                }
+            });
+            chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                @Override public void onFocusChange(View v, boolean focused) {
+                    updatePresetChips();
+                }
+            });
+            tapClicks(chip);
+            addNav(chip);
+            presetChips[i] = chip;
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            if (i > 0) lp.leftMargin = dp(4);
+            presetRow.addView(chip, lp);
+        }
+        LinearLayout.LayoutParams presetLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        presetLp.topMargin = dp(5);
+        tuning.addView(presetRow, presetLp);
+
         deadzoneValue = text(percent(deadzone[selectedStick]), 9.5f, TEXT, true);
         addSlider(leftCol, "Deadzone", deadzone[selectedStick], 300, 0);
         curveValue = text(curve[selectedStick] + "%", 9.5f, TEXT, true);
@@ -693,6 +1072,9 @@ public final class JoystickActivity extends PavoGlassActivity {
         addSlider(tuning, "Min output", floor[selectedStick], 300, 2);
         updateStickTabs();
         updateLayerChip();
+        updatePresetChips();
+        updateAutoChip();
+        refreshPreview();
 
         LinearLayout tuneRow = new LinearLayout(this);
         tuneRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -754,31 +1136,34 @@ public final class JoystickActivity extends PavoGlassActivity {
         tuneLp.topMargin = dp(4);
         column.addView(tuneRow, tuneLp);
 
-        TextView calibrate = text("CALIBRATION", 10f, 0xFF061015, true);
-        calibrate.setGravity(Gravity.CENTER);
-        calibrate.setPadding(dp(12), dp(9), dp(12), dp(9));
-        calibrate.setBackground(Ui.rounded(ACCENT, dp(12)));
-        calibrate.setFocusable(true);
-        calibrate.setFocusable(true);
-        calibrate.setDefaultFocusHighlightEnabled(false);
-        calibrate.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override public void onFocusChange(View v, boolean focused) {
-                v.setBackground(focused
-                        ? Ui.rounded(ACCENT, dp(12), 0xFFFFFFFF, dp(1.5f))
-                        : Ui.rounded(ACCENT, dp(12)));
+        LinearLayout calRow = new LinearLayout(this);
+        calRow.setOrientation(LinearLayout.HORIZONTAL);
+        TextView guided = smallButton("GUIDED", true);
+        guided.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                startGuided();
             }
         });
-        calibrate.setOnClickListener(new View.OnClickListener() {
+        calRow.addView(guided, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 2f));
+        addNav(guided);
+        TextView odin = smallButton("ODIN", false);
+        odin.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Haptics.click(v);
                 openOdinCalibration();
             }
         });
+        LinearLayout.LayoutParams odinLp = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        odinLp.leftMargin = dp(6);
+        calRow.addView(odin, odinLp);
+        addNav(odin);
         LinearLayout.LayoutParams calLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         calLp.topMargin = dp(8);
-        column.addView(calibrate, calLp);
-        addNav(calibrate);
+        column.addView(calRow, calLp);
 
         setContentView(root);
         root.post(new Runnable() {
@@ -1017,25 +1402,54 @@ public final class JoystickActivity extends PavoGlassActivity {
             float mag = (float) Math.hypot(lx, ly);
             if (mag < 0.12f && mag > restMax) restMax = mag;
         }
+        // Coalesced motion events carry the points between two frames. Sampling
+        // them matters for a fast roll, where reading only the latest axes
+        // would leave most gate angles empty.
+        int history = event.getHistorySize();
+        for (int h = 0; h < history; h++) {
+            float hlx = event.getHistoricalAxisValue(MotionEvent.AXIS_X, h);
+            float hly = event.getHistoricalAxisValue(MotionEvent.AXIS_Y, h);
+            float hrx = event.getHistoricalAxisValue(MotionEvent.AXIS_Z, h);
+            float hry = event.getHistoricalAxisValue(MotionEvent.AXIS_RZ, h);
+            if (Math.abs(hrx) < 0.02f && Math.abs(hry) < 0.02f) {
+                hrx = event.getHistoricalAxisValue(MotionEvent.AXIS_RX, h);
+                hry = event.getHistoricalAxisValue(MotionEvent.AXIS_RY, h);
+            }
+            sampleInput(hlx, hly, hrx, hry);
+        }
+        sampleInput(lx, ly, rx, ry);
+        float[] c = corrected(lx, ly, rx, ry);
+        pads.setAxes(c[0], c[1], c[2], c[3]);
+        pads.setRaw(axisNormalized(lx, 0), axisNormalized(ly, 1),
+                axisNormalized(rx, 2), axisNormalized(ry, 3));
+        values.setText(String.format(Locale.US,
+                "L  %+.2f / %+.2f        R  %+.2f / %+.2f", c[0], c[1], c[2], c[3]));
+        return true;
+    }
+
+    /** Feeds one stick sample into the capture modes that are active. */
+    private void sampleInput(float lx, float ly, float rx, float ry) {
         if (gateCapturing) {
             sampleGate(gateLeft, axisNormalized(lx, 0), axisNormalized(ly, 1));
             sampleGate(gateRight, axisNormalized(rx, 2), axisNormalized(ry, 3));
         }
-        if (rangeCapturing) {
-            int[] raw = {
-                    Math.round(lx * 32767f), Math.round(ly * 32767f),
-                    Math.round(rx * 32767f), Math.round(ry * 32767f)
-            };
-            for (int i = 0; i < 4; i++) {
-                if (raw[i] < rangeMin[i]) rangeMin[i] = raw[i];
-                if (raw[i] > rangeMax[i]) rangeMax[i] = raw[i];
-            }
+        if (guidePhase == GUIDE_ROLL) {
+            sampleRoll(lx, ly, rx, ry);
         }
-        float[] c = corrected(lx, ly, rx, ry);
-        pads.setAxes(c[0], c[1], c[2], c[3]);
-        values.setText(String.format(Locale.US,
-                "L  %+.2f / %+.2f        R  %+.2f / %+.2f", c[0], c[1], c[2], c[3]));
-        return true;
+        if (rangeCapturing) {
+            captureRangeSample(lx, ly, rx, ry);
+        }
+    }
+
+    private void captureRangeSample(float lx, float ly, float rx, float ry) {
+        int[] raw = {
+                Math.round(lx * 32767f), Math.round(ly * 32767f),
+                Math.round(rx * 32767f), Math.round(ry * 32767f)
+        };
+        for (int i = 0; i < 4; i++) {
+            if (raw[i] < rangeMin[i]) rangeMin[i] = raw[i];
+            if (raw[i] > rangeMax[i]) rangeMax[i] = raw[i];
+        }
     }
 
     private void addSlider(LinearLayout parent, String label, int value,
@@ -1097,6 +1511,7 @@ public final class JoystickActivity extends PavoGlassActivity {
                 if (fromUser) {
                     stickEnabled = true;
                     updateLayerChip();
+                    updatePresetChips();
                     refreshPreview();
                 }
             }
@@ -1192,6 +1607,8 @@ public final class JoystickActivity extends PavoGlassActivity {
             System.arraycopy(max, 0, learnedMax, 0, 4);
             System.arraycopy(gl, 0, learnedGateL, 0, GATE_POINTS);
             System.arraycopy(gr, 0, learnedGateR, 0, GATE_POINTS);
+            if (pads != null) pads.setLearnedGate(learnedGateL, learnedGateR,
+                    samples >= 200);
         } catch (Throwable ignored) {
         }
     }
@@ -1326,6 +1743,8 @@ public final class JoystickActivity extends PavoGlassActivity {
         if (floorValue != null) floorValue.setText(percent(floor[selectedStick]));
         updateStickTabs();
         updateLayerChip();
+        updatePresetChips();
+        updateAutoChip();
         refreshPreview();
     }
 
@@ -1379,6 +1798,62 @@ public final class JoystickActivity extends PavoGlassActivity {
             layerChip.setBackground(focused
                     ? Ui.rounded(0x1EFFFFFF, dp(10), 0xE6FFFFFF, dp(1.5f))
                     : Ui.rounded(0x1EFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+        }
+    }
+
+    private void applyPreset(int preset) {
+        curve[0] = PRESET_CURVE[preset];
+        curve[1] = PRESET_CURVE[preset];
+        floor[0] = PRESET_FLOOR[preset];
+        floor[1] = PRESET_FLOOR[preset];
+        stickEnabled = true;
+        syncTuningUi();
+        saveCalibration(true, true);
+    }
+
+    private boolean presetActive(int preset) {
+        return curve[0] == PRESET_CURVE[preset]
+                && curve[1] == PRESET_CURVE[preset]
+                && floor[0] == PRESET_FLOOR[preset]
+                && floor[1] == PRESET_FLOOR[preset];
+    }
+
+    private void updatePresetChips() {
+        for (int i = 0; i < presetChips.length; i++) {
+            TextView chip = presetChips[i];
+            if (chip == null) continue;
+            boolean active = presetActive(i);
+            boolean focused = chip.hasFocus();
+            if (active) {
+                chip.setTextColor(0xFF061015);
+                chip.setBackground(focused
+                        ? Ui.rounded(ACCENT, dp(9), 0xFFFFFFFF, dp(1.5f))
+                        : Ui.rounded(ACCENT, dp(9)));
+            } else {
+                chip.setTextColor(focused ? TEXT : 0xCCFFFFFF);
+                chip.setBackground(focused
+                        ? Ui.rounded(0x26FFFFFF, dp(9), 0xE6FFFFFF, dp(1.5f))
+                        : Ui.rounded(0x1EFFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+            }
+        }
+    }
+
+    /** Shows whether per-app stick profiles switch automatically. */
+    private void updateAutoChip() {
+        if (autoChip == null) return;
+        boolean on = prefs.controllerStickAutoApp();
+        boolean focused = autoChip.hasFocus();
+        autoChip.setText(Loc.s(this, on ? "AUTO" : "MANUAL"));
+        if (on) {
+            autoChip.setTextColor(0xFF69D98B);
+            autoChip.setBackground(focused
+                    ? Ui.rounded(0x2669D98B, dp(9), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1E69D98B, dp(9), 0x4469D98B, dp(1)));
+        } else {
+            autoChip.setTextColor(MUTED);
+            autoChip.setBackground(focused
+                    ? Ui.rounded(0x1EFFFFFF, dp(9), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1EFFFFFF, dp(9), 0x33FFFFFF, dp(1)));
         }
     }
 
@@ -1566,28 +2041,66 @@ public final class JoystickActivity extends PavoGlassActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    /** Two stick pads with a live dot, centre cross and deadzone ring. */
+    /**
+     * Two stick pads. The filled dot is the corrected output, the hollow amber
+     * dot is the raw stick position. When a gate is active its measured shape
+     * is drawn around the rim, with a per-angle heat ring showing where the
+     * stick falls short (red) or overshoots (blue).
+     */
     private static final class StickPadView extends View {
         private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint cross = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint rawDot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint gateLine = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint learnedLine = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint heat = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint legend = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float[] left = new float[2];
         private final float[] right = new float[2];
+        private final float[] leftRaw = new float[2];
+        private final float[] rightRaw = new float[2];
+        private final int[][] gate = new int[2][GATE_POINTS];
+        private final float[][] learned = new float[2][GATE_POINTS];
+        private boolean gateOn;
+        private boolean learnedOn;
         private float deadzone;
+        private final Path path = new Path();
+        private final RectF arc = new RectF();
+        private final float density;
 
         StickPadView(Context context) {
             super(context);
+            density = context.getResources().getDisplayMetrics().density;
+            float scaled = context.getResources().getDisplayMetrics().scaledDensity;
             ring.setStyle(Paint.Style.STROKE);
-            ring.setStrokeWidth(context.getResources().getDisplayMetrics().density * 2f);
+            ring.setStrokeWidth(density * 2f);
             ring.setColor(0x66A9BEFF);
             cross.setStyle(Paint.Style.STROKE);
-            cross.setStrokeWidth(context.getResources().getDisplayMetrics().density * 1.2f);
+            cross.setStrokeWidth(density * 1.2f);
             cross.setColor(0x33FFFFFF);
             dot.setColor(0xFFA9BEFF);
+            rawDot.setStyle(Paint.Style.STROKE);
+            rawDot.setStrokeWidth(density * 1.4f);
+            rawDot.setColor(0xCCFFC857);
+            gateLine.setStyle(Paint.Style.STROKE);
+            gateLine.setStrokeWidth(density * 1.2f);
+            gateLine.setColor(0x88FFC857);
+            learnedLine.setStyle(Paint.Style.STROKE);
+            learnedLine.setStrokeWidth(density * 1.0f);
+            learnedLine.setColor(0x55FFFFFF);
+            learnedLine.setPathEffect(new DashPathEffect(
+                    new float[]{density * 4f, density * 3f}, 0f));
+            heat.setStyle(Paint.Style.STROKE);
+            heat.setStrokeWidth(density * 3.2f);
+            heat.setStrokeCap(Paint.Cap.ROUND);
             label.setColor(0x99FFFFFF);
-            label.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 8.5f);
+            label.setTextSize(scaled * 8.5f);
             label.setTextAlign(Paint.Align.CENTER);
+            legend.setColor(0x88FFFFFF);
+            legend.setTextSize(scaled * 7.5f);
+            legend.setTextAlign(Paint.Align.CENTER);
             setFocusable(false);
             setWillNotDraw(false);
         }
@@ -1605,6 +2118,36 @@ public final class JoystickActivity extends PavoGlassActivity {
             invalidate();
         }
 
+        void setRaw(float lx, float ly, float rx, float ry) {
+            leftRaw[0] = clamp(lx);
+            leftRaw[1] = clamp(ly);
+            rightRaw[0] = clamp(rx);
+            rightRaw[1] = clamp(ry);
+            invalidate();
+        }
+
+        void setGate(int[] leftGain, int[] rightGain, boolean on) {
+            if (leftGain != null) {
+                System.arraycopy(leftGain, 0, gate[0], 0, GATE_POINTS);
+            }
+            if (rightGain != null) {
+                System.arraycopy(rightGain, 0, gate[1], 0, GATE_POINTS);
+            }
+            gateOn = on;
+            invalidate();
+        }
+
+        void setLearnedGate(float[] leftRadii, float[] rightRadii, boolean on) {
+            if (leftRadii != null) {
+                System.arraycopy(leftRadii, 0, learned[0], 0, GATE_POINTS);
+            }
+            if (rightRadii != null) {
+                System.arraycopy(rightRadii, 0, learned[1], 0, GATE_POINTS);
+            }
+            learnedOn = on;
+            invalidate();
+        }
+
         private static float clamp(float v) {
             return Math.max(-1f, Math.min(1f, v));
         }
@@ -1616,12 +2159,17 @@ public final class JoystickActivity extends PavoGlassActivity {
             float h = getHeight();
             float r = Math.min(w * 0.19f, h * 0.33f);
             float y = h * 0.42f;
-            drawPad(canvas, w * 0.27f, y, r, left, Loc.s(getContext(), "LEFT STICK"));
-            drawPad(canvas, w * 0.73f, y, r, right, Loc.s(getContext(), "RIGHT STICK"));
+            drawPad(canvas, w * 0.27f, y, r, left, leftRaw, 0,
+                    Loc.s(getContext(), "LEFT STICK"));
+            drawPad(canvas, w * 0.73f, y, r, right, rightRaw, 1,
+                    Loc.s(getContext(), "RIGHT STICK"));
+            String text = Loc.s(getContext(), "RAW") + " \u25CB    "
+                    + Loc.s(getContext(), "OUT") + " \u25CF";
+            canvas.drawText(text, w * 0.5f, density * 11f, legend);
         }
 
         private void drawPad(Canvas canvas, float cx, float cy, float r,
-                             float[] axes, String name) {
+                             float[] axes, float[] raw, int stick, String name) {
             ring.setColor(0x66A9BEFF);
             canvas.drawCircle(cx, cy, r, ring);
             ring.setColor(0x33A9BEFF);
@@ -1630,12 +2178,96 @@ public final class JoystickActivity extends PavoGlassActivity {
             canvas.drawLine(cx - r, cy, cx + r, cy, cross);
             canvas.drawLine(cx, cy - r, cx, cy + r, cross);
 
+            drawGate(canvas, cx, cy, r, stick);
+
+            float rawPx = cx + raw[0] * r * 0.88f;
+            float rawPy = cy + raw[1] * r * 0.88f;
+            canvas.drawCircle(rawPx, rawPy, r * 0.07f, rawDot);
+
             float px = cx + axes[0] * r * 0.88f;
             float py = cy + axes[1] * r * 0.88f;
             float magnitude = (float) Math.hypot(axes[0], axes[1]);
             dot.setColor(magnitude > 0.10f ? 0xFFA9BEFF : 0xFF69D98B);
             canvas.drawCircle(px, py, r * 0.09f, dot);
             canvas.drawText(name, cx, cy + r + r * 0.30f, label);
+        }
+
+        private void drawGate(Canvas canvas, float cx, float cy, float r, int stick) {
+            float outer = r * 0.88f;
+            if (learnedOn) {
+                drawPolygon(canvas, cx, cy, outer, learned[stick], learnedLine, true);
+            }
+            if (!gateOn) return;
+            path.reset();
+            for (int i = 0; i < GATE_POINTS; i++) {
+                float gain = Math.max(0.7f, Math.min(1.5f, gate[stick][i] / 1000f));
+                float radius = Math.min(outer * 1.02f, outer / gain);
+                float a = (float) (-Math.PI + i * 2.0 * Math.PI / GATE_POINTS);
+                float px = cx + (float) Math.cos(a) * radius;
+                float py = cy + (float) Math.sin(a) * radius;
+                if (i == 0) path.moveTo(px, py);
+                else path.lineTo(px, py);
+            }
+            path.close();
+            canvas.drawPath(path, gateLine);
+
+            arc.set(cx - outer * 0.985f, cy - outer * 0.985f,
+                    cx + outer * 0.985f, cy + outer * 0.985f);
+            for (int i = 0; i < GATE_POINTS; i++) {
+                float gain = gate[stick][i] / 1000f;
+                if (Math.abs(gain - 1f) < 0.035f) continue;
+                heat.setColor(heatColor(gain));
+                float start = 180f + i * 360f / GATE_POINTS;
+                canvas.drawArc(arc, start, 360f / GATE_POINTS + 0.6f, false, heat);
+            }
+        }
+
+        /** Draws a measured radius table as a closed polygon. */
+        private void drawPolygon(Canvas canvas, float cx, float cy, float outer,
+                                 float[] radii, Paint paint, boolean joined) {
+            path.reset();
+            boolean started = false;
+            int last = -2;
+            for (int i = 0; i < GATE_POINTS; i++) {
+                if (radii[i] <= 0.05f) continue;
+                float radius = Math.max(0.3f, Math.min(1.6f, radii[i])) * outer;
+                float a = (float) (-Math.PI + i * 2.0 * Math.PI / GATE_POINTS);
+                float px = cx + (float) Math.cos(a) * radius;
+                float py = cy + (float) Math.sin(a) * radius;
+                if (!started || i != last + 1) {
+                    if (started) {
+                        if (joined) path.close();
+                        canvas.drawPath(path, paint);
+                        path.reset();
+                    }
+                    path.moveTo(px, py);
+                    started = true;
+                } else {
+                    path.lineTo(px, py);
+                }
+                last = i;
+            }
+            if (started) {
+                if (joined) path.close();
+                canvas.drawPath(path, paint);
+            }
+        }
+
+        private static int heatColor(float gain) {
+            float d = gain - 1f;
+            if (d >= 0f) {
+                return mix(0x99FFD166, 0xCCFF5C6C, Math.min(1f, d / 0.30f));
+            }
+            return mix(0x998BE9FF, 0xCC6C8CFF, Math.min(1f, -d / 0.30f));
+        }
+
+        private static int mix(int from, int to, float t) {
+            t = Math.max(0f, Math.min(1f, t));
+            int a = Math.round(Color.alpha(from) * (1f - t) + Color.alpha(to) * t);
+            int r = Math.round(Color.red(from) * (1f - t) + Color.red(to) * t);
+            int g = Math.round(Color.green(from) * (1f - t) + Color.green(to) * t);
+            int b = Math.round(Color.blue(from) * (1f - t) + Color.blue(to) * t);
+            return (a << 24) | (r << 16) | (g << 8) | b;
         }
     }
 }

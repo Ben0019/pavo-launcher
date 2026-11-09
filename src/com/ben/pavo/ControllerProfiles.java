@@ -12,6 +12,7 @@ final class ControllerProfiles {
     static volatile boolean activityOpen;
     private static volatile boolean dirty = true;
     private static String lastKey = "";
+    private static long lastRequestAt;
 
     private ControllerProfiles() {}
 
@@ -29,7 +30,20 @@ final class ControllerProfiles {
                 (android.os.UserManager) c.getSystemService(Context.USER_SERVICE);
         if (um != null && !um.isUserUnlocked()) return;
         ControllerProfileStore store = new ControllerProfileStore(c);
+        // App profiles need a fresh foreground snapshot. Other services only
+        // refresh it while their own per-app features are active, so request it
+        // here too when at least one app profile exists.
+        if (store.hasOverrides()) {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - lastRequestAt > 1800L) {
+                lastRequestAt = now;
+                ForegroundApp.request(c);
+            }
+        }
         String pkg = ForegroundApp.read(c);
+        // Auto-switch is optional: when off, the global profile keeps applying
+        // to every app, including the stick tuning stored with it.
+        if (!new Prefs(c).controllerStickAutoApp()) pkg = null;
         if (pkg != null && pkg.equals(c.getPackageName())) pkg = null;
         String text = pkg == null ? null : store.app(pkg);
         String key = (pkg == null ? "global" : pkg) + "#" + (text == null ? "-" : text);
