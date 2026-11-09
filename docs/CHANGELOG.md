@@ -16,6 +16,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Pinching or the − / + size buttons now resizes the selected mode; the card, text and graph scale together.
 - Triple-tapping the overlay switches to the next mode.
 - The overlay remembers both the mode and the size you leave it on.
+- Pill at 69% is the default panel mode and size on a fresh install.
 - Position lock is now a toggle in the overlay menu.
 
 ## 1.0.42 — 08 Nov 2026
