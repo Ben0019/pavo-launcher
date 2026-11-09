@@ -19,6 +19,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Pill at 69% is the default panel mode and size on a fresh install.
 - The Overlay & Drawer app now has a Mode row (Min, Pill, Tiles, Full, Mega) under Update Rate, and the strip toggle sits beside it instead of in Metrics.
 - Renamed the shortcut cards to Performance Overlay Shortcuts and Sideview Drawer Shortcuts.
+- Rearranged the Overlay & Drawer cards into an aligned two-row grid, with equal card heights in each row.
 - Position lock is now a toggle in the overlay menu.
 
 ## 1.0.42 — 08 Nov 2026

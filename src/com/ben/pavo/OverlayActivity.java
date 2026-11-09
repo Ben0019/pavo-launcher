@@ -258,7 +258,12 @@ public final class OverlayActivity extends PavoGlassActivity {
         setContentView(root);
     }
 
-    /** Re-flows the six cards into 1, 2 or 3 equal columns. */
+    /**
+     * Lays the six cards out as an aligned grid: a row of three large cards
+     * (overlay settings, metrics, quick controls) above a row of three
+     * shortcut/style cards. Cards in a row share the tallest card's height, so
+     * every edge lines up instead of the old staggered masonry.
+     */
     private void reflowColumns(LinearLayout content, LinearLayout a,
                                LinearLayout b, LinearLayout c, int cols) {
         List<View> cards = new ArrayList<>();
@@ -268,43 +273,91 @@ public final class OverlayActivity extends PavoGlassActivity {
                 column.removeViewAt(0);
             }
         }
+        if (cards.isEmpty()) return;
+
+        // Build order: overlay, metrics, shortcuts, quick, drawer, drawer style.
+        List<View> ordered = new ArrayList<>();
+        int[] order = {0, 1, 3, 2, 4, 5};
+        for (int index : order) {
+            if (index < cards.size()) ordered.add(cards.get(index));
+        }
+
         content.removeAllViews();
-        int perColumn = Math.max(1, (cards.size() + cols - 1) / cols);
-        // All six cards always take the same share of the grid: symmetrical at
-        // every resolution, with content compacted on short panels so nothing
-        // has to clip or leave a gap.
-        // Cards keep their natural height; the taller Quick Controls card made
-        // the fixed six-card grid clip its lower rows on short panels, so the
-        // columns scroll instead.
-        boolean stretch = false;
-        for (int i = 0; i < cols; i++) {
-            LinearLayout column = new LinearLayout(this);
-            column.setOrientation(LinearLayout.VERTICAL);
-            int from = i * perColumn;
-            int to = Math.min(cards.size(), from + perColumn);
-            for (int k = from; k < to; k++) {
-                View cardView = cards.get(k);
-                float weight = 1f;
-                ViewGroup.LayoutParams old = cardView.getLayoutParams();
-                if (old instanceof LinearLayout.LayoutParams
-                        && ((LinearLayout.LayoutParams) old).weight > 0f) {
-                    weight = ((LinearLayout.LayoutParams) old).weight;
-                }
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+        content.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setClipToPadding(false);
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(grid, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        content.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        int columns = Math.max(1, Math.min(3, cols));
+        int gap = dp(6);
+        final List<LinearLayout> rows = new ArrayList<>();
+        LinearLayout row = null;
+        for (int i = 0; i < ordered.size(); i++) {
+            if (i % columns == 0) {
+                row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setBaselineAligned(false);
+                LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        stretch ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT,
-                        stretch ? weight : 0f);
-                lp.topMargin = dp(compact ? 6 : 9);
-                if (stretch && cardView instanceof LinearLayout) {
-                    stripSpacers((LinearLayout) cardView);
-                    if (!compact) distributeVertically((LinearLayout) cardView);
-                }
-                column.addView(cardView, lp);
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+                if (i > 0) rlp.topMargin = dp(compact ? 6 : 9);
+                grid.addView(row, rlp);
+                rows.add(row);
             }
-            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-            if (i > 0) clp.leftMargin = dp(6);
-            content.addView(wrapScroll(column), clp);
+            View card = ordered.get(i);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            if (i % columns > 0) lp.leftMargin = gap;
+            row.addView(card, lp);
+        }
+
+        if (columns > 1) {
+            final int columnCount = columns;
+            final int gapPx = gap;
+            grid.post(new Runnable() {
+                @Override
+                public void run() {
+                    equalizeRows(rows, columnCount, gapPx);
+                }
+            });
+        }
+    }
+
+    /** Makes every card in a row as tall as the tallest card in that row. */
+    private void equalizeRows(List<LinearLayout> rows, int columns, int gap) {
+        int gridW = rows.isEmpty() || rows.get(0).getParent() == null
+                ? 0 : ((View) rows.get(0).getParent()).getWidth();
+        if (gridW <= 0) return;
+        int cardW = Math.max(0, (gridW - (columns - 1) * gap) / columns);
+        if (cardW <= 0) return;
+        for (LinearLayout row : rows) {
+            int tallest = 0;
+            for (int i = 0; i < row.getChildCount(); i++) {
+                View card = row.getChildAt(i);
+                card.measure(View.MeasureSpec.makeMeasureSpec(cardW,
+                                View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                tallest = Math.max(tallest, card.getMeasuredHeight());
+            }
+            for (int i = 0; i < row.getChildCount(); i++) {
+                View card = row.getChildAt(i);
+                LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) card.getLayoutParams();
+                if (lp.height != tallest) {
+                    lp.height = tallest;
+                    card.setLayoutParams(lp);
+                }
+                if (card instanceof LinearLayout) {
+                    stripSpacers((LinearLayout) card);
+                    distributeVertically((LinearLayout) card);
+                }
+            }
         }
     }
 
@@ -609,7 +662,13 @@ public final class OverlayActivity extends PavoGlassActivity {
                         refreshState();
                     }
                 });
-        slider(box, "Handle width", 2, 16, prefs.quickHandleWidth(), "dp",
+        LinearLayout handleSizes = new LinearLayout(this);
+        handleSizes.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout widthCol = new LinearLayout(this);
+        widthCol.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout heightCol = new LinearLayout(this);
+        heightCol.setOrientation(LinearLayout.VERTICAL);
+        slider(widthCol, "Handle width", 2, 16, prefs.quickHandleWidth(), "dp",
                 new IntValue() {
                     @Override
                     public void onValue(int value) {
@@ -617,7 +676,7 @@ public final class OverlayActivity extends PavoGlassActivity {
                         QuickPanelEdgeHandle.refresh();
                     }
                 });
-        slider(box, "Handle height", 40, 400, prefs.quickHandleHeight(), "dp",
+        slider(heightCol, "Handle height", 40, 400, prefs.quickHandleHeight(), "dp",
                 new IntValue() {
                     @Override
                     public void onValue(int value) {
@@ -625,6 +684,13 @@ public final class OverlayActivity extends PavoGlassActivity {
                         QuickPanelEdgeHandle.refresh();
                     }
                 });
+        handleSizes.addView(widthCol, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams heightColLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        heightColLp.leftMargin = dp(6);
+        handleSizes.addView(heightCol, heightColLp);
+        box.addView(handleSizes);
         slider(box, "Opacity", 10, 100, prefs.quickHandleAlpha(), "%",
                 new IntValue() {
                     @Override
