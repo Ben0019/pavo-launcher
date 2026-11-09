@@ -17,6 +17,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Triple-tapping the overlay switches to the next mode.
 - The overlay remembers both the mode and the size you leave it on.
 - Pill at 69% is the default panel mode and size on a fresh install.
+- The Overlay & Drawer app now has a Mode row (Min, Pill, Tiles, Full, Mega) under Update Rate, and the strip toggle sits beside it instead of in Metrics.
 - Position lock is now a toggle in the overlay menu.
 
 ## 1.0.42 — 08 Nov 2026

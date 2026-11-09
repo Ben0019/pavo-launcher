@@ -921,6 +921,27 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         });
     }
 
+    static void setOverlayMode(final int mode) {
+        final PerfOverlayService s = instance;
+        if (s == null) return;
+        s.main.post(new Runnable() {
+            @Override
+            public void run() {
+                s.form = Math.max(0, Math.min(FORM_COUNT - 1, mode));
+                s.prefs.setPerfOverlayMode(s.form);
+                s.cachedLevel = -1;
+                if (s.panel != null && !s.panel.horizontal()) {
+                    s.applyScaleGeometry(true);
+                    try {
+                        s.windowManager.updateViewLayout(s.container, s.params);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                if (s.menu != null) s.menu.setSizeLabel(s.sizeLabel());
+            }
+        });
+    }
+
     static void setOverlayLocked(final boolean locked) {
         final PerfOverlayService s = instance;
         if (s == null) return;

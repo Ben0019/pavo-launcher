@@ -45,10 +45,12 @@ public final class OverlayActivity extends PavoGlassActivity {
 
     private static final String[] METRICS = {
             "CPU TEMP", "CPU CLOCK", "CPU LOAD", "GPU TEMP", "GPU CLOCK",
-            "GPU LOAD", "FPS", "FPS GRAPH", "RAM", "BATTERY", "CORES", "NET", "FAN", "STRIP"
+            "GPU LOAD", "FPS", "FPS GRAPH", "RAM", "BATTERY", "CORES", "NET", "FAN"
     };
+    private static final String[] MODES = {"MIN", "PILL", "TILES", "FULL", "MEGA"};
 
     private final List<TextView> metricChips = new ArrayList<>();
+    private final List<TextView> modeChips = new ArrayList<>();
     private final List<TextView> refreshChips = new ArrayList<>();
     private final List<TextView> columnChips = new ArrayList<>();
 
@@ -56,6 +58,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     private int accent;
     private TextView status;
     private TextView overlayChip;
+    private TextView stripChip;
     private TextView handleChip;
     private TextView quickShortcutRow;
     private TextView quickComboRow;
@@ -476,6 +479,42 @@ public final class OverlayActivity extends PavoGlassActivity {
             refreshRow.addView(chip, lp);
         }
 
+        TextView modeLabel = text("MODE", 8.5f, MUTED, true);
+        modeLabel.setLetterSpacing(0.08f);
+        modeLabel.setPadding(dp(2), dp(7), 0, 0);
+        box.addView(modeLabel);
+        LinearLayout modeRow = new LinearLayout(this);
+        modeRow.setOrientation(LinearLayout.HORIZONTAL);
+        modeRow.setPadding(0, dp(4), 0, 0);
+        box.addView(modeRow);
+        for (int i = 0; i < MODES.length; i++) {
+            final int mode = i;
+            TextView chip = modeChip(MODES[i]);
+            modeChips.add(chip);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    haptic(v);
+                    prefs.setPerfOverlayMode(mode);
+                    PerfOverlayService.setOverlayMode(mode);
+                    refreshState();
+                }
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            lp.rightMargin = i < MODES.length - 1 ? dp(4) : 0;
+            modeRow.addView(chip, lp);
+        }
+
+        stripChip = toggle(box, "STRIP MODE", prefs.perfOverlayHorizontal(),
+                new Toggle() {
+                    @Override
+                    public void onChanged(boolean value) {
+                        prefs.setPerfOverlayHorizontal(value);
+                        PerfOverlayService.refreshIfRunning();
+                        refreshState();
+                    }
+                });
     }
 
     private void buildShortcutsSection(LinearLayout parent) {
@@ -545,6 +584,15 @@ public final class OverlayActivity extends PavoGlassActivity {
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
             lp.rightMargin = (i % 3 != 2) ? dp(4) : 0;
             row.addView(chip, lp);
+            if (i == METRICS.length - 1) {
+                // Keep the final chip the same width as the rest of the grid.
+                for (int k = i % 3; k < 2; k++) {
+                    View spacer = new View(this);
+                    LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(0, 1, 1f);
+                    slp.rightMargin = dp(4);
+                    row.addView(spacer, slp);
+                }
+            }
         }
 
     }
@@ -766,6 +814,13 @@ public final class OverlayActivity extends PavoGlassActivity {
         }
         for (int i = 0; i < metricChips.size(); i++) {
             setChipSelected(metricChips.get(i), isMetric(i));
+        }
+        int mode = prefs.perfOverlayMode();
+        for (int i = 0; i < modeChips.size(); i++) {
+            setChipSelected(modeChips.get(i), mode == i);
+        }
+        if (stripChip != null) {
+            setChipSelected(stripChip, prefs.perfOverlayHorizontal());
         }
         int refresh = prefs.perfRefreshMs();
         for (int i = 0; i < refreshChips.size(); i++) {
