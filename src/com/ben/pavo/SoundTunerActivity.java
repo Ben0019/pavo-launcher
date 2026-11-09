@@ -37,29 +37,42 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     private static final int GREEN = 0xFF69D98B;
 
     private static final String[] PRESET_NAMES = {
-            "PAVO", "GAME", "FLAT", "BASS", "VOCAL", "WARM", "BRIGHT", "TREBLE",
-            "ROCK", "POP", "DANCE", "JAZZ", "FPS", "SMALL"
+            "PAVO", "GAME", "FLAT",
+            "ACOUSTIC", "BASS", "BASS CUT", "CLASSICAL", "DANCE", "DEEP",
+            "ELECTRONIC", "HIP HOP", "JAZZ", "LATIN", "LOUDNESS", "LOUNGE",
+            "PIANO", "POP", "R&B", "ROCK", "SMALL", "SPOKEN", "TREBLE",
+            "TREBLE CUT", "VOCAL", "WARM", "BRIGHT", "FPS"
     };
     private static final int[][] PRESET_LEVELS = {
-            // Tuned on the Odin 3 speakers: trim the ~230 Hz boom and the
-            // bright 4-5 kHz/treble region, with a touch of sub weight.
-            {150, -250, 0, -150, -150},
-            // More punch and presence for games, without piling onto the
-            // measured 230 Hz boom.
-            {350, 100, 0, 350, 100},
-            {0, 0, 0, 0, 0},
-            {600, 450, 100, -100, -200},
-            {-250, 0, 500, 350, 0},
-            {300, 200, 100, 0, -100},
-            {-100, 0, 100, 300, 500},
-            {-200, -100, 0, 400, 600},
-            // Popular online curves, adapted to these five band centres.
-            {400, 200, -100, 300, 400},   // ROCK: V-curve, scoop the mids
-            {200, 300, 0, 200, 100},      // POP: vocals forward
-            {500, 200, -200, 200, 400},   // DANCE: deep bass, crisp highs
-            {100, 300, 0, 100, 400},      // JAZZ: warm lows, cymbal air
-            {-400, -300, 200, 500, 100},  // FPS: cut bass, boost footsteps
-            {-400, 100, 300, 200, -300}   // SMALL: small-speaker correction
+            // Device-tuned.
+            {150, -250, 0, -150, -150},   // PAVO
+            {350, 100, 0, 350, 100},      // GAME
+            {0, 0, 0, 0, 0},              // FLAT
+            // Apple/iTunes curves, folded from their 10 bands to ours.
+            {500, 150, 200, 400, 250},    // ACOUSTIC
+            {450, 250, 0, 0, 0},          // BASS
+            {-450, -250, 0, 0, 0},        // BASS CUT
+            {400, 250, -150, 200, 350},   // CLASSICAL
+            {650, 50, 350, 450, 50},      // DANCE
+            {350, 100, 250, -150, -450},  // DEEP
+            {400, 0, 150, 100, 450},      // ELECTRONIC
+            {450, 300, -100, 0, 300},     // HIP HOP
+            {300, 200, -150, 150, 350},   // JAZZ
+            {300, 0, -150, 0, 400},       // LATIN
+            {400, 0, -50, -450, 200},     // LOUDNESS
+            {-150, 150, 250, -150, 100},  // LOUNGE
+            {200, 200, 150, 450, 350},    // PIANO
+            {-100, 200, 400, 50, -150},   // POP
+            {650, 200, -150, 250, 350},   // R&B
+            {400, 150, -100, 200, 450},   // ROCK
+            {450, 250, 0, -250, -400},    // SMALL
+            {-100, 50, 450, 450, 50},     // SPOKEN
+            {0, 0, 100, 350, 550},        // TREBLE
+            {0, 0, -100, -350, -550},     // TREBLE CUT
+            {-300, 100, 400, 150, -100},  // VOCAL
+            {300, 200, 100, 0, -100},     // WARM
+            {-100, 0, 100, 300, 500},     // BRIGHT
+            {-400, -300, 200, 500, 100}   // FPS
     };
 
     private Prefs prefs;
