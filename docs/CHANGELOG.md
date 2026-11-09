@@ -15,6 +15,20 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - The chosen EQ is restored automatically after reboot and can be switched off at any time.
 - Translated into all supported languages.
 
+### Gallery
+
+- New built-in Pavo Gallery with Folders, All Photos and All Videos pages.
+- Photos and videos open in the File Manager's existing viewer and player.
+- Reads MediaStore and scans for unindexed files; hidden folders and folders containing a .nomedia file are skipped.
+- Long-press a photo, video or folder to select it. Delete and Copy sit at the bottom-left of the card; folder selections hide Copy because a folder cannot be copied.
+- Controller support: D-pad and left stick move tile by tile, A opens, X selects, B backs out and L1/R1 switch tabs. Focus rings size themselves to each control.
+
+### Launcher
+
+- Built-in app controls now activate on the first tap instead of focusing first.
+- Fixed a glass-card crash caused by reusing a recycled backdrop bitmap.
+- Performance overlay preset labels now use the same colours as the Performance Tuner.
+
 ## 1.0.43 — 09 Nov 2026
 
 ### Setup and wallpaper
