@@ -518,7 +518,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     }
 
     private void buildShortcutsSection(LinearLayout parent) {
-        LinearLayout shortcuts = sectionWeighted(parent, "SHORTCUTS", null);
+        LinearLayout shortcuts = sectionWeighted(parent, "PERFORMANCE OVERLAY SHORTCUTS", null);
 
         perfShortcutRow = text("", 10f, TEXT, false);
         perfShortcutRow.setPadding(dp(10), dp(8), dp(10), dp(8));
@@ -722,7 +722,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     // -------------------------------------------------------------- drawer UI
 
     private void buildDrawerSection(LinearLayout parent) {
-        LinearLayout box = sectionWeighted(parent, "SIDEVIEW DRAWER",
+        LinearLayout box = sectionWeighted(parent, "SIDEVIEW DRAWER SHORTCUTS",
                 "Floating app drawer above any app.");
 
         action(box, "OPEN DRAWER", new Runnable() {
