@@ -67,12 +67,32 @@ public final class SetupActivity extends Activity {
         prefs = new Prefs(this);
         buildUi();
         hideBars();
+        ensureWhitelist();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         refresh();
+        if (!OdinWhitelist.isWhitelisted(this)) ensureWhitelist();
+    }
+
+    /** Adds Pavo to the Odin background whitelist through PServer. */
+    private void ensureWhitelist() {
+        if (OdinWhitelist.isWhitelisted(this)) {
+            if (list != null) list.post(new Runnable() {
+                @Override public void run() { refresh(); }
+            });
+            return;
+        }
+        new Thread(new Runnable() {
+            @Override public void run() {
+                OdinWhitelist.ensure(SetupActivity.this);
+                runOnUiThread(new Runnable() {
+                    @Override public void run() { refresh(); }
+                });
+            }
+        }, "pavo-whitelist").start();
     }
 
     // ------------------------------------------------------------------ ui
@@ -202,6 +222,11 @@ public final class SetupActivity extends Activity {
                 "Keeps fan control and FTP hosting alive with the screen off.",
                 null, new Runnable() {
                     @Override public void run() { requestBattery(); }
+                });
+        addItem("whitelist", "Background whitelist",
+                "Lets Odin keep the overlay and background services running. Added automatically through PServer.",
+                null, new Runnable() {
+                    @Override public void run() { ensureWhitelist(); }
                 });
         addItem("files", "All files access",
                 "The file manager and FTP host browse internal storage and the SD card.",
@@ -378,6 +403,8 @@ public final class SetupActivity extends Activity {
             case "battery":
                 PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
                 return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+            case "whitelist":
+                return OdinWhitelist.isWhitelisted(this);
             case "files":
                 return Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager();
             case "microphone":

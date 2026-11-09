@@ -23,6 +23,8 @@ final class Defaults {
             // device; only an explicit backdrop choice should replace it.
             prefs.setWallpaperMode(Prefs.MODE_DEVICE);
         }
+        // Odin's background whitelist keeps the overlay and services alive.
+        OdinWhitelist.ensure(app);
         // PServer can still be coming up on the very first launch; make sure the
         // channel exists, then apply and re-apply once it has settled.
         PerfTuner.preparePServer();

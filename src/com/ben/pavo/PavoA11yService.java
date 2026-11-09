@@ -856,6 +856,11 @@ public final class PavoA11yService extends AccessibilityService {
         registerScreenOn();
         startWakeWatcher();
         scheduleRgbBootRestore();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                OdinWhitelist.ensure(getApplicationContext());
+            }
+        }, "pavo-whitelist").start();
         main.removeCallbacks(profileSync);
         main.postDelayed(profileSync, 1200L);
         PavoInputService.ensureStarted(this);
