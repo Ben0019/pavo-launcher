@@ -59,6 +59,8 @@ public final class PavoInputService extends Service {
     private static final int CAPTURE_PERFLOG = 2;
     private static final int CAPTURE_PERF_COMBO = 3;
     private static final int CAPTURE_DRAWER_COMBO = 4;
+    private static final int CAPTURE_QUICK = 5;
+    private static final int CAPTURE_QUICK_COMBO = 6;
     private static volatile boolean capturing;
     private static volatile int captureTarget = CAPTURE_PERF;
     private static volatile long captureDeadline;
@@ -67,6 +69,10 @@ public final class PavoInputService extends Service {
     private final java.util.Set<String> comboDown = new java.util.LinkedHashSet<>();
     private final java.util.Set<String> comboConsumed = new java.util.LinkedHashSet<>();
     private long comboLastAt;
+    private float quickStickX;
+    private float quickStickY;
+    private float quickHatX;
+    private float quickHatY;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Runnable profileTick = new Runnable() {
@@ -82,6 +88,7 @@ public final class PavoInputService extends Service {
     private BufferedReader reader;
     private Thread socketThread;
     private volatile boolean swallowWanted;
+    private static volatile boolean panelWanted;
     private long lastEnsureAt;
 
     private WindowManager windowManager;
@@ -209,7 +216,13 @@ public final class PavoInputService extends Service {
         return prefs.controllerRemapEnabled()
                 || !prefs.perfControllerRaw().isEmpty()
                 || !prefs.drawerControllerRaw().isEmpty()
-                || !prefs.perfLogControllerRaw().isEmpty();
+                || !prefs.perfLogControllerRaw().isEmpty()
+                || !prefs.quickControllerRaw().isEmpty()
+                || !prefs.quickCombo().isEmpty()
+                // A capture needs the listener even when nothing is mapped yet.
+                || capturing
+                // The quick panel swallows controller input while it is open.
+                || panelWanted;
     }
 
     static void ensureStarted(Context c) {
@@ -298,6 +311,14 @@ public final class PavoInputService extends Service {
         return beginCapture(c, CAPTURE_PERFLOG);
     }
 
+    static boolean beginQuickKeyCapture(Context c) {
+        return beginCapture(c, CAPTURE_QUICK);
+    }
+
+    static boolean beginQuickComboCapture(Context c) {
+        return beginCapture(c, CAPTURE_QUICK_COMBO);
+    }
+
     static boolean beginOverlayComboCapture(Context c) {
         return beginCapture(c, CAPTURE_PERF_COMBO);
     }
@@ -308,10 +329,10 @@ public final class PavoInputService extends Service {
 
     private static boolean beginCapture(final Context context, final int target) {
         if (context == null) return false;
-        ensureStarted(context);
         captureTarget = target;
         capturing = true;
         captureDeadline = SystemClock.uptimeMillis() + 5000L;
+        ensureStarted(context);
         PavoInputService s = instance;
         if (s != null) {
             s.main.removeCallbacks(s.captureTimeout);
@@ -322,8 +343,12 @@ public final class PavoInputService extends Service {
                 ? "Press two controller buttons for the overlay"
                 : target == CAPTURE_DRAWER_COMBO
                 ? "Press two controller buttons for the app drawer"
+                : target == CAPTURE_QUICK_COMBO
+                ? "Press two controller buttons for quick controls"
                 : target == CAPTURE_DRAWER
                 ? "Press a controller button for the app drawer"
+                : target == CAPTURE_QUICK
+                ? "Press a controller button for quick controls"
                 : target == CAPTURE_PERFLOG
                 ? "Press a controller button to open Perf Log options"
                 : "Press a controller button for the overlay", Toast.LENGTH_LONG).show();
@@ -403,6 +428,7 @@ public final class PavoInputService extends Service {
         capturing = false;
         captureDeadline = 0L;
         swallowWanted = false;
+        panelWanted = false;
         pendingDrawerToggle = false;
         pendingDrawerStyle = false;
         super.onDestroy();
@@ -442,7 +468,7 @@ public final class PavoInputService extends Service {
                 }
                 socketReady = true;
                 updateNotification("Controller shortcuts active");
-                sendSwallow(swallowWanted);
+                sendSwallow(drawerOverlayVisible || panelWanted);
                 main.post(new Runnable() {
                     @Override
                     public void run() {
@@ -505,6 +531,26 @@ public final class PavoInputService extends Service {
         sendCommand("swallow " + (swallow ? 1 : 0) + "\n");
     }
 
+    /** Recompute the swallow state from every modal surface that owns input. */
+    private void updateSwallow() {
+        sendSwallow(drawerOverlayVisible || panelWanted);
+    }
+
+    /** The quick panel takes the controller while it is open. */
+    static void setQuickPanelOpen(Context c, boolean open) {
+        panelWanted = open;
+        if (open) ensureStarted(c);
+        PavoInputService s = instance;
+        if (s != null) {
+            s.main.post(new Runnable() {
+                @Override
+                public void run() {
+                    s.updateSwallow();
+                }
+            });
+        }
+    }
+
     private void handleLine(String line) {
         if (line == null || line.length() < 3) return;
         char type = line.charAt(0);
@@ -559,7 +605,8 @@ public final class PavoInputService extends Service {
             final int target = captureTarget;
             String key = RootlessUinput.linuxLabel(raw);
             if (key == null) return;
-            if (target == CAPTURE_PERF_COMBO || target == CAPTURE_DRAWER_COMBO) {
+            if (target == CAPTURE_PERF_COMBO || target == CAPTURE_DRAWER_COMBO
+                    || target == CAPTURE_QUICK_COMBO) {
                 if (comboCaptureFirst == null) {
                     comboCaptureFirst = key;
                     captureDeadline = SystemClock.uptimeMillis() + 5000L;
@@ -579,6 +626,7 @@ public final class PavoInputService extends Service {
                 if (key.equals(comboCaptureFirst)) return;
                 String combo = comboCaptureFirst + "+" + key;
                 if (target == CAPTURE_PERF_COMBO) prefs.setPerfCombo(combo);
+                else if (target == CAPTURE_QUICK_COMBO) prefs.setQuickCombo(combo);
                 else prefs.setDrawerCombo(combo);
                 capturing = false;
                 comboCaptureFirst = null;
@@ -598,6 +646,7 @@ public final class PavoInputService extends Service {
             }
             if (target == CAPTURE_DRAWER) prefs.setDrawerControllerRaw(key);
             else if (target == CAPTURE_PERFLOG) prefs.setPerfLogControllerRaw(key);
+            else if (target == CAPTURE_QUICK) prefs.setQuickControllerRaw(key);
             else prefs.setPerfControllerRaw(key);
             capturing = false;
             swallowCaptureUp = key;
@@ -608,6 +657,7 @@ public final class PavoInputService extends Service {
                 public void run() {
                     String prefix = target == CAPTURE_DRAWER ? "App drawer shortcut: "
                             : target == CAPTURE_PERFLOG ? "Perf Log popup shortcut: "
+                            : target == CAPTURE_QUICK ? "Quick controls shortcut: "
                             : "Controller shortcut: ";
                     LToast.makeText(PavoInputService.this, prefix + label,
                             Toast.LENGTH_SHORT).show();
@@ -631,6 +681,10 @@ public final class PavoInputService extends Service {
             return;
         }
         if (handleComboShortcut(key, down, up)) return;
+        if (QuickPanelHost.isVisible()
+                && QuickPanelHost.handleControllerKey(key, down, repeat)) {
+            return;
+        }
         if (drawerOverlayVisible && handleDrawerControllerKey(raw, down, up, repeat)) {
             return;
         }
@@ -656,6 +710,31 @@ public final class PavoInputService extends Service {
     }
 
     private void handleRawAxis(int code, int value) {
+        if (QuickPanelHost.isVisible()) {
+            if (code == 5) {
+                QuickPanelHost.handleControllerAxis(code, Math.max(-1f, Math.min(1f,
+                        value / 32767f)));
+                return;
+            }
+            if (code == 2) {
+                // The horizontal right-stick axis is ignored by the sliders.
+                return;
+            }
+            if (code == 0 || code == 1) {
+                float v = Math.max(-1f, Math.min(1f, value / 32767f));
+                if (code == 0) quickStickX = v;
+                else quickStickY = v;
+                QuickPanelHost.handleControllerStick(quickStickX, quickStickY);
+                return;
+            }
+            if (code == 16 || code == 17) {
+                // D-pads that report a hat instead of BTN_DPAD_* keys.
+                if (code == 16) quickHatX = value;
+                else quickHatY = value;
+                QuickPanelHost.handleControllerStick(quickHatX, quickHatY);
+                return;
+            }
+        }
         if (!drawerOverlayVisible) return;
         if (code == 16) {
             drawerHatX = value;
@@ -725,9 +804,11 @@ public final class PavoInputService extends Service {
         Prefs prefs = new Prefs(this);
         String perf = prefs.perfCombo();
         String drawer = prefs.drawerCombo();
+        String quick = prefs.quickCombo();
         boolean inPerf = containsKey(perf, key);
         boolean inDrawer = containsKey(drawer, key);
-        if (!inPerf && !inDrawer) return false;
+        boolean inQuick = containsKey(quick, key);
+        if (!inPerf && !inDrawer && !inQuick) return false;
         if (down) {
             long now = SystemClock.uptimeMillis();
             if (now - comboLastAt > 1500L) comboDown.clear();
@@ -737,6 +818,13 @@ public final class PavoInputService extends Service {
                 comboDown.clear();
                 comboLastAt = now;
                 PerfOverlayService.toggleOverlayFromShortcut(this);
+                return true;
+            }
+            if (inQuick && comboDown.containsAll(comboKeys(quick))) {
+                comboConsumed.addAll(comboKeys(quick));
+                comboDown.clear();
+                comboLastAt = now;
+                QuickPanelHost.toggleFromShortcut(this);
                 return true;
             }
             if (inDrawer && comboDown.containsAll(comboKeys(drawer))) {
@@ -821,6 +909,11 @@ public final class PavoInputService extends Service {
                 drawerShortcutShownOnDown = false;
                 if (shortTap && !shown) toggleDrawerOverlay();
             }
+            return;
+        }
+        String quickMapped = prefs.quickControllerRaw();
+        if (quickMapped != null && !quickMapped.isEmpty() && quickMapped.equals(key)) {
+            if (down) QuickPanelHost.toggleFromShortcut(this);
             return;
         }
         String mapped = prefs.perfControllerRaw();
@@ -1269,7 +1362,7 @@ public final class PavoInputService extends Service {
                 if (drawerOverlay == v) hideDrawerOverlay();
             }
         });
-        sendSwallow(true);
+        updateSwallow();
         resetDrawerNav();
         drawerOverlay.post(new Runnable() {
             @Override
@@ -1322,7 +1415,7 @@ public final class PavoInputService extends Service {
         drawerOpening = false;
         TouchMapService.notifyModalOverlayChanged();
         drawerMapperMode = false;
-        sendSwallow(false);
+        updateSwallow();
         resetDrawerNav();
         if (view == null) return;
         view.dismissKeyboard();

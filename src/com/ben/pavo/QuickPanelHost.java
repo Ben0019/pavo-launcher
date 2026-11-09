@@ -31,6 +31,30 @@ final class QuickPanelHost {
         return panel != null;
     }
 
+    /** Controller shortcut: open the panel, or close it when it is already up. */
+    static void toggleFromShortcut(Context host) {
+        if (panel != null) {
+            dismiss();
+            return;
+        }
+        if (host != null) show(host);
+    }
+
+    static boolean handleControllerKey(String key, boolean down, boolean repeat) {
+        QuickPanelView view = panel;
+        return view != null && view.handleControllerKey(key, down, repeat);
+    }
+
+    static boolean handleControllerStick(float x, float y) {
+        QuickPanelView view = panel;
+        return view != null && view.handleControllerStick(x, y);
+    }
+
+    static boolean handleControllerAxis(int code, float value) {
+        QuickPanelView view = panel;
+        return view != null && view.handleControllerAxis(code, value);
+    }
+
     static void show(final Context host) {
         if (panel != null || opening || host == null) return;
         if (!Settings.canDrawOverlays(host) && !PavoA11yService.hasAccessibility()) {
@@ -108,6 +132,8 @@ final class QuickPanelHost {
         panel = view;
         params = lp;
         windowManager = wm;
+        // Take the controller: the app behind must not react while the panel is up.
+        PavoInputService.setQuickPanelOpen(host, true);
         TouchMapService.notifyModalOverlayChanged();
     }
 
@@ -117,6 +143,7 @@ final class QuickPanelHost {
         panel = null;
         params = null;
         windowManager = null;
+        PavoInputService.setQuickPanelOpen(null, false);
         TouchMapService.notifyModalOverlayChanged();
         if (view == null) return;
         view.closeNow();

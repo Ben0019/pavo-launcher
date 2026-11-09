@@ -416,6 +416,11 @@ public final class PavoA11yService extends AccessibilityService {
         return friendlyKey(prefs == null ? "" : prefs.drawerControllerRaw());
     }
 
+    static String quickControllerLabel(Prefs prefs) {
+        String raw = prefs == null ? "" : prefs.quickControllerRaw();
+        return raw == null || raw.isEmpty() ? "Not set" : friendlyKey(raw);
+    }
+
     static String perfLogControllerLabel(Prefs prefs) {
         return friendlyKey(prefs == null ? "" : prefs.perfLogControllerRaw());
     }

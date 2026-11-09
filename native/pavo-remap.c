@@ -187,7 +187,10 @@ static void socket_send_key(int code, int value) {
 }
 
 static void socket_send_axis(int code, int value) {
-    if (code == ABS_X || code == ABS_Y || code == ABS_HAT0X || code == ABS_HAT0Y) {
+    // Right stick (ABS_Z/ABS_RZ) is forwarded as well: the quick controls panel
+    // reserves it for the brightness and volume sliders.
+    if (code == ABS_X || code == ABS_Y || code == ABS_HAT0X || code == ABS_HAT0Y
+            || code == ABS_Z || code == ABS_RZ) {
         socket_sendf("A %d %d\n", code, value);
     }
 }

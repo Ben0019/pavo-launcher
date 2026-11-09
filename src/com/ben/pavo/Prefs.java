@@ -818,6 +818,18 @@ final class Prefs {
         if (perfOverlayHorizontal()) e.putBoolean("perf_cores_before_strip", v);
         e.apply();
     }
+    String quickControllerRaw() { return sp.getString("quick_controller_raw", ""); }
+
+    void setQuickControllerRaw(String value) {
+        sp.edit().putString("quick_controller_raw", value == null ? "" : value).apply();
+    }
+
+    String quickCombo() { return sp.getString("quick_combo", ""); }
+
+    void setQuickCombo(String value) {
+        sp.edit().putString("quick_combo", value == null ? "" : value).apply();
+    }
+
     String perfCombo() { return sp.getString("perf_combo", ""); }
     void setPerfCombo(String value) {
         sp.edit().putString("perf_combo", value == null ? "" : value).apply();

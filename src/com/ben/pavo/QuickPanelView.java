@@ -83,6 +83,24 @@ final class QuickPanelView extends FrameLayout {
     private boolean closing;
     private TextView brightnessValue;
     private TextView volumeValue;
+    private final ArrayList<View> navItems = new ArrayList<>();
+    private FocusRingDrawable navRing;
+    private final java.util.HashMap<View, Float> navRadii = new java.util.HashMap<>();
+    private View navFocus;
+    private boolean navLongFired;
+    private final Runnable navLongPress = new Runnable() {
+        @Override
+        public void run() {
+            if (navFocus == null) return;
+            navLongFired = true;
+            Haptics.longPress(navFocus);
+            navFocus.performLongClick();
+        }
+    };
+    private PanelVerticalSlider brightnessSlider;
+    private PanelVerticalSlider volumeSlider;
+    private PanelVerticalSlider lastSlider;
+    private long lastStickAdjust;
     private int lastBrightnessPercent = -1;
     private long lastBrightnessAt;
     private int lastVolumePercent = -1;
@@ -126,6 +144,12 @@ final class QuickPanelView extends FrameLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         scroll = new CappedScrollView(c);
+        scroll.setOnScrollChangeListener(new OnScrollChangeListener() {
+            @Override
+            public void onScrollChange(View v, int sx, int sy, int ox, int oy) {
+                updateRingBounds();
+            }
+        });
         scroll.setFillViewport(false);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
@@ -254,6 +278,7 @@ final class QuickPanelView extends FrameLayout {
                     }
                 }), new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        brightnessSlider = lastSlider;
 
         View gap = new View(context);
         cols.addView(gap, new LinearLayout.LayoutParams(
@@ -292,6 +317,7 @@ final class QuickPanelView extends FrameLayout {
                     }
                 }), new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        volumeSlider = lastSlider;
 
         LinearLayout perf = sectionCard();
         LinearLayout.LayoutParams perfLp = new LinearLayout.LayoutParams(
@@ -316,6 +342,7 @@ final class QuickPanelView extends FrameLayout {
             lp.bottomMargin = Ui.dp(context, 4);
             lp.gravity = Gravity.CENTER_HORIZONTAL;
             perf.addView(chip, lp);
+            registerNav(chip);
             perfChips.add(chip);
             perfNames.add(name);
             if (name.equals(selected)) styleProfileChip(chip, profile, true);
@@ -370,6 +397,7 @@ final class QuickPanelView extends FrameLayout {
                         0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
                 if (c == 0) lp.rightMargin = Ui.dp(context, 3);
                 gridRow.addView(chip, lp);
+                registerNav(chip);
                 fanChips.add(chip);
                 fanValues.add(fanMode);
                 styleFanChip(chip, fanMode, fanMode == fanSelected);
@@ -417,6 +445,8 @@ final class QuickPanelView extends FrameLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         PanelVerticalSlider slider = new PanelVerticalSlider(context);
+        lastSlider = slider;
+        registerNav(slider, 11f);
         slider.setProgress(percent);
         slider.setListener(listener);
         LinearLayout.LayoutParams sliderLp = new LinearLayout.LayoutParams(
@@ -424,6 +454,280 @@ final class QuickPanelView extends FrameLayout {
         sliderLp.topMargin = Ui.dp(context, 2);
         column.addView(slider, sliderLp);
         return column;
+    }
+
+    // ------------------------------------------------------------------
+    // Controller navigation
+    // ------------------------------------------------------------------
+
+    private void registerNav(View v) {
+        registerNav(v, 10f);
+    }
+
+    /** @param radiusDp corner radius of the control; the ring follows it. */
+    private void registerNav(View v, float radiusDp) {
+        if (v == null || navItems.contains(v)) return;
+        navItems.add(v);
+        navRadii.put(v, radiusDp);
+    }
+
+    private int[] centerOf(View v) {
+        int[] p = new int[2];
+        v.getLocationOnScreen(p);
+        return new int[]{p[0] + v.getWidth() / 2, p[1] + v.getHeight() / 2};
+    }
+
+    private static String navLabel(View v) {
+        if (v == null) return "none";
+        if (v instanceof TextView) {
+            CharSequence t = ((TextView) v).getText();
+            return "chip:" + (t == null ? "?" : t);
+        }
+        if (v instanceof PanelVerticalSlider) return "slider";
+        return v.getClass().getSimpleName();
+    }
+
+    private void focusItem(View v) {
+        if (v == navFocus) return;
+        navFocus = v;
+        if (v == null) {
+            if (navRing != null) navRing.setBounds(0, 0, 0, 0);
+            return;
+        }
+        if (navRing == null) {
+            navRing = new FocusRingDrawable(context, ThemeColors.accent());
+            getOverlay().add(navRing);
+        }
+        Float radius = navRadii.get(v);
+        navRing.setRingRadius(Ui.dpf(context, radius == null ? 10f : radius));
+        updateRingBounds();
+        ensureVisible(v);
+    }
+
+    private void updateRingBounds() {
+        if (navRing == null || navFocus == null) return;
+        int[] loc = new int[2];
+        int[] self = new int[2];
+        navFocus.getLocationOnScreen(loc);
+        getLocationOnScreen(self);
+        int left = loc[0] - self[0];
+        int top = loc[1] - self[1];
+        navRing.setBounds(left, top, left + navFocus.getWidth(),
+                top + navFocus.getHeight());
+    }
+
+    /** The row (direct child of the scrolled content) that holds a control. */
+    private View rowOf(View v) {
+        if (scroll == null || v == null) return null;
+        View content = scroll.getChildAt(0);
+        if (content == null) return null;
+        View cur = v;
+        while (cur != null && cur.getParent() != null
+                && cur.getParent() != content) {
+            if (!(cur.getParent() instanceof View)) return null;
+            cur = (View) cur.getParent();
+        }
+        return cur != null && cur.getParent() == content ? cur : null;
+    }
+
+    private void ensureVisible(View v) {
+        if (scroll == null || v == null) return;
+        View row = rowOf(v);
+        View target = row != null ? row : v;
+        int[] item = new int[2];
+        int[] host = new int[2];
+        target.getLocationOnScreen(item);
+        scroll.getLocationOnScreen(host);
+        int top = item[1] - host[1];
+        int bottom = top + target.getHeight();
+        int viewport = scroll.getHeight();
+        int pad = Ui.dp(context, 10);
+        if (bottom - top <= viewport - pad * 2) {
+            // The whole row fits: show all of it, so card titles stay visible.
+            if (top < pad) scroll.scrollBy(0, top - pad);
+            else if (bottom > viewport - pad) scroll.scrollBy(0, bottom - viewport + pad);
+        } else {
+            int[] f = new int[2];
+            v.getLocationOnScreen(f);
+            int vTop = f[1] - host[1];
+            int vBottom = vTop + v.getHeight();
+            if (vTop < pad) scroll.scrollBy(0, vTop - pad);
+            else if (vBottom > viewport - pad) scroll.scrollBy(0, vBottom - viewport + pad);
+        }
+        updateRingBounds();
+    }
+
+    private final Runnable ringRefresh = new Runnable() {
+        @Override
+        public void run() {
+            updateRingBounds();
+        }
+    };
+
+    private void moveFocus(int dx, int dy) {
+        if (navItems.isEmpty()) return;
+        if (navFocus == null) {
+            focusItem(navItems.get(0));
+            return;
+        }
+        int[] c = centerOf(navFocus);
+        int minStep = Ui.dp(context, 14);
+        View focusRow = rowOf(navFocus);
+        View best = null;
+        double bestScore = Double.MAX_VALUE;
+        // Horizontal moves prefer the same row first, so left/right walks the
+        // cards or the button row instead of jumping diagonally.
+        for (int pass = 0; pass < 2 && best == null; pass++) {
+            for (View v : navItems) {
+                if (v == navFocus || v.getVisibility() != View.VISIBLE) continue;
+                if (dx != 0 && pass == 0 && rowOf(v) != focusRow) continue;
+                int[] p = centerOf(v);
+                int vx = p[0] - c[0];
+                int vy = p[1] - c[1];
+                if (dx != 0 && Integer.signum(vx) != dx) continue;
+                if (dy != 0 && Integer.signum(vy) != dy) continue;
+                // Centred chips differ by a pixel or two, so a pure vertical
+                // neighbour could otherwise count as "left" and win.
+                if (dx != 0 && Math.abs(vx) < minStep) continue;
+                if (dy != 0 && Math.abs(vy) < minStep) continue;
+                double primary = dx != 0 ? Math.abs(vx) : Math.abs(vy);
+                double perp = dx != 0 ? Math.abs(vy) : Math.abs(vx);
+                if (primary < 1) continue;
+                double score = primary + perp * 1.8;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = v;
+                }
+            }
+        }
+        if (best != null) focusItem(best);
+    }
+
+    /** @return true when the key was consumed. */
+    boolean handleControllerKey(String key, boolean down, boolean repeat) {
+        if ("BTN_SOUTH".equals(key) || "BTN_GAMEPAD".equals(key)
+                || "KEY_ENTER".equals(key)) {
+            if (down) {
+                navLongFired = false;
+                main.removeCallbacks(navLongPress);
+                main.postDelayed(navLongPress,
+                        android.view.ViewConfiguration.getLongPressTimeout());
+            } else if (!repeat) {
+                main.removeCallbacks(navLongPress);
+                if (!navLongFired && navFocus != null) navFocus.performClick();
+            }
+            return true;
+        }
+        if (!down && !repeat) return true;
+        if (navFocus == null) {
+            focusItem(navItems.isEmpty() ? null : navItems.get(0));
+            if (!repeat) return true;
+        }
+        switch (key) {
+            case "BTN_DPAD_UP":
+                moveFocus(0, -1);
+                return true;
+            case "BTN_DPAD_DOWN":
+                moveFocus(0, 1);
+                return true;
+            case "BTN_DPAD_LEFT":
+                moveFocus(-1, 0);
+                return true;
+            case "BTN_DPAD_RIGHT":
+                moveFocus(1, 0);
+                return true;
+            case "BTN_EAST":
+            case "KEY_BACK":
+                dismissAnimated();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private int stickNavDir = -1;
+    private long lastStickNav;
+    private PanelVerticalSlider stickAdjustSlider;
+    private int stickAdjustSign;
+
+    private final Runnable stickNavRepeat = new Runnable() {
+        @Override
+        public void run() {
+            if (stickNavDir < 0) return;
+            stepFocus(stickNavDir);
+            main.postDelayed(this, 180L);
+        }
+    };
+
+    private final Runnable stickAdjustRepeat = new Runnable() {
+        @Override
+        public void run() {
+            if (stickAdjustSlider == null || stickAdjustSign == 0) return;
+            stickAdjustSlider.nudge(stickAdjustSign * 2);
+            main.postDelayed(this, 90L);
+        }
+    };
+
+    private void stepFocus(int dir) {
+        if (dir == 0) moveFocus(-1, 0);
+        else if (dir == 1) moveFocus(1, 0);
+        else if (dir == 2) moveFocus(0, -1);
+        else moveFocus(0, 1);
+    }
+
+    /** Left stick: one focus step per deflection, fast repeat while held. */
+    boolean handleControllerStick(float x, float y) {
+        float ax = Math.abs(x);
+        float ay = Math.abs(y);
+        if (Math.max(ax, ay) < 0.5f) {
+            stickNavDir = -1;
+            main.removeCallbacks(stickNavRepeat);
+            return true;
+        }
+        int dir = ax >= ay ? (x < 0 ? 0 : 1) : (y < 0 ? 2 : 3);
+        if (navFocus == null) {
+            focusItem(navItems.isEmpty() ? null : navItems.get(0));
+            return true;
+        }
+        if (dir != stickNavDir) {
+            stickNavDir = dir;
+            stepFocus(dir);
+            main.removeCallbacks(stickNavRepeat);
+            main.postDelayed(stickNavRepeat, 340L);
+        }
+        return true;
+    }
+
+    /**
+     * The right stick is reserved for the sliders: it adjusts the last slider the
+     * D-pad touched (brightness by default) and never moves focus.
+     */
+    boolean handleControllerAxis(int code, float value) {
+        // Only the slider under the ring responds. If nothing is focused yet,
+        // the first stick movement focuses brightness and starts there.
+        if (navFocus == null) focusItem(brightnessSlider);
+        if (!(navFocus instanceof PanelVerticalSlider)) return true;
+        PanelVerticalSlider slider = (PanelVerticalSlider) navFocus;
+        if (Math.abs(value) < 0.5f) {
+            stickAdjustSlider = null;
+            stickAdjustSign = 0;
+            main.removeCallbacks(stickAdjustRepeat);
+            return true;
+        }
+        // ABS_RZ reports stick-up as a negative value; flip it so up increases.
+        float dir = -value;
+        int sign = dir > 0 ? 1 : -1;
+        if (slider != stickAdjustSlider || sign != stickAdjustSign) {
+            long now = SystemClock.uptimeMillis();
+            if (now - lastStickAdjust < 80) return true;
+            lastStickAdjust = now;
+            stickAdjustSlider = slider;
+            stickAdjustSign = sign;
+            slider.nudge(sign * 3);
+            main.removeCallbacks(stickAdjustRepeat);
+            main.postDelayed(stickAdjustRepeat, 300L);
+        }
+        return true;
     }
 
     private void buildScreenshot(LinearLayout content) {
@@ -454,6 +758,7 @@ final class QuickPanelView extends FrameLayout {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         shotLp.rightMargin = Ui.dp(context, 4);
         row.addView(shot, shotLp);
+        registerNav(shot, 14f);
 
         TextView record = actionButton("Rec");
         record.setOnClickListener(new OnClickListener() {
@@ -475,6 +780,7 @@ final class QuickPanelView extends FrameLayout {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         recordLp.rightMargin = Ui.dp(context, 4);
         row.addView(record, recordLp);
+        registerNav(record, 14f);
 
         TextView mapper = actionButton("Map");
         mapper.setOnClickListener(new OnClickListener() {
@@ -486,6 +792,7 @@ final class QuickPanelView extends FrameLayout {
         });
         row.addView(mapper, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        registerNav(mapper, 14f);
     }
 
     /**
@@ -579,6 +886,7 @@ final class QuickPanelView extends FrameLayout {
             }
         });
         card.addView(chip, stackedChipLp());
+        registerNav(chip);
         refreshChips.add(chip);
         refreshValues.add(hz);
         if (selected) styleChip(chip, true);

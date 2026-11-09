@@ -46,6 +46,14 @@ final class PanelVerticalSlider extends View {
         this.listener = listener;
     }
 
+    /** Controller nudge: move by a few points and notify the listener live. */
+    void nudge(int delta) {
+        int p = Math.max(0, Math.min(100, progressPercent() + delta));
+        progress = p / 100f;
+        invalidate();
+        if (listener != null) listener.onProgress(p, false);
+    }
+
     void setProgress(int percent) {
         progress = Math.max(0f, Math.min(1f, percent / 100f));
         invalidate();

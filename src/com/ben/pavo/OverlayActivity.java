@@ -57,6 +57,8 @@ public final class OverlayActivity extends PavoGlassActivity {
     private TextView status;
     private TextView overlayChip;
     private TextView handleChip;
+    private TextView quickShortcutRow;
+    private TextView quickComboRow;
     private TextView shortcutRow;
     private TextView perfShortcutRow;
     private TextView perfComboRow;
@@ -242,7 +244,9 @@ public final class OverlayActivity extends PavoGlassActivity {
         content.addView(wrapScroll(right), rightLp);
 
         buildOverlaySection(left);
-        buildMetricsSection(middle);
+        buildMetricsSection(left);
+        buildShortcutsSection(middle);
+        buildQuickControlsSection(middle);
         buildDrawerSection(right);
         // Short 4:3 panels keep the 3x2 grid too: equal cards with no scrolling.
         reflowColumns(content, left, middle, right,
@@ -266,19 +270,28 @@ public final class OverlayActivity extends PavoGlassActivity {
         // All six cards always take the same share of the grid: symmetrical at
         // every resolution, with content compacted on short panels so nothing
         // has to clip or leave a gap.
-        boolean stretch = true;
+        // Cards keep their natural height; the taller Quick Controls card made
+        // the fixed six-card grid clip its lower rows on short panels, so the
+        // columns scroll instead.
+        boolean stretch = false;
         for (int i = 0; i < cols; i++) {
             LinearLayout column = new LinearLayout(this);
             column.setOrientation(LinearLayout.VERTICAL);
             int from = i * perColumn;
             int to = Math.min(cards.size(), from + perColumn);
             for (int k = from; k < to; k++) {
+                View cardView = cards.get(k);
+                float weight = 1f;
+                ViewGroup.LayoutParams old = cardView.getLayoutParams();
+                if (old instanceof LinearLayout.LayoutParams
+                        && ((LinearLayout.LayoutParams) old).weight > 0f) {
+                    weight = ((LinearLayout.LayoutParams) old).weight;
+                }
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         stretch ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT,
-                        stretch ? 1f : 0f);
+                        stretch ? weight : 0f);
                 lp.topMargin = dp(compact ? 6 : 9);
-                View cardView = cards.get(k);
                 if (stretch && cardView instanceof LinearLayout) {
                     stripSpacers((LinearLayout) cardView);
                     if (!compact) distributeVertically((LinearLayout) cardView);
@@ -463,6 +476,9 @@ public final class OverlayActivity extends PavoGlassActivity {
             refreshRow.addView(chip, lp);
         }
 
+    }
+
+    private void buildShortcutsSection(LinearLayout parent) {
         LinearLayout shortcuts = sectionWeighted(parent, "SHORTCUTS", null);
 
         perfShortcutRow = text("", 10f, TEXT, false);
@@ -499,7 +515,7 @@ public final class OverlayActivity extends PavoGlassActivity {
     }
 
     private void buildMetricsSection(LinearLayout parent) {
-        LinearLayout box = sectionWeighted(parent, "METRICS", null, 0.78f);
+        LinearLayout box = sectionWeighted(parent, "METRICS", null, 0.6f);
         LinearLayout row = null;
         for (int i = 0; i < METRICS.length; i++) {
             if (i % 3 == 0) {
@@ -508,13 +524,13 @@ public final class OverlayActivity extends PavoGlassActivity {
                 LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT);
-                rlp.topMargin = i == 0 ? 0 : dp(compact ? 3 : 5);
+                rlp.topMargin = i == 0 ? 0 : dp(compact ? 5 : 7);
                 box.addView(row, rlp);
             }
             final int index = i;
             TextView chip = modeChip(METRICS[i]);
-            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, compact ? 7f : 7.5f);
-            chip.setPadding(dp(3), dp(compact ? 2 : 3), dp(3), dp(compact ? 2 : 3));
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, compact ? 8f : 9f);
+            chip.setPadding(dp(4), dp(compact ? 5 : 7), dp(4), dp(compact ? 5 : 7));
             metricChips.add(chip);
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -531,12 +547,11 @@ public final class OverlayActivity extends PavoGlassActivity {
             row.addView(chip, lp);
         }
 
-        buildQuickControlsSection(parent);
     }
 
     /** Right-edge grab handle: size, opacity and visibility. */
     private void buildQuickControlsSection(LinearLayout parent) {
-        LinearLayout box = sectionWeighted(parent, "QUICK CONTROLS", null, 1.22f);
+        LinearLayout box = sectionWeighted(parent, "QUICK CONTROLS", null, 1.4f);
         handleChip = toggle(box, "SHOW HANDLE", prefs.quickHandleVisible(),
                 new Toggle() {
                     @Override
@@ -570,6 +585,90 @@ public final class OverlayActivity extends PavoGlassActivity {
                         QuickPanelEdgeHandle.refresh();
                     }
                 });
+
+        quickShortcutRow = shortcutRow(box, "begin quick");
+        quickShortcutRow.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (PavoInputService.beginQuickKeyCapture(OverlayActivity.this)) {
+                    LToast.makeText(OverlayActivity.this,
+                            "Press a controller button for quick controls",
+                            android.widget.Toast.LENGTH_LONG).show();
+                    v.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            refreshState();
+                        }
+                    }, 4200L);
+                } else {
+                    LToast.makeText(OverlayActivity.this,
+                            "Controller service unavailable. Check PServer or accessibility.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        quickComboRow = shortcutRow(box, "begin combo");
+        quickComboRow.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (PavoInputService.beginQuickComboCapture(OverlayActivity.this)) {
+                    LToast.makeText(OverlayActivity.this,
+                            "Press two controller buttons for quick controls",
+                            android.widget.Toast.LENGTH_LONG).show();
+                    v.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            refreshState();
+                        }
+                    }, 4200L);
+                } else {
+                    LToast.makeText(OverlayActivity.this,
+                            "Controller service unavailable. Check PServer or accessibility.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        LinearLayout clear = new LinearLayout(this);
+        clear.setOrientation(LinearLayout.HORIZONTAL);
+        clear.setPadding(dp(2), dp(7), 0, 0);
+        TextView clearKey = text("CLEAR SHORTCUT", 8.5f, 0x99FFFFFF, true);
+        clearKey.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                prefs.setQuickControllerRaw("");
+                refreshState();
+            }
+        });
+        clear.addView(clearKey, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView clearCombo = text("CLEAR COMBO", 8.5f, 0x99FFFFFF, true);
+        clearCombo.setGravity(Gravity.END);
+        clearCombo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                prefs.setQuickCombo("");
+                refreshState();
+            }
+        });
+        clear.addView(clearCombo);
+        box.addView(clear);
+    }
+
+    /** Empty tappable row used by the quick-controls shortcut fields. */
+    private TextView shortcutRow(LinearLayout parent, String tag) {
+        TextView row = text("", 10f, TEXT, false);
+        row.setSingleLine(true);
+        row.setEllipsize(TextUtils.TruncateAt.END);
+        row.setPadding(dp(10), dp(7), dp(10), dp(7));
+        row.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
+        attachFocus(row);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(5);
+        parent.addView(row, lp);
+        return row;
     }
 
     // -------------------------------------------------------------- drawer UI
@@ -688,6 +787,15 @@ public final class OverlayActivity extends PavoGlassActivity {
                     PavoA11yService.controllerLabel(prefs));
             perfShortcutRow.setText(String.format(
                     Loc.s(this, "Shortcut: %s  ·  tap to map"), mapped));
+        }
+        if (quickShortcutRow != null) {
+            String mapped = controllerShortcut(
+                    PavoA11yService.quickControllerLabel(prefs));
+            quickShortcutRow.setText(String.format(
+                    Loc.s(this, "Shortcut: %s  ·  tap to map"), mapped));
+        }
+        if (quickComboRow != null) {
+            quickComboRow.setText(comboLabel(prefs.quickCombo()));
         }
         if (perfComboRow != null) {
             perfComboRow.setText(comboLabel(prefs.perfCombo()));
