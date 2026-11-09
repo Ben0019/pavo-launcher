@@ -1349,13 +1349,13 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         return 0;
     }
 
-    private void applyScaleGeometry(boolean keepCenter) {
-        if (container == null || panel == null || params == null) return;
-        scale = clampScale(scale);
+    /**
+     * Window size for the current scale, dropping metrics when the card is too
+     * small for readable text. Returns {width, height, renderScale*1000}.
+     */
+    private int[] scaledWindowSize() {
         float render = scale;
-        int newW;
-        int newH;
-        if (!panel.horizontal()) {
+        if (panel != null && !panel.horizontal()) {
             int level = levelForScale(scale);
             panel.setDetailLevel(level);
             // Below the readable floor, drop metrics instead of shrinking text.
@@ -1373,12 +1373,20 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             int contentH = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
             plp.height = contentH;
             panel.setLayoutParams(plp);
-            newW = Math.round(wantW * render);
-            newH = Math.round(contentH * render);
-        } else {
-            newW = Math.round(baseWidthPx * render);
-            newH = Math.round(baseHeightPx * render);
+            return new int[]{Math.round(wantW * render),
+                    Math.round(contentH * render), Math.round(render * 1000f)};
         }
+        return new int[]{Math.round(baseWidthPx * render),
+                Math.round(baseHeightPx * render), Math.round(render * 1000f)};
+    }
+
+    private void applyScaleGeometry(boolean keepCenter) {
+        if (container == null || panel == null || params == null) return;
+        scale = clampScale(scale);
+        int[] size = scaledWindowSize();
+        int newW = size[0];
+        int newH = size[1];
+        float render = size[2] / 1000f;
         int cx = params.x + params.width / 2;
         int cy = params.y + params.height / 2;
         params.width = newW;
@@ -1621,15 +1629,15 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private void applyScaleAt(float newScale, int centerX, int centerY) {
         if (params == null) return;
         scale = clampScale(newScale);
-        int nw = Math.round(baseWidthPx * scale);
-        int nh = Math.round(baseHeightPx * scale);
-        params.width = nw;
-        params.height = nh;
-        params.x = centerX - nw / 2;
-        params.y = centerY - nh / 2;
+        int[] size = scaledWindowSize();
+        params.width = size[0];
+        params.height = size[1];
+        params.x = centerX - size[0] / 2;
+        params.y = centerY - size[1] / 2;
         if (panel != null) {
-            panel.setScaleX(scale);
-            panel.setScaleY(scale);
+            float render = size[2] / 1000f;
+            panel.setScaleX(render);
+            panel.setScaleY(render);
         }
         clampPosition(false);
     }
