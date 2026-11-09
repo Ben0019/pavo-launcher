@@ -55,6 +55,16 @@ final class Spatial {
 
     static synchronized void setEnabled(Context c, boolean on) {
         new Prefs(c).setSpatialEnabled(on);
+        // Rebuild the per-session effects: a chain created before the track
+        // settles can be left disabled by the HAL, while a fresh one enables.
+        for (Virtualizer effect : perSession.values()) {
+            try {
+                effect.release();
+            } catch (Throwable ignored) {
+            }
+        }
+        perSession.clear();
+        refreshSessions(c, SessionFx.activeMediaSessions());
         apply(c);
     }
 
@@ -93,6 +103,13 @@ final class Spatial {
         for (int session : active) {
             if (perSession.containsKey(session)) continue;
             try {
+                // The HAL proxy sometimes leaves the first instance disabled
+                // until the chain is rebuilt; a fresh second instance enables.
+                Virtualizer first = new Virtualizer(0, session);
+                try {
+                    first.release();
+                } catch (Throwable ignored) {
+                }
                 Virtualizer effect = new Virtualizer(0, session);
                 applyTo(effect, p);
                 effect.setEnabled(p.spatialEnabled());
@@ -100,6 +117,9 @@ final class Spatial {
             } catch (Throwable ignored) {
             }
         }
+        // A freshly created session effect can be left disabled until its
+        // chain is ready; re-apply on every poll so it settles enabled.
+        apply(c);
     }
 
     static synchronized void apply(Context c) {
@@ -126,6 +146,10 @@ final class Spatial {
             if (effect.getStrengthSupported()) {
                 effect.setStrength((short) value);
             }
+        } catch (Throwable ignored) {
+        }
+        try {
+            effect.forceVirtualizationMode(Virtualizer.VIRTUALIZATION_MODE_TRANSAURAL);
         } catch (Throwable ignored) {
         }
     }
