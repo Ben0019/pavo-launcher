@@ -39,6 +39,23 @@ final class SliderStick {
     }
 
     /**
+     * Precise one-step adjustment: every accepted tick moves exactly one
+     * progress unit, with no hold acceleration.
+     */
+    static boolean adjustPrecise(SeekBar bar, float x, long[] lastAt, View hapticTarget) {
+        if (bar == null || !bar.isEnabled() || Math.abs(x) < 0.16f) return false;
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastAt[0] < 100L) return true;
+        lastAt[0] = now;
+        int next = Math.max(0, Math.min(bar.getMax(),
+                bar.getProgress() + (x > 0f ? 1 : -1)));
+        if (next == bar.getProgress()) return true;
+        bar.setProgress(next);
+        Haptics.tick(hapticTarget == null ? bar : hapticTarget);
+        return true;
+    }
+
+    /**
      * Adjust a focused slider from the right stick. The caller supplies a
      * per-window timestamp so holding the stick produces a smooth repeat.
      */

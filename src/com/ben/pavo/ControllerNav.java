@@ -50,6 +50,7 @@ final class ControllerNav {
     private float sliderX;
     private boolean sliderScheduled;
     private boolean rightStickHeld;
+    private boolean preciseSliders;
     private EqBandSlider eqSlider;
     private int eqSign;
     private long eqLastAt;
@@ -78,8 +79,13 @@ final class ControllerNav {
                 SliderStick.reset(sliderBar);
                 sliderBar = bar;
             }
-            SliderStick.adjust(bar, sliderX, sliderStickAt, bar);
-            scheduleSlider();
+            if (preciseSliders) {
+                SliderStick.adjustPrecise(bar, sliderX, sliderStickAt, bar);
+                scheduleSlider(100L);
+            } else {
+                SliderStick.adjust(bar, sliderX, sliderStickAt, bar);
+                scheduleSlider();
+            }
         }
     };
 
@@ -419,9 +425,19 @@ final class ControllerNav {
     }
 
     private void scheduleSlider() {
+        scheduleSlider(0L);
+    }
+
+    private void scheduleSlider(long delay) {
         if (sliderScheduled) return;
         sliderScheduled = true;
-        handler.post(sliderRepeat);
+        if (delay > 0L) handler.postDelayed(sliderRepeat, delay);
+        else handler.post(sliderRepeat);
+    }
+
+    /** Joysticks uses one-unit steps instead of the accelerated default. */
+    void setPreciseSliders(boolean precise) {
+        preciseSliders = precise;
     }
 
     private void stopSlider() {

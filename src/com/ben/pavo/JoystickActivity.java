@@ -72,6 +72,12 @@ public final class JoystickActivity extends PavoGlassActivity {
     private TextView appSelectorLabel;
     private TextView resetAppChip;
     private ControllerNav controller;
+    private boolean controllerAdjusting;
+    private final Runnable clearControllerAdjust = new Runnable() {
+        @Override public void run() {
+            controllerAdjusting = false;
+        }
+    };
     private long lastNavAdjust;
     private long lastHatNav;
     private long lastStickNav;
@@ -158,6 +164,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         buildUi();
         hideBars();
         controller = new ControllerNav(this, getWindow().getDecorView());
+        controller.setPreciseSliders(true);
         controller.decorateFocusables();
         leftTab.postDelayed(new Runnable() {
             @Override public void run() {
@@ -1421,6 +1428,20 @@ public final class JoystickActivity extends PavoGlassActivity {
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (event == null) return super.onGenericMotionEvent(event);
+        boolean rightActive = false;
+        if (getCurrentFocus() instanceof SeekBar) {
+            float rightX = event.getAxisValue(MotionEvent.AXIS_Z);
+            if (Math.abs(rightX) < 0.12f) rightX = event.getAxisValue(MotionEvent.AXIS_RX);
+            rightActive = Math.abs(rightX) >= 0.16f;
+        }
+        if (rightActive) {
+            controllerAdjusting = true;
+            handler.removeCallbacks(clearControllerAdjust);
+            handler.postDelayed(clearControllerAdjust, 180L);
+        } else {
+            controllerAdjusting = false;
+            handler.removeCallbacks(clearControllerAdjust);
+        }
         if (controller != null) controller.dispatchGenericMotionEvent(event);
         int source = event.getSource();
         boolean gamepad = (source & InputDevice.SOURCE_JOYSTICK) != 0
@@ -1548,11 +1569,12 @@ public final class JoystickActivity extends PavoGlassActivity {
                         floorValue.setText(percent(progress));
                     }
                 }
-                if (fromUser) {
+                if (fromUser || controllerAdjusting) {
                     stickEnabled = true;
                     updateLayerChip();
                     updatePresetChips();
                     refreshPreview();
+                    if (controllerAdjusting) saveCalibration(true, true);
                 }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
