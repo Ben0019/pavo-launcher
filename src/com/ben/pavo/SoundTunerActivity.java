@@ -151,17 +151,6 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             finishAnimated();
             return true;
         }
-        View focus = getCurrentFocus();
-        if (focus instanceof EqBandSlider
-                && (code == KeyEvent.KEYCODE_DPAD_LEFT
-                        || code == KeyEvent.KEYCODE_DPAD_RIGHT)) {
-            if (!locked && down) {
-                ((EqBandSlider) focus).nudge(
-                        code == KeyEvent.KEYCODE_DPAD_RIGHT ? 50 : -50);
-                Haptics.tick(focus);
-            }
-            return true;
-        }
         if (nav != null && nav.dispatchKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
     }
