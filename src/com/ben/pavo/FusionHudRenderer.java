@@ -638,36 +638,7 @@ final class FusionHudRenderer {
     }
 
     private String fanModeLabel() {
-        int mode = activeFanMode();
-        switch (mode) {
-            case PerfTuner.FAN_OFF: return Loc.s(ctx, "OFF");
-            case PerfTuner.FAN_LOW: return Loc.s(ctx, "LOW");
-            case PerfTuner.FAN_SMART: return Loc.s(ctx, "SMART");
-            case PerfTuner.FAN_HIGH: return Loc.s(ctx, "HIGH");
-            case PerfTuner.FAN_MANUAL: return Loc.s(ctx, "MANUAL");
-            case FanProfile.MODE_CURVE: return Loc.s(ctx, "CURVE");
-            case FanProfile.MODE_SMALL: return Loc.s(ctx, "SMALL");
-            case FanProfile.MODE_MEDIUM: return Loc.s(ctx, "MEDIUM");
-            case FanProfile.MODE_LARGE: return Loc.s(ctx, "LARGE");
-            case FanProfile.MODE_HOLD: return Loc.s(ctx, "HOLD");
-            default: return null;
-        }
-    }
-
-    /**
-     * The firmware fan_mode setting only knows OFF/LOW/SMART/HIGH/MANUAL. Pavo
-     * stores curve and preset modes (CURVE, SMALL…HOLD) in fan_app_mode, so the
-     * panel must read the app's mode, with a per-app override taking priority.
-     */
-    private int activeFanMode() {
-        Prefs p = prefs != null ? prefs : new Prefs(ctx);
-        String fg = PavoA11yService.foregroundPackage();
-        if (fg != null && !fg.isEmpty() && !fg.equals(ctx.getPackageName())) {
-            FanProfile app = new FanProfileStore(ctx).app(fg);
-            if (app != null) return app.mode;
-        }
-        if (p.hasFanAppMode()) return p.fanAppMode();
-        return PerfTuner.fanMode(ctx);
+        return FanProfile.activeLabel(ctx);
     }
 
     private void addCpuModule(List<Module> modules, float valPx, float unitPx, float detailPx) {

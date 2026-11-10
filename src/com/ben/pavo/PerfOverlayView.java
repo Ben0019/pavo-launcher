@@ -23,6 +23,7 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Random;
 
@@ -63,6 +64,9 @@ final class PerfOverlayView extends LinearLayout {
     private FpsGraphView graph;
     private final boolean horizontal;
     private TextView stripText;
+    private final int[] stripFps = new int[120];
+    private int stripFpsCount;
+    private int stripFpsIndex;
     private TextView titleView;
     private String presetLabel;
     private long presetReadAt;
@@ -274,7 +278,9 @@ final class PerfOverlayView extends LinearLayout {
         addView(titleView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         stripText = new LTextView(c);
-        stripText.setSingleLine(true);
+        stripText.setSingleLine(false);
+        stripText.setMaxLines(2);
+        stripText.setHorizontallyScrolling(false);
         stripText.setIncludeFontPadding(false);
         String lang = Loc.languageCode(c);
         float stripSp = ("ja".equals(lang) || "zh-CN".equals(lang)) ? 8f
@@ -299,84 +305,140 @@ final class PerfOverlayView extends LinearLayout {
         Prefs p = new Prefs(getContext());
         boolean any = false;
         if (p.perfCpuTemp() || p.perfCpuClock() || p.perfCpuUsage()) {
-            appendSpan(b, Loc.s(getContext(), "CPU ") + " ", MUTED);
+            if (any) stripSep(b);
+            appendLocked(b, "CPU ", MUTED);
             if (p.perfCpuTemp()) {
-                appendSpan(b, fmtTemp(s.cpuTempC) + " ", s.cpuTempC > 0f
+                appendLocked(b, fmtTemp(s.cpuTempC), s.cpuTempC > 0f
                         ? heat((s.cpuTempC - 32f) / 55f) : 0xFF8792A3);
+                if (p.perfCpuClock() || p.perfCpuUsage()) appendLocked(b, " ", TEXT);
             }
             if (p.perfCpuClock()) {
-                appendSpan(b, (s.cpuHz > 0 ? fmtHz(s.cpuHz) : "\u2014") + " ",
+                appendLocked(b, s.cpuHz > 0 ? fmtHz(s.cpuHz) : "\u2014",
                         s.cpuHz > 0 && s.cpuMaxHz > 0
                                 ? heat(s.cpuHz / (float) s.cpuMaxHz) : 0xFF8792A3);
+                if (p.perfCpuUsage()) appendLocked(b, " ", TEXT);
             }
             if (p.perfCpuUsage()) {
-                appendSpan(b, (s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014") + "  ",
+                appendLocked(b, s.cpuUsageKnown ? s.cpuUsage + "%" : "\u2014",
                         s.cpuUsageKnown ? heat(s.cpuUsage / 100f) : 0xFF8792A3);
             }
             any = true;
         }
         if (p.perfGpuTemp() || p.perfGpuClock() || p.perfGpuUsage()) {
             if (any) stripSep(b);
-            appendSpan(b, Loc.s(getContext(), "GPU ") + " ", MUTED);
+            appendLocked(b, "GPU ", MUTED);
             if (p.perfGpuTemp()) {
-                appendSpan(b, fmtTemp(s.gpuTempC) + " ", s.gpuTempC > 0f
+                appendLocked(b, fmtTemp(s.gpuTempC), s.gpuTempC > 0f
                         ? heat((s.gpuTempC - 32f) / 55f) : 0xFF8792A3);
+                if (p.perfGpuClock() || p.perfGpuUsage()) appendLocked(b, " ", TEXT);
             }
             if (p.perfGpuClock()) {
-                appendSpan(b, s.gpuHz > 0
-                        ? fmtHz(s.gpuHz) + (s.gpuCapHz > 0 ? "/" + fmtHz(s.gpuCapHz) : "")
-                        + " " : "\u2014 ", clockHeat(s.gpuHz, s.gpuMaxHz));
+                appendLocked(b, s.gpuHz > 0
+                                ? fmtHz(s.gpuHz) + (s.gpuCapHz > 0 ? "/" + fmtHz(s.gpuCapHz) : "")
+                                : "\u2014",
+                        clockHeat(s.gpuHz, s.gpuMaxHz));
+                if (p.perfGpuUsage()) appendLocked(b, " ", TEXT);
             }
             if (p.perfGpuUsage()) {
-                appendSpan(b, (s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014") + "  ",
+                appendLocked(b, s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014",
                         s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0xFF8792A3);
             }
             any = true;
         }
         if (p.perfRam()) {
             if (any) stripSep(b);
-            appendSpan(b, "RAM ", MUTED);
+            appendLocked(b, "RAM ", MUTED);
             if (s.memTotalKb > 0) {
                 int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
                 float usedGb = Math.max(0f, (s.memTotalKb - s.memAvailKb) / 1_000_000f);
-                appendSpan(b, String.format(Locale.US, "%.1f/%dG", usedGb, totalGb) + "  ",
+                appendLocked(b, String.format(Locale.US, "%.1f/%dG", usedGb, totalGb),
                         levelHeat(s.memPercent / 100f));
             } else {
-                appendSpan(b, "\u2014  ", TEXT);
+                appendLocked(b, "\u2014", TEXT);
             }
             any = true;
         }
         if (p.perfBattery()) {
             if (any) stripSep(b);
-            appendSpan(b, "BATT ", MUTED);
-            appendSpan(b, fmtTemp(s.batteryTempC) + " ", s.batteryTempC > 0f
-                    ? heat((s.batteryTempC - 30f) / 40f) : 0xFF8792A3);
-            appendSpan(b, (s.powerW > 0f ? String.format(Locale.US, "%.1fW", s.powerW) : "\u2014") + "  ",
-                    s.powerW > 0f ? heat(s.powerW / 25f) : 0xFF8792A3);
+            appendLocked(b, "BATT ", MUTED);
+            if (s.battery >= 0) {
+                appendLocked(b, s.battery + "%", batteryColor(s.battery));
+                if (s.batteryTempC > 0f || s.charging) appendLocked(b, " ", TEXT);
+            }
+            if (s.batteryTempC > 0f) {
+                appendLocked(b, fmtTemp(s.batteryTempC),
+                        heat((s.batteryTempC - 30f) / 40f));
+                if (s.charging) appendLocked(b, " ", TEXT);
+            }
+            if (s.charging) appendLocked(b, "\u26A1", 0xFFFFC857);
+            any = true;
+        }
+        if (p.perfBattery() && s.powerW > 0f) {
+            if (any) stripSep(b);
+            appendLocked(b, "PWR ", MUTED);
+            appendLocked(b, String.format(Locale.US, "%.1fW", s.powerW),
+                    heat(s.powerW / 25f));
             any = true;
         }
         if (p.perfFps()) {
             if (any) stripSep(b);
-            appendSpan(b, "FPS ", MUTED);
-            String fpsText = "\u2014";
-            if (s.fpsValid) fpsText = String.valueOf(s.fps);
-            appendSpan(b, fpsText + "  ",
+            appendLocked(b, "FPS ", MUTED);
+            appendLocked(b, s.fpsValid ? String.valueOf(s.fps) : "\u2014",
                     s.fpsValid ? fpsColor(s.fps) : 0xFFC4CBD6);
+            if (s.fpsValid) {
+                pushStripFps(s.fps);
+                if (p.perfFpsGraph()) {
+                    String avg = stripAvg();
+                    if (avg != null) {
+                        appendLocked(b, "  AVG ", MUTED);
+                        appendLocked(b, avg, TEXT);
+                    }
+                    String low = stripLow();
+                    if (low != null) {
+                        appendLocked(b, "  1% ", MUTED);
+                        appendLocked(b, low, TEXT);
+                    }
+                }
+            }
             any = true;
-        }
-        if (p.perfBattery() && s.battery >= 0) {
-            if (any) stripSep(b);
-            appendSpan(b, "\u00b7 " + s.battery + "%", batteryColor(s.battery));
         }
         if (p.perfFan()) {
             if (any) stripSep(b);
-            appendSpan(b, "FAN ", MUTED);
+            appendLocked(b, "FAN ", MUTED);
+            String mode = FanProfile.activeLabel(getContext());
+            if (mode != null && !mode.isEmpty()) appendLocked(b, mode + " ", TEXT);
             int duty = PerfTuner.fanPercent(getContext());
-            appendSpan(b, (duty >= 0 ? duty + "%" : "\u2014") + "  ",
+            appendLocked(b, duty >= 0 ? duty + "%" : "\u2014",
                     duty >= 0 ? heat(duty / 100f) : 0xFF8792A3);
+            any = true;
         }
-        if (!any) appendSpan(b, "no metrics selected", 0xFFC4CBD6);
+        if (!any) appendLocked(b, "no metrics selected", 0xFFC4CBD6);
         stripText.setText(b);
+    }
+
+    private void appendLocked(android.text.SpannableStringBuilder b, String text, int color) {
+        appendSpan(b, text.replace(' ', '\u00A0'), color);
+    }
+
+    private void pushStripFps(int fps) {
+        stripFps[stripFpsIndex] = Math.max(0, Math.min(240, fps));
+        stripFpsIndex = (stripFpsIndex + 1) % stripFps.length;
+        if (stripFpsCount < stripFps.length) stripFpsCount++;
+    }
+
+    private String stripAvg() {
+        if (stripFpsCount < 4) return null;
+        int sum = 0;
+        for (int i = 0; i < stripFpsCount; i++) sum += stripFps[i];
+        return String.valueOf(Math.round(sum / (float) stripFpsCount));
+    }
+
+    private String stripLow() {
+        if (stripFpsCount < 8) return null;
+        int[] copy = Arrays.copyOf(stripFps, stripFpsCount);
+        Arrays.sort(copy);
+        return String.valueOf(copy[Math.max(0, Math.min(copy.length - 1,
+                stripFpsCount / 100))]);
     }
 
     private String fmtTemp(float c) {
@@ -385,7 +447,7 @@ final class PerfOverlayView extends LinearLayout {
 
     /** Thin white rule between two metrics in the strip. */
     private void stripSep(android.text.SpannableStringBuilder b) {
-        appendSpan(b, "\u2502  ", 0xFFD5DAE2);
+        appendSpan(b, "  \u00b7  ", 0xFFD5DAE2);
     }
 
     private void appendSpan(android.text.SpannableStringBuilder b, String text, int color) {

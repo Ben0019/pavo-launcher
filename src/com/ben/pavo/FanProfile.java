@@ -1,5 +1,7 @@
 package com.ben.pavo;
 
+import android.content.Context;
+
 /** Fan-only profile used by the global and per-app fan contexts. */
 final class FanProfile {
     static final int MODE_CURVE = 7;
@@ -63,5 +65,37 @@ final class FanProfile {
 
     static int clampPct(int pct) {
         return Math.max(10, Math.min(100, pct));
+    }
+
+    /** Pavo's live fan mode, including per-app overrides. */
+    static int activeMode(Context c) {
+        if (c == null) return PerfTuner.FAN_SMART;
+        Prefs p = new Prefs(c);
+        String fg = PavoA11yService.foregroundPackage();
+        if (fg != null && !fg.isEmpty() && !fg.equals(c.getPackageName())) {
+            FanProfile app = new FanProfileStore(c).app(fg);
+            if (app != null) return app.mode;
+        }
+        return p.hasFanAppMode() ? p.fanAppMode() : PerfTuner.fanMode(c);
+    }
+
+    static String label(Context c, int mode) {
+        switch (mode) {
+            case PerfTuner.FAN_OFF: return Loc.s(c, "OFF");
+            case PerfTuner.FAN_LOW: return Loc.s(c, "LOW");
+            case PerfTuner.FAN_SMART: return Loc.s(c, "SMART");
+            case PerfTuner.FAN_HIGH: return Loc.s(c, "HIGH");
+            case PerfTuner.FAN_MANUAL: return Loc.s(c, "MANUAL");
+            case MODE_CURVE: return Loc.s(c, "CURVE");
+            case MODE_SMALL: return Loc.s(c, "SMALL");
+            case MODE_MEDIUM: return Loc.s(c, "MEDIUM");
+            case MODE_LARGE: return Loc.s(c, "LARGE");
+            case MODE_HOLD: return Loc.s(c, "HOLD");
+            default: return null;
+        }
+    }
+
+    static String activeLabel(Context c) {
+        return label(c, activeMode(c));
     }
 }

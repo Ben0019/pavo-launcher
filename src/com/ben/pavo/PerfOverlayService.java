@@ -1312,7 +1312,11 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
             baseWidthPx = Math.max(Ui.dp(uiContext, 260),
                     Math.min(maxW, panel.getMeasuredWidth()));
-
+            // Re-measure at the capped width so a long metric row wraps to its
+            // second line and the window height follows it.
+            panel.measure(View.MeasureSpec.makeMeasureSpec(baseWidthPx,
+                            View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
             baseHeightPx = Math.max(Ui.dp(uiContext, 44), panel.getMeasuredHeight());
         } else {
             int widthSpec = View.MeasureSpec.makeMeasureSpec(baseWidthPx, View.MeasureSpec.EXACTLY);
