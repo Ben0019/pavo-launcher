@@ -12,6 +12,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - The panel is capped to 42% of the display width and 70% of its height, so it stays clear of the game.
 - Idle FPS shows a dim `--` until a live frame stream resolves.
 - CPU, GPU, RAM, battery, power and fan each own one row; watt is a dedicated POWER module.
+- The fan row now shows Pavo's own mode (CURVE, SMALL–LARGE, HOLD or a per-app override) instead of the firmware's limited `fan_mode` value.
 - Strip mode is unchanged and still switches with a double tap.
 
 ## 1.0.46 — 10 Nov 2026
