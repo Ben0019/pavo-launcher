@@ -241,6 +241,11 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         curve = new EqCurveView(this);
+        curve.setListener(new EqCurveView.Listener() {
+            @Override public void onLevelChanged(int index, int level) {
+                applyCurveLevel(index, level);
+            }
+        });
         LinearLayout.LayoutParams curveLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(132));
         curveLp.bottomMargin = dp(8);
@@ -293,8 +298,9 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         close.setGravity(Gravity.CENTER);
         close.setIncludeFontPadding(false);
         close.setFocusable(true);
-        close.setFocusable(true);
-        close.setPadding(dp(10), 0, dp(2), 0);
+        close.setPadding(dp(7), dp(4), dp(7), dp(4));
+        close.setMinWidth(dp(36));
+        close.setMinHeight(dp(36));
         close.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -456,6 +462,21 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         for (SeekBar bar : bars) bar.setEnabled(available);
     }
 
+    private void applyCurveLevel(int index, int level) {
+        if (index < 0 || index >= bars.size()) return;
+        int min = AudioEq.minLevel(this);
+        int max = AudioEq.maxLevel(this);
+        level = Math.max(min, Math.min(max, level));
+        AudioEq.setBand(this, index, level);
+        updating = true;
+        bars.get(index).setProgress(Math.max(0,
+                Math.min(bars.get(index).getMax(), level - min)));
+        updating = false;
+        values.get(index).setText(formatDb(level));
+        curve.setLevels(currentLevels(), -1200, 1200);
+        updatePresetSelection();
+    }
+
     private int[] currentLevels() {
         int count = bars.size();
         int[] levels = new int[count];
@@ -525,11 +546,19 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         private int min = -1500;
         private int max = 1500;
         private int accent = 0xFFA9BEFF;
+        private Listener listener;
+        private int dragIndex = -1;
+
+        interface Listener {
+            void onLevelChanged(int index, int level);
+        }
 
         EqCurveView(SoundTunerActivity host) {
             super(host);
             accent = host.accent;
             setWillNotDraw(false);
+            setClickable(true);
+            setFocusable(false);
             line.setStyle(Paint.Style.STROKE);
             line.setStrokeWidth(Ui.dp(host, 2.2f));
             line.setStrokeCap(Paint.Cap.ROUND);
@@ -544,6 +573,73 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             this.min = min;
             this.max = max;
             invalidate();
+        }
+
+        void setListener(Listener listener) {
+            this.listener = listener;
+        }
+
+        private float plotLeft() {
+            return Ui.dp(getContext(), 14);
+        }
+
+        private float plotRight() {
+            return Math.max(plotLeft() + 1, getWidth() - Ui.dp(getContext(), 14));
+        }
+
+        private float plotTop() {
+            return Ui.dp(getContext(), 14);
+        }
+
+        private float plotBottom() {
+            return Math.max(plotTop() + 1, getHeight() - Ui.dp(getContext(), 14));
+        }
+
+        private int nearestIndex(float x) {
+            if (levels.length == 0) return -1;
+            if (levels.length == 1) return 0;
+            float step = (plotRight() - plotLeft()) / (levels.length - 1f);
+            int index = Math.round((x - plotLeft()) / step);
+            return Math.max(0, Math.min(levels.length - 1, index));
+        }
+
+        private void applyTouch(float y) {
+            if (dragIndex < 0 || dragIndex >= levels.length) return;
+            float top = plotTop();
+            float bottom = plotBottom();
+            float norm = (bottom - y) / Math.max(1f, bottom - top);
+            norm = Math.max(0f, Math.min(1f, norm));
+            int level = min + Math.round(norm * (max - min));
+            level = Math.round(level / 10f) * 10; // 0.1 dB steps, quiet live changes
+            level = Math.max(min, Math.min(max, level));
+            levels[dragIndex] = level;
+            if (listener != null) listener.onLevelChanged(dragIndex, level);
+            invalidate();
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    dragIndex = nearestIndex(event.getX());
+                    return dragIndex >= 0;
+                case MotionEvent.ACTION_MOVE:
+                    if (dragIndex < 0) return false;
+                    applyTouch(event.getY());
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    if (dragIndex >= 0) applyTouch(event.getY());
+                    dragIndex = -1;
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    dragIndex = -1;
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         @Override
@@ -561,10 +657,10 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                         w - Ui.dp(getContext(), 10), y, grid);
             }
             if (levels.length == 0) return;
-            float left = Ui.dp(getContext(), 14);
-            float right = w - Ui.dp(getContext(), 14);
-            float top = Ui.dp(getContext(), 14);
-            float bottom = h - Ui.dp(getContext(), 14);
+            float left = plotLeft();
+            float right = plotRight();
+            float top = plotTop();
+            float bottom = plotBottom();
             float pad = 8f;
             int count = levels.length;
             float step = count > 1 ? (right - left) / (count - 1) : 0f;
@@ -599,7 +695,12 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 norm = Math.max(0f, Math.min(1f, norm));
                 float x = left + i * step;
                 float y = bottom - norm * (bottom - top);
-                canvas.drawCircle(x, y, Ui.dp(getContext(), 4), dot);
+                if (i == dragIndex) {
+                    Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    halo.setColor((accent & 0x00FFFFFF) | 0x33000000);
+                    canvas.drawCircle(x, y, Ui.dp(getContext(), 9), halo);
+                }
+                canvas.drawCircle(x, y, Ui.dp(getContext(), i == dragIndex ? 5 : 4), dot);
             }
         }
     }

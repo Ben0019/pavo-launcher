@@ -672,7 +672,9 @@ public final class GalleryActivity extends PavoGlassActivity {
         close.setGravity(Gravity.CENTER);
         close.setIncludeFontPadding(false);
         close.setFocusable(true);
-        close.setPadding(dp(10), 0, dp(2), 0);
+        close.setPadding(dp(7), dp(4), dp(7), dp(4));
+        close.setMinWidth(dp(36));
+        close.setMinHeight(dp(36));
         close.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 finishAnimated();
