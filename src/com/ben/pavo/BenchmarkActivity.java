@@ -882,18 +882,20 @@ public final class BenchmarkActivity extends PavoGlassActivity {
     private void startFanHold() {
         stopFanHold();
         if (fanManual && fanPct <= 0) return;
+        if (!fanManual) {
+            // SMART means "use the active fan curve". QUIET and SPORT map to
+            // the firmware's own low/high curves instead of the old hardcoded
+            // step table that fought the user's Fan Control setup.
+            if (fanModeIndex == 1) return;
+            PerfTuner.setFanMode(this, fanModeIndex == 0
+                    ? PerfTuner.FAN_LOW : PerfTuner.FAN_HIGH);
+            return;
+        }
         fanHoldTask = new Runnable() {
             @Override public void run() {
                 if (!running) return;
-                if (fanManual) {
-                    PerfTuner.setFanManualPServer(fanPct);
-                    main.postDelayed(this, 2000L);
-                } else {
-                    int speed = fanCurveSpeed();
-                    PerfTuner.setFanManualPServer(speed);
-                    if (fanSpeedValue != null) fanSpeedValue.setText(speed + "%");
-                    main.postDelayed(this, 500L);
-                }
+                PerfTuner.setFanManualPServer(fanPct);
+                main.postDelayed(this, 2000L);
             }
         };
         main.postDelayed(fanHoldTask, 500L);
@@ -907,6 +909,12 @@ public final class BenchmarkActivity extends PavoGlassActivity {
                     : temps.length > 0 ? temps[0] : 0f;
         }
         return temp;
+    }
+
+    private int currentFanPercent() {
+        int pct = PerfTuner.fanPercent(this);
+        if (pct >= 0) return pct;
+        return fanCurveSpeed();
     }
 
     private int fanCurveSpeed() {
@@ -961,9 +969,12 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         }
         if (fanManual) {
             if (fanPct > 0) PerfTuner.setFanManualPServer(fanPct);
-        } else {
-            PerfTuner.setFanManualPServer(fanCurveSpeed());
+        } else if (fanModeIndex == 0) {
+            PerfTuner.setFanMode(this, PerfTuner.FAN_LOW);
+        } else if (fanModeIndex == 2) {
+            PerfTuner.setFanMode(this, PerfTuner.FAN_HIGH);
         }
+        // SMART: leave the active Fan Control curve alone.
     }
 
     private void stopFanHold() {
@@ -1140,7 +1151,7 @@ public final class BenchmarkActivity extends PavoGlassActivity {
                     frequencyForPct(gpuClockTable, gpuPct)));
         }
         if (fanSpeedValue != null) {
-            fanSpeedValue.setText(fanManual ? fanPct + "%" : fanCurveSpeed() + "%");
+            fanSpeedValue.setText(fanManual ? fanPct + "%" : currentFanPercent() + "%");
         }
     }
 
@@ -1160,7 +1171,7 @@ public final class BenchmarkActivity extends PavoGlassActivity {
                 !fanManual ? ThemeColors.accent() : 0x55FFFFFF,
                 !fanManual ? 0x00000000 : 0xAAFFFFFF));
         if (fanSpeedValue != null) {
-            fanSpeedValue.setText(fanManual ? fanPct + "%" : fanCurveSpeed() + "%");
+            fanSpeedValue.setText(fanManual ? fanPct + "%" : currentFanPercent() + "%");
         }
     }
 
@@ -1335,9 +1346,12 @@ public final class BenchmarkActivity extends PavoGlassActivity {
         }
         if (fanManual) {
             if (fanPct > 0) PerfTuner.setFanManualPServer(fanPct);
-        } else {
-            PerfTuner.setFanManualPServer(fanCurveSpeed());
+        } else if (fanModeIndex == 0) {
+            PerfTuner.setFanMode(this, PerfTuner.FAN_LOW);
+        } else if (fanModeIndex == 2) {
+            PerfTuner.setFanMode(this, PerfTuner.FAN_HIGH);
         }
+        // SMART: leave the active Fan Control curve alone.
         }
     }
 
