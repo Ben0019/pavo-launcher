@@ -13,7 +13,6 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +40,7 @@ final class FanCurveView extends View {
     private final Paint focusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bubbleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bubbleStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint bubbleLink = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF plot = new RectF();
     private final RectF bubble = new RectF();
     private final Path path = new Path();
@@ -65,6 +65,11 @@ final class FanCurveView extends View {
     private boolean longPressFired;
     private float downX;
     private float downY;
+    private float touchX;
+    private float touchY;
+    private boolean touching;
+    private static final long POINT_LONG_PRESS_MS = 1200L;
+    private static final float DRAG_SLOP_DP = 18f;
 
     FanCurveView(Context c) {
         super(c);
@@ -104,6 +109,9 @@ final class FanCurveView extends View {
         bubbleStroke.setStyle(Paint.Style.STROKE);
         bubbleStroke.setStrokeWidth(Ui.dpf(c, 1f));
         bubbleStroke.setColor(0x99FFFFFF);
+        bubbleLink.setStyle(Paint.Style.STROKE);
+        bubbleLink.setStrokeWidth(Ui.dpf(c, 1f));
+        bubbleLink.setColor(0x55FFFFFF);
         setFocusable(true);
         setFocusableInTouchMode(true);
         setDefaultFocusHighlightEnabled(false);
@@ -304,19 +312,37 @@ final class FanCurveView extends View {
         float x = xFor(p[0]);
         float y = yFor(p[1]);
         String label = Loc.number(getContext(), p[0] + "°") + "  ·  " + p[1] + "%";
-        textPaint.setTextSize(Ui.dpf(getContext(), 8f));
+        float textSize = Ui.dpf(getContext(), 9f);
+        textPaint.setTextSize(textSize);
         textPaint.setTextAlign(Paint.Align.CENTER);
         float tw = textPaint.measureText(label);
-        float padX = Ui.dpf(getContext(), 6f);
-        float padY = Ui.dpf(getContext(), 4f);
+        float padX = Ui.dpf(getContext(), 8f);
+        float padY = Ui.dpf(getContext(), 5f);
         float bw = tw + padX * 2f;
-        float bh = Ui.dpf(getContext(), 8f) + padY * 2f;
-        float bx = Math.max(plot.left, Math.min(plot.right - bw, x - bw / 2f));
-        float by = y - bh - Ui.dpf(getContext(), 7f);
-        if (by < plot.top) by = y + Ui.dpf(getContext(), 7f);
-        by = Math.min(by, plot.bottom - bh);
+        float bh = textSize + padY * 2f;
+        float pad = Ui.dpf(getContext(), 5f);
+        float bx;
+        float by;
+        if (touching) {
+            // Put the readout in the opposite corner so the finger never covers it.
+            boolean right = touchX < plot.centerX();
+            boolean bottom = touchY < plot.centerY();
+            bx = right ? plot.right - bw - pad : plot.left + pad;
+            by = bottom ? plot.bottom - bh - pad : plot.top + pad;
+            bx = Math.max(plot.left, Math.min(plot.right - bw, bx));
+            by = Math.max(plot.top, Math.min(plot.bottom - bh, by));
+            // A faint leader keeps the bubble tied to the point being moved.
+            float ax = Math.max(bx, Math.min(bx + bw, x));
+            float ay = Math.max(by, Math.min(by + bh, y));
+            c.drawLine(x, y, ax, ay, bubbleLink);
+        } else {
+            bx = Math.max(plot.left, Math.min(plot.right - bw, x - bw / 2f));
+            by = y - bh - Ui.dpf(getContext(), 7f);
+            if (by < plot.top) by = y + Ui.dpf(getContext(), 7f);
+            by = Math.min(by, plot.bottom - bh);
+        }
         bubble.set(bx, by, bx + bw, by + bh);
-        float radius = Ui.dpf(getContext(), 6f);
+        float radius = Ui.dpf(getContext(), 7f);
         c.drawRoundRect(bubble, radius, radius, bubbleFill);
         c.drawRoundRect(bubble, radius, radius, bubbleStroke);
         textPaint.setColor(0xFFFFFFFF);
@@ -370,6 +396,9 @@ final class FanCurveView extends View {
                 layoutPlot();
                 downX = event.getX();
                 downY = event.getY();
+                touchX = downX;
+                touchY = downY;
+                touching = true;
                 dragging = false;
                 longPressFired = false;
                 int best = -1;
@@ -396,10 +425,12 @@ final class FanCurveView extends View {
                 return true;
             }
             case MotionEvent.ACTION_MOVE: {
+                touchX = event.getX();
+                touchY = event.getY();
                 if (longPressFired) return true;
                 float dx = event.getX() - downX;
                 float dy = event.getY() - downY;
-                if (!dragging && Math.hypot(dx, dy) > Ui.dpf(getContext(), 8f)) {
+                if (!dragging && Math.hypot(dx, dy) > Ui.dpf(getContext(), DRAG_SLOP_DP)) {
                     dragging = true;
                     cancelPointLongPress();
                 }
@@ -431,6 +462,7 @@ final class FanCurveView extends View {
                 cancelPointLongPress();
                 dragging = false;
                 longPressFired = false;
+                touching = false;
                 if (getParent() != null) {
                     getParent().requestDisallowInterceptTouchEvent(false);
                 }
@@ -457,8 +489,7 @@ final class FanCurveView extends View {
                 }
             }
         };
-        longPressHandler.postDelayed(longPressAction,
-                ViewConfiguration.getLongPressTimeout());
+        longPressHandler.postDelayed(longPressAction, POINT_LONG_PRESS_MS);
     }
 
     private void cancelPointLongPress() {
