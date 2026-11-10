@@ -351,18 +351,8 @@ final class FusionHudRenderer {
                 : String.valueOf(Math.round(v));
     }
 
-    private boolean generating() {
-        return stats != null && stats.frameGenActive
-                && PerfOverlayView.generatedFrames(stats) > 0;
-    }
-
     private String fpsText() {
-        float v = fpsNow();
-        if (generating()) {
-            int made = PerfOverlayView.generatedFrames(stats);
-            return Math.max(0, Math.round(v) - made) + "\u2192" + Math.round(v);
-        }
-        return one(v);
+        return one(fpsNow());
     }
 
     private String fmt1(float v) {
@@ -507,24 +497,21 @@ final class FusionHudRenderer {
     }
 
     private void buildMinimal() {
-        // Smallest mode: just the FPS number, and the frame-generation figure
-        // when frames are being generated. Everything else stays in the larger
-        // modes, so this card stays a tiny pill that hugs its one number.
+        // Smallest mode: just the FPS number. Everything else stays in the
+        // larger modes, so this card stays a tiny pill that hugs its one number.
         float bigPx = sp(34f);
         float unitPx = bigPx * 0.32f;
         float pad = sp(10f);
-        boolean gen = generating();
-        float textPx = gen ? bigPx * 0.60f : bigPx;
 
         List<Span> big = new ArrayList<>();
-        big.add(span(fpsText(), COL_VALUE, textPx));
-        big.add(span("fps", COL_DIM, gen ? unitPx * 0.8f : unitPx));
+        big.add(span(fpsText(), COL_VALUE, bigPx));
+        big.add(span("fps", COL_DIM, unitPx));
 
         float bigW = runWidth(big);
-        float bigH = lineH(textPx);
+        float bigH = lineH(bigPx);
         contentW = bigW + pad * 2f;
         contentH = bigH + pad * 2f;
-        placeRun(pad, pad - ascent(textPx), big);
+        placeRun(pad, pad - ascent(bigPx), big);
     }
 
     private void buildPill() {
@@ -534,11 +521,10 @@ final class FusionHudRenderer {
         float pad = sp(10f);
         float midGap = sp(12f);
         float lineGap = sp(3f);
-        boolean gen = generating();
 
         List<Span> left = new ArrayList<>();
-        left.add(span(fpsText(), COL_VALUE, gen ? bigPx * 0.55f : bigPx));
-        left.add(span("fps", COL_DIM, gen ? bigUnit * 0.8f : bigUnit));
+        left.add(span(fpsText(), COL_VALUE, bigPx));
+        left.add(span("fps", COL_DIM, bigUnit));
 
         List<List<Span>> stack = new ArrayList<>();
         if (showGpuUsage || showCpuUsage) {

@@ -20,10 +20,6 @@ final class PerfStats {
     int memPercent;
     int fps;
     boolean fpsValid;
-    /** Frames per real frame when the app is generating interpolated frames. */
-    int frameGenMultiplier;
-    boolean frameGenActive;
-    float frameGenRatio;
     int coreCount = MAX_CORES;
     long netRxBps;
     long netTxBps;

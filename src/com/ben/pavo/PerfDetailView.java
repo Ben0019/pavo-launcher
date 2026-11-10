@@ -197,15 +197,8 @@ final class PerfDetailView extends FrameLayout {
                 ? Loc.s(getContext(), "No foreground app") : d.appLabel);
         packageName.setText(d.pkg == null ? "" : d.pkg);
 
-        int made = d.frameGenActive ? (d.frameGenRatio > 0f
-                ? Math.round(d.fps * d.frameGenRatio / (1f + d.frameGenRatio))
-                : Math.round(d.fps * (d.frameGenMultiplier - 1)
-                        / (float) d.frameGenMultiplier)) : 0;
-        made = Math.max(0, Math.min(d.fps, made));
-        fpsBig.setText(d.fpsValid
-                ? String.valueOf(d.fps - made) : "\u2014");
-        fpsUnit.setText(d.fpsValid && made > 0
-                ? "fps (" + d.fps + ")" : "fps");
+        fpsBig.setText(d.fpsValid ? String.valueOf(d.fps) : "\u2014");
+        fpsUnit.setText("fps");
         fpsBig.setTextColor(d.fpsValid ? PerfOverlayView.fpsColor(d.fps) : 0x55FFFFFF);
         if (d.maxFps <= 0) {
             avgFps.setText("AVG \u2014");

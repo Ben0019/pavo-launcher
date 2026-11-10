@@ -31,7 +31,7 @@ final class PerfSampler {
      * writes its output to a file in our cache dir and we poll for it.
      */
     private static final String PSERVER_SCRIPT =
-            "out=\"$1\"; tok=\"$2\"; cached=\"$3\"; fgpkg=\"$4\"; fgmult=\"$5\"; fgts=\"$6\"\n"
+            "out=\"$1\"; tok=\"$2\"\n"
             + "tmp=\"$out.$tok.tmp\"\n"
             + "top=$(dumpsys activity activities 2>/dev/null | grep -m1 topResumedActivity)\n"
             + "comp=$(printf '%s\\n' \"$top\" | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -n1)\n"
@@ -41,87 +41,12 @@ final class PerfSampler {
             + "{\n"
             + "echo \"TOKEN:$tok\"\n"
             + "echo \"APP:$full\"\n"
-            + "echo \"FGAPP:$pkg\"\n"
-            + "now=$(date +%s)\n"
-            + "lg=$(logcat -d -t 200 -v epoch -s VkRenderer VkrLsfg 2>/dev/null | grep -i 'framegen delivered' | tail -n 1)\n"
-            + "if [ -n \"$lg\" ]; then\n"
-            + "  lp=$(printf '%s' \"$lg\" | awk '{print $2}')\n"
-            + "  lu=$(stat -c %u \"/proc/$lp\" 2>/dev/null)\n"
-            + "  au=$(stat -c %u \"/data/data/$pkg\" 2>/dev/null)\n"
-            + "  [ -n \"$lu\" ] && [ \"$lu\" = \"$au\" ] || lg=\n"
-            + "fi\n"
-            + "fgm=; fga=\n"
-            + "if [ -n \"$lg\" ]; then\n"
-            + "  lt=$(printf '%s' \"$lg\" | awk '{print $1}' | cut -d. -f1)\n"
-            + "  rt=$(printf '%s' \"$lg\" | grep -oE 'ratio=[0-9.]+' | head -n 1 | cut -d= -f2)\n"
-            + "  if [ -n \"$lt\" ] && [ $((now - lt)) -le 6 ] && [ -n \"$rt\" ] && awk -v r=\"$rt\" 'BEGIN{exit !(r>0.02)}'; then\n"
-            + "    fgm=$(awk -v r=\"$rt\" 'BEGIN{printf \"%d\", r+1.5}')\n"
-            + "    fga=$rt\n"
-            + "  fi\n"
-            + "fi\n"
-            + "if [ -z \"$fga\" ]; then\n"
-            + "  if [ \"$fgpkg\" = \"$pkg\" ] && [ -n \"$fgmult\" ] && [ -n \"$fgts\" ] && [ $((now - fgts)) -lt 20 ]; then\n"
-            + "    fgm=$fgmult\n"
-            + "  else\n"
-            + "    droot=\"/data/data/$pkg/files\"\n"
-            + "    root=\"/data/media/0/Android/data/$pkg/files\"\n"
-            + "    [ -d \"$root\" ] || root=\"/sdcard/Android/data/$pkg/files\"\n"
-            + "    fgm=\n"
-            + "    home=$(readlink -f \"$droot/imagefs/home/xuser\" 2>/dev/null)\n"
-            + "    { [ -n \"$home\" ] && [ -d \"$home\" ]; } || home=$(ls -d \"$droot\"/imagefs/home/xuser-* 2>/dev/null | head -n 1)\n"
-            + "    cj=\"$home/.container\"\n"
-            + "    if [ -n \"$home\" ] && [ -f \"$cj\" ]; then\n"
-            + "      jval() { tr ',' '\\n' < \"$cj\" | grep -F \"\\\"$1\\\":\" | tail -n 1 | tr -dc '0-9'; }\n"
-            + "      jstr() { tr ',' '\\n' < \"$cj\" | grep -F \"\\\"$1\\\":\" | tail -n 1 | sed 's/^[^:]*:[[:space:]]*\"//; s/\".*$//'; }\n"
-            + "      fgon=0\n"
-            + "      [ \"$(jval frameGen)\" = \"1\" ] && fgon=1\n"
-            + "      [ \"$(jval disFrameGen)\" = \"1\" ] && fgon=1\n"
-            + "      [ \"$(jval frameGenEnabled)\" = \"1\" ] && fgon=1\n"
-            + "      eng=$(jstr frameGenEngine)\n"
-            + "      case \"$eng\" in \"\"|off|none|0) ;; *) fgon=1 ;; esac\n"
-            + "      m=$(jval frameGenMultiplier)\n"
-            + "      [ -z \"$m\" ] && [ -f \"$home/.config/lsfg-vk/conf.toml\" ] && m=$(grep -iE '^[[:space:]]*multiplier[[:space:]]*=' \"$home/.config/lsfg-vk/conf.toml\" 2>/dev/null | tail -n 1 | grep -oE '[0-9]+')\n"
-            + "      [ \"$fgon\" = \"1\" ] && [ -n \"$m\" ] && [ \"$m\" -ge 2 ] && fgm=$m\n"
-            + "    fi\n"
-            + "    if [ -z \"$fgm\" ]; then\n"
-            + "      cfgs=$(for d in \"$root\" \"/data/data/$pkg/files\" \"/data/data/$pkg/shared_prefs\"; do\n"
-            + "        [ -d \"$d\" ] || continue\n"
-            + "        timeout 2 find \"$d\" -maxdepth 3 -type f \\( -iname '*config*' -o -iname '*settings*' -o -iname '*.ini' -o -iname '*.xml' -o -iname '*.conf' \\) -size -512k 2>/dev/null\n"
-            + "      done | head -n 20)\n"
-            + "      if [ -n \"$cfgs\" ]; then\n"
-            + "        gcfg=$(printf '%s\\n' \"$cfgs\" | grep -E '/config\\.ini$|/config/[^/]+\\.(ini|conf|xml)$' | head -n 1)\n"
-            + "        [ -z \"$gcfg\" ] && gcfg=$(printf '%s\\n' \"$cfgs\" | head -n 1)\n"
-            + "        gc=$(awk -F= 'BEGIN{on=0; m=0} index($1,\"\\134\")>0{next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0}' \"$gcfg\" 2>/dev/null)\n"
-            + "        set -- $gc; gon=${1:-0}; gm=${2:-0}\n"
-            + "        [ \"$gon\" = \"1\" ] && [ \"$gm\" -gt 1 ] && fgm=$gm\n"
-            + "        cdir=$(dirname \"$gcfg\")/custom\n"
-            + "        if [ -d \"$cdir\" ]; then\n"
-            + "          ccfg=$(ls -t \"$cdir\"/*.ini 2>/dev/null | head -n 1)\n"
-            + "          if [ -n \"$ccfg\" ]; then\n"
-            + "            cc=$(awk -F= 'BEGIN{on=-1; m=0; ug=1} index($1,\"\\134\")>0{if($1 ~ /frame_gen.use_global$/){ug=(tolower($2) ~ /true/)?1:0} next} {k=tolower($1); v=tolower($2); if (k ~ /^(frame_?gen|frame_generation|lsfg|lossless_scaling)$/) on=(v ~ /^(true|1|on|yes)/)?1:0; if (k ~ /multiplier$/ && $2+0>1) m=$2+0} END{print on+0, m+0, ug+0}' \"$ccfg\" 2>/dev/null)\n"
-            + "            set -- $cc; con=${1:--1}; cm=${2:-0}; cug=${3:-1}\n"
-            + "            if [ \"$con\" != \"-1\" ] && [ \"$cug\" = \"0\" ]; then\n"
-            + "              [ \"$cm\" -gt 1 ] || cm=$gm\n"
-            + "              fgm=\n"
-            + "              [ \"$con\" = \"1\" ] && [ \"$cm\" -gt 1 ] && fgm=$cm\n"
-            + "            fi\n"
-            + "          fi\n"
-            + "        fi\n"
-            + "      fi\n"
-            + "    fi\n"
-            + "  fi\n"
-            + "  if [ \"${fgm:-0}\" -ge 2 ]; then\n"
-            + "    grep -qis lsfg /proc/*/maps 2>/dev/null && fga=0\n"
-            + "    [ -z \"$fga\" ] && case \"$cls\" in *EmulationActivity*) fga=0 ;; esac\n"
-            + "  fi\n"
-            + "fi\n"
-            + "echo \"FG:${fgm:-0}\"\n"
-            + "[ -n \"$fga\" ] && echo \"FGA:$fga\"\n"
             + "pid=$(pidof \"$pkg\" 2>/dev/null | awk '{print $1}')\n"
             + "if [ -n \"$pid\" ]; then rss=$(grep VmRSS /proc/$pid/status 2>/dev/null | awk '{print $2}'); [ -n \"$rss\" ] && echo \"RSS:$rss\"; fi\n"
             + "cands=$(dumpsys SurfaceFlinger --list 2>/dev/null | grep -F \"$full\" "
             + "| grep -vE 'ActivityRecordInputSink|ActivityRecord|Splash Screen|Background for|animation-leash|Bounds for|Pavo performance overlay|ClusterTune|Cluster Tune' "
             + "| sed -E 's/^RequestedLayerState\\{([0-9a-f]+ )?//; s/ parentId=.*$//' | head -n 8)\n"
+            + "cached=$(cat \"$out.layer\" 2>/dev/null)\n"
             + "svs=$(printf '%s\\n' \"$cands\" | grep -F 'SurfaceView[')\n"
             + "svbest=; svframe=\n"
             + "if [ -n \"$svs\" ]; then\n"
@@ -132,6 +57,7 @@ final class PerfSampler {
             + "    [ -n \"$f\" ] && { svbest=\"$cand\"; svframe=\"$f\"; break; }\n"
             + "  done <<EOF\n$svs\nEOF\n"
             + "fi\n"
+            + "if [ -z \"$svbest\" ] && [ -n \"$cached\" ] && printf '%s\\n' \"$cands\" | grep -Fxq \"$cached\"; then svbest=\"$cached\"; fi\n"
             + "if [ -n \"$svbest\" ]; then\n"
             + "  o=$(dumpsys SurfaceFlinger --latency \"$svbest\" 2>/dev/null)\n"
             + "  n=$(printf '%s\\n' \"$o\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}')\n"
@@ -148,17 +74,13 @@ final class PerfSampler {
             + "      best=\"$cand\"; bestn=\"$n\"; bestout=\"$o\"; bestnewest=\"${nw:-0}\"\n"
             + "    fi\n"
             + "  done <<EOF\n$cands\nEOF\n"
-            + "  if [ -n \"$cached\" ] && printf '%s\\n' \"$cands\" | grep -Fxq \"$cached\"; then\n"
-            + "    o=$(dumpsys SurfaceFlinger --latency \"$cached\" 2>/dev/null)\n"
-            + "    n=$(printf '%s\\n' \"$o\" | awk 'NR>1 && $2+0>0 {c++} END {print c+0}')\n"
-            + "    [ \"$n\" -gt 0 ] && { best=\"$cached\"; bestn=\"$n\"; bestout=\"$o\"; }\n"
-            + "  fi\n"
             + "  if [ -n \"$best\" ] && [ \"$bestn\" -gt 0 ]; then echo \"LAYER:$best\"; printf '%s\\n' \"$bestout\";\n"
             + "  else\n"
+            + "    sfdump=$(dumpsys SurfaceFlinger 2>/dev/null)\n"
             + "    fb=; fn=\n"
             + "    while IFS= read -r cand; do\n"
             + "      [ -z \"$cand\" ] && continue\n"
-            + "      f=$(dumpsys SurfaceFlinger 2>/dev/null | awk -v pat=\"$cand\" '/^  Layer \\[/{f=(index($0,pat)>0); next} f&&/frame=/{match($0,/frame=[0-9]+/); if(RSTART>0){print substr($0,RSTART+6,RLENGTH-6); exit}}')\n"
+            + "      f=$(printf '%s\\n' \"$sfdump\" | awk -v pat=\"$cand\" '/^  Layer \\[/{f=(index($0,pat)>0); next} f&&/frame=/{match($0,/frame=[0-9]+/); if(RSTART>0){print substr($0,RSTART+6,RLENGTH-6); exit}}')\n"
             + "      [ -n \"$f\" ] && { fb=\"$cand\"; fn=\"$f\"; break; }\n"
             + "    done <<EOF\n$cands\nEOF\n"
             + "    if [ -n \"$fb\" ]; then echo \"LAYER:$fb\"; echo \"FRAME:$fn\"; else echo \"LAYER:\"; fi\n"
@@ -269,20 +191,9 @@ final class PerfSampler {
     private boolean lastFpsValid;
     private long lastFpsAtNs;
     private String lastFpsPkg;
-    private int lastGenMultiplier;
-    private boolean lastGenActive;
-    private float lastGenRatio;
-    private long lastGenAtNs;
-    private String lastGenPkg;
     private int fpsMisses;
     /** Keep the last reading across a missed sample rather than blanking it. */
     private static final long FPS_HOLD_NS = 3_000_000_000L;
-    private static final long FG_HOLD_NS = 3_000_000_000L;
-    private String cachedFgPkg;
-    private int cachedFgMultiplier = -1;
-    private long cachedFgAtSec;
-    private float fgRatio;
-    private boolean fgActiveSeen;
     private long prevNetRx = -1;
     private long prevNetTx = -1;
     private long prevNetAt;
@@ -741,24 +652,30 @@ final class PerfSampler {
             s.fps = lastFps;
             s.fpsValid = true;
         }
-        boolean sameGen = lastGenPkg == null || cachedTargetPkg == null
-                || lastGenPkg.equals(cachedTargetPkg);
-        if (lastGenActive && now - lastGenAtNs <= FG_HOLD_NS && sameGen) {
-            s.frameGenMultiplier = lastGenMultiplier;
-            s.frameGenActive = true;
-            s.frameGenRatio = lastGenRatio;
-        }
     }
 
     /** Target app changed: drop the old readings and re-resolve the layer. */
     private void resetFpsHold() {
         lastFpsValid = false;
         lastFpsPkg = null;
-        lastGenActive = false;
-        lastGenPkg = null;
         fpsMisses = 0;
         cachedLayer = null;
         noLayerUntil = 0;
+    }
+
+    /** Store the resolved layer for the next run; PServer commands must stay short. */
+    private static void writeLayerHint(File cache, String layer) {
+        File hint = new File(cache, "aurora-fps.layer");
+        try {
+            if (layer == null || layer.isEmpty()) {
+                hint.delete();
+                return;
+            }
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(hint);
+            fos.write(layer.getBytes("UTF-8"));
+            fos.close();
+        } catch (Throwable ignored) {
+        }
     }
 
     private static boolean pserverActive(Context context, long now) {
@@ -808,20 +725,15 @@ final class PerfSampler {
         // on the next tick, so the overlay still refreshes once per sample.
         if (pserverToken == null) {
             String token = Long.toString(now);
-            String layerArg = cachedLayer == null ? "''"
-                    : "'" + cachedLayer.replace("'", "'\\''") + "'";
-            String fgPkgArg = cachedFgPkg == null ? "''"
-                    : "'" + cachedFgPkg.replace("'", "'\\''") + "'";
-            boolean fgCached = cachedFgMultiplier >= 0 && cachedFgAtSec > 0;
-            String fgMultArg = fgCached ? Integer.toString(cachedFgMultiplier) : "''";
-            String fgTsArg = fgCached ? Long.toString(cachedFgAtSec) : "''";
+            // The PServer transaction has a tight length limit, so the cached
+            // layer is handed over in a sibling file instead of an argument.
+            writeLayerHint(cache, cachedLayer);
             try {
                 out.delete();
             } catch (Throwable ignored) {
             }
             if (!PServer.run("sh " + pserverScript.getAbsolutePath() + " "
-                    + out.getAbsolutePath() + " " + token + " " + layerArg
-                    + " " + fgPkgArg + " " + fgMultArg + " " + fgTsArg)) {
+                    + out.getAbsolutePath() + " " + token)) {
                 pserverOffUntil = now + PSERVER_OFF_NS;
                 return;
             }
@@ -860,7 +772,6 @@ final class PerfSampler {
         long newest = 0;
         long refreshNs = 0;
         String layer = null;
-        fgActiveSeen = false;
         long frameCount = -1;
         List<Long> times = new ArrayList<>();
         String[] lines = out.split("\n");
@@ -877,37 +788,6 @@ final class PerfSampler {
                     }
                     cachedTargetPkg = pkg;
                     cachedTargetCls = comp.substring(slash + 1);
-                }
-                continue;
-            }
-            if (line.startsWith("FGAPP:")) {
-                String fgPkg = line.substring("FGAPP:".length()).trim();
-                if (!fgPkg.equals(cachedFgPkg)) {
-                    cachedFgPkg = fgPkg;
-                    cachedFgMultiplier = -1;
-                    cachedFgAtSec = 0;
-                }
-                continue;
-            }
-            if (line.startsWith("FG:")) {
-                try {
-                    int m = Integer.parseInt(line.substring("FG:".length()).trim());
-                    if (m >= 0 && m <= 8) {
-                        cachedFgMultiplier = m;
-                        cachedFgAtSec = System.currentTimeMillis() / 1000L;
-                    }
-                } catch (Throwable ignored) {
-                }
-                continue;
-            }
-            if (line.startsWith("FGA:")) {
-                try {
-                    float r = Float.parseFloat(line.substring("FGA:".length()).trim());
-                    if (r >= 0f && r < 8f) {
-                        fgRatio = r;
-                        fgActiveSeen = true;
-                    }
-                } catch (Throwable ignored) {
                 }
                 continue;
             }
@@ -959,25 +839,6 @@ final class PerfSampler {
             if (layerFound) {
                 cachedLayer = layer;
                 fpsMisses = 0;
-            }
-        }
-        s.frameGenMultiplier = cachedFgMultiplier > 1 && cachedTargetPkg != null
-                && cachedTargetPkg.equals(cachedFgPkg) ? cachedFgMultiplier : 0;
-        s.frameGenActive = s.frameGenMultiplier > 1 && fgActiveSeen;
-        s.frameGenRatio = s.frameGenActive ? fgRatio : 0f;
-        if (s.frameGenActive) {
-            lastGenMultiplier = s.frameGenMultiplier;
-            lastGenActive = true;
-            lastGenRatio = s.frameGenRatio;
-            lastGenAtNs = now;
-            lastGenPkg = cachedTargetPkg;
-        } else {
-            boolean sameGen = lastGenPkg == null || cachedTargetPkg == null
-                    || lastGenPkg.equals(cachedTargetPkg);
-            if (lastGenActive && now - lastGenAtNs <= FG_HOLD_NS && sameGen) {
-                s.frameGenMultiplier = lastGenMultiplier;
-                s.frameGenActive = true;
-                s.frameGenRatio = lastGenRatio;
             }
         }
         if (layerFound && times.isEmpty() && frameCount >= 0) {

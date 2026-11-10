@@ -2,6 +2,13 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.46 — 10 Nov 2026
+
+### Performance overlay
+
+- The frame-generation figures are gone; the overlay shows one FPS number again.
+- FPS now resolves for long SurfaceView layers, including WinNative games.
+
 ## 1.0.45 — 10 Nov 2026
 
 ### Joysticks
