@@ -56,8 +56,8 @@ final class ControllerNav {
     private final Runnable eqRepeat = new Runnable() {
         @Override public void run() {
             if (eqSlider == null || eqSign == 0) return;
-            eqSlider.nudge(eqSign * 30);
-            handler.postDelayed(this, 90L);
+            eqSlider.nudge(eqSign * 10);
+            handler.postDelayed(this, 60L);
         }
     };
     private final Runnable sliderRepeat = new Runnable() {
@@ -395,7 +395,7 @@ final class ControllerNav {
             eqSlider = slider;
             eqSign = sign;
             eqLastAt = now;
-            slider.nudge(sign * 50);
+            slider.nudge(sign * 10);
             handler.removeCallbacks(eqRepeat);
             handler.postDelayed(eqRepeat, 300L);
         }
