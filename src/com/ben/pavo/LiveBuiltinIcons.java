@@ -2,11 +2,9 @@ package com.ben.pavo;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.graphics.Shader;
 
 /**
  * Animated drawings for the small set of launcher-owned app icons. The static
@@ -75,7 +73,7 @@ final class LiveBuiltinIcons {
         p2 = colorFor2(pkg, accent);
         p3 = colorFor3(pkg, accent);
         p4 = colorFor4(pkg, accent);
-        drawTile(c, size, accent, p2, phase);
+        drawTile(c, size, accent);
         if (PERF_LOG.equals(pkg)) {
             drawLogs(c, size, accent, phase);
         } else if (PERF_TUNER.equals(pkg)) {
@@ -223,29 +221,11 @@ final class LiveBuiltinIcons {
                 size * 0.02f, size * 0.02f, spark);
     }
 
-    private static void drawTile(Canvas c, int size, int accent, int second,
-                                 float phase) {
+    private static void drawTile(Canvas c, int size, int accent) {
         float r = size * 0.225f;
         Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
         bg.setColor(0xFF101820);
         c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
-
-        // Quiet moving light, not a coloured wash.
-        float sheenY = size * (0.10f + 0.80f * phase);
-        Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
-        sheen.setShader(new LinearGradient(0, sheenY - size * 0.12f,
-                0, sheenY + size * 0.12f,
-                0x00FFFFFF, 0x14FFFFFF,
-                Shader.TileMode.CLAMP));
-        c.drawRoundRect(new RectF(0, 0, size, size), r, r, sheen);
-        sheen.setShader(null);
-
-        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
-        border.setStyle(Paint.Style.STROKE);
-        border.setStrokeWidth(Math.max(1f, size * 0.018f));
-        float pulse = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 2.0);
-        border.setColor(alpha(accent, (int) (0x66 + 0x40 * pulse)));
-        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
     }
 
     /** Distinct colour per built-in so the drawer is not one accent wash. */
@@ -402,13 +382,6 @@ final class LiveBuiltinIcons {
             dot.setColor(colors[i]);
             float radius = size * (i == active ? 0.045f : 0.035f);
             c.drawCircle(size * xs[i], size * ys[i], radius, dot);
-            if (i == active) {
-                Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
-                ring.setStyle(Paint.Style.STROKE);
-                ring.setStrokeWidth(Math.max(1f, size * 0.014f));
-                ring.setColor(alpha(colors[i], 0xAA));
-                c.drawCircle(size * xs[i], size * ys[i], size * 0.072f, ring);
-            }
         }
     }
 
@@ -589,7 +562,7 @@ final class LiveBuiltinIcons {
         float cy = size * 0.48f;
         float radius = size * 0.28f;
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setColor(accent);
+        p.setColor(0x55FFFFFF);
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(Math.max(1.5f, size * 0.025f));
         c.drawCircle(cx, cy, radius, p);
@@ -643,7 +616,7 @@ final class LiveBuiltinIcons {
         Paint target = new Paint(Paint.ANTI_ALIAS_FLAG);
         target.setStyle(Paint.Style.STROKE);
         target.setStrokeWidth(Math.max(1.2f, size * 0.028f));
-        target.setColor(accent);
+        target.setColor(0x88FFFFFF);
         c.drawCircle(size * 0.35f, size * 0.47f, size * 0.09f * grow, target);
         c.drawCircle(size * 0.63f, size * 0.53f, size * 0.10f * grow, target);
         target.setStyle(Paint.Style.FILL);
