@@ -553,54 +553,56 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams controlsLp =
                 (LinearLayout.LayoutParams) controlsCard.getLayoutParams();
         controlsLp.topMargin = dp(0);
-        controlsLp.height = 0;
-        controlsLp.weight = 1f;
+        controlsLp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+        controlsLp.weight = 0f;
         controlsCard.setLayoutParams(controlsLp);
-        controlsCard.setPadding(dp(14), dp(10), dp(14), dp(10));
+        controlsCard.setPadding(dp(14), dp(9), dp(14), dp(9));
 
-        LinearLayout sourceRow = new LinearLayout(this);
-        sourceRow.setOrientation(LinearLayout.HORIZONTAL);
-        sourceRow.setGravity(Gravity.CENTER_VERTICAL);
-        sourceRow.setPadding(0, dp(2), 0, 0);
-        TextView srcLabel = text("TEMP", 8.5f, MUTED, false);
-        srcLabel.setLetterSpacing(0.08f);
-        srcLabel.setPadding(0, 0, dp(6), 0);
-        sourceRow.addView(srcLabel);
+        LinearLayout sourceRow = segmentTrack();
+        controlsCard.addView(sourceRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         srcCpu = sourceChip(sourceRow, "CPU", 0);
         srcGpu = sourceChip(sourceRow, "GPU", 1);
         srcMax = sourceChip(sourceRow, "BOTH", 2);
-        controlsCard.addView(sourceRow);
 
-        LinearLayout responseRow = new LinearLayout(this);
-        responseRow.setOrientation(LinearLayout.HORIZONTAL);
-        controlsCard.addView(responseRow, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout responseRow = segmentTrack();
+        LinearLayout.LayoutParams responseLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        responseLp.topMargin = dp(6);
+        controlsCard.addView(responseRow, responseLp);
         addResponseChip(responseRow, "FAST", FanCurveController.RESPONSE_FAST);
         addResponseChip(responseRow, "BALANCED", FanCurveController.RESPONSE_BALANCED);
         addResponseChip(responseRow, "SMOOTH", FanCurveController.RESPONSE_SMOOTH);
         addResponseChip(responseRow, "VERY SMOOTH", FanCurveController.RESPONSE_VERY_SMOOTH);
+        styleSourceChips();
         styleResponseChips();
 
-        View hintFill = new View(this);
-        controlsCard.addView(hintFill, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         curveHint = text("", 9f, MUTED, false);
-        curveHint.setPadding(dp(2), dp(4), dp(2), 0);
+        curveHint.setPadding(0, dp(5), 0, 0);
         controlsCard.addView(curveHint);
 
-        // Target-temperature control for HOLD. Hidden unless HOLD is selected.
+        // HOLD controls: target and speed side by side.
         int holdColor = 0xFF4DD0E1;
         holdRow = new LinearLayout(this);
-        holdRow.setOrientation(LinearLayout.VERTICAL);
-        holdRow.setPadding(dp(2), dp(2), dp(2), 0);
+        holdRow.setOrientation(LinearLayout.HORIZONTAL);
+        holdRow.setPadding(0, dp(2), 0, 0);
 
-        LinearLayout targetRow = new LinearLayout(this);
-        targetRow.setOrientation(LinearLayout.HORIZONTAL);
-        targetRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout targetCol = new LinearLayout(this);
+        targetCol.setOrientation(LinearLayout.VERTICAL);
+        holdRow.addView(targetCol, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        LinearLayout targetTop = new LinearLayout(this);
+        targetTop.setOrientation(LinearLayout.HORIZONTAL);
+        targetTop.setGravity(Gravity.CENTER_VERTICAL);
         TextView holdLabel = text(Loc.s(this, "HOLD"), 9f, MUTED, true);
-        targetRow.addView(holdLabel, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        targetTop.addView(holdLabel, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        holdValue = text(holdTarget + "°C", 10f, holdColor, true);
+        targetTop.addView(holdValue);
+        targetCol.addView(targetTop, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         holdBar = new SeekBar(this);
         holdBar.setMax(40);
         holdBar.setProgress(Math.max(0, Math.min(40, holdTarget - 45)));
@@ -614,25 +616,29 @@ public final class FanActivity extends PavoGlassActivity {
         holdBar.setSplitTrack(false);
         holdBar.setDefaultFocusHighlightEnabled(false);
         holdBar.setFocusable(true);
-        holdBar.setFocusable(true);
         holdBar.setMinimumHeight(dp(24));
         holdBar.setPadding(dp(10), 0, dp(10), 0);
-        LinearLayout.LayoutParams holdBarLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        holdBarLp.leftMargin = dp(8);
-        targetRow.addView(holdBar, holdBarLp);
-        holdValue = text(holdTarget + "°C", 10f, holdColor, true);
-        targetRow.addView(holdValue);
-        holdRow.addView(targetRow);
+        targetCol.addView(holdBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        LinearLayout dutyRow = new LinearLayout(this);
-        dutyRow.setOrientation(LinearLayout.HORIZONTAL);
-        dutyRow.setGravity(Gravity.CENTER_VERTICAL);
-        dutyRow.setPadding(0, 0, 0, 0);
+        LinearLayout dutyCol = new LinearLayout(this);
+        dutyCol.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams dutyColLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        dutyColLp.leftMargin = dp(12);
+        holdRow.addView(dutyCol, dutyColLp);
+
+        LinearLayout dutyTop = new LinearLayout(this);
+        dutyTop.setOrientation(LinearLayout.HORIZONTAL);
+        dutyTop.setGravity(Gravity.CENTER_VERTICAL);
         TextView dutyLabel = text(Loc.s(this, "SPEED"), 9f, MUTED, true);
-        dutyRow.addView(dutyLabel, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        dutyTop.addView(dutyLabel, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        holdDutyValue = text(holdDuty + "%", 10f, holdColor, true);
+        dutyTop.addView(holdDutyValue);
+        dutyCol.addView(dutyTop, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         holdDutyBar = new SeekBar(this);
         holdDutyBar.setMax(90);
         holdDutyBar.setProgress(Math.max(0, Math.min(90, holdDuty - 10)));
@@ -646,16 +652,10 @@ public final class FanActivity extends PavoGlassActivity {
         holdDutyBar.setSplitTrack(false);
         holdDutyBar.setDefaultFocusHighlightEnabled(false);
         holdDutyBar.setFocusable(true);
-        holdDutyBar.setFocusable(true);
         holdDutyBar.setMinimumHeight(dp(24));
         holdDutyBar.setPadding(dp(10), 0, dp(10), 0);
-        LinearLayout.LayoutParams dutyBarLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        dutyBarLp.leftMargin = dp(8);
-        dutyRow.addView(holdDutyBar, dutyBarLp);
-        holdDutyValue = text(holdDuty + "%", 10f, holdColor, true);
-        dutyRow.addView(holdDutyValue);
-        holdRow.addView(dutyRow);
+        dutyCol.addView(holdDutyBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         holdBar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
@@ -760,6 +760,9 @@ public final class FanActivity extends PavoGlassActivity {
             addModeChip(row, Loc.s(this, MODE_LABELS[i]), MODE_VALUES[i], i == 2);
         }
 
+        View leftFill = new View(this);
+        left.addView(leftFill, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         LinearLayout manual = card(left, "", "");
         LinearLayout.LayoutParams manualLp = (LinearLayout.LayoutParams) manual.getLayoutParams();
         manualLp.topMargin = dp(4);
@@ -1196,8 +1199,8 @@ public final class FanActivity extends PavoGlassActivity {
         TextView chip = text(label, 8f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
         chip.setSingleLine(true);
-        chip.setMinHeight(dp(28));
-        chip.setPadding(dp(4), dp(3), dp(4), dp(3));
+        chip.setMinHeight(dp(26));
+        chip.setPadding(dp(3), dp(2), dp(3), dp(2));
         chip.setFocusable(true);
         chip.setClickable(true);
         chip.setDefaultFocusHighlightEnabled(false);
@@ -1239,7 +1242,7 @@ public final class FanActivity extends PavoGlassActivity {
         responseChips[index] = chip;
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        if (row.getChildCount() > 0) lp.leftMargin = dp(6);
+        if (row.getChildCount() > 0) lp.leftMargin = dp(4);
         row.addView(chip, lp);
     }
 
@@ -1251,23 +1254,31 @@ public final class FanActivity extends PavoGlassActivity {
             boolean on = i == selected;
             if (on) {
                 chip.setTextColor(0xFF071018);
-                chip.setBackground(Ui.rounded(accent, dp(9),
+                chip.setBackground(Ui.rounded(accent, dp(8),
                         chip.isFocused() ? 0xFFFFFFFF : 0x00000000, dp(2)));
             } else {
-                chip.setTextColor(TEXT);
+                chip.setTextColor(0xD9FFFFFF);
                 chip.setBackground(chip.isFocused()
-                        ? Ui.rounded(0x26FFFFFF, dp(9), 0xE6FFFFFF, dp(2))
-                        : Ui.rounded(0x22FFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+                        ? Ui.rounded(0x24FFFFFF, dp(8), 0xCCFFFFFF, dp(1))
+                        : null);
             }
         }
+    }
+
+    private LinearLayout segmentTrack() {
+        LinearLayout track = new LinearLayout(this);
+        track.setOrientation(LinearLayout.HORIZONTAL);
+        track.setPadding(dp(2), dp(2), dp(2), dp(2));
+        track.setBackground(Ui.rounded(0x14FFFFFF, dp(10), 0x22FFFFFF, dp(1)));
+        return track;
     }
 
     private TextView sourceChip(LinearLayout row, String label, int value) {
         TextView chip = text(label, 8f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
         chip.setSingleLine(true);
-        chip.setMinHeight(dp(28));
-        chip.setPadding(dp(4), dp(3), dp(4), dp(3));
+        chip.setMinHeight(dp(26));
+        chip.setPadding(dp(3), dp(2), dp(3), dp(2));
         chip.setFocusable(true);
         chip.setClickable(true);
         chip.setDefaultFocusHighlightEnabled(false);
@@ -1308,7 +1319,7 @@ public final class FanActivity extends PavoGlassActivity {
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        if (row.getChildCount() > 0) lp.leftMargin = dp(6);
+        if (row.getChildCount() > 0) lp.leftMargin = dp(4);
         row.addView(chip, lp);
         return chip;
     }
@@ -1321,13 +1332,13 @@ public final class FanActivity extends PavoGlassActivity {
             boolean on = fanSource == i;
             if (on) {
                 chip.setTextColor(0xFF071018);
-                chip.setBackground(Ui.rounded(accent, dp(9),
+                chip.setBackground(Ui.rounded(accent, dp(8),
                         chip.isFocused() ? 0xFFFFFFFF : 0x00000000, dp(2)));
             } else {
-                chip.setTextColor(TEXT);
+                chip.setTextColor(0xD9FFFFFF);
                 chip.setBackground(chip.isFocused()
-                        ? Ui.rounded(0x26FFFFFF, dp(9), 0xE6FFFFFF, dp(2))
-                        : Ui.rounded(0x22FFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+                        ? Ui.rounded(0x24FFFFFF, dp(8), 0xCCFFFFFF, dp(1))
+                        : null);
             }
         }
     }
