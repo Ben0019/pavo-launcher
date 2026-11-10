@@ -207,6 +207,15 @@ final class FanCurve {
      * climbs above the target (5 points per °C) as a guard. The old approach
      * ramp meant low temperatures kept the fan well under the set speed.
      */
+    /** Graph-only HOLD shape: a flat line ending at the hold point, no guard. */
+    static String holdDisplayCurve(float targetC, int dutyPct) {
+        int t = clamp(Math.round(targetC), 30, 95);
+        int d = clamp(dutyPct, 0, 100);
+        int start = Math.max(30, t - 15);
+        if (start >= t) return t + ":" + d;
+        return start + ":" + d + "," + t + ":" + d;
+    }
+
     static String holdFlatCurve(float targetC, int dutyPct) {
         int t = clamp(Math.round(targetC), 30, 95);
         int d = clamp(dutyPct, 0, 100);

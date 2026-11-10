@@ -290,6 +290,7 @@ final class FanCurveView extends View {
             c.drawLine(xFor(a[0]), yFor(a[1]), xFor(b[0]), yFor(b[1]), curvePaint);
         }
 
+        if (!holdDraggable) {
         for (int i = 0; i < n; i++) {
             int[] p = points.get(i);
             float x = xFor(p[0]);
@@ -303,6 +304,7 @@ final class FanCurveView extends View {
             if (focused && i == selected) {
                 c.drawCircle(x, y, r + Ui.dpf(getContext(), 4f), focusPaint);
             }
+        }
         }
 
         float lx = xFor(Math.round(liveTemp));
@@ -327,8 +329,9 @@ final class FanCurveView extends View {
                     tx, plot.top + Ui.dpf(getContext(), 10f), textPaint);
             textPaint.setColor(MUTED);
         }
-        if ((focused || dragging || draggingHold)
-                && (draggingHold || (selected >= 0 && selected < points.size()))) {
+        if ((focused || dragging || draggingHold || holdDraggable)
+                && (draggingHold || holdDraggable
+                        || (selected >= 0 && selected < points.size()))) {
             drawPointBubble(c);
         }
     }
@@ -336,7 +339,7 @@ final class FanCurveView extends View {
     private void drawPointBubble(Canvas c) {
         int temp;
         int duty;
-        if (draggingHold) {
+        if (holdDraggable) {
             temp = Math.round(targetC);
             duty = targetDuty;
         } else {
@@ -438,21 +441,25 @@ final class FanCurveView extends View {
                 draggingHold = false;
                 longPressFired = false;
                 float holdHit = Ui.dpf(getContext(), 32f);
-                if (holdDraggable && targetDuty >= 0) {
-                    float hx = xFor(Math.round(targetC));
-                    float hy = yFor(targetDuty);
-                    float hdx = downX - hx;
-                    float hdy = downY - hy;
-                    if (hdx * hdx + hdy * hdy <= holdHit * holdHit) {
-                        draggingHold = true;
-                        requestFocus();
-                        if (getParent() != null) {
-                            getParent().requestDisallowInterceptTouchEvent(true);
+                if (holdDraggable) {
+                    if (targetDuty >= 0) {
+                        float hx = xFor(Math.round(targetC));
+                        float hy = yFor(targetDuty);
+                        float hdx = downX - hx;
+                        float hdy = downY - hy;
+                        if (hdx * hdx + hdy * hdy <= holdHit * holdHit) {
+                            draggingHold = true;
+                            requestFocus();
+                            if (getParent() != null) {
+                                getParent().requestDisallowInterceptTouchEvent(true);
+                            }
+                            cancelPointLongPress();
+                            invalidate();
+                            return true;
                         }
-                        cancelPointLongPress();
-                        invalidate();
-                        return true;
                     }
+                    // HOLD shows only the hold point; ignore taps on the plot.
+                    return true;
                 }
                 int best = -1;
                 float bestD = Float.MAX_VALUE;

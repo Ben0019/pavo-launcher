@@ -1577,7 +1577,7 @@ public final class FanActivity extends PavoGlassActivity {
             case MODE_LARGE:
                 return FanCurve.presetCurve(prefs, mode);
             case MODE_HOLD:
-                return FanCurve.holdFlatCurve(holdTarget, holdDuty);
+                return FanCurve.holdDisplayCurve(holdTarget, holdDuty);
             case MODE_CURVE:
             default:
                 return curve;
