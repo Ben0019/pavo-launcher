@@ -538,7 +538,7 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout left = new LinearLayout(this);
         left.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.12f);
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 1.12f);
         leftLp.rightMargin = dp(5);
         bottom.addView(left, leftLp);
 
@@ -553,7 +553,10 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams controlsLp =
                 (LinearLayout.LayoutParams) controlsCard.getLayoutParams();
         controlsLp.topMargin = dp(0);
-        controlsCard.setPadding(dp(14), dp(7), dp(14), dp(7));
+        controlsLp.height = 0;
+        controlsLp.weight = 1f;
+        controlsCard.setLayoutParams(controlsLp);
+        controlsCard.setPadding(dp(14), dp(10), dp(14), dp(10));
 
         LinearLayout sourceRow = new LinearLayout(this);
         sourceRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -581,6 +584,9 @@ public final class FanActivity extends PavoGlassActivity {
         addResponseChip(responseRow, "VERY SMOOTH", FanCurveController.RESPONSE_VERY_SMOOTH);
         styleResponseChips();
 
+        View hintFill = new View(this);
+        controlsCard.addView(hintFill, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         curveHint = text("", 9f, MUTED, false);
         curveHint.setPadding(dp(2), dp(4), dp(2), 0);
         controlsCard.addView(curveHint);
@@ -757,20 +763,17 @@ public final class FanActivity extends PavoGlassActivity {
             addModeChip(row, Loc.s(this, MODE_LABELS[i]), MODE_VALUES[i], i == 2);
         }
 
-        LinearLayout manual = card(left, "MANUAL SPEED", "");
+        LinearLayout manual = card(left, "", "");
         LinearLayout.LayoutParams manualLp = (LinearLayout.LayoutParams) manual.getLayoutParams();
         manualLp.topMargin = dp(4);
         manual.setPadding(dp(12), dp(6), dp(12), dp(6));
         LinearLayout manualRow = new LinearLayout(this);
         manualRow.setOrientation(LinearLayout.HORIZONTAL);
         manualRow.setGravity(Gravity.CENTER_VERTICAL);
-        manual.addView(manualRow, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView ml = text("OUTPUT", 10f, MUTED, true);
+        TextView ml = text("MANUAL SPEED", 9.5f, accent, true);
+        ml.setLetterSpacing(0.08f);
         manualRow.addView(ml, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        manualValue = text(manualPct + "%", 11f, accent, true);
-        manualRow.addView(manualValue);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         manualBar = new SeekBar(this);
         manualBar.setMax(90);
         manualBar.setProgress(Math.max(0, Math.min(90, manualPct - 10)));
@@ -785,8 +788,15 @@ public final class FanActivity extends PavoGlassActivity {
         manualBar.setDefaultFocusHighlightEnabled(false);
         manualBar.setFocusable(true);
         manualBar.setMinimumHeight(dp(32));
-        manualBar.setPadding(dp(14), dp(2), dp(14), dp(2));
-        manual.addView(manualBar, new LinearLayout.LayoutParams(
+        manualBar.setPadding(dp(8), dp(2), dp(8), dp(2));
+        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        barLp.leftMargin = dp(8);
+        barLp.rightMargin = dp(8);
+        manualRow.addView(manualBar, barLp);
+        manualValue = text(manualPct + "%", 11f, accent, true);
+        manualRow.addView(manualValue);
+        manual.addView(manualRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         manualBar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
