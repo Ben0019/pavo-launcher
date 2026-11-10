@@ -182,18 +182,18 @@ public final class PerfTuneService extends Service {
                                 }
                             }
                             long delay;
-                            if (hot || paused) {
-                                // Thermal pause only needs a slow re-check.
+                            if (paused) {
+                                // Waiting for the firmware mode to settle.
                                 delay = 1000L;
                             } else if (lastHoldMode) {
                                 // HOLD tracks the ceiling, so keep the fast
                                 // loop that undoes vendor cap lifts.
                                 delay = lastTempC >= 45f ? 60L : 150L;
                             } else {
-                                // A plain preset is a static cap. Poll twice a
-                                // second so a vendor cap lift is undone quickly;
+                                // A plain preset is a static cap. Poll quickly
+                                // while hot so a vendor cap lift is undone fast;
                                 // the poll only reads nodes, no shell is spawned.
-                                delay = 500L;
+                                delay = hot ? 250L : 500L;
                             }
                             schedule(delay);
                         }
@@ -221,15 +221,14 @@ public final class PerfTuneService extends Service {
         float[] temps = PerfTuner.readTemperaturesRaw();
         lastTempC = Math.max(temps[0], temps[1]);
         boolean holdMode = prefs.fanAppMode() == FanActivity.MODE_HOLD;
-        // Only step aside when the chip is genuinely hot; the old 72 C limit
-        // meant the caps never applied while gaming (junctions run 80-95 C).
-        // HOLD is exempt: its own target is the ceiling and it throttles before
-        // this safety pause would otherwise stop the governor.
+        // A preset is an upper cap. Releasing it when the chip is hot raises
+        // the clocks and makes the heat worse, so keep holding it and let the
+        // vendor thermal service throttle below the cap if it needs to. HOLD
+        // is exempt from this flag: its own target is the ceiling and it steps
+        // down before the safety guard would otherwise matter.
         float limit = prefs.perfHoldLimitC();
         if (limit <= 0f) limit = THERMAL_LIMIT_C;
-        if (!holdMode && Math.max(temps[0], temps[1]) >= limit) {
-            return new boolean[]{true, false};
-        }
+        boolean hot = !holdMode && Math.max(temps[0], temps[1]) >= limit;
         // The firmware's performance mode can be changed outside Pavo (its Quick
         // Settings tile). Anything Pavo was holding then belongs to the old mode,
         // and re-applying it is what made the big cores look disabled: the mode
@@ -344,7 +343,8 @@ public final class PerfTuneService extends Service {
                 cfg.p0Max, cfg.p0Min, cfg.p0Gov)
                 || PerfTuner.capsDrifted(state.performance,
                 cfg.p6Max, cfg.p6Min, cfg.p6Gov);
-        if (!key.equals(staticKey) || drifted || now - lastStaticApplyAt >= 30000L) {
+        if (!key.equals(staticKey) || drifted
+                || (!hot && now - lastStaticApplyAt >= 30000L)) {
             PerfTuner.Root.ensure();
             // performance_mode is the firmware's fan policy switch: writing a
             // non-zero value makes its daemon set fan_mode=0 (fan off). The
@@ -356,7 +356,7 @@ public final class PerfTuneService extends Service {
             lastStaticApplyAt = now;
         }
         maybeKickBigCores(prefs);
-        return new boolean[]{false, false};
+        return new boolean[]{hot, false};
     }
 
     /** Cached device tables; the frequency lists do not change at runtime. */
@@ -523,9 +523,7 @@ public final class PerfTuneService extends Service {
         b.setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(hot ? Loc.s(this, "Performance hold · thermal guard")
                         : Loc.s(this, "Performance hold active"))
-                .setContentText(hot
-                        ? Loc.s(this, "Letting the Odin cool down; stock limits restored.")
-                        : Loc.s(this, "Maintaining your CPU and GPU clock caps."))
+                .setContentText(Loc.s(this, "Maintaining your CPU and GPU clock caps."))
                 .setContentIntent(content)
                 .setOngoing(true).setGroup("pavo_services")
                 .setCategory(Notification.CATEGORY_SERVICE)

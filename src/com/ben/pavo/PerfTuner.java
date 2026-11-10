@@ -746,7 +746,9 @@ final class PerfTuner {
         int wantMax = snap(c.freqs, Math.max(lo, max));
         int wantMin = snap(c.freqs, lo);
         int liveMax = readIntQuiet(cpuPath(c) + "/scaling_max_freq");
-        if (liveMax > 0 && liveMax != wantMax) return true;
+        // Undo a cap lift, but leave a lower cap alone: that is the firmware
+        // thermal service throttling below the user's ceiling.
+        if (liveMax > 0 && liveMax > wantMax) return true;
         if (governor != null && !governor.isEmpty()) {
             String liveGov = readWordQuiet(cpuPath(c) + "/scaling_governor");
             if (liveGov != null && !governor.equals(liveGov)) return true;
