@@ -2088,7 +2088,12 @@
     "OUT": "VÝSTUP",
     "FAN RESPONSE": "ODEZVA VENTILÁTORU",
     "VERY SMOOTH": "VELMI HLADKÁ",
-    "EXPERT": "EXPERT"
+    "EXPERT": "EXPERT",
+    "LOCK": "ZAMKNOUT",
+    "LOCKED": "ZAMČENO",
+    "PAVO default saved": "Výchozí PAVO uloženo",
+    "BYPASS": "OBEJÍT",
+    "ACCEL": "AKCELERACE"
   },
   "da": {
     "Quick Controls": "Hurtigbetjening",
@@ -4179,7 +4184,12 @@
     "OUT": "UD",
     "FAN RESPONSE": "FANRESPONS",
     "VERY SMOOTH": "MEGET BLØD",
-    "EXPERT": "EKSPERT"
+    "EXPERT": "EKSPERT",
+    "LOCK": "LÅS",
+    "LOCKED": "LÅST",
+    "PAVO default saved": "PAVO-standard gemt",
+    "BYPASS": "OMGÅ",
+    "ACCEL": "ACCEL"
   },
   "de": {
     "Quick Controls": "Schnellsteuerung",
@@ -6270,7 +6280,12 @@
     "OUT": "AUSGANG",
     "FAN RESPONSE": "LÜFTERREAKTION",
     "VERY SMOOTH": "SEHR SANFT",
-    "EXPERT": "EXPERTE"
+    "EXPERT": "EXPERTE",
+    "LOCK": "SPERREN",
+    "LOCKED": "GESPERRT",
+    "PAVO default saved": "PAVO-Standard gespeichert",
+    "BYPASS": "UMGEHEN",
+    "ACCEL": "BESCHLEUNIGUNG"
   },
   "el": {
     "Quick Controls": "Γρήγοροι έλεγχοι",
@@ -8361,7 +8376,12 @@
     "OUT": "ΕΞΟΔΟΣ",
     "FAN RESPONSE": "ΑΠΟΚΡΙΣΗ ΑΝΕΜΙΣΤΗΡΑ",
     "VERY SMOOTH": "ΠΟΛΥ ΟΜΑΛΗ",
-    "EXPERT": "ΕΙΔΙΚΟΣ"
+    "EXPERT": "ΕΙΔΙΚΟΣ",
+    "LOCK": "ΚΛΕΙΔΩΜΑ",
+    "LOCKED": "ΚΛΕΙΔΩΜΕΝΟ",
+    "PAVO default saved": "Η προεπιλογή PAVO αποθηκεύτηκε",
+    "BYPASS": "ΠΑΡΑΚΑΜΨΗ",
+    "ACCEL": "ΕΠΙΤΑΧΥΝΣΗ"
   },
   "es": {
     "Quick Controls": "Controles rápidos",
@@ -10452,7 +10472,12 @@
     "OUT": "SALIDA",
     "FAN RESPONSE": "RESPUESTA DEL VENTILADOR",
     "VERY SMOOTH": "MUY SUAVE",
-    "EXPERT": "EXPERTO"
+    "EXPERT": "EXPERTO",
+    "LOCK": "BLOQUEAR",
+    "LOCKED": "BLOQUEADO",
+    "PAVO default saved": "Valor PAVO guardado",
+    "BYPASS": "OMITIR",
+    "ACCEL": "ACELERACIÓN"
   },
   "fi": {
     "Quick Controls": "Pika-asetukset",
@@ -12543,7 +12568,12 @@
     "OUT": "LÄHTÖ",
     "FAN RESPONSE": "TUULETTIMEN VASTE",
     "VERY SMOOTH": "ERITTÄIN PEHMEÄ",
-    "EXPERT": "ASIANTUNTIJA"
+    "EXPERT": "ASIANTUNTIJA",
+    "LOCK": "LUKITSE",
+    "LOCKED": "LUKITTU",
+    "PAVO default saved": "PAVO-oletus tallennettu",
+    "BYPASS": "OHITA",
+    "ACCEL": "KIIHTYVYYS"
   },
   "fr": {
     "Quick Controls": "Contrôles rapides",
@@ -14634,7 +14664,12 @@
     "OUT": "SORTIE",
     "FAN RESPONSE": "RÉPONSE DU VENTILATEUR",
     "VERY SMOOTH": "TRÈS DOUCE",
-    "EXPERT": "EXPERT"
+    "EXPERT": "EXPERT",
+    "LOCK": "VERROUILLER",
+    "LOCKED": "VERROUILLÉ",
+    "PAVO default saved": "Préréglage PAVO enregistré",
+    "BYPASS": "CONTOURNER",
+    "ACCEL": "ACCÉLÉRATION"
   },
   "he": {
     "Quick Controls": "בקרות מהירות",
@@ -16725,7 +16760,12 @@
     "OUT": "פלט",
     "FAN RESPONSE": "תגובת המאוורר",
     "VERY SMOOTH": "חלקה מאוד",
-    "EXPERT": "מומחה"
+    "EXPERT": "מומחה",
+    "LOCK": "נעילה",
+    "LOCKED": "נעול",
+    "PAVO default saved": "ברירת המחדל של PAVO נשמרה",
+    "BYPASS": "עקיפה",
+    "ACCEL": "האצה"
   },
   "hu": {
     "Quick Controls": "Gyorsvezérlők",
@@ -18816,7 +18856,12 @@
     "OUT": "KIMENET",
     "FAN RESPONSE": "VENTILÁTOR VÁLASZ",
     "VERY SMOOTH": "NAGYON LÁGY",
-    "EXPERT": "EXPERT"
+    "EXPERT": "EXPERT",
+    "LOCK": "ZÁROLÁS",
+    "LOCKED": "ZÁROLVA",
+    "PAVO default saved": "PAVO alapértelmezés mentve",
+    "BYPASS": "MEGKERÜLÉS",
+    "ACCEL": "GYORSULÁS"
   },
   "id": {
     "Quick Controls": "Kontrol Cepat",
@@ -20907,7 +20952,12 @@
     "OUT": "KELUARAN",
     "FAN RESPONSE": "RESPONS KIPAS",
     "VERY SMOOTH": "SANGAT HALUS",
-    "EXPERT": "AHLI"
+    "EXPERT": "AHLI",
+    "LOCK": "KUNCI",
+    "LOCKED": "TERKUNCI",
+    "PAVO default saved": "Default PAVO disimpan",
+    "BYPASS": "LEWATI",
+    "ACCEL": "AKSELERASI"
   },
   "it": {
     "Quick Controls": "Controlli rapidi",
@@ -22998,7 +23048,12 @@
     "OUT": "USCITA",
     "FAN RESPONSE": "RISPOSTA VENTOLA",
     "VERY SMOOTH": "MOLTO MORBIDA",
-    "EXPERT": "ESPERTO"
+    "EXPERT": "ESPERTO",
+    "LOCK": "BLOCCO",
+    "LOCKED": "BLOCCATO",
+    "PAVO default saved": "Predefinito PAVO salvato",
+    "BYPASS": "BYPASS",
+    "ACCEL": "ACCELERAZIONE"
   },
   "ja": {
     "Quick Controls": "クイックコントロール",
@@ -25089,7 +25144,12 @@
     "OUT": "出力",
     "FAN RESPONSE": "ファン応答",
     "VERY SMOOTH": "非常にスムーズ",
-    "EXPERT": "エキスパート"
+    "EXPERT": "エキスパート",
+    "LOCK": "ロック",
+    "LOCKED": "ロック中",
+    "PAVO default saved": "PAVOの既定値を保存しました",
+    "BYPASS": "バイパス",
+    "ACCEL": "加速"
   },
   "ko": {
     "Quick Controls": "빠른 컨트롤",
@@ -27180,7 +27240,12 @@
     "OUT": "출력",
     "FAN RESPONSE": "팬 응답",
     "VERY SMOOTH": "매우 부드럽게",
-    "EXPERT": "전문가"
+    "EXPERT": "전문가",
+    "LOCK": "잠금",
+    "LOCKED": "잠김",
+    "PAVO default saved": "PAVO 기본값 저장됨",
+    "BYPASS": "우회",
+    "ACCEL": "가속"
   },
   "nb": {
     "Quick Controls": "Hurtigkontroller",
@@ -29271,7 +29336,12 @@
     "OUT": "UT",
     "FAN RESPONSE": "VIFTERESPONS",
     "VERY SMOOTH": "MEGET MYK",
-    "EXPERT": "EKSPERT"
+    "EXPERT": "EKSPERT",
+    "LOCK": "LÅS",
+    "LOCKED": "LÅST",
+    "PAVO default saved": "PAVO-standard lagret",
+    "BYPASS": "OMGÅ",
+    "ACCEL": "AKSELERASJON"
   },
   "nl": {
     "Quick Controls": "Snelle bediening",
@@ -31362,7 +31432,12 @@
     "OUT": "UIT",
     "FAN RESPONSE": "VENTILATORRESPONS",
     "VERY SMOOTH": "ZEER ZACHT",
-    "EXPERT": "EXPERT"
+    "EXPERT": "EXPERT",
+    "LOCK": "VERGRENDELEN",
+    "LOCKED": "VERGRENDELD",
+    "PAVO default saved": "PAVO-standaard opgeslagen",
+    "BYPASS": "OMZEILEN",
+    "ACCEL": "VERSNELLING"
   },
   "pl": {
     "Quick Controls": "Szybkie sterowanie",
@@ -33453,7 +33528,12 @@
     "OUT": "WYJŚCIE",
     "FAN RESPONSE": "REAKCJA WENTYLATORA",
     "VERY SMOOTH": "BARDZO PŁYNNA",
-    "EXPERT": "EKSPERT"
+    "EXPERT": "EKSPERT",
+    "LOCK": "BLOKADA",
+    "LOCKED": "ZABLOKOWANE",
+    "PAVO default saved": "Zapisano domyślne PAVO",
+    "BYPASS": "OMIŃ",
+    "ACCEL": "PRZYSPIESZENIE"
   },
   "pt": {
     "Quick Controls": "Controles rápidos",
@@ -35544,7 +35624,12 @@
     "OUT": "SAÍDA",
     "FAN RESPONSE": "RESPOSTA DA VENTOINHA",
     "VERY SMOOTH": "MUITO SUAVE",
-    "EXPERT": "ESPECIALISTA"
+    "EXPERT": "ESPECIALISTA",
+    "LOCK": "BLOQUEAR",
+    "LOCKED": "BLOQUEADO",
+    "PAVO default saved": "Padrão PAVO guardado",
+    "BYPASS": "IGNORAR",
+    "ACCEL": "ACELERAÇÃO"
   },
   "ro": {
     "Quick Controls": "Comenzi rapide",
@@ -37635,7 +37720,12 @@
     "OUT": "IEȘIRE",
     "FAN RESPONSE": "RĂSPUNS VENTILATOR",
     "VERY SMOOTH": "FOARTE NETEDĂ",
-    "EXPERT": "EXPERT"
+    "EXPERT": "EXPERT",
+    "LOCK": "BLOCARE",
+    "LOCKED": "BLOCAT",
+    "PAVO default saved": "Valoarea implicită PAVO salvată",
+    "BYPASS": "OCLIRE",
+    "ACCEL": "ACCELERARE"
   },
   "ru": {
     "Quick Controls": "Быстрое управление",
@@ -39726,7 +39816,12 @@
     "OUT": "ВЫХОД",
     "FAN RESPONSE": "ОТКЛИК ВЕНТИЛЯТОРА",
     "VERY SMOOTH": "ОЧЕНЬ ПЛАВНАЯ",
-    "EXPERT": "ЭКСПЕРТ"
+    "EXPERT": "ЭКСПЕРТ",
+    "LOCK": "БЛОКИРОВКА",
+    "LOCKED": "ЗАБЛОКИРОВАНО",
+    "PAVO default saved": "Стандарт PAVO сохранён",
+    "BYPASS": "ОБХОД",
+    "ACCEL": "УСКОРЕНИЕ"
   },
   "sv": {
     "Quick Controls": "Snabbkontroller",
@@ -41817,7 +41912,12 @@
     "OUT": "UT",
     "FAN RESPONSE": "FLÄKTRESPONS",
     "VERY SMOOTH": "MYCKET MJUK",
-    "EXPERT": "EXPERT"
+    "EXPERT": "EXPERT",
+    "LOCK": "LÅS",
+    "LOCKED": "LÅST",
+    "PAVO default saved": "PAVO-standard sparad",
+    "BYPASS": "KRINGGÅ",
+    "ACCEL": "ACCELERATION"
   },
   "th": {
     "Quick Controls": "การควบคุมด่วน",
@@ -43908,7 +44008,12 @@
     "OUT": "ออก",
     "FAN RESPONSE": "การตอบสนองพัดลม",
     "VERY SMOOTH": "นุ่มนวลมาก",
-    "EXPERT": "ผู้เชี่ยวชาญ"
+    "EXPERT": "ผู้เชี่ยวชาญ",
+    "LOCK": "ล็อก",
+    "LOCKED": "ล็อกแล้ว",
+    "PAVO default saved": "บันทึกค่าเริ่มต้น PAVO แล้ว",
+    "BYPASS": "ข้าม",
+    "ACCEL": "เร่งความเร็ว"
   },
   "tr": {
     "Quick Controls": "Hızlı Kontroller",
@@ -45999,7 +46104,12 @@
     "OUT": "ÇIKIŞ",
     "FAN RESPONSE": "FAN TEPKİSİ",
     "VERY SMOOTH": "ÇOK YUMUŞAK",
-    "EXPERT": "UZMAN"
+    "EXPERT": "UZMAN",
+    "LOCK": "KİLİT",
+    "LOCKED": "KİLİTLİ",
+    "PAVO default saved": "PAVO varsayılanı kaydedildi",
+    "BYPASS": "ATLA",
+    "ACCEL": "HIZLANMA"
   },
   "uk": {
     "Quick Controls": "Швидке керування",
@@ -48090,7 +48200,12 @@
     "OUT": "ВИХІД",
     "FAN RESPONSE": "ВІДГУК ВЕНТИЛЯТОРА",
     "VERY SMOOTH": "ДУЖЕ ПЛАВНА",
-    "EXPERT": "ЕКСПЕРТ"
+    "EXPERT": "ЕКСПЕРТ",
+    "LOCK": "БЛОКУВАННЯ",
+    "LOCKED": "ЗАБЛОКОВАНО",
+    "PAVO default saved": "Стандарт PAVO збережено",
+    "BYPASS": "ОБХІД",
+    "ACCEL": "ПРИСКОРЕННЯ"
   },
   "vi": {
     "Quick Controls": "Điều khiển nhanh",
@@ -50181,7 +50296,12 @@
     "OUT": "RA",
     "FAN RESPONSE": "PHẢN HỒI QUẠT",
     "VERY SMOOTH": "RẤT MƯỢT",
-    "EXPERT": "CHUYÊN GIA"
+    "EXPERT": "CHUYÊN GIA",
+    "LOCK": "KHÓA",
+    "LOCKED": "ĐÃ KHÓA",
+    "PAVO default saved": "Đã lưu mặc định PAVO",
+    "BYPASS": "BỎ QUA",
+    "ACCEL": "TĂNG TỐC"
   },
   "zh-CN": {
     "Quick Controls": "快捷控制",
@@ -52272,6 +52392,11 @@
     "OUT": "输出",
     "FAN RESPONSE": "风扇响应",
     "VERY SMOOTH": "非常平滑",
-    "EXPERT": "专家"
+    "EXPERT": "专家",
+    "LOCK": "锁定",
+    "LOCKED": "已锁定",
+    "PAVO default saved": "已保存 PAVO 默认值",
+    "BYPASS": "绕过",
+    "ACCEL": "加速"
   }
 }

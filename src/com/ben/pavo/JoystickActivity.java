@@ -982,7 +982,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         autoLp.rightMargin = dp(6);
         statusRow.addView(autoChip, autoLp);
 
-        bypassChip = text("BYPASS", 8.5f, MUTED, true);
+        bypassChip = text(Loc.s(this, "BYPASS"), 8.5f, MUTED, true);
         bypassChip.setPadding(dp(8), dp(4), dp(8), dp(4));
         bypassChip.setFocusable(true);
         bypassChip.setDefaultFocusHighlightEnabled(false);
@@ -1040,7 +1040,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         rightParams.leftMargin = dp(6);
         stickRow.addView(rightTab, rightParams);
 
-        expertChip = text("EXPERT", 8f, MUTED, true);
+        expertChip = text(Loc.s(this, "EXPERT"), 8f, MUTED, true);
         expertChip.setGravity(Gravity.CENTER);
         expertChip.setPadding(dp(8), dp(5), dp(8), dp(5));
         expertChip.setFocusable(true);
@@ -1088,7 +1088,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         presetRow.setGravity(Gravity.CENTER_VERTICAL);
         for (int i = 0; i < PRESET_KEYS.length; i++) {
             final int preset = i;
-            TextView chip = text(PRESET_KEYS[i], 8f, TEXT, true);
+            TextView chip = text(Loc.s(this, PRESET_KEYS[i]), 8f, TEXT, true);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(dp(4), dp(5), dp(4), dp(5));
             chip.setFocusable(true);
@@ -1253,13 +1253,13 @@ public final class JoystickActivity extends PavoGlassActivity {
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
         titles.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView title = text("JOYSTICKS", 19f, TEXT, false);
+        TextView title = text(Loc.s(this, "JOYSTICKS"), 19f, TEXT, false);
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         title.setLetterSpacing(0.05f);
         title.setGravity(Gravity.CENTER);
         titles.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView sub = text("CALIBRATION", 9.5f, MUTED, false);
+        TextView sub = text(Loc.s(this, "CALIBRATION"), 9.5f, MUTED, false);
         sub.setLetterSpacing(0.13f);
         sub.setGravity(Gravity.CENTER);
         sub.setPadding(0, dp(2), 0, 0);
@@ -1300,7 +1300,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         appSelectorIcon = new ImageView(this);
         appSelectorIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         appSelector.addView(appSelectorIcon, new LinearLayout.LayoutParams(dp(18), dp(18)));
-        appSelectorLabel = text("ALL APPS", 8.5f, TEXT, true);
+        appSelectorLabel = text(Loc.s(this, "ALL APPS"), 8.5f, TEXT, true);
         appSelectorLabel.setSingleLine(true);
         appSelectorLabel.setEllipsize(TextUtils.TruncateAt.END);
         appSelectorLabel.setMaxWidth(dp(96));

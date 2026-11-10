@@ -280,7 +280,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             }
         });
 
-        lockChip = text("LOCK", 8.5f, MUTED, true);
+        lockChip = text(Loc.s(this, "LOCK"), 8.5f, MUTED, true);
         lockChip.setGravity(Gravity.CENTER);
         lockChip.setPadding(dp(9), dp(6), dp(9), dp(6));
         lockChip.setFocusable(true);
@@ -432,7 +432,8 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                         prefs.setEqPavoDefault(currentLevels());
                         updatePresetSelection();
                         android.widget.Toast.makeText(SoundTunerActivity.this,
-                                "PAVO default saved", android.widget.Toast.LENGTH_SHORT).show();
+                                Loc.s(SoundTunerActivity.this, "PAVO default saved"),
+                                android.widget.Toast.LENGTH_SHORT).show();
                         return true;
                     }
                 });
@@ -518,7 +519,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     private void updateLockChip() {
         if (lockChip == null) return;
         boolean focused = lockChip.hasFocus();
-        lockChip.setText(locked ? "LOCKED" : "LOCK");
+        lockChip.setText(Loc.s(this, locked ? "LOCKED" : "LOCK"));
         lockChip.setTextColor(locked ? 0xFFFFC857 : MUTED);
         if (locked) {
             lockChip.setBackground(focused

@@ -142,6 +142,9 @@
       <div class="item"><span class="num">12</span><span class="name">Controllers, overlays &amp; shortcuts</span></div>
       <div class="item"><span class="num">13</span><span class="name">Setup, permissions &amp; privacy</span></div>
       <div class="item"><span class="num">14</span><span class="name">Languages, compatibility &amp; limits</span></div>
+      <div class="item"><span class="num">16</span><span class="name">Sound Tuner</span></div>
+      <div class="item"><span class="num">17</span><span class="name">Joysticks</span></div>
+      <div class="item"><span class="num">18</span><span class="name">Pavo Gallery</span></div>
     </div>
   </div>
 
@@ -171,7 +174,77 @@
     <p style="margin:0">Handle width, height, opacity and visibility are adjustable from Overlay &amp; Drawer, and the handle is hidden from screenshots and screen recordings while a capture runs. Region capture saves to <span class="accent">Pictures/Pavo Screenshots</span> with a <span class="accent">_region</span> suffix. Fan HOLD now anchors to the selected preset's peak clock and runs the blower at the set speed, cooldown ramps are smoothed, and the SMALL, MEDIUM and LARGE fan curves are quieter at the same temperatures. The performance overlay adds a live FAN duty row. All new strings ship in the 25 launcher languages.</p>
   </div>
 
-  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.42</span></div>
+  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.45</span></div>
+</section>
+
+<!-- 2b · SOUND TUNER -->
+<section class="page">
+  <div class="micro">16 · Sound Tuner</div>
+  <h2>Ten bands over everything.</h2>
+  <p style="max-width:158mm">A system-wide graphic equalizer built on Android's DynamicsProcessing effect. Every app shares one curve, and edits take effect immediately — no Apply step.</p>
+
+  <div class="cols2" style="margin-top:4mm">
+    <div>
+      <h3>Mixer</h3>
+      <ul>
+        <li><b>31 Hz to 16 kHz</b> in ten bands, each with a ±12 dB vertical slider.</li>
+        <li><b>0 dB centre line</b> shows boost or cut at a glance.</li>
+        <li><b>Drag anywhere</b> on a slider, or use the right stick on the focused band.</li>
+        <li><b>0.1 dB</b> right-stick steps for fine adjustment.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Presets &amp; lock</h3>
+      <ul>
+        <li><b>27 presets</b> in a compact 9×3 grid, all visible without scrolling.</li>
+        <li><b>PAVO</b> stores the current curve as its default; long-press PAVO to save a new one.</li>
+        <li><b>LOCK</b> freezes the bands. Presets still apply, save and persist.</li>
+        <li><b>EQ ON/OFF</b> sits beside LOCK; the controller focus ring follows the knob, not the column.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card plain" style="margin-top:5mm">
+    <div class="micro" style="margin-bottom:2mm">Curve migration</div>
+    <p style="margin:0">Existing five-band curves are redistributed onto the ten-band grid once, by log-frequency interpolation. The five-value presets are expanded automatically, so saved tunings keep their shape.</p>
+  </div>
+  <div class="footer"><span>Pavo · Sound Tuner</span><span>1.0.45</span></div>
+</section>
+
+<!-- 2c · JOYSTICKS -->
+<section class="page">
+  <div class="micro">17 · Joysticks</div>
+  <h2>Calibrate the sticks.<br>Keep the drift out.</h2>
+  <p style="max-width:158mm">A built-in calibration and testing surface for the Odin sticks, with live raw and corrected positions, a gate map and per-app profiles.</p>
+
+  <div class="cols2" style="margin-top:4mm">
+    <div>
+      <h3>Calibration</h3>
+      <ul>
+        <li><b>Guided</b> rest, range and gate capture; centre and reset are separate.</li>
+        <li><b>RAW / OUT</b> preview with colour-matched legend dots.</li>
+        <li><b>Deadzone, CURVE and Min output</b> sliders, applied live.</li>
+        <li><b>LINEAR, SMOOTH, PRECISE, FAST, RACING, FPS and ACCEL</b> presets; long-press to reset.</li>
+        <li><b>EXPERT</b> unlocks the wider deadzone and curve ranges.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Per-app &amp; controller</h3>
+      <ul>
+        <li><b>Per-app profiles</b> follow the game; AUTO switches, MANUAL keeps the global tuning.</li>
+        <li><b>BYPASS</b> stops the remap daemon for that app and exposes the physical controller.</li>
+        <li><b>Left stick / D-pad</b> navigate; <b>A</b> activates; <b>B</b> closes.</li>
+        <li><b>Right stick</b> adjusts the focused slider one step at a time, with each step saved.</li>
+        <li><b>Hold A</b> performs long-press actions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card plain" style="margin-top:5mm">
+    <div class="micro" style="margin-bottom:2mm">Controller identity</div>
+    <p style="margin:0">The virtual pad advertises itself as an Xbox Wireless Controller. When a game rejects synthetic controllers, turn on that app's BYPASS: the daemon stops, the virtual pad disappears and the game sees the physical controller only.</p>
+  </div>
+  <div class="footer"><span>Pavo · Joysticks</span><span>1.0.45</span></div>
 </section>
 
 <!-- 3 · QUICK CONTROLS -->
@@ -236,7 +309,7 @@
     </div>
   </div>
 
-  <div class="footer"><span>Pavo · Quick controls</span><span>1.0.42</span></div>
+  <div class="footer"><span>Pavo · Quick controls</span><span>1.0.45</span></div>
 </section>
 
 <!-- 4 · HANDLE -->
@@ -296,7 +369,7 @@
     </div>
   </div>
 
-  <div class="footer"><span>Pavo · Quick controls</span><span>1.0.42</span></div>
+  <div class="footer"><span>Pavo · Quick controls</span><span>1.0.45</span></div>
 </section>
 
 <!-- 5 · RGB -->
@@ -375,7 +448,7 @@
     </div>
   </div>
 
-  <div class="footer"><span>Pavo · RGB lighting</span><span>1.0.42</span></div>
+  <div class="footer"><span>Pavo · RGB lighting</span><span>1.0.45</span></div>
 </section>
 
 <!-- 6 · REST -->
@@ -436,7 +509,7 @@
     </div>
   </div>
 
-  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.42</span></div>
+  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.45</span></div>
 </section>
 
 <!-- 7 · CONTROLLERS / SETUP -->
@@ -529,7 +602,7 @@
     </div>
   </div>
 
-  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.42</span></div>
+  <div class="footer"><span>Pavo · Feature overview</span><span>1.0.45</span></div>
 </section>
 
 </body>

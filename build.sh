@@ -49,8 +49,8 @@ echo "==> link"
   --java build/gen \
   --min-sdk-version 31 \
   --target-sdk-version 35 \
-  --version-code 2 \
-  --version-name 1.1.0
+  --version-code 241 \
+  --version-name 1.0.45
 
 echo "==> compile"
 javac -Xlint:-options -source 17 -target 17 \

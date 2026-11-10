@@ -2,6 +2,38 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.45 — 10 Nov 2026
+
+### Joysticks
+
+- New built-in calibration and testing app with guided rest, range and gate calibration, live RAW/OUT previews, per-app profiles and curve presets.
+- FPS and ACCEL presets, EXPERT ranges, and long-press preset reset.
+- Full controller support: left stick and D-pad navigation, A/B, hold-A actions, and precise one-step right-stick slider control.
+- The sideview drawer now blocks L3/R3 so the firmware mouse layer cannot open the app under the cursor.
+
+### Sound Tuner
+
+- Ten-band system-wide equalizer from 31 Hz to 16 kHz, with a vertical mixer and live drag or right-stick editing.
+- Band LOCK, preset changes that still save while locked, and a saved PAVO default curve. Long-press PAVO to store the current curve again.
+- Compact 9×3 preset grid, EQ toggle beside LOCK, and a focus ring around the knob only.
+
+### Controller
+
+- The virtual controller now presents as an Xbox Wireless Controller.
+- Per-app BYPASS stops the remap daemon and leaves the physical controller for games that reject synthetic input.
+
+### Fan Control
+
+- HOLD is a single draggable target and speed point with compact controls and smoother curve response.
+
+### Performance
+
+- Presets keep their clock caps applied under sustained load.
+
+### Launcher
+
+- Built-in app icons now use per-app colour palettes with distinct coloured elements.
+
 ## 1.0.44 — 09 Nov 2026
 
 ### Sound Tuner
