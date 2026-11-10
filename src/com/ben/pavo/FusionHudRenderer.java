@@ -426,7 +426,7 @@ final class FusionHudRenderer {
         final float dotR = sp(2.4f);
         final float meterW = sp(30f);
         final float meterH = sp(4.5f);
-        final float rowGap = sp(4f);
+        final float rowGap = sp(5f);
         final float sectionGap = sp(7f);
         final float ribbonH = sp(16f);
 
@@ -487,7 +487,7 @@ final class FusionHudRenderer {
         }
         if (showBattery && stats.powerW > 0f) {
             List<Span> value = numUnit(fmt1(stats.powerW), "W", valuePx, unitPx);
-            List<Span> detail = listOf(span(Loc.s(ctx, "SYSTEM"), COL_DIM, detailPx));
+            List<Span> detail = listOf(span(Loc.s(ctx, "DEVICE"), COL_DIM, detailPx));
             modules.add(new Module(Loc.s(ctx, "POWER"), COL_POWER, value, detail, -1f));
         }
         if (showFan) {
@@ -509,11 +509,11 @@ final class FusionHudRenderer {
             if (m.detail != null) detailW = Math.max(detailW, runWidth(m.detail));
         }
         float dotD = dotR * 2f;
-        float rowW = dotD + sp(5f) + labelW + sp(6f) + valueW + sp(6f) + meterW
-                + (detailW > 0f ? sp(6f) + detailW + sp(4f) : 0f);
+        float rowW = dotD + sp(6f) + labelW + sp(7f) + valueW + sp(7f) + meterW
+                + (detailW > 0f ? sp(7f) + detailW + sp(4f) : 0f);
         int rows = modules.size();
         float gridW = rowW;
-        float rowH = lineH(valuePx) + sp(4f);
+        float rowH = lineH(valuePx) + sp(6f);
         float gridH = rows > 0 ? rows * rowH + (rows - 1) * rowGap : 0f;
 
         // --- frametime ribbon ------------------------------------------
@@ -522,8 +522,12 @@ final class FusionHudRenderer {
 
         // --- header text -----------------------------------------------
         float headerLeftW = dotD + sp(6f) + measure("PAVO", headerPx);
+        List<Span> profileLine = hasEngine
+                ? listOf(span(Loc.s(ctx, "PERF") + "  \u00b7  ", COL_DIM, headerPx),
+                        span(engine, presetColor(), headerPx))
+                : null;
         float headerW = hasEngine
-                ? headerLeftW + sp(16f) + measure(engine, headerPx) : headerLeftW;
+                ? headerLeftW + sp(16f) + runWidth(profileLine) : headerLeftW;
 
         float innerW = Math.max(Math.max(headerW, heroW), gridW);
         innerW = Math.max(innerW, graphW);
@@ -537,9 +541,8 @@ final class FusionHudRenderer {
         placeRun(pad + dotD + sp(6f), y - ascent(headerPx),
                 listOf(span("PAVO", COL_DIM, headerPx)));
         if (hasEngine) {
-            float ew = measure(engine, headerPx);
-            placeRun(pad + innerW - ew, y - ascent(headerPx),
-                    listOf(span(engine, presetColor(), headerPx)));
+            float ew = runWidth(profileLine);
+            placeRun(pad + innerW - ew, y - ascent(headerPx), profileLine);
         }
         y += lineH(headerPx) + sp(6f);
         dividers.add(divider(pad, y, pad + innerW, sp(0.8f)));
@@ -559,7 +562,15 @@ final class FusionHudRenderer {
             }
             y += heroH;
             if (graphOn) {
-                y += sp(4f);
+                y += sp(5f);
+                float capPx = sp(7.5f);
+                placeRun(pad, y - ascent(capPx),
+                        listOf(span("FRAMETIME", COL_FPS, capPx)));
+                String stat = "min " + fmt1(graphMin()) + "  max " + fmt1(graphMax());
+                float sw = measure(stat, capPx);
+                placeRun(pad + innerW - sw, y - ascent(capPx),
+                        listOf(span(stat, COL_DIM, capPx)));
+                y += lineH(capPx) + sp(2f);
                 graphRect = new RectF(pad, y, pad + innerW, y + ribbonH);
                 y += ribbonH;
             }
@@ -575,14 +586,14 @@ final class FusionHudRenderer {
                 float baseline = gy + (rowH - lineH(valuePx)) / 2f - ascent(valuePx);
                 barFills.add(dot(pad, cy, dotR));
                 barColors.add(m.color);
-                float lx = pad + dotD + sp(5f);
+                float lx = pad + dotD + sp(6f);
                 float kw = measure(m.key, labelPx);
                 placeRun(lx + labelW - kw, baseline,
                         listOf(span(m.key, m.color, labelPx)));
-                float vx = lx + labelW + sp(6f);
+                float vx = lx + labelW + sp(7f);
                 float vw = runWidth(m.value);
                 placeRun(vx + valueW - vw, baseline, m.value);
-                float mx = vx + valueW + sp(6f);
+                float mx = vx + valueW + sp(7f);
                 float my = cy - meterH / 2f;
                 if (m.level >= 0f) {
                     barTracks.add(new RectF(mx, my, mx + meterW, my + meterH));
@@ -593,12 +604,12 @@ final class FusionHudRenderer {
                     }
                 }
                 if (m.detail != null) {
-                    placeRun(mx + meterW + sp(6f), baseline, m.detail);
+                    placeRun(mx + meterW + sp(7f), baseline, m.detail);
                 }
                 gy += rowH + rowGap;
                 if (i < modules.size() - 1) {
                     dividers.add(divider(pad, gy - rowGap / 2f,
-                            pad + innerW, sp(0.7f)));
+                            pad + innerW, sp(0.8f)));
                 }
             }
             y += gridH;
@@ -742,8 +753,8 @@ final class FusionHudRenderer {
             float h = sp(0.7f);
             canvas.drawRoundRect(h, h, viewW - h, viewH - h, radius, radius, strokePaint);
         }
-        dividerPaint.setColor(Color.argb(Math.max(12, Math.min(52,
-                Math.round(22 * opacity))), 255, 255, 255));
+        dividerPaint.setColor(Color.argb(Math.max(16, Math.min(64,
+                Math.round(28 * opacity))), 255, 255, 255));
         for (RectF rect : dividers) {
             canvas.drawRect(rect, dividerPaint);
         }
