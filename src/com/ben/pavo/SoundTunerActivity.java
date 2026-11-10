@@ -198,25 +198,6 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         column.addView(buildHeader(), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        enableChip = text("", 10.5f, TEXT, true);
-        enableChip.setGravity(Gravity.CENTER);
-        enableChip.setSingleLine(true);
-        enableChip.setFocusable(true);
-        enableChip.setFocusable(true);
-        enableChip.setPadding(dp(12), dp(10), dp(12), dp(10));
-        enableChip.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Haptics.click(v);
-                AudioEq.setEnabled(SoundTunerActivity.this, !AudioEq.enabled(SoundTunerActivity.this));
-                refresh();
-            }
-        });
-        LinearLayout.LayoutParams enableLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        enableLp.topMargin = dp(4);
-        column.addView(enableChip, enableLp);
-
         status = text("", 9f, MUTED, false);
         status.setPadding(dp(3), dp(6), dp(3), dp(4));
         column.addView(status);
@@ -289,10 +270,26 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 finishAnimated();
             }
         });
-        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clp.gravity = Gravity.TOP | Gravity.END;
-        header.addView(close, clp);
+        enableChip = text("", 9.5f, TEXT, true);
+        enableChip.setGravity(Gravity.CENTER);
+        enableChip.setSingleLine(true);
+        enableChip.setMinWidth(dp(64));
+        enableChip.setPadding(dp(9), dp(6), dp(9), dp(6));
+        enableChip.setFocusable(true);
+        enableChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Haptics.click(v);
+                AudioEq.setEnabled(SoundTunerActivity.this,
+                        !AudioEq.enabled(SoundTunerActivity.this));
+                refresh();
+            }
+        });
+        enableChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateEnableChip();
+            }
+        });
 
         lockChip = text("LOCK", 8.5f, MUTED, true);
         lockChip.setGravity(Gravity.CENTER);
@@ -310,12 +307,26 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 updateLockChip();
             }
         });
-        FrameLayout.LayoutParams llp = new FrameLayout.LayoutParams(
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.addView(enableChip, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams lockLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        llp.gravity = Gravity.TOP | Gravity.END;
-        llp.rightMargin = dp(46);
-        llp.topMargin = dp(2);
-        header.addView(lockChip, llp);
+        lockLp.leftMargin = dp(6);
+        actions.addView(lockChip, lockLp);
+        LinearLayout.LayoutParams closeLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        closeLp.leftMargin = dp(4);
+        actions.addView(close, closeLp);
+
+        FrameLayout.LayoutParams alp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        alp.gravity = Gravity.TOP | Gravity.END;
+        alp.topMargin = dp(2);
+        header.addView(actions, alp);
         return header;
     }
 
@@ -445,8 +456,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         if (enableChip == null) return;
         boolean available = AudioEq.available(this);
         boolean on = available && AudioEq.enabled(this);
-        enableChip.setText(Loc.s(this, "GLOBAL EQ") + "   \u00b7   "
-                + Loc.s(this, on ? "ON" : "OFF"));
+        enableChip.setText("EQ " + Loc.s(this, on ? "ON" : "OFF"));
         enableChip.setTextColor(on ? 0xFF071018 : TEXT);
         enableChip.setBackground(Ui.rounded(on ? accent : 0x1AFFFFFF, dp(12),
                 on ? accent : 0x33FFFFFF, dp(1)));
@@ -491,6 +501,23 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         }
         for (TextView value : values) {
             value.setAlpha(locked ? 0.6f : 1f);
+        }
+    }
+
+    private void updateEnableChip() {
+        if (enableChip == null) return;
+        boolean on = AudioEq.enabled(this);
+        boolean focused = enableChip.hasFocus();
+        enableChip.setText("EQ " + Loc.s(this, on ? "ON" : "OFF"));
+        enableChip.setTextColor(on ? 0xFF071018 : TEXT);
+        if (on) {
+            enableChip.setBackground(focused
+                    ? Ui.rounded(accent, dp(12), 0xFFFFFFFF, dp(1.5f))
+                    : Ui.rounded(accent, dp(12)));
+        } else {
+            enableChip.setBackground(focused
+                    ? Ui.rounded(0x1AFFFFFF, dp(12), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1AFFFFFF, dp(12), 0x33FFFFFF, dp(1)));
         }
     }
 
