@@ -3,34 +3,29 @@ package com.ben.pavo;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.Typeface;
-import android.text.format.DateFormat;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Bannerlator Fusion HUD port.
+ * One adaptive performance panel.
  *
- * <p>One colour-coded visual language rendered at five size modes, smallest to
- * biggest: Minimal, Pill, Tiles, Full, Mega. Pure canvas drawing with a
- * monospace bold typeface, matching Bannerlator's Fusion overlay. The resizing
- * gesture cycles through the modes; the card always hugs its content.
+ * <p>Pure canvas drawing with a monospace bold typeface. A hero FPS block sits
+ * above a grid of metric modules; every metric toggle adds or removes one
+ * module, and optional core bars, a frametime graph and a footer grow with the
+ * card. There are no fixed size modes — the panel hugs its content and the
+ * scale gesture changes only its size.
  */
 final class FusionHudRenderer {
-    static final int MINIMAL = 0;
-    static final int PILL = 1;
-    static final int TILES = 2;
-    static final int FULL = 3;
-    static final int MEGA = 4;
-    static final int MODE_COUNT = 5;
 
     private static final int COL_GPU = 0xFF5EE08A;
     private static final int COL_CPU = 0xFF58A6FF;
@@ -40,9 +35,9 @@ final class FusionHudRenderer {
     private static final int COL_GRAPH = 0xFF5EE08A;
     private static final int COL_VALUE = 0xFFF2F5F9;
     private static final int COL_DIM = 0xFF9AA4B2;
-    private static final int COL_LO = 0xFFE4E8EE;
     private static final int COL_LOCK = 0xFFFFD27F;
     private static final int COL_FAN = 0xFF4DD0E1;
+    private static final int COL_POWER = 0xFFFFD166;
 
     private static final int GRAPH_CAP = 60;
     private static final int HISTORY_CAP = 180;
@@ -75,17 +70,20 @@ final class FusionHudRenderer {
         }
     }
 
-    private static final class Row {
-        final String label;
-        final int labelColor;
-        final List<Span> values;
-        final boolean inline;
+    private static final class Module {
+        final String key;
+        final int color;
+        final List<Span> value;
+        final List<Span> detail;
+        /** 0..1 inline meter level, or -1 when the metric is not a percentage. */
+        final float level;
 
-        Row(String label, int labelColor, List<Span> values, boolean inline) {
-            this.label = label;
-            this.labelColor = labelColor;
-            this.values = values;
-            this.inline = inline;
+        Module(String key, int color, List<Span> value, List<Span> detail, float level) {
+            this.key = key;
+            this.color = color;
+            this.value = value;
+            this.detail = detail;
+            this.level = level;
         }
     }
 
@@ -95,20 +93,24 @@ final class FusionHudRenderer {
     private final Paint drawPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint tilePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint dividerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint graphPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint graphFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path graphPath = new Path();
+    private final Path graphFillPath = new Path();
 
     private final ArrayList<Glyph> glyphs = new ArrayList<>();
-    private final ArrayList<RectF> tileRects = new ArrayList<>();
+    private final ArrayList<RectF> dividers = new ArrayList<>();
+    private final ArrayList<RectF> barTracks = new ArrayList<>();
+    private final ArrayList<RectF> barFills = new ArrayList<>();
+    private final ArrayList<Integer> barColors = new ArrayList<>();
     private final ArrayDeque<Float> graphSamples = new ArrayDeque<>();
     private final ArrayDeque<Float> fpsHistory = new ArrayDeque<>();
     private RectF graphRect;
-    private boolean pill;
 
     private Prefs prefs;
     private PerfStats stats;
-    private int mode = PILL;
     private boolean locked;
     private float opacity = 0.88f;
     private float scale = 1f;
@@ -117,7 +119,6 @@ final class FusionHudRenderer {
     private int accent = 0xFFA9BEFF;
     private String engineLabel = "";
     private String presetLabel = "";
-    private final long startMs = android.os.SystemClock.uptimeMillis();
 
     // Metric toggles, mapped from Prefs.
     private boolean showFps = true;
@@ -128,10 +129,8 @@ final class FusionHudRenderer {
     private boolean showGpuClock = true;
     private boolean showGpuUsage = true;
     private boolean showRam = true;
-    private boolean showNet = true;
     private boolean showBattery = true;
     private boolean showFan = true;
-    private boolean showCores = true;
     private boolean showGraph = true;
     private boolean showEngine = true;
     private boolean fpsDecimal = true;
@@ -166,10 +165,8 @@ final class FusionHudRenderer {
         showGpuClock = p.perfGpuClock();
         showGpuUsage = p.perfGpuUsage();
         showRam = p.perfRam();
-        showNet = p.perfNet();
         showBattery = p.perfBattery();
         showFan = p.perfFan();
-        showCores = p.perfCores();
         showGraph = p.perfFpsGraph();
         presetLabel = readPreset();
         engineLabel = presetLabel;
@@ -191,18 +188,6 @@ final class FusionHudRenderer {
         rebuild();
     }
 
-    void setMode(int m) {
-        int v = Math.max(0, Math.min(MODE_COUNT - 1, m));
-        if (mode == v) return;
-        mode = v;
-        dirty = true;
-        rebuild();
-    }
-
-    int mode() {
-        return mode;
-    }
-
     void setLocked(boolean v) {
         locked = v;
     }
@@ -222,7 +207,7 @@ final class FusionHudRenderer {
     }
 
     boolean graphShown() {
-        return showGraph && showFps;
+        return showGraph && showFps && stats != null && stats.fpsValid;
     }
 
     private boolean hasGraphSamples() {
@@ -352,7 +337,7 @@ final class FusionHudRenderer {
     }
 
     private String fpsText() {
-        return one(fpsNow());
+        return stats != null && stats.fpsValid ? one(fpsNow()) : "--";
     }
 
     private String fmt1(float v) {
@@ -385,7 +370,7 @@ final class FusionHudRenderer {
     private String ramUsedText() {
         if (stats == null || stats.memTotalKb <= 0) return null;
         float usedGb = Math.max(0f, (stats.memTotalKb - stats.memAvailKb) / 1_000_000f);
-        return fmt1(usedGb) + "G";
+        return fmt1(usedGb);
     }
 
     private String ramTotalText() {
@@ -394,26 +379,21 @@ final class FusionHudRenderer {
         return totalGb + "G";
     }
 
-    private String rate(long bps) {
-        return SysStats.fmtRate(bps);
+    private void rebuild() {
+        if (!dirty) return;
+        dirty = false;
+        glyphs.clear();
+        dividers.clear();
+        barTracks.clear();
+        barFills.clear();
+        barColors.clear();
+        graphRect = null;
+        contentW = 0f;
+        contentH = 0f;
+        if (stats == null) return;
+        buildModular();
     }
 
-    private String clockTime() {
-        try {
-            return DateFormat.getTimeFormat(ctx).format(new Date());
-        } catch (Throwable t) {
-            return "";
-        }
-    }
-
-    private String elapsedText() {
-        int sec = (int) Math.max(0, (android.os.SystemClock.uptimeMillis() - startMs) / 1000);
-        int h = sec / 3600, m = (sec % 3600) / 60, s = sec % 60;
-        return h > 0 ? String.format(Locale.US, "%d:%02d:%02d", h, m, s)
-                : String.format(Locale.US, "%02d:%02d", m, s);
-    }
-
-    /** Use the same preset colours as the Performance Tuner chips. */
     private int presetColor() {
         if (!showEngine || engineLabel == null || engineLabel.isEmpty()
                 || "FPS".equals(engineLabel)) {
@@ -433,655 +413,295 @@ final class FusionHudRenderer {
         }
     }
 
-    private String resolutionText() {
-        android.util.DisplayMetrics dm = ctx.getResources().getDisplayMetrics();
-        int w = Math.max(dm.widthPixels, dm.heightPixels);
-        int h = Math.min(dm.widthPixels, dm.heightPixels);
-        String base = w + "x" + h;
-        float hz = 0f;
-        try {
-            android.view.Display d = ctx.getDisplay();
-            if (d != null) hz = d.getRefreshRate();
-        } catch (Throwable ignored) {
-        }
-        return hz >= 1f ? base + " @ " + Math.round(hz) + "Hz" : base;
-    }
+    private void buildModular() {
+        final float pad = sp(10f);
+        final float headerPx = sp(8.5f);
+        final float heroPx = sp(30f);
+        final float heroUnitPx = sp(10f);
+        final float statValuePx = sp(9.5f);
+        final float labelPx = sp(8.5f);
+        final float valuePx = sp(14f);
+        final float unitPx = sp(9f);
+        final float detailPx = sp(9f);
+        final float dotR = sp(2.4f);
+        final float meterW = sp(30f);
+        final float meterH = sp(4.5f);
+        final float rowGap = sp(4f);
+        final float sectionGap = sp(7f);
+        final float ribbonH = sp(16f);
 
-    // ------------------------------------------------------------------
-    // Build
-    // ------------------------------------------------------------------
+        String engine = showEngine && engineLabel != null ? engineLabel : "";
+        boolean hasEngine = !engine.isEmpty() && !"FPS".equals(engine);
+        boolean hero = showFps;
 
-    private void rebuild() {
-        if (!dirty) return;
-        dirty = false;
-        glyphs.clear();
-        tileRects.clear();
-        graphRect = null;
-        pill = false;
-        contentW = 0f;
-        contentH = 0f;
-        if (stats == null) return;
-        switch (mode) {
-            case MINIMAL:
-                buildMinimal();
-                break;
-            case PILL:
-                buildPill();
-                break;
-            case TILES:
-                buildTiles();
-                break;
-            case FULL:
-                buildFull();
-                break;
-            case MEGA:
-                buildMega();
-                break;
-        }
-        if (pill) fitCapsule();
-    }
-
-    private void addClock(float pad, Float centerX) {
-        String t = clockTime();
-        if (t.isEmpty()) return;
-        float px = sp(9.5f);
-        float w = measure(t, px);
-        float footerTop = contentH - pad;
-        float baseline = footerTop - ascent(px);
-        float x = centerX != null
-                ? Math.max(pad, Math.min(centerX - w / 2f, contentW - pad - w))
-                : Math.max(pad, contentW - pad - w);
-        glyphs.add(new Glyph(x, baseline, t, blend(COL_DIM), px));
-        contentH = footerTop + lineH(px) + pad * 0.5f;
-        contentW = Math.max(contentW, pad + w + pad);
-    }
-
-    private void buildMinimal() {
-        // Smallest mode: just the FPS number. Everything else stays in the
-        // larger modes, so this card stays a tiny pill that hugs its one number.
-        float bigPx = sp(34f);
-        float unitPx = bigPx * 0.32f;
-        float pad = sp(10f);
-
-        List<Span> big = new ArrayList<>();
-        big.add(span(fpsText(), COL_VALUE, bigPx));
-        big.add(span("fps", COL_DIM, unitPx));
-
-        float bigW = runWidth(big);
-        float bigH = lineH(bigPx);
-        contentW = bigW + pad * 2f;
-        contentH = bigH + pad * 2f;
-        placeRun(pad, pad - ascent(bigPx), big);
-    }
-
-    private void buildPill() {
-        float bigPx = sp(30f);
-        float bigUnit = bigPx * 0.36f;
-        float stkPx = sp(11.5f);
-        float pad = sp(10f);
-        float midGap = sp(12f);
-        float lineGap = sp(3f);
-
-        List<Span> left = new ArrayList<>();
-        left.add(span(fpsText(), COL_VALUE, bigPx));
-        left.add(span("fps", COL_DIM, bigUnit));
-
-        List<List<Span>> stack = new ArrayList<>();
-        if (showGpuUsage || showCpuUsage) {
-            List<Span> l = new ArrayList<>();
-            if (showGpuUsage) l.add(span("GPU " + (pct(stats.gpuUsageKnown, stats.gpuUsage) == null
-                    ? "\u2014" : stats.gpuUsage) + "%", COL_GPU, stkPx));
-            if (showCpuUsage) {
-                if (!l.isEmpty()) l.add(span(" \u00b7 ", COL_DIM, stkPx));
-                l.add(span("CPU " + (pct(stats.cpuUsageKnown, stats.cpuUsage) == null
-                        ? "\u2014" : stats.cpuUsage) + "%", COL_CPU, stkPx));
+        // --- hero data --------------------------------------------------
+        List<Span> fpsLine = null;
+        String[] statNames = {"AVG", "1%", "MS"};
+        String[] statValues = {"\u2014", "\u2014", "\u2014"};
+        float heroW = 0f, heroH = 0f;
+        float statW = 0f, statValueW = 0f, statH = 0f;
+        if (hero) {
+            fpsLine = listOf(span(fpsText(),
+                            stats.fpsValid ? COL_VALUE : COL_DIM, heroPx),
+                    span(" fps", COL_DIM, heroUnitPx));
+            String avg = stats.fpsValid ? avgText() : null;
+            String low = stats.fpsValid ? lowText(1) : null;
+            statValues[0] = avg == null ? "\u2014" : avg;
+            statValues[1] = low == null ? "\u2014" : low;
+            statValues[2] = fpsNow() > 0f ? fmt1(1000f / fpsNow()) : "\u2014";
+            float statLabelW = 0f;
+            for (int i = 0; i < statNames.length; i++) {
+                statLabelW = Math.max(statLabelW, measure(statNames[i], labelPx));
+                statValueW = Math.max(statValueW, measure(statValues[i], statValuePx));
             }
-            stack.add(l);
+            statW = statLabelW + sp(9f) + statValueW;
+            statH = 3f * lineH(statValuePx) + 2f * sp(2f);
+            heroW = runWidth(fpsLine) + sp(18f) + statW;
+            heroH = Math.max(lineH(heroPx), statH);
         }
+
+        // --- one row per enabled metric --------------------------------
+        List<Module> modules = new ArrayList<>();
+        addCpuModule(modules, valuePx, unitPx, detailPx);
+        addGpuModule(modules, valuePx, unitPx, detailPx);
         if (showRam) {
-            List<Span> l = new ArrayList<>();
-            l.add(span("RAM " + (stats.memTotalKb > 0 ? Math.round(stats.memPercent) + "%" : "\u2014"),
-                    COL_RAM, stkPx));
-            if (showCpuTemp && stats.cpuTempC > 0f) {
-                l.add(span(" \u00b7 ", COL_DIM, stkPx));
-                l.add(span("CPU " + Math.round(stats.cpuTempC) + "\u00b0", COL_CPU, stkPx));
-            }
-            if (showGpuTemp && stats.gpuTempC > 0f) {
-                l.add(span(" \u00b7 ", COL_DIM, stkPx));
-                l.add(span("GPU " + Math.round(stats.gpuTempC) + "\u00b0", COL_GPU, stkPx));
-            }
-            stack.add(l);
-        }
-        if (showBattery || showGpuTemp) {
-            List<Span> l = new ArrayList<>();
-            if (showBattery && stats.battery >= 0) {
-                l.add(span("BAT " + stats.battery + "%", COL_BAT, stkPx));
-            }
-            if (showBattery && stats.powerW > 0f) {
-                if (!l.isEmpty()) l.add(span(" \u00b7 ", COL_DIM, stkPx));
-                l.add(span(fmt1(stats.powerW) + "W", COL_DIM, stkPx));
-            }
-            if (stats.batteryTempC > 0f) {
-                if (!l.isEmpty()) l.add(span(" \u00b7 ", COL_DIM, stkPx));
-                l.add(span("BATT " + Math.round(stats.batteryTempC) + "\u00b0", COL_BAT, stkPx));
-            }
-            if (!l.isEmpty()) stack.add(l);
-        }
-        {
-            List<Span> l = new ArrayList<>();
-            l.add(span(fmt1(1000f / Math.max(1f, fpsNow())) + "ms", COL_DIM, stkPx));
-            if (showNet) {
-                l.add(span(" \u00b7 ", COL_DIM, stkPx));
-                l.add(span("\u2193" + rate(stats.netRxBps), COL_DIM, stkPx));
-            }
-            if (showFan) {
-                int duty = PerfTuner.fanPercent(ctx);
-                if (duty >= 0) {
-                    l.add(span(" \u00b7 FAN " + duty + "%", COL_DIM, stkPx));
-                }
-            }
-            stack.add(l);
-        }
-
-        String api = showEngine && engineLabel != null && !engineLabel.isEmpty()
-                ? engineLabel : "FPS";
-        boolean hasApi = !"FPS".equals(api);
-        float apiW = hasApi ? measure(api, stkPx) : 0f;
-        float leftW = runWidth(left);
-        float leftH = lineH(bigPx);
-        float leftBlockW = Math.max(leftW, apiW);
-        float leftColH = (hasApi ? lineH(stkPx) + lineGap : 0f) + leftH;
-        float stackW = 0f;
-        for (List<Span> l : stack) stackW = Math.max(stackW, runWidth(l));
-        float stkH = lineH(stkPx);
-        float stackTotalH = stack.size() * stkH + Math.max(0, stack.size() - 1) * lineGap;
-        float innerH = Math.max(leftColH, stackTotalH);
-        contentW = pad + leftBlockW + midGap + stackW + pad;
-        contentH = pad + innerH + pad;
-
-        float ly = pad + (innerH - leftColH) / 2f;
-        if (hasApi) {
-            placeRun(pad + (leftBlockW - apiW) / 2f, ly - ascent(stkPx),
-                    listOf(span(api, presetColor(), stkPx)));
-            ly += lineH(stkPx) + lineGap;
-        }
-        placeRun(pad + (leftBlockW - leftW) / 2f, ly - ascent(bigPx), left);
-        float sy = pad + (innerH - stackTotalH) / 2f;
-        for (List<Span> l : stack) {
-            placeRun(pad + leftBlockW + midGap, sy - ascent(stkPx), l);
-            sy += stkH + lineGap;
-        }
-        pill = true;
-    }
-
-    private void buildTiles() {
-        float keyPx = sp(10f);
-        float valPx = sp(18f);
-        float subPx = sp(10f);
-        float unitPx = sp(11f);
-        float pad = sp(9f);
-        float inner = sp(8f);
-        float tileGap = sp(6f);
-        float lineGap = sp(4f);
-
-        class Tile {
-            final String key;
-            final int keyColor;
-            final List<Span> value;
-            final String sub;
-
-            Tile(String key, int keyColor, List<Span> value, String sub) {
-                this.key = key;
-                this.keyColor = keyColor;
-                this.value = value;
-                this.sub = sub;
-            }
-        }
-
-        List<Tile> tiles = new ArrayList<>();
-        if (showFps) {
-            tiles.add(new Tile("FPS", COL_FPS, listOf(span(fpsText(), COL_VALUE, valPx)),
-                    (avgText() == null ? "\u2014" : avgText()) + " avg \u00b7 "
-                            + (lowText(1) == null ? "\u2014" : lowText(1)) + " 1%"));
-            tiles.add(new Tile("FRAME", COL_DIM,
-                    numUnit(fmt1(1000f / Math.max(1f, fpsNow())), "ms", valPx, unitPx), null));
-        }
-        if (showGpuUsage) {
-            tiles.add(new Tile("GPU", COL_GPU,
-                    numUnit(pct(stats.gpuUsageKnown, stats.gpuUsage), "%", valPx, unitPx),
-                    showGpuTemp && stats.gpuTempC > 0f ? Math.round(stats.gpuTempC) + "\u00b0"
-                            : showGpuClock ? PerfOverlayView.fmtHz(stats.gpuHz) : null));
-        }
-        if (showCpuUsage) {
-            List<String> sub = new ArrayList<>();
-            if (showCpuTemp && stats.cpuTempC > 0f) sub.add(Math.round(stats.cpuTempC) + "\u00b0");
-            if (showCpuClock) sub.add(PerfOverlayView.fmtHz(stats.cpuHz));
-            tiles.add(new Tile("CPU", COL_CPU,
-                    numUnit(pct(stats.cpuUsageKnown, stats.cpuUsage), "%", valPx, unitPx),
-                    join(sub, " \u00b7 ")));
-        }
-        if (showRam) {
-            tiles.add(new Tile("RAM", COL_RAM,
-                    numUnit(stats.memTotalKb > 0 ? String.valueOf(Math.round(stats.memPercent)) : null,
-                            "%", valPx, unitPx),
-                    ramUsedText() == null ? null : ramUsedText() + " / " + ramTotalText()));
+            List<Span> value = stats.memTotalKb > 0
+                    ? valueUnit(ramUsedText() + "/" + ramTotalText(), valuePx, unitPx)
+                    : listOf(span("\u2014", COL_DIM, valuePx));
+            List<Span> detail = stats.memTotalKb > 0
+                    ? listOf(span(Math.round(stats.memPercent) + "%", COL_DIM, detailPx))
+                    : null;
+            float level = stats.memTotalKb > 0
+                    ? Math.max(0f, Math.min(1f, stats.memPercent / 100f)) : -1f;
+            modules.add(new Module("RAM", COL_RAM, value, detail, level));
         }
         if (showBattery) {
-            List<String> sub = new ArrayList<>();
-            if (stats.powerW > 0f) sub.add(fmt1(stats.powerW) + "W");
-            if (stats.batteryTempC > 0f) sub.add(Math.round(stats.batteryTempC) + "\u00b0");
-            tiles.add(new Tile("BAT", COL_BAT,
-                    numUnit(stats.battery >= 0 ? String.valueOf(stats.battery) : null,
-                            "%", valPx, unitPx), join(sub, " \u00b7 ")));
+            boolean hasPct = stats.battery >= 0;
+            List<Span> value = hasPct
+                    ? numUnit(String.valueOf(stats.battery), "%", valuePx, unitPx)
+                    : listOf(span("\u2014", COL_DIM, valuePx));
+            List<Span> detail = stats.batteryTempC > 0f
+                    ? tempSpans(stats.batteryTempC, detailPx, detailPx * 0.78f) : null;
+            float level = hasPct ? Math.max(0f, Math.min(1f, stats.battery / 100f)) : -1f;
+            modules.add(new Module("BAT", COL_BAT, value, detail, level));
         }
-        if (showNet) {
-            tiles.add(new Tile("NET", COL_FPS,
-                    listOf(span(rate(stats.netRxBps), COL_VALUE, valPx)),
-                    activityUp(stats.netTxBps)));
-        }
-        if (showEngine) {
-            tiles.add(new Tile("API", COL_FPS,
-                    listOf(span(engineLabel, presetColor(), valPx)), "Android"));
+        if (showBattery && stats.powerW > 0f) {
+            List<Span> value = numUnit(fmt1(stats.powerW), "W", valuePx, unitPx);
+            List<Span> detail = listOf(span(Loc.s(ctx, "SYSTEM"), COL_DIM, detailPx));
+            modules.add(new Module(Loc.s(ctx, "POWER"), COL_POWER, value, detail, -1f));
         }
         if (showFan) {
             int duty = PerfTuner.fanPercent(ctx);
-            tiles.add(new Tile("FAN", COL_FAN,
-                    numUnit(duty >= 0 ? String.valueOf(duty) : null, "%", valPx, unitPx),
-                    null));
-        }
-        if (tiles.isEmpty()) return;
-
-        float keyH = lineH(keyPx);
-        float valH = lineH(valPx);
-        float subH = lineH(subPx);
-        float normalW = 0f;
-        for (Tile t : tiles) {
-            float w = Math.max(Math.max(measure(t.key, keyPx), runWidth(t.value)),
-                    t.sub == null ? 0f : measure(t.sub, subPx)) + inner * 2f;
-            normalW = Math.max(normalW, w);
-        }
-        float tileH = inner * 2f + keyH + lineGap + valH + lineGap + subH;
-        float fullW = normalW * 2f + tileGap;
-
-        float x = pad, y = pad;
-        int col = 0;
-        for (Tile t : tiles) {
-            float tw = normalW;
-            if (col == 0) {
-                placeTile(t.key, t.keyColor, t.value, t.sub, x, y, tw, tileH,
-                        keyPx, valPx, subPx, inner, lineGap);
-                col = 1;
-            } else {
-                placeTile(t.key, t.keyColor, t.value, t.sub, x, y, tw, tileH,
-                        keyPx, valPx, subPx, inner, lineGap);
-                col = 0;
-                y += tileH + tileGap;
-            }
-            x = col == 0 ? pad : pad + normalW + tileGap;
-        }
-        if (col != 0) y += tileH + tileGap;
-        contentW = pad + fullW + pad;
-        contentH = y + (pad - tileGap);
-    }
-
-    private void placeTile(String key, int keyColor, List<Span> value, String sub,
-                           float x, float y, float w, float h,
-                           float keyPx, float valPx, float subPx,
-                           float inner, float lineGap) {
-        tileRects.add(new RectF(x, y, x + w, y + h));
-        float baseline = y + inner - ascent(keyPx);
-        placeRun(x + inner, baseline, listOf(span(key, keyColor, keyPx)));
-        baseline = y + inner + lineH(keyPx) + lineGap - ascent(valPx);
-        placeRun(x + inner, baseline, value);
-        if (sub != null && !sub.isEmpty()) {
-            baseline = y + inner + lineH(keyPx) + lineGap + lineH(valPx) + lineGap - ascent(subPx);
-            placeRun(x + inner, baseline, listOf(span(sub, COL_DIM, subPx)));
-        }
-    }
-
-    private void buildFull() {
-        float rowPx = sp(12f);
-        float unitPx = rowPx * 0.62f;
-        float pad = sp(10f);
-        float lineGap = sp(4f);
-        float lvGap = sp(8f);
-
-        List<Row> rows = new ArrayList<>();
-        if (showGpuUsage) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(numUnit(pct(stats.gpuUsageKnown, stats.gpuUsage), "%", rowPx, unitPx));
-            if (showGpuTemp && stats.gpuTempC > 0f) {
-                v.add(gap(unitPx));
-                v.addAll(tempSpans(stats.gpuTempC, rowPx, unitPx));
-            }
-            if (showGpuClock) {
-                v.add(gap(unitPx));
-                v.addAll(valueUnit(PerfOverlayView.fmtHz(stats.gpuHz), rowPx, unitPx));
-            }
-            rows.add(new Row("GPU", COL_GPU, v, false));
-        }
-        if (showCpuUsage) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(numUnit(pct(stats.cpuUsageKnown, stats.cpuUsage), "%", rowPx, unitPx));
-            if (showCpuTemp && stats.cpuTempC > 0f) {
-                v.add(gap(unitPx));
-                v.addAll(tempSpans(stats.cpuTempC, rowPx, unitPx));
-            }
-            if (showCpuClock) {
-                v.add(gap(unitPx));
-                v.addAll(valueUnit(PerfOverlayView.fmtHz(stats.cpuHz), rowPx, unitPx));
-            }
-            rows.add(new Row("CPU", COL_CPU, v, false));
-        }
-        if (showRam && ramUsedText() != null) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(valueUnit(ramUsedText() + "/" + ramTotalText(), rowPx, unitPx));
-            v.add(gap(unitPx));
-            v.addAll(numUnit(String.valueOf(Math.round(stats.memPercent)), "%", rowPx, unitPx));
-            rows.add(new Row("RAM", COL_RAM, v, false));
-        }
-        if (showBattery) {
-            List<Span> v = new ArrayList<>();
-            boolean any = false;
-            if (stats.battery >= 0) {
-                v.addAll(numUnit(String.valueOf(stats.battery), "%", rowPx, unitPx));
-                any = true;
-            }
-            if (stats.batteryTempC > 0f) {
-                if (any) v.add(gap(unitPx));
-                v.addAll(tempSpans(stats.batteryTempC, rowPx, unitPx));
-                any = true;
-            }
-            if (stats.powerW > 0f) {
-                if (any) v.add(gap(unitPx));
-                v.addAll(numUnit(fmt1(stats.powerW), "W", rowPx, unitPx));
-                any = true;
-            }
-            if (any) rows.add(new Row("BAT", COL_BAT, v, false));
-        }
-        if (showFan) {
-            int duty = PerfTuner.fanPercent(ctx);
-            rows.add(new Row("FAN", COL_FAN,
-                    numUnit(duty >= 0 ? String.valueOf(duty) : null, "%", rowPx, unitPx),
-                    false));
-        }
-        if (showFps) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(numUnit(fpsText(), "FPS", rowPx, unitPx));
-            v.add(gap(unitPx));
-            v.addAll(numUnit(fmt1(1000f / Math.max(1f, fpsNow())), "ms", rowPx, unitPx));
-            String api = showEngine && !engineLabel.isEmpty() ? engineLabel : "FPS";
-            rows.add(new Row(api, presetColor(), v, false));
-            if (avgText() != null)
-                rows.add(new Row("AVG", COL_LO, numUnit(avgText(), "FPS", rowPx, unitPx), false));
-            if (lowText(1) != null)
-                rows.add(new Row("1%", COL_LO, numUnit(lowText(1), "FPS", rowPx, unitPx), false));
-            if (lowText(0) != null)
-                rows.add(new Row("0.1%", COL_LO, numUnit(lowText(0), "FPS", rowPx, unitPx), false));
+            List<Span> value = numUnit(duty >= 0 ? String.valueOf(duty) : null,
+                    "%", valuePx, unitPx);
+            String mode = fanModeLabel();
+            List<Span> detail = mode == null ? null
+                    : listOf(span(mode, COL_DIM, detailPx));
+            float level = duty >= 0 ? Math.max(0f, Math.min(1f, duty / 100f)) : -1f;
+            modules.add(new Module("FAN", COL_FAN, value, detail, level));
         }
 
-        float labelCol = 0f;
-        for (Row r : rows) labelCol = Math.max(labelCol, measure(r.label, rowPx));
-        float h = lineH(rowPx);
-        float asc = ascent(rowPx);
+        // --- module grid measurements ----------------------------------
+        float labelW = 0f, valueW = 0f, detailW = 0f;
+        for (Module m : modules) {
+            labelW = Math.max(labelW, measure(m.key, labelPx));
+            valueW = Math.max(valueW, runWidth(m.value));
+            if (m.detail != null) detailW = Math.max(detailW, runWidth(m.detail));
+        }
+        float dotD = dotR * 2f;
+        float rowW = dotD + sp(5f) + labelW + sp(6f) + valueW + sp(6f) + meterW
+                + (detailW > 0f ? sp(6f) + detailW + sp(4f) : 0f);
+        int rows = modules.size();
+        float gridW = rowW;
+        float rowH = lineH(valuePx) + sp(4f);
+        float gridH = rows > 0 ? rows * rowH + (rows - 1) * rowGap : 0f;
+
+        // --- frametime ribbon ------------------------------------------
+        boolean graphOn = hero && showGraph && stats.fpsValid && hasGraphSamples();
+        float graphW = graphOn ? sp(200f) : 0f;
+
+        // --- header text -----------------------------------------------
+        float headerLeftW = dotD + sp(6f) + measure("PAVO", headerPx);
+        float headerW = hasEngine
+                ? headerLeftW + sp(16f) + measure(engine, headerPx) : headerLeftW;
+
+        float innerW = Math.max(Math.max(headerW, heroW), gridW);
+        innerW = Math.max(innerW, graphW);
+        innerW = Math.max(innerW, sp(120f));
+        contentW = innerW + pad * 2f;
+
+        // --- header -----------------------------------------------------
         float y = pad;
-        float maxRight = pad;
-        for (Row r : rows) {
-            float baseline = y - asc;
-            float end = placeRun(pad, baseline, listOf(span(r.label, r.labelColor, rowPx)));
-            float valX = pad + labelCol + lvGap;
-            end = placeRun(valX, baseline, r.values);
-            maxRight = Math.max(maxRight, end);
-            y += h + lineGap;
+        barFills.add(dot(pad, y + lineH(headerPx) / 2f, dotR));
+        barColors.add(accent);
+        placeRun(pad + dotD + sp(6f), y - ascent(headerPx),
+                listOf(span("PAVO", COL_DIM, headerPx)));
+        if (hasEngine) {
+            float ew = measure(engine, headerPx);
+            placeRun(pad + innerW - ew, y - ascent(headerPx),
+                    listOf(span(engine, presetColor(), headerPx)));
+        }
+        y += lineH(headerPx) + sp(6f);
+        dividers.add(divider(pad, y, pad + innerW, sp(0.8f)));
+        y += sp(6f);
+
+        // --- hero and frametime ribbon ---------------------------------
+        if (hero) {
+            placeRun(pad, y - ascent(heroPx), fpsLine);
+            float sx = pad + innerW - statW;
+            float sy = y + (heroH - statH) / 2f;
+            for (int i = 0; i < statNames.length; i++) {
+                float baseline = sy - ascent(statValuePx);
+                placeRun(sx, baseline, listOf(span(statNames[i], COL_DIM, labelPx)));
+                float vx = pad + innerW - measure(statValues[i], statValuePx);
+                placeRun(vx, baseline, listOf(span(statValues[i], COL_VALUE, statValuePx)));
+                sy += lineH(statValuePx) + sp(2f);
+            }
+            y += heroH;
+            if (graphOn) {
+                y += sp(4f);
+                graphRect = new RectF(pad, y, pad + innerW, y + ribbonH);
+                y += ribbonH;
+            }
+            if (!modules.isEmpty()) y += sectionGap;
         }
 
-        if (showFps && showGraph && hasGraphSamples()) {
-            float ftPx = unitPx * 1.15f;
-            float baseline = y - asc;
-            placeRun(pad, baseline, listOf(span("Frametime", COL_FPS, ftPx)));
-            String stat = "min:" + fmt1(graphMin()) + " max:" + fmt1(graphMax());
-            float statX = pad + Math.max(labelCol, measure("Frametime", ftPx)) + lvGap;
-            maxRight = Math.max(maxRight, placeRun(statX, baseline,
-                    listOf(span(stat, COL_DIM, unitPx))));
-            y += h + lineGap;
-            float gh = sp(22f);
-            float right = Math.max(maxRight, pad + sp(160f));
-            graphRect = new RectF(pad, y, right, y + gh);
-            maxRight = Math.max(maxRight, right);
-            y += gh;
-        }
-        contentW = maxRight + pad;
-        contentH = y + pad;
-    }
-
-    private void buildMega() {
-        float rowPx = sp(11.5f);
-        float unitPx = rowPx * 0.62f;
-        float bandPx = sp(9.5f);
-        float pad = sp(10f);
-        float lineGap = sp(3.5f);
-        float lvGap = sp(7f);
-        float gutter = sp(16f);
-
-        List<Row> left = new ArrayList<>();
-        if (showGpuUsage) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(numUnit(pct(stats.gpuUsageKnown, stats.gpuUsage), "%", rowPx, unitPx));
-            if (showGpuTemp && stats.gpuTempC > 0f) {
-                v.add(gap(unitPx));
-                v.addAll(tempSpans(stats.gpuTempC, rowPx, unitPx));
-            }
-            if (showGpuClock) {
-                v.add(gap(unitPx));
-                v.addAll(valueUnit(PerfOverlayView.fmtHz(stats.gpuHz), rowPx, unitPx));
-            }
-            left.add(new Row("GPU", COL_GPU, v, false));
-        }
-        if (showCpuUsage) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(numUnit(pct(stats.cpuUsageKnown, stats.cpuUsage), "%", rowPx, unitPx));
-            if (showCpuTemp && stats.cpuTempC > 0f) {
-                v.add(gap(unitPx));
-                v.addAll(tempSpans(stats.cpuTempC, rowPx, unitPx));
-            }
-            if (showCpuClock) {
-                v.add(gap(unitPx));
-                v.addAll(valueUnit(PerfOverlayView.fmtHz(stats.cpuHz), rowPx, unitPx));
-            }
-            left.add(new Row("CPU", COL_CPU, v, false));
-        }
-        if (showCores) {
-            for (int i = 0; i < Math.min(stats.coreCount, PerfStats.MAX_CORES); i++) {
-                List<Span> v = new ArrayList<>();
-                if (stats.coreStatsKnown && stats.coreUsage[i] >= 0f) {
-                    v.addAll(numUnit(String.valueOf(Math.round(stats.coreUsage[i])),
-                            "%", rowPx, unitPx));
-                } else {
-                    v.addAll(numUnit(null, "%", rowPx, unitPx));
+        // --- metric ledger ---------------------------------------------
+        if (!modules.isEmpty()) {
+            float gy = y;
+            for (int i = 0; i < modules.size(); i++) {
+                Module m = modules.get(i);
+                float cy = gy + rowH / 2f;
+                float baseline = gy + (rowH - lineH(valuePx)) / 2f - ascent(valuePx);
+                barFills.add(dot(pad, cy, dotR));
+                barColors.add(m.color);
+                float lx = pad + dotD + sp(5f);
+                float kw = measure(m.key, labelPx);
+                placeRun(lx + labelW - kw, baseline,
+                        listOf(span(m.key, m.color, labelPx)));
+                float vx = lx + labelW + sp(6f);
+                float vw = runWidth(m.value);
+                placeRun(vx + valueW - vw, baseline, m.value);
+                float mx = vx + valueW + sp(6f);
+                float my = cy - meterH / 2f;
+                if (m.level >= 0f) {
+                    barTracks.add(new RectF(mx, my, mx + meterW, my + meterH));
+                    float fillW = Math.max(0f, Math.min(1f, m.level)) * meterW;
+                    if (fillW > sp(0.5f)) {
+                        barFills.add(new RectF(mx, my, mx + fillW, my + meterH));
+                        barColors.add(m.color);
+                    }
                 }
-                v.add(gap(unitPx));
-                v.addAll(valueUnit(PerfOverlayView.fmtHz(stats.coreHz[i]), rowPx, unitPx));
-                left.add(new Row("C" + i, COL_CPU, v, false));
+                if (m.detail != null) {
+                    placeRun(mx + meterW + sp(6f), baseline, m.detail);
+                }
+                gy += rowH + rowGap;
+                if (i < modules.size() - 1) {
+                    dividers.add(divider(pad, gy - rowGap / 2f,
+                            pad + innerW, sp(0.7f)));
+                }
             }
+            y += gridH;
         }
 
-        List<Row> right = new ArrayList<>();
-        if (showRam && ramUsedText() != null) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(valueUnit(ramUsedText(), rowPx, unitPx));
-            v.add(span("/", COL_DIM, unitPx));
-            v.addAll(valueUnit(ramTotalText(), rowPx, unitPx));
-            v.add(gap(unitPx));
-            v.addAll(numUnit(String.valueOf(Math.round(stats.memPercent)), "%", rowPx, unitPx));
-            right.add(new Row("RAM", COL_RAM, v, false));
-        }
-        if (showNet) {
-            List<Span> v = new ArrayList<>();
-            v.add(span("\u2193", COL_DIM, unitPx));
-            v.add(span(rate(stats.netRxBps), COL_VALUE, rowPx));
-            v.add(span(" \u2191", COL_DIM, unitPx));
-            v.add(span(rate(stats.netTxBps), COL_VALUE, rowPx));
-            right.add(new Row("NET", COL_FPS, v, false));
-        }
-        if (showBattery) {
-            List<Span> v = new ArrayList<>();
-            boolean any = false;
-            if (stats.battery >= 0) {
-                v.addAll(numUnit(String.valueOf(stats.battery), "%", rowPx, unitPx));
-                any = true;
-            }
-            if (stats.powerW > 0f) {
-                if (any) v.add(gap(unitPx));
-                v.addAll(numUnit(fmt1(stats.powerW), "W", rowPx, unitPx));
-                any = true;
-            }
-            if (any) right.add(new Row("BAT", COL_BAT, v, false));
-        }
-        if (showFan) {
-            int duty = PerfTuner.fanPercent(ctx);
-            right.add(new Row("FAN", COL_FAN,
-                    numUnit(duty >= 0 ? String.valueOf(duty) : null, "%", rowPx, unitPx),
-                    false));
-        }
-        if (showFps) {
-            List<Span> v = new ArrayList<>();
-            v.addAll(numUnit(fpsText(), "FPS", rowPx, unitPx));
-            v.add(gap(unitPx));
-            v.addAll(numUnit(fmt1(1000f / Math.max(1f, fpsNow())), "ms", rowPx, unitPx));
-            String api = showEngine && !engineLabel.isEmpty() ? engineLabel : "FPS";
-            right.add(new Row(api, presetColor(), v, false));
-            if (avgText() != null)
-                right.add(new Row("AVG", COL_LO, numUnit(avgText(), "FPS", rowPx, unitPx), false));
-            if (lowText(1) != null)
-                right.add(new Row("1%", COL_LO, numUnit(lowText(1), "FPS", rowPx, unitPx), false));
-            if (lowText(0) != null)
-                right.add(new Row("0.1%", COL_LO, numUnit(lowText(0), "FPS", rowPx, unitPx), false));
-        }
-
-        float[] l = layoutColumn(left, pad, pad, rowPx, lineGap, lvGap);
-        float rightX = left.isEmpty() ? pad : l[1] + gutter;
-        float[] r = layoutColumn(right, rightX, pad, rowPx, lineGap, lvGap);
-        float y = Math.max(l[0], r[0]);
-        float maxRight = Math.max(l[1], r[1]);
-
-        List<List<Span>> band = new ArrayList<>();
-        band.add(listOf(span("RES ", COL_DIM, bandPx), span(resolutionText(), COL_VALUE, bandPx)));
-        band.add(listOf(span("DISP ", COL_DIM, bandPx), span("Android", COL_VALUE, bandPx)));
-        band.add(listOf(span("elapsed ", COL_DIM, bandPx),
-                span(elapsedText(), COL_VALUE, bandPx)));
-        if (!band.isEmpty()) {
-            y += sp(4f);
-            float[] b = layoutWrap(band, pad, y, Math.max(maxRight - pad, sp(180f)),
-                    bandPx, lineGap);
-            y = b[0];
-            maxRight = Math.max(maxRight, b[1]);
-        }
-        if (showGraph && showFps && hasGraphSamples()) {
-            y += sp(3f);
-            float gh = sp(22f);
-            float gr = Math.max(maxRight, pad + sp(220f));
-            graphRect = new RectF(pad, y, gr, y + gh);
-            maxRight = Math.max(maxRight, gr);
-            y += gh;
-        }
-        contentW = maxRight + pad;
         contentH = y + pad;
     }
 
-    private float[] layoutColumn(List<Row> rows, float x, float y0, float rowPx,
-                                 float lineGap, float lvGap) {
-        if (rows.isEmpty()) return new float[]{y0, x};
-        float labelCol = 0f;
-        for (Row r : rows) labelCol = Math.max(labelCol, measure(r.label, rowPx));
-        float h = lineH(rowPx);
-        float asc = ascent(rowPx);
-        float y = y0;
-        float right = x;
-        for (Row r : rows) {
-            float baseline = y - asc;
-            placeRun(x, baseline, listOf(span(r.label, r.labelColor, rowPx)));
-            float valX = x + labelCol + lvGap;
-            float end = placeRun(valX, baseline, r.values);
-            right = Math.max(right, end);
-            y += h + lineGap;
-        }
-        return new float[]{y - lineGap, right};
+    private static RectF dot(float cx, float cy, float r) {
+        return new RectF(cx, cy - r, cx + r * 2f, cy + r);
     }
 
-    private float[] layoutWrap(List<List<Span>> fragments, float x, float y0,
-                               float maxWidth, float px, float lineGap) {
-        if (fragments.isEmpty()) return new float[]{y0, x};
-        float h = lineH(px);
-        float asc = ascent(px);
-        float sepW = measure(" \u00b7 ", px);
-        float cx = x, y = y0, right = x;
-        boolean first = true;
-        for (List<Span> frag : fragments) {
-            float w = runWidth(frag);
-            if (!first && (cx + sepW + w - x) > maxWidth) {
-                y += h + lineGap;
-                cx = x;
-                first = true;
-            }
-            if (!first) {
-                placeRun(cx, y - asc, listOf(span(" \u00b7 ", COL_DIM, px)));
-                cx += sepW;
-            }
-            float end = placeRun(cx, y - asc, frag);
-            cx = end;
-            right = Math.max(right, end);
-            first = false;
-        }
-        return new float[]{y + h, right};
+    private static RectF divider(float x1, float y, float x2, float h) {
+        return new RectF(x1, y, x2, y + h);
     }
 
-    private void fitCapsule() {
-        if (contentW <= 0f || contentH <= 0f || glyphs.isEmpty()) return;
-        float margin = sp(2f) + (outline ? sp(1.5f) : 0f);
-        android.graphics.Rect ink = new android.graphics.Rect();
-        float shift = 0f;
-        for (Glyph g : glyphs) {
-            measurePaint.setTextSize(g.size);
-            measurePaint.getTextBounds(g.text, 0, g.text.length(), ink);
-            if (ink.isEmpty()) continue;
-            float need = curveIn(g.baseline + ink.top, g.baseline + ink.bottom) + margin;
-            shift = Math.max(shift, need - (g.x + ink.left));
-        }
-        if (shift > 0f) {
-            for (int i = 0; i < glyphs.size(); i++) {
-                Glyph g = glyphs.get(i);
-                glyphs.set(i, new Glyph(g.x + shift, g.baseline, g.text, g.color, g.size));
-            }
-            contentW += shift;
+    private String fanModeLabel() {
+        int mode = PerfTuner.fanMode(ctx);
+        switch (mode) {
+            case PerfTuner.FAN_OFF: return Loc.s(ctx, "OFF");
+            case PerfTuner.FAN_LOW: return Loc.s(ctx, "LOW");
+            case PerfTuner.FAN_SMART: return Loc.s(ctx, "SMART");
+            case PerfTuner.FAN_HIGH: return Loc.s(ctx, "HIGH");
+            case PerfTuner.FAN_MANUAL: return Loc.s(ctx, "MANUAL");
+            case FanProfile.MODE_CURVE: return Loc.s(ctx, "CURVE");
+            case FanProfile.MODE_SMALL: return Loc.s(ctx, "SMALL");
+            case FanProfile.MODE_MEDIUM: return Loc.s(ctx, "MEDIUM");
+            case FanProfile.MODE_LARGE: return Loc.s(ctx, "LARGE");
+            case FanProfile.MODE_HOLD: return Loc.s(ctx, "HOLD");
+            default: return null;
         }
     }
 
-    private float curveIn(float top, float bottom) {
-        float r = contentH / 2f;
-        float dy = Math.max(r - top, bottom - r);
-        if (dy <= 0f) return 0f;
-        if (dy >= r) return r;
-        return r - (float) Math.sqrt(r * r - dy * dy);
+    private void addCpuModule(List<Module> modules, float valPx, float unitPx, float detailPx) {
+        if (!showCpuTemp && !showCpuClock && !showCpuUsage) return;
+        int primary = showCpuUsage ? 0 : showCpuClock ? 1 : 2;
+        List<Span> value;
+        if (primary == 0) {
+            value = numUnit(pct(stats.cpuUsageKnown, stats.cpuUsage), "%", valPx, unitPx);
+        } else if (primary == 1) {
+            value = valueUnit(stats.cpuHz > 0 ? PerfOverlayView.fmtHz(stats.cpuHz) : "\u2014",
+                    valPx, unitPx);
+        } else {
+            value = tempSpans(stats.cpuTempC, valPx, unitPx);
+            if (value.isEmpty()) value = listOf(span("\u2014", COL_DIM, valPx));
+        }
+        List<Span> detail = new ArrayList<>();
+        if (primary != 2 && showCpuTemp && stats.cpuTempC > 0f) {
+            detail.addAll(tempSpans(stats.cpuTempC, detailPx, detailPx * 0.78f));
+        }
+        if (primary != 1 && showCpuClock) {
+            if (!detail.isEmpty()) detail.add(span("  \u00b7  ", COL_DIM, detailPx));
+            detail.addAll(valueUnit(stats.cpuHz > 0 ? PerfOverlayView.fmtHz(stats.cpuHz) : "\u2014",
+                    detailPx, detailPx * 0.78f));
+        }
+        if (primary != 0 && showCpuUsage) {
+            if (!detail.isEmpty()) detail.add(span("  \u00b7  ", COL_DIM, detailPx));
+            detail.addAll(numUnit(pct(stats.cpuUsageKnown, stats.cpuUsage), "%",
+                    detailPx, detailPx * 0.78f));
+        }
+        float level = showCpuUsage && stats.cpuUsageKnown
+                ? Math.max(0f, Math.min(1f, stats.cpuUsage / 100f)) : -1f;
+        modules.add(new Module("CPU", COL_CPU, value,
+                detail.isEmpty() ? null : detail, level));
+    }
+
+    private void addGpuModule(List<Module> modules, float valPx, float unitPx, float detailPx) {
+        if (!showGpuTemp && !showGpuClock && !showGpuUsage) return;
+        int primary = showGpuUsage ? 0 : showGpuClock ? 1 : 2;
+        List<Span> value;
+        if (primary == 0) {
+            value = numUnit(pct(stats.gpuUsageKnown, stats.gpuUsage), "%", valPx, unitPx);
+        } else if (primary == 1) {
+            value = valueUnit(stats.gpuHz > 0 ? PerfOverlayView.fmtHz(stats.gpuHz) : "\u2014",
+                    valPx, unitPx);
+        } else {
+            value = tempSpans(stats.gpuTempC, valPx, unitPx);
+            if (value.isEmpty()) value = listOf(span("\u2014", COL_DIM, valPx));
+        }
+        List<Span> detail = new ArrayList<>();
+        if (primary != 2 && showGpuTemp && stats.gpuTempC > 0f) {
+            detail.addAll(tempSpans(stats.gpuTempC, detailPx, detailPx * 0.78f));
+        }
+        if (primary != 1 && showGpuClock) {
+            if (!detail.isEmpty()) detail.add(span("  \u00b7  ", COL_DIM, detailPx));
+            detail.addAll(valueUnit(stats.gpuHz > 0 ? PerfOverlayView.fmtHz(stats.gpuHz) : "\u2014",
+                    detailPx, detailPx * 0.78f));
+        }
+        if (primary != 0 && showGpuUsage) {
+            if (!detail.isEmpty()) detail.add(span("  \u00b7  ", COL_DIM, detailPx));
+            detail.addAll(numUnit(pct(stats.gpuUsageKnown, stats.gpuUsage), "%",
+                    detailPx, detailPx * 0.78f));
+        }
+        float level = showGpuUsage && stats.gpuUsageKnown
+                ? Math.max(0f, Math.min(1f, stats.gpuUsage / 100f)) : -1f;
+        modules.add(new Module("GPU", COL_GPU, value,
+                detail.isEmpty() ? null : detail, level));
     }
 
     private static List<Span> listOf(Span... spans) {
         List<Span> out = new ArrayList<>();
         for (Span s : spans) out.add(s);
         return out;
-    }
-
-    private static String join(List<String> parts, String sep) {
-        StringBuilder b = new StringBuilder();
-        for (String p : parts) {
-            if (p == null || p.isEmpty()) continue;
-            if (b.length() > 0) b.append(sep);
-            b.append(p);
-        }
-        return b.length() == 0 ? null : b.toString();
-    }
-
-    private String activityUp(long bps) {
-        return "\u2191" + rate(bps);
     }
 
     // ------------------------------------------------------------------
@@ -1091,10 +711,14 @@ final class FusionHudRenderer {
     void draw(Canvas canvas, int viewW, int viewH) {
         if (dirty) rebuild();
         if (contentW <= 0f || contentH <= 0f) return;
-        float radius = pill ? viewH / 2f : sp(8f);
+        float radius = sp(14f);
         int alpha = Math.round(Math.max(0f, Math.min(1f, opacity)) * 255f);
-        bgPaint.setColor((alpha << 24) | 0x000000);
+        int topAlpha = Math.round(alpha * 0.86f);
+        bgPaint.setShader(new LinearGradient(0f, 0f, 0f, viewH,
+                Color.argb(topAlpha, 0, 0, 0), Color.argb(alpha, 0, 0, 0),
+                Shader.TileMode.CLAMP));
         canvas.drawRoundRect(0f, 0f, viewW, viewH, radius, radius, bgPaint);
+        bgPaint.setShader(null);
 
         if (outline) {
             strokePaint.setStrokeWidth(sp(1.4f));
@@ -1102,10 +726,19 @@ final class FusionHudRenderer {
             float h = sp(0.7f);
             canvas.drawRoundRect(h, h, viewW - h, viewH - h, radius, radius, strokePaint);
         }
-        for (RectF rect : tileRects) {
-            tilePaint.setColor(Color.argb(Math.max(8, Math.min(40,
-                    Math.round(14 * opacity))), 255, 255, 255));
-            canvas.drawRoundRect(rect, sp(6f), sp(6f), tilePaint);
+        dividerPaint.setColor(Color.argb(Math.max(12, Math.min(52,
+                Math.round(22 * opacity))), 255, 255, 255));
+        for (RectF rect : dividers) {
+            canvas.drawRect(rect, dividerPaint);
+        }
+        barPaint.setColor(Color.argb(Math.max(18, Math.min(64,
+                Math.round(34 * opacity))), 255, 255, 255));
+        for (RectF rect : barTracks) {
+            canvas.drawRoundRect(rect, sp(2.5f), sp(2.5f), barPaint);
+        }
+        for (int i = 0; i < barFills.size(); i++) {
+            barPaint.setColor(barColors.get(i));
+            canvas.drawRoundRect(barFills.get(i), sp(2f), sp(2f), barPaint);
         }
         for (Glyph g : glyphs) {
             drawPaint.setTextSize(g.size);
@@ -1135,25 +768,47 @@ final class FusionHudRenderer {
             i++;
         }
         if (valid < 2) return;
-        graphPaint.setStrokeWidth(sp(1.6f));
+        float min = Float.MAX_VALUE;
+        for (Float f : graphSamples) {
+            if (!Float.isNaN(f)) min = Math.min(min, f);
+        }
+        if (min == Float.MAX_VALUE) return;
+        float span = peak - min;
+        graphPaint.setStrokeWidth(sp(1.25f));
         graphPaint.setColor(blend(COL_GRAPH));
         float step = vals.length > 1 ? rect.width() / (vals.length - 1f) : rect.width();
         graphPath.reset();
-        boolean started = false;
+        graphFillPath.reset();
+        int first = -1, last = -1;
         for (int j = 0; j < vals.length; j++) {
-            if (Float.isNaN(vals[j])) {
-                started = false;
-                continue;
-            }
-            float x = rect.left + j * step;
-            float y = rect.bottom - Math.min(1f, vals[j] / peak) * rect.height();
-            if (!started) {
-                graphPath.moveTo(x, y);
-                started = true;
-            } else {
-                graphPath.lineTo(x, y);
+            if (!Float.isNaN(vals[j])) {
+                if (first < 0) first = j;
+                last = j;
             }
         }
+        if (first < 0) return;
+        float firstX = rect.left + first * step;
+        graphFillPath.moveTo(firstX, rect.bottom);
+        for (int j = first; j <= last; j++) {
+            if (Float.isNaN(vals[j])) continue;
+            float x = rect.left + j * step;
+            float t = span < 0.35f ? 0.5f : (vals[j] - min) / span;
+            float y = rect.bottom - Math.max(0f, Math.min(1f, t)) * rect.height();
+            if (j == first) graphPath.moveTo(x, y);
+            else graphPath.lineTo(x, y);
+            graphFillPath.lineTo(x, y);
+        }
+        graphFillPath.lineTo(rect.left + last * step, rect.bottom);
+        graphFillPath.close();
+        graphFillPaint.setStyle(Paint.Style.FILL);
+        graphFillPaint.setShader(new LinearGradient(0f, rect.top, 0f, rect.bottom,
+                0x245EE08A, 0x005EE08A, Shader.TileMode.CLAMP));
+        canvas.drawPath(graphFillPath, graphFillPaint);
+        graphFillPaint.setShader(null);
         canvas.drawPath(graphPath, graphPaint);
+        dividerPaint.setColor(0x18FFFFFF);
+        canvas.drawRect(rect.left, rect.bottom, rect.right,
+                rect.bottom + sp(0.7f), dividerPaint);
     }
+
 }

@@ -2,6 +2,18 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.47 — 10 Nov 2026
+
+### Performance overlay
+
+- Panel mode is now one adaptive instrument card: a framed FPS hero with a live frametime ribbon, followed by a compact single-column metric ledger with inline meters.
+- Removed the five panel size modes; scale is the only size control, with a new Size slider in Overlay & Drawer.
+- Removed the network, per-core and session-detail rows from the panel.
+- The panel is capped to 45% of the display width and 75% of its height, so it stays clear of the game.
+- Idle FPS shows a dim `--` until a live frame stream resolves.
+- CPU, GPU, RAM, battery, power and fan each own one row; watt is a dedicated POWER module.
+- Strip mode is unchanged and still switches with a double tap.
+
 ## 1.0.46 — 10 Nov 2026
 
 ### Performance overlay

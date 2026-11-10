@@ -921,27 +921,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         });
     }
 
-    static void setOverlayMode(final int mode) {
-        final PerfOverlayService s = instance;
-        if (s == null) return;
-        s.main.post(new Runnable() {
-            @Override
-            public void run() {
-                s.form = Math.max(0, Math.min(FORM_COUNT - 1, mode));
-                s.prefs.setPerfOverlayMode(s.form);
-                s.cachedLevel = -1;
-                if (s.panel != null && !s.panel.horizontal()) {
-                    s.applyScaleGeometry(true);
-                    try {
-                        s.windowManager.updateViewLayout(s.container, s.params);
-                    } catch (Throwable ignored) {
-                    }
-                }
-                if (s.menu != null) s.menu.setSizeLabel(s.sizeLabel());
-            }
-        });
-    }
-
     static void setOverlayLocked(final boolean locked) {
         final PerfOverlayService s = instance;
         if (s == null) return;
@@ -963,13 +942,12 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             public void run() {
                 s.scale = s.clampScale(requested);
                 s.targetScale = s.scale;
-                s.cachedLevel = -1;
                 s.scaleTickerRunning = false;
                 s.scaleSettleSave = false;
                 s.main.removeCallbacks(s.scaleTicker);
                 s.applyScaleGeometry(true);
                 s.prefs.setPerfOverlayScale(s.scale);
-                if (s.menu != null) s.menu.setSizeLabel(overlayModeName(s, s.form));
+                if (s.menu != null) s.menu.setSizeLabel(s.sizeLabel());
             }
         });
     }
@@ -1247,9 +1225,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel.setPivotY(0f);
         measurePanel();
         scale = clampScale(prefs.perfOverlayScale());
-        form = prefs.perfOverlayMode();
         targetScale = scale;
-        panel.setForm(form);
         panel.setScaleX(1f);
         panel.setScaleY(1f);
         container.addView(panel, new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx));
@@ -1389,51 +1365,29 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         return Math.max(0.55f, Math.min(max, wanted));
     }
 
-    // Fusion HUD modes: Minimal, Pill, Tiles, Full, Mega. The mode is chosen by
-    // triple-tapping the overlay (or by the mode button); resizing only scales
-    // the selected mode, it never switches to a different one.
-    static final int FORM_COUNT = 5;
-
-    static String overlayModeName(Context c, int f) {
-        String key;
-        switch (Math.max(0, Math.min(FORM_COUNT - 1, f))) {
-            case 0: key = "MIN"; break;
-            case 1: key = "PILL"; break;
-            case 2: key = "TILES"; break;
-            case 3: key = "FULL"; break;
-            default: key = "MEGA"; break;
-        }
-        return c == null ? key : Loc.s(c, key);
-    }
-
-    private int form = -1;
-    private int cachedLevel = -1;
-    private int cachedWidth;
-    private int cachedHeight;
-
+    // The panel is a single adaptive module card. The old five size modes
+    // are gone; scaling is the only size control.
     private String sizeLabel() {
-        return overlayModeName(this, form) + "  " + Math.round(scale * 100f) + "%";
+        return Math.round(scale * 100f) + "%";
     }
 
     /**
-     * Window size for the selected mode at the current resize scale. The mode
-     * keeps its natural layout; the whole card is then scaled uniformly, so
-     * resizing genuinely enlarges or shrinks the mode you chose.
+     * The card keeps its natural adaptive layout; the whole panel is then
+     * scaled uniformly, so resizing genuinely enlarges or shrinks it.
      */
     private int[] scaledWindowSize() {
         if (panel == null || panel.horizontal()) {
             return new int[]{Math.round(baseWidthPx * scale),
                     Math.round(baseHeightPx * scale), Math.round(scale * 1000f)};
         }
-        if (form < 0) form = prefs.perfOverlayMode();
-        panel.setForm(form);
         panel.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         int nw = Math.max(Ui.dp(uiContext, 96), panel.getMeasuredWidth());
         int nh = Math.max(Ui.dp(uiContext, 40), panel.getMeasuredHeight());
-        // Keep the scaled card inside the screen even when a tall mode is chosen.
-        float fitW = (screenWidthPx() - Ui.dp(uiContext, 12)) / (float) nw;
-        float fitH = (screenHeightPx() - Ui.dp(uiContext, 12)) / (float) nh;
+        // Keep the panel to a sensible share of a handheld display: wide
+        // enough for the ledger, never so tall that it swallows the game.
+        float fitW = (screenWidthPx() * 0.45f) / (float) nw;
+        float fitH = (screenHeightPx() * 0.75f) / (float) nh;
         float fit = Math.max(0.55f, Math.min(1.8f, Math.min(fitW, fitH)));
         if (scale > fit) scale = fit;
         FrameLayout.LayoutParams plp = panel.getLayoutParams()
@@ -1445,28 +1399,10 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             plp.height = nh;
             panel.setLayoutParams(plp);
         }
-        cachedWidth = nw;
-        cachedHeight = nh;
-        cachedLevel = form;
         panel.setScaleX(scale);
         panel.setScaleY(scale);
         return new int[]{Math.max(1, Math.round(nw * scale)),
                 Math.max(1, Math.round(nh * scale)), Math.round(scale * 1000f)};
-    }
-
-    /** Triple tap: move to the next Fusion mode and keep the current scale. */
-    private void cycleModeNext() {
-        if (container == null || panel == null || params == null) return;
-        form = (form + 1) % FORM_COUNT;
-        prefs.setPerfOverlayMode(form);
-        cachedLevel = -1;
-        applyScaleGeometry(true);
-        try {
-            windowManager.updateViewLayout(container, params);
-        } catch (Throwable ignored) {
-        }
-        Haptics.tick(container);
-        if (menu != null) menu.setSizeLabel(sizeLabel());
     }
 
     private void applyScaleGeometry(boolean keepCenter) {
@@ -1512,8 +1448,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel.setPivotY(0f);
         scale = clampScale(prefs.perfOverlayScale());
         targetScale = scale;
-        form = prefs.perfOverlayMode();
-        panel.setForm(form);
         container.addView(panel, 0, new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx));
         panel.setAlpha(0f);
         if (panel.horizontal()) measurePanel();
@@ -1554,8 +1488,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         }
         panel.applyPrefs(prefs);
         panel.setPanelAlpha(prefs.perfOverlayAlpha());
-        cachedLevel = -1;
-        cachedHeight = 0;
         measurePanel();
         // In strip mode the width follows the visible metrics, so keep it centred
         // instead of leaving it pinned by its left edge.
@@ -1729,9 +1661,10 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                         // Give a third tap time to arrive before switching orientation.
                         main.postDelayed(tapAction, TAP_SETTLE_MS);
                     } else if (tapCount >= 3) {
+                        // There is only one panel layout now; a third tap
+                        // simply settles a double tap without switching modes.
                         tapCount = 0;
                         lastTapUpMs = 0L;
-                        cycleModeNext();
                     }
                 }
                 moved = false;
@@ -1781,7 +1714,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private void saveGeometry() {
         if (params == null) return;
         prefs.setPerfOverlayScale(scaleTickerRunning ? targetScale : scale);
-        prefs.setPerfOverlayMode(form);
         prefs.setPerfOverlayPosition(params.x, params.y);
     }
 
@@ -2322,7 +2254,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     public void onScaleChanged(float newScale) {
         scale = clampScale(newScale);
         targetScale = scale;
-        cachedLevel = -1;
         applyScaleGeometry(true);
         prefs.setPerfOverlayScale(scale);
         if (menu != null) menu.setSizeLabel(sizeLabel());
@@ -2332,7 +2263,6 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     public void onSizeStep(int delta) {
         scale = clampScale(scale + delta * 0.10f);
         targetScale = scale;
-        cachedLevel = -1;
         applyScaleGeometry(true);
         prefs.setPerfOverlayScale(scale);
         try {

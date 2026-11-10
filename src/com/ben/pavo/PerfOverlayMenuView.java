@@ -253,9 +253,6 @@ final class PerfOverlayMenuView extends FrameLayout {
         addToggle(content, "GPU load", prefs.perfGpuUsage(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfGpuUsage(v); }
         }));
-        addToggle(content, "Network speed", prefs.perfNet(), metric(new BoolSetter() {
-            @Override public void set(boolean v) { prefs.setPerfNet(v); }
-        }));
         addToggle(content, "Framerate", prefs.perfFps(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfFps(v); }
         }));
@@ -270,9 +267,6 @@ final class PerfOverlayMenuView extends FrameLayout {
         }));
         addToggle(content, "Memory (RAM)", prefs.perfRam(), metric(new BoolSetter() {
             @Override public void set(boolean v) { prefs.setPerfRam(v); }
-        }));
-        addToggle(content, "Per-core clocks & load", prefs.perfCores(), metric(new BoolSetter() {
-            @Override public void set(boolean v) { prefs.setPerfCores(v); }
         }));
         addToggle(content, "Horizontal strip", prefs.perfOverlayHorizontal(),
                 metric(new BoolSetter() {

@@ -15343,13 +15343,6 @@ public final class MainActivity extends Activity {
                 PerfOverlayService.refreshIfRunning();
             }
         });
-        addSwitch(panel, "Network speed", prefs.perfNet(), new BoolCallback() {
-            @Override
-            public void onValue(boolean value) {
-                prefs.setPerfNet(value);
-                PerfOverlayService.refreshIfRunning();
-            }
-        });
         addSwitch(panel, "Framerate", prefs.perfFps(), new BoolCallback() {
             @Override
             public void onValue(boolean value) {
@@ -15375,13 +15368,6 @@ public final class MainActivity extends Activity {
             @Override
             public void onValue(boolean value) {
                 prefs.setPerfRam(value);
-                PerfOverlayService.refreshIfRunning();
-            }
-        });
-        addSwitch(panel, "Per-core clocks & load", prefs.perfCores(), new BoolCallback() {
-            @Override
-            public void onValue(boolean value) {
-                prefs.setPerfCores(value);
                 PerfOverlayService.refreshIfRunning();
             }
         });

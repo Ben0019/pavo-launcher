@@ -45,12 +45,10 @@ public final class OverlayActivity extends PavoGlassActivity {
 
     private static final String[] METRICS = {
             "CPU TEMP", "CPU CLOCK", "CPU LOAD", "GPU TEMP", "GPU CLOCK",
-            "GPU LOAD", "FPS", "FPS GRAPH", "RAM", "BATTERY", "CORES", "NET", "FAN"
+            "GPU LOAD", "FPS", "FPS GRAPH", "RAM", "BATTERY", "FAN"
     };
-    private static final String[] MODES = {"MIN", "PILL", "TILES", "FULL", "MEGA"};
 
     private final List<TextView> metricChips = new ArrayList<>();
-    private final List<TextView> modeChips = new ArrayList<>();
     private final List<TextView> refreshChips = new ArrayList<>();
     private final List<TextView> columnChips = new ArrayList<>();
 
@@ -503,6 +501,16 @@ public final class OverlayActivity extends PavoGlassActivity {
                     }
                 });
 
+        slider(box, Loc.s(this, "Size"), 55, 180,
+                Math.round(prefs.perfOverlayScale() * 100f), "%",
+                new IntValue() {
+                    @Override
+                    public void onValue(int value) {
+                        prefs.setPerfOverlayScale(value / 100f);
+                        PerfOverlayService.setOverlayScale(value / 100f);
+                    }
+                });
+
         TextView refreshLabel = text("UPDATE RATE", 8.5f, MUTED, true);
         refreshLabel.setLetterSpacing(0.08f);
         refreshLabel.setPadding(dp(2), dp(7), 0, 0);
@@ -530,33 +538,6 @@ public final class OverlayActivity extends PavoGlassActivity {
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
             lp.rightMargin = i < rates.length - 1 ? dp(5) : 0;
             refreshRow.addView(chip, lp);
-        }
-
-        TextView modeLabel = text(Loc.s(this, "MODE"), 8.5f, MUTED, true);
-        modeLabel.setLetterSpacing(0.08f);
-        modeLabel.setPadding(dp(2), dp(7), 0, 0);
-        box.addView(modeLabel);
-        LinearLayout modeRow = new LinearLayout(this);
-        modeRow.setOrientation(LinearLayout.HORIZONTAL);
-        modeRow.setPadding(0, dp(4), 0, 0);
-        box.addView(modeRow);
-        for (int i = 0; i < MODES.length; i++) {
-            final int mode = i;
-            TextView chip = modeChip(Loc.s(this, MODES[i]));
-            modeChips.add(chip);
-            chip.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    haptic(v);
-                    prefs.setPerfOverlayMode(mode);
-                    PerfOverlayService.setOverlayMode(mode);
-                    refreshState();
-                }
-            });
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            lp.rightMargin = i < MODES.length - 1 ? dp(4) : 0;
-            modeRow.addView(chip, lp);
         }
 
         stripChip = toggle(box, Loc.s(this, "STRIP MODE"), prefs.perfOverlayHorizontal(),
@@ -881,10 +862,6 @@ public final class OverlayActivity extends PavoGlassActivity {
         for (int i = 0; i < metricChips.size(); i++) {
             setChipSelected(metricChips.get(i), isMetric(i));
         }
-        int mode = prefs.perfOverlayMode();
-        for (int i = 0; i < modeChips.size(); i++) {
-            setChipSelected(modeChips.get(i), mode == i);
-        }
         if (stripChip != null) {
             setChipSelected(stripChip, prefs.perfOverlayHorizontal());
         }
@@ -973,9 +950,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             case 7: return prefs.perfFpsGraph();
             case 8: return prefs.perfRam();
             case 9: return prefs.perfBattery();
-            case 10: return prefs.perfCores();
-            case 11: return prefs.perfNet();
-            case 12: return prefs.perfFan();
+            case 10: return prefs.perfFan();
             default: return prefs.perfOverlayHorizontal();
         }
     }
@@ -992,9 +967,7 @@ public final class OverlayActivity extends PavoGlassActivity {
             case 7: prefs.setPerfFpsGraph(on); break;
             case 8: prefs.setPerfRam(on); break;
             case 9: prefs.setPerfBattery(on); break;
-            case 10: prefs.setPerfCores(on); break;
-            case 11: prefs.setPerfNet(on); break;
-            case 12: prefs.setPerfFan(on); break;
+            case 10: prefs.setPerfFan(on); break;
             default: prefs.setPerfOverlayHorizontal(on); break;
         }
     }

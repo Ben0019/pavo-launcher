@@ -48,6 +48,17 @@ final class Prefs {
             sp.edit().putBoolean("remap_rootless", false)
                     .putBoolean("pserver_input_migrated", true).apply();
         }
+        // The five panel modes are now one adaptive module card. Keep the
+        // old size roughly intact by folding the chosen mode into the scale.
+        if (!sp.contains("perf_panel_modular")) {
+            int oldMode = clamp(sp.getInt("perf_overlay_mode", 1), 0, 4);
+            float factor = oldMode == 0 ? 0.80f : oldMode == 1 ? 0.92f : 1f;
+            float s = sp.getFloat("perf_overlay_scale", 0.69f);
+            sp.edit().putFloat("perf_overlay_scale",
+                            Math.max(0.55f, Math.min(1.8f, s * factor)))
+                    .putBoolean("perf_panel_modular", true)
+                    .remove("perf_overlay_mode").apply();
+        }
         ColorTuning.set(colorSaturation(), glowStrength());
     }
 
@@ -274,8 +285,6 @@ final class Prefs {
         float v = sp.getFloat("perf_overlay_scale", 0.69f);
         return Math.max(0.55f, Math.min(1.8f, v));
     }
-    /** Selected Fusion HUD mode: 0 Minimal, 1 Pill, 2 Tiles, 3 Full, 4 Mega. */
-    int perfOverlayMode() { return clamp(sp.getInt("perf_overlay_mode", 1), 0, 4); }
     int updateCheckHours() { return clamp(sp.getInt("update_check_hours", 24), 2, 24); }
     void setUpdateCheckHours(int v) { sp.edit().putInt("update_check_hours", clamp(v, 2, 24)).apply(); }
     int perfOverlayAlpha() { return clamp(sp.getInt("perf_overlay_alpha", 88), 25, 100); }
@@ -310,22 +319,7 @@ final class Prefs {
     void setQuickHandlePos(int v) { sp.edit().putInt("quick_handle_pos", v).apply(); }
     boolean perfOverlayHorizontal() { return sp.getBoolean("perf_overlay_horizontal", false); }
     void setPerfOverlayHorizontal(boolean v) {
-        if (perfOverlayHorizontal() == v) return;
-        if (v) {
-            // The strip has no core view. Remember the current choice and hide
-            // cores, so the panel can put them back exactly as they were.
-            sp.edit()
-                    .putBoolean("perf_cores_before_strip", perfCores())
-                    .putBoolean("perf_overlay_horizontal", true)
-                    .putBoolean("perf_cores", false)
-                    .apply();
-        } else {
-            boolean restore = sp.getBoolean("perf_cores_before_strip", false);
-            sp.edit()
-                    .putBoolean("perf_overlay_horizontal", false)
-                    .putBoolean("perf_cores", restore)
-                    .apply();
-        }
+        sp.edit().putBoolean("perf_overlay_horizontal", v).apply();
     }
     int perfRefreshMs() { return clamp(sp.getInt("perf_refresh_ms", 1000), 250, 10000); }
     void setPerfRefreshMs(int ms) {
@@ -356,13 +350,11 @@ final class Prefs {
     boolean perfGpuTemp() { return sp.getBoolean("perf_gpu_temp", true); }
     boolean perfGpuClock() { return sp.getBoolean("perf_gpu_clock", true); }
     boolean perfGpuUsage() { return sp.getBoolean("perf_gpu_usage", true); }
-    boolean perfNet() { return sp.getBoolean("perf_net", true); }
     boolean perfFps() { return sp.getBoolean("perf_fps", true); }
     boolean perfFpsGraph() { return sp.getBoolean("perf_fps_graph", true); }
     boolean perfBattery() { return sp.getBoolean("perf_battery", true); }
     boolean perfFan() { return sp.getBoolean("perf_fan", true); }
     boolean perfRam() { return sp.getBoolean("perf_ram", true); }
-    boolean perfCores() { return sp.getBoolean("perf_cores", true); }
 
     // System-wide five-band equalizer.
     static final int EQ_BANDS = 10;
@@ -891,9 +883,6 @@ final class Prefs {
     void setPerfOverlayScale(float v) {
         sp.edit().putFloat("perf_overlay_scale", Math.max(0.55f, Math.min(1.8f, v))).apply();
     }
-    void setPerfOverlayMode(int v) {
-        sp.edit().putInt("perf_overlay_mode", clamp(v, 0, 4)).apply();
-    }
     void setPerfOverlayAlpha(int v) {
         sp.edit().putInt("perf_overlay_alpha", clamp(v, 25, 100)).apply();
     }
@@ -904,7 +893,6 @@ final class Prefs {
     void setPerfGpuTemp(boolean v) { sp.edit().putBoolean("perf_gpu_temp", v).apply(); }
     void setPerfGpuClock(boolean v) { sp.edit().putBoolean("perf_gpu_clock", v).apply(); }
     void setPerfGpuUsage(boolean v) { sp.edit().putBoolean("perf_gpu_usage", v).apply(); }
-    void setPerfNet(boolean v) { sp.edit().putBoolean("perf_net", v).apply(); }
     void setPerfFps(boolean v) { sp.edit().putBoolean("perf_fps", v).apply(); }
     void setPerfFpsGraph(boolean v) { sp.edit().putBoolean("perf_fps_graph", v).apply(); }
     void setPerfBattery(boolean v) { sp.edit().putBoolean("perf_battery", v).apply(); }
@@ -914,13 +902,6 @@ final class Prefs {
     void setEqBand(int index, int millibels) {
         sp.edit().putInt("eq_band" + clamp(index, 0, EQ_BANDS - 1),
                 clamp(millibels, -1200, 1200)).apply();
-    }
-    void setPerfCores(boolean v) {
-        android.content.SharedPreferences.Editor e = sp.edit().putBoolean("perf_cores", v);
-        // Changing cores while the strip is active becomes the state the panel
-        // restores when the strip is closed.
-        if (perfOverlayHorizontal()) e.putBoolean("perf_cores_before_strip", v);
-        e.apply();
     }
     String quickControllerRaw() { return sp.getString("quick_controller_raw", ""); }
 

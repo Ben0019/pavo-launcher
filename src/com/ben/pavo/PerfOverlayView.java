@@ -51,12 +51,11 @@ final class PerfOverlayView extends LinearLayout {
     private TextView lockIcon;
     private TextView editDoneBar;
     private Runnable editDoneAction;
-    private LinearLayout cpuRow, gpuRow, netRow, fpsBlock, coresBox;
+    private LinearLayout cpuRow, gpuRow, fpsBlock, coresBox;
     private LinearLayout ramRow;
     private LinearLayout battRow;
     private TextView cpuTemp, cpuClock, cpuUsage;
     private TextView gpuTemp, gpuClock, gpuUsage;
-    private TextView netUp, netDown;
     private TextView ramUsage, ramAmount;
     private TextView battTemp, battPower;
     private TextView fpsValue;
@@ -72,7 +71,7 @@ final class PerfOverlayView extends LinearLayout {
     private LinearLayout stackedBox;
     private WrapLayout compactBox;
     private boolean compactMode;
-    private TextView chipFps, chipCpu, chipGpu, chipBatt, chipRam, chipNet, chipFan;
+    private TextView chipFps, chipCpu, chipGpu, chipBatt, chipRam, chipFan;
     private FusionHudRenderer fusion;
 
     PerfOverlayView(Context c) {
@@ -157,16 +156,6 @@ final class PerfOverlayView extends LinearLayout {
         gpuRow.addView(gpuClock, cell());
         gpuRow.addView(gpuUsage, cell());
         stackedBox.addView(gpuRow, rowParams(4));
-
-        netRow = metricRow();
-        addMetricLabel(netRow, "NET");
-        netUp = metricValue(Gravity.START);
-        netDown = metricValue(Gravity.END);
-        netUp.setMinWidth(dp(62));
-        netDown.setMinWidth(dp(62));
-        netRow.addView(netUp, cell());
-        netRow.addView(netDown, cell());
-        stackedBox.addView(netRow, rowParams(4));
 
         ramRow = metricRow();
         addMetricLabel(ramRow, "RAM");
@@ -344,14 +333,6 @@ final class PerfOverlayView extends LinearLayout {
             }
             any = true;
         }
-        if (p.perfNet()) {
-            if (any) stripSep(b);
-            appendSpan(b, "NET ", MUTED);
-            appendSpan(b, (s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps)
-                    + " \u2193 " + SysStats.fmtRate(s.netRxBps)
-                    : "\u2191 \u2014  \u2193 \u2014") + "  ", TEXT);
-            any = true;
-        }
         if (p.perfRam()) {
             if (any) stripSep(b);
             appendSpan(b, "RAM ", MUTED);
@@ -522,10 +503,9 @@ final class PerfOverlayView extends LinearLayout {
         chipGpu = compactChip("GPU", 0xFFEF5350);
         chipBatt = compactChip("BATT", 0xFFBDBDBD);
         chipRam = compactChip("RAM", 0xFFFFEE58);
-        chipNet = compactChip("NET", 0xFFB8C4CE);
         chipFan = compactChip("FAN", 0xFF4DD0E1);
         for (TextView chip : new TextView[]{chipFps, chipCpu, chipGpu, chipBatt, chipRam,
-                chipNet, chipFan}) {
+                chipFan}) {
             compactBox.addView(chip);
         }
     }
@@ -536,41 +516,6 @@ final class PerfOverlayView extends LinearLayout {
         v.setPadding(dp(5), dp(2), dp(5), dp(2));
         v.setBackground(Ui.rounded(0x18FFFFFF, dp(7), 0x22FFFFFF, dp(1)));
         return v;
-    }
-
-    /** Compact, Bannerlator-style wrap form; text keeps its size at any card width. */
-    void setCompact(boolean compact) {
-        if (fusion != null) return;
-        setForm(compact ? Math.min(form, 3) : Math.max(form, 4));
-    }
-
-    /** Size form: 0 = FPS only, 3 = compact wrap with every chip, 4 = stacked, 5 = spread. */
-    void setForm(int f) {
-        if (fusion != null) {
-            if (fusion.mode() == Math.max(0, Math.min(FusionHudRenderer.MODE_COUNT - 1, f))) return;
-            fusion.setMode(f);
-            requestLayout();
-            invalidate();
-            return;
-        }
-        f = Math.max(0, Math.min(5, f));
-        boolean compact = f <= 3;
-        form = f;
-        compactMode = compact;
-        stackedBox.setVisibility(compact ? GONE : VISIBLE);
-        compactBox.setVisibility(compact ? VISIBLE : GONE);
-        int hpad = compact ? 10 : 16;
-        int vpad = compact ? 7 : 12;
-        setPadding(dp(hpad), dp(vpad), dp(hpad), dp(vpad + 1));
-        if (chipFps != null) {
-            chipFps.setTextSize(TypedValue.COMPLEX_UNIT_SP, compact && f == 0 ? 16f : 10f);
-            chipFps.setPadding(dp(f == 0 ? 7 : 5), dp(f == 0 ? 4 : 2),
-                    dp(f == 0 ? 7 : 5), dp(f == 0 ? 4 : 2));
-            chipFps.setBackground(f == 0 ? null
-                    : Ui.rounded(0x18FFFFFF, dp(7), 0x22FFFFFF, dp(1)));
-        }
-        if (lastPrefs != null) applyVisibility(lastPrefs);
-        requestLayout();
     }
 
     private static String nonEmpty(TextView v) {
@@ -620,18 +565,15 @@ final class PerfOverlayView extends LinearLayout {
 
         StringBuilder batt = new StringBuilder("BATT");
         if (f >= 1) batt.append(' ').append(textOf(battTemp));
-        if (f >= 3) {
+        if (f >= 1 && lastStats != null && lastStats.powerW > 0f) {
             batt.append(' ').append(textOf(battPower));
-            batt.append(' ').append(textOf(battery));
         }
+        if (f >= 3) batt.append(' ').append(textOf(battery));
         chipBatt.setText(batt.toString());
         chipBatt.setVisibility(f >= 1 && p.perfBattery() ? VISIBLE : GONE);
 
         chipRam.setText("RAM " + textOf(ramAmount));
         chipRam.setVisibility(f >= 3 && p.perfRam() ? VISIBLE : GONE);
-
-        chipNet.setText("NET " + textOf(netUp) + " " + textOf(netDown));
-        chipNet.setVisibility(f >= 3 && p.perfNet() ? VISIBLE : GONE);
 
         chipFan.setText("FAN " + textOf(fanDuty));
         chipFan.setVisibility(f >= 3 && p.perfFan() ? VISIBLE : GONE);
@@ -678,7 +620,6 @@ final class PerfOverlayView extends LinearLayout {
         boolean gpuClockOn = p.perfGpuClock() && f >= 3;
         boolean battTempOn = p.perfBattery() && f >= 1;
         boolean battPowerOn = p.perfBattery() && f >= 3;
-        boolean netOn = p.perfNet() && f >= 3;
         boolean ramOn = p.perfRam() && f >= 3;
         boolean fanOn = p.perfFan() && f >= 3;
         boolean fpsOn = p.perfFps() || f == 0;
@@ -696,7 +637,6 @@ final class PerfOverlayView extends LinearLayout {
         gpuUsage.setVisibility(gpuUsageOn ? VISIBLE : GONE);
         gpuRow.setVisibility(gpuTempOn || gpuClockOn || gpuUsageOn ? VISIBLE : GONE);
 
-        netRow.setVisibility(netOn ? VISIBLE : GONE);
         ramRow.setVisibility(ramOn ? VISIBLE : GONE);
         battRow.setVisibility(battTempOn || battPowerOn ? VISIBLE : GONE);
         battTemp.setVisibility(battTempOn ? VISIBLE : GONE);
@@ -746,11 +686,6 @@ final class PerfOverlayView extends LinearLayout {
                 gpuClockKnown ? clockHeat(s.gpuHz, s.gpuMaxHz) : 0xFF8792A3);
         setValue(gpuUsage, s.gpuUsageKnown ? s.gpuUsage + "%" : "\u2014",
                 s.gpuUsageKnown ? heat(s.gpuUsage / 100f) : 0xFF8792A3);
-
-        setValue(netUp, s.netKnown ? "\u2191 " + SysStats.fmtRate(s.netTxBps) : "\u2191 \u2014",
-                0xFFD5DAE2);
-        setValue(netDown, s.netKnown ? "\u2193 " + SysStats.fmtRate(s.netRxBps) : "\u2193 \u2014",
-                0xFFD5DAE2);
 
         if (s.memTotalKb > 0) {
             int totalGb = Math.max(1, Math.round(s.memTotalKb / 1_000_000f));
@@ -851,8 +786,6 @@ final class PerfOverlayView extends LinearLayout {
         gpuTemp.setLayoutParams(cellOr(0.9f));
         gpuClock.setLayoutParams(cellOr(1.05f));
         gpuUsage.setLayoutParams(cellOr(0.85f));
-        netUp.setLayoutParams(cellOr(1.3f));
-        netDown.setLayoutParams(cellOr(1.3f));
         ramUsage.setLayoutParams(cellOr(1.0f));
         ramAmount.setLayoutParams(cellOr(1.4f));
         battTemp.setLayoutParams(cellOr(1.0f));
