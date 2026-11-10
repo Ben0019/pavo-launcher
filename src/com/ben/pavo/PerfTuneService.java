@@ -190,10 +190,12 @@ public final class PerfTuneService extends Service {
                                 // loop that undoes vendor cap lifts.
                                 delay = lastTempC >= 45f ? 60L : 150L;
                             } else {
-                                // A plain preset is a static cap. Poll quickly
-                                // while hot so a vendor cap lift is undone fast;
-                                // the poll only reads nodes, no shell is spawned.
-                                delay = hot ? 250L : 500L;
+                                // A plain preset is a static cap. Under load,
+                                // poll ten times a second so a cap lift is
+                                // undone before it can be seen in the clocks.
+                                // The poll only reads nodes; no shell is spawned
+                                // unless the caps actually moved.
+                                delay = (hot || lastTempC >= 60f) ? 20L : 500L;
                             }
                             schedule(delay);
                         }

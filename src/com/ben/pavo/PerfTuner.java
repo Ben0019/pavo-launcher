@@ -295,7 +295,7 @@ final class PerfTuner {
         StringBuilder b = new StringBuilder();
         for (DeviceProfile.Cluster c : profile().clusters) {
             if (b.length() > 0) b.append("; ");
-            b.append("chmod 666 ").append(c.path)
+            b.append("chmod 644 ").append(c.path)
                     .append("/scaling_max_freq ").append(c.path)
                     .append("/scaling_min_freq ").append(c.path)
                     .append("/scaling_governor");
@@ -307,13 +307,13 @@ final class PerfTuner {
         DeviceProfile p = profile();
         if (p.gpuPath == null || p.gpuPath.isEmpty()) return "true";
         if (p.kgsl) {
-            return "chmod 666 " + p.gpuPath + "/max_gpuclk " + p.gpuPath
+            return "chmod 644 " + p.gpuPath + "/max_gpuclk " + p.gpuPath
                     + "/devfreq/max_freq " + p.gpuPath + "/devfreq/min_freq "
                     + p.gpuPath + "/devfreq/governor"
-                    + "; chmod 666 /sys/kernel/gpu/gpu_max_clock"
+                    + "; chmod 644 /sys/kernel/gpu/gpu_max_clock"
                     + " /sys/kernel/gpu/gpu_min_clock 2>/dev/null";
         }
-        return "chmod 666 " + p.gpuPath + "/max_freq " + p.gpuPath
+        return "chmod 644 " + p.gpuPath + "/max_freq " + p.gpuPath
                 + "/min_freq " + p.gpuPath + "/governor";
     }
 
@@ -325,10 +325,10 @@ final class PerfTuner {
     static boolean preparePServer() {
         if (!PServer.available()) return false;
         for (DeviceProfile.Cluster c : profile().clusters) {
-            PServer.run("chmod 666 " + c.path + "/scaling_max_freq "
+            PServer.run("chmod 644 " + c.path + "/scaling_max_freq "
                     + c.path + "/scaling_min_freq " + c.path + "/scaling_governor");
             for (int cpu : c.cpus) {
-                PServer.run("chmod 666 /sys/devices/system/cpu/cpu" + cpu
+                PServer.run("chmod 644 /sys/devices/system/cpu/cpu" + cpu
                         + "/cpufreq/scaling_max_freq /sys/devices/system/cpu/cpu"
                         + cpu + "/cpufreq/scaling_min_freq 2>/dev/null");
             }
