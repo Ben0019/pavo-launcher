@@ -121,11 +121,13 @@ public final class JoystickActivity extends PavoGlassActivity {
     private TextView guideText;
     private TextView autoChip;
     private TextView bypassChip;
-    private final TextView[] presetChips = new TextView[5];
+    private final TextView[] presetChips = new TextView[6];
     private static final String[] PRESET_KEYS =
-            {"LINEAR", "SMOOTH", "PRECISE", "FAST", "RACING"};
-    private static final int[] PRESET_CURVE = {100, 130, 170, 70, 200};
-    private static final int[] PRESET_FLOOR = {0, 0, 0, 0, 60};
+            {"LINEAR", "SMOOTH", "PRECISE", "FAST", "RACING", "FPS"};
+    private static final int[] PRESET_CURVE = {100, 130, 170, 70, 200, 100};
+    private static final int[] PRESET_FLOOR = {0, 0, 0, 0, 60, 0};
+    /** -1 leaves the current deadzone alone; FPS uses 5% on both sticks. */
+    private static final int[] PRESET_DEADZONE = {-1, -1, -1, -1, -1, 50};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1767,16 +1769,23 @@ public final class JoystickActivity extends PavoGlassActivity {
         curve[1] = PRESET_CURVE[preset];
         floor[0] = PRESET_FLOOR[preset];
         floor[1] = PRESET_FLOOR[preset];
+        int dz = PRESET_DEADZONE[preset];
+        if (dz >= 0) {
+            deadzone[0] = dz;
+            deadzone[1] = dz;
+        }
         stickEnabled = true;
         syncTuningUi();
         saveCalibration(true, true);
     }
 
     private boolean presetActive(int preset) {
-        return curve[0] == PRESET_CURVE[preset]
+        boolean base = curve[0] == PRESET_CURVE[preset]
                 && curve[1] == PRESET_CURVE[preset]
                 && floor[0] == PRESET_FLOOR[preset]
                 && floor[1] == PRESET_FLOOR[preset];
+        int dz = PRESET_DEADZONE[preset];
+        return base && (dz < 0 || (deadzone[0] == dz && deadzone[1] == dz));
     }
 
     private void updatePresetChips() {
