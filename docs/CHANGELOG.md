@@ -10,6 +10,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Removed the five panel size modes; scale is the only size control, with a new Size slider in Overlay & Drawer.
 - Removed the network, per-core and session-detail rows from the panel.
 - The panel is capped to 42% of the display width and 70% of its height, so it stays clear of the game.
+- It keeps the detailed single column until that would exceed 70% height, then switches to a denser two-column layout that still fits the width guard.
 - Idle FPS shows a dim `--` until a live frame stream resolves.
 - CPU, GPU, RAM, battery, power and fan each own one row; watt is a dedicated POWER module.
 - Strip mode is unchanged and still switches with a double tap.

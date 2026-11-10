@@ -111,6 +111,7 @@ final class FusionHudRenderer {
 
     private Prefs prefs;
     private PerfStats stats;
+    private int columns = 1;
     private boolean locked;
     private float opacity = 0.88f;
     private float scale = 1f;
@@ -190,6 +191,15 @@ final class FusionHudRenderer {
 
     void setLocked(boolean v) {
         locked = v;
+    }
+
+    /** 1 = detailed ledger, 2 = denser two-column layout when height is tight. */
+    void setColumns(int value) {
+        int v = Math.max(1, Math.min(2, value));
+        if (columns == v) return;
+        columns = v;
+        dirty = true;
+        rebuild();
     }
 
     void setOpacity(int percent) {
@@ -509,12 +519,21 @@ final class FusionHudRenderer {
             if (m.detail != null) detailW = Math.max(detailW, runWidth(m.detail));
         }
         float dotD = dotR * 2f;
+        int cols = modules.isEmpty() ? 1 : Math.min(columns, modules.size());
+        int rows = cols > 0 ? (modules.size() + cols - 1) / cols : 0;
+        float colGap = sp(14f);
         float rowW = dotD + sp(5f) + labelW + sp(6f) + valueW + sp(6f) + meterW
                 + (detailW > 0f ? sp(6f) + detailW + sp(4f) : 0f);
-        int rows = modules.size();
-        float gridW = rowW;
+        float cellW = dotD + sp(5f) + Math.max(labelW + sp(6f) + valueW,
+                detailW) + sp(8f);
+        float cellH = sp(2f) + lineH(valuePx) + sp(2f)
+                + lineH(detailPx) + sp(3f) + meterH + sp(2f);
         float rowH = lineH(valuePx) + sp(4f);
-        float gridH = rows > 0 ? rows * rowH + (rows - 1) * rowGap : 0f;
+        float gridW = cols == 1 ? rowW : cols * cellW + (cols - 1) * colGap;
+        float gridH = rows == 0 ? 0f
+                : cols == 1
+                ? rows * rowH + (rows - 1) * rowGap
+                : rows * cellH + (rows - 1) * rowGap;
 
         // --- frametime ribbon ------------------------------------------
         boolean graphOn = hero && showGraph && stats.fpsValid && hasGraphSamples();
@@ -568,37 +587,82 @@ final class FusionHudRenderer {
 
         // --- metric ledger ---------------------------------------------
         if (!modules.isEmpty()) {
-            float gy = y;
-            for (int i = 0; i < modules.size(); i++) {
-                Module m = modules.get(i);
-                float cy = gy + rowH / 2f;
-                float baseline = gy + (rowH - lineH(valuePx)) / 2f - ascent(valuePx);
-                barFills.add(dot(pad, cy, dotR));
-                barColors.add(m.color);
-                float lx = pad + dotD + sp(5f);
-                float kw = measure(m.key, labelPx);
-                placeRun(lx + labelW - kw, baseline,
-                        listOf(span(m.key, m.color, labelPx)));
-                float vx = lx + labelW + sp(6f);
-                float vw = runWidth(m.value);
-                placeRun(vx + valueW - vw, baseline, m.value);
-                float mx = vx + valueW + sp(6f);
-                float my = cy - meterH / 2f;
-                if (m.level >= 0f) {
-                    barTracks.add(new RectF(mx, my, mx + meterW, my + meterH));
-                    float fillW = Math.max(0f, Math.min(1f, m.level)) * meterW;
-                    if (fillW > sp(0.5f)) {
-                        barFills.add(new RectF(mx, my, mx + fillW, my + meterH));
-                        barColors.add(m.color);
+            if (cols == 1) {
+                float gy = y;
+                for (int i = 0; i < modules.size(); i++) {
+                    Module m = modules.get(i);
+                    float cy = gy + rowH / 2f;
+                    float baseline = gy + (rowH - lineH(valuePx)) / 2f - ascent(valuePx);
+                    barFills.add(dot(pad, cy, dotR));
+                    barColors.add(m.color);
+                    float lx = pad + dotD + sp(5f);
+                    float kw = measure(m.key, labelPx);
+                    placeRun(lx + labelW - kw, baseline,
+                            listOf(span(m.key, m.color, labelPx)));
+                    float vx = lx + labelW + sp(6f);
+                    float vw = runWidth(m.value);
+                    placeRun(vx + valueW - vw, baseline, m.value);
+                    float mx = vx + valueW + sp(6f);
+                    float my = cy - meterH / 2f;
+                    if (m.level >= 0f) {
+                        barTracks.add(new RectF(mx, my, mx + meterW, my + meterH));
+                        float fillW = Math.max(0f, Math.min(1f, m.level)) * meterW;
+                        if (fillW > sp(0.5f)) {
+                            barFills.add(new RectF(mx, my, mx + fillW, my + meterH));
+                            barColors.add(m.color);
+                        }
+                    }
+                    if (m.detail != null) {
+                        placeRun(mx + meterW + sp(6f), baseline, m.detail);
+                    }
+                    gy += rowH + rowGap;
+                    if (i < modules.size() - 1) {
+                        dividers.add(divider(pad, gy - rowGap / 2f,
+                                pad + innerW, sp(0.7f)));
                     }
                 }
-                if (m.detail != null) {
-                    placeRun(mx + meterW + sp(6f), baseline, m.detail);
-                }
-                gy += rowH + rowGap;
-                if (i < modules.size() - 1) {
-                    dividers.add(divider(pad, gy - rowGap / 2f,
-                            pad + innerW, sp(0.7f)));
+            } else {
+                float gx = pad + Math.max(0f, (innerW - gridW) / 2f);
+                float gy = y;
+                for (int r = 0; r < rows; r++) {
+                    for (int c = 0; c < cols; c++) {
+                        int i = r * cols + c;
+                        if (i >= modules.size()) continue;
+                        Module m = modules.get(i);
+                        float rowX = gx + c * (cellW + colGap);
+                        float top = gy + sp(2f);
+                        float baseline = top - ascent(valuePx);
+                        float dotCy = top + lineH(valuePx) / 2f;
+                        barFills.add(dot(rowX, dotCy, dotR));
+                        barColors.add(m.color);
+                        float lx = rowX + dotD + sp(5f);
+                        float kw = measure(m.key, labelPx);
+                        placeRun(lx + labelW - kw, baseline,
+                                listOf(span(m.key, m.color, labelPx)));
+                        float vx = lx + labelW + sp(6f);
+                        float vw = runWidth(m.value);
+                        placeRun(vx + valueW - vw, baseline, m.value);
+                        if (m.detail != null) {
+                            placeRun(lx, top + lineH(valuePx) + sp(2f)
+                                    - ascent(detailPx), m.detail);
+                        }
+                        float mx = lx;
+                        float mw = cellW - dotD - sp(10f);
+                        float my = gy + cellH - meterH - sp(2f);
+                        if (m.level >= 0f) {
+                            barTracks.add(new RectF(mx, my, mx + mw, my + meterH));
+                            float fillW = Math.max(0f, Math.min(1f, m.level)) * mw;
+                            if (fillW > sp(0.5f)) {
+                                barFills.add(new RectF(mx, my, mx + fillW, my + meterH));
+                                barColors.add(m.color);
+                            }
+                        }
+                    }
+                    gy += cellH + rowGap;
+                    if (r < rows - 1) {
+                        dividers.add(divider(pad, gy - rowGap / 2f,
+                                pad + innerW, sp(0.7f)));
+                    }
                 }
             }
             y += gridH;

@@ -73,6 +73,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
     private int baseWidthPx;
     private int baseHeightPx;
     private float scale = 1f;
+    /** The user's requested size, before the layout guards cap the view. */
+    private float desiredScale = 1f;
 
     private PerfOverlayMenuView menu;
     private WindowManager.LayoutParams menuParams;
@@ -940,13 +942,14 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         s.main.post(new Runnable() {
             @Override
             public void run() {
-                s.scale = s.clampScale(requested);
-                s.targetScale = s.scale;
+                s.desiredScale = s.clampScale(requested);
+                s.scale = s.desiredScale;
+                s.targetScale = s.desiredScale;
                 s.scaleTickerRunning = false;
                 s.scaleSettleSave = false;
                 s.main.removeCallbacks(s.scaleTicker);
                 s.applyScaleGeometry(true);
-                s.prefs.setPerfOverlayScale(s.scale);
+                s.prefs.setPerfOverlayScale(s.desiredScale);
                 if (s.menu != null) s.menu.setSizeLabel(s.sizeLabel());
             }
         });
@@ -1224,8 +1227,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel.setPivotX(0f);
         panel.setPivotY(0f);
         measurePanel();
-        scale = clampScale(prefs.perfOverlayScale());
-        targetScale = scale;
+        desiredScale = clampScale(prefs.perfOverlayScale());
+        scale = desiredScale;
+        targetScale = desiredScale;
         panel.setScaleX(1f);
         panel.setScaleY(1f);
         container.addView(panel, new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx));
@@ -1380,15 +1384,36 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             return new int[]{Math.round(baseWidthPx * scale),
                     Math.round(baseHeightPx * scale), Math.round(scale * 1000f)};
         }
+        // Prefer the detailed single column. Only when it would grow past
+        // 70% of the display height do we try the denser two-column layout,
+        // and only if that can stay inside the 42% width guard.
+        panel.setColumns(1);
         panel.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         int nw = Math.max(Ui.dp(uiContext, 96), panel.getMeasuredWidth());
         int nh = Math.max(Ui.dp(uiContext, 40), panel.getMeasuredHeight());
-        // Keep the panel to a sensible share of a handheld display: wide
-        // enough for the ledger, never so tall that it swallows the game.
-        float fitW = (screenWidthPx() * 0.42f) / (float) nw;
-        float fitH = (screenHeightPx() * 0.70f) / (float) nh;
-        float fit = Math.max(0.55f, Math.min(1.8f, Math.min(fitW, fitH)));
+        float maxW = screenWidthPx() * 0.42f;
+        float maxH = screenHeightPx() * 0.70f;
+        float fit = Math.max(0.55f, Math.min(1.8f, Math.min(maxW / nw, maxH / nh)));
+        float requested = Math.max(desiredScale, prefs.perfOverlayScale());
+        requested = Math.max(0.55f, Math.min(1.8f, requested));
+        if (nh * requested > maxH) {
+            panel.setColumns(2);
+            panel.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            int nw2 = Math.max(Ui.dp(uiContext, 96), panel.getMeasuredWidth());
+            int nh2 = Math.max(Ui.dp(uiContext, 40), panel.getMeasuredHeight());
+            float fit2 = Math.max(0.55f,
+                    Math.min(1.8f, Math.min(maxW / nw2, maxH / nh2)));
+            // Do not shrink the type drastically just to gain two columns.
+            if (fit2 >= 0.55f && fit2 >= fit * 0.82f) {
+                nw = nw2;
+                nh = nh2;
+                fit = fit2;
+            } else {
+                panel.setColumns(1);
+            }
+        }
         if (scale > fit) scale = fit;
         FrameLayout.LayoutParams plp = panel.getLayoutParams()
                 instanceof FrameLayout.LayoutParams
@@ -1446,8 +1471,9 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         panel.setPanelAlpha(prefs.perfOverlayAlpha());
         panel.setPivotX(0f);
         panel.setPivotY(0f);
-        scale = clampScale(prefs.perfOverlayScale());
-        targetScale = scale;
+        desiredScale = clampScale(prefs.perfOverlayScale());
+        scale = desiredScale;
+        targetScale = desiredScale;
         container.addView(panel, 0, new FrameLayout.LayoutParams(baseWidthPx, baseHeightPx));
         panel.setAlpha(0f);
         if (panel.horizontal()) measurePanel();
@@ -1574,6 +1600,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
                             float exponent = 0.85f;
                             float damped = (float) Math.pow(Math.max(0.01f, ratio), exponent);
                             targetScale = clampScale(pinchStartScale * damped);
+                            desiredScale = targetScale;
                             if (!scaleTickerRunning) {
                                 scaleTickerRunning = true;
                                 main.post(scaleTicker);
@@ -1713,7 +1740,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     private void saveGeometry() {
         if (params == null) return;
-        prefs.setPerfOverlayScale(scaleTickerRunning ? targetScale : scale);
+        prefs.setPerfOverlayScale(scaleTickerRunning ? targetScale : desiredScale);
         prefs.setPerfOverlayPosition(params.x, params.y);
     }
 
@@ -2252,19 +2279,21 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
 
     @Override
     public void onScaleChanged(float newScale) {
-        scale = clampScale(newScale);
-        targetScale = scale;
+        desiredScale = clampScale(newScale);
+        scale = desiredScale;
+        targetScale = desiredScale;
         applyScaleGeometry(true);
-        prefs.setPerfOverlayScale(scale);
+        prefs.setPerfOverlayScale(desiredScale);
         if (menu != null) menu.setSizeLabel(sizeLabel());
     }
 
     @Override
     public void onSizeStep(int delta) {
-        scale = clampScale(scale + delta * 0.10f);
-        targetScale = scale;
+        desiredScale = clampScale(desiredScale + delta * 0.10f);
+        scale = desiredScale;
+        targetScale = desiredScale;
         applyScaleGeometry(true);
-        prefs.setPerfOverlayScale(scale);
+        prefs.setPerfOverlayScale(desiredScale);
         try {
             windowManager.updateViewLayout(container, params);
         } catch (Throwable ignored) {
