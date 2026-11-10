@@ -71,8 +71,23 @@ public final class JoystickActivity extends PavoGlassActivity {
     private ImageView appSelectorIcon;
     private TextView appSelectorLabel;
     private TextView resetAppChip;
+    private ControllerNav controller;
     private long lastNavAdjust;
     private long lastHatNav;
+    private long lastStickNav;
+    private View navPressTarget;
+    private boolean navLongFired;
+    private final Runnable navLongPress = new Runnable() {
+        @Override public void run() {
+            View v = navPressTarget;
+            if (v == null || !v.isFocused()) return;
+            navLongFired = true;
+            if (v.isLongClickable()) {
+                Haptics.longPress(v);
+                v.performLongClick();
+            }
+        }
+    };
     private final int[] centers = new int[6];
     private final int[] mins = new int[6];
     private final int[] maxs = new int[6];
@@ -142,6 +157,13 @@ public final class JoystickActivity extends PavoGlassActivity {
         ensureExpertForValues();
         buildUi();
         hideBars();
+        controller = new ControllerNav(this, getWindow().getDecorView());
+        controller.decorateFocusables();
+        leftTab.postDelayed(new Runnable() {
+            @Override public void run() {
+                if (!isFinishing() && !isDestroyed()) leftTab.requestFocus();
+            }
+        }, 180L);
     }
 
     @Override
@@ -990,6 +1012,20 @@ public final class JoystickActivity extends PavoGlassActivity {
         rightTab.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { selectStick(1); }
         });
+        leftTab.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateStickTabs();
+            }
+        });
+        rightTab.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateStickTabs();
+            }
+        });
+        tapClicks(leftTab);
+        tapClicks(rightTab);
+        addNav(leftTab);
+        addNav(rightTab);
         stickRow.addView(leftTab, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams rightParams = new LinearLayout.LayoutParams(0,
@@ -1385,34 +1421,7 @@ public final class JoystickActivity extends PavoGlassActivity {
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (event == null) return super.onGenericMotionEvent(event);
-        // The Odin D-pad arrives as a hat, not as key events.
-        long now = SystemClock.uptimeMillis();
-        if (now - lastHatNav > 180L) {
-            float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
-            float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
-            if (hatY > 0.5f) {
-                lastHatNav = now;
-                moveNav(1);
-            } else if (hatY < -0.5f) {
-                lastHatNav = now;
-                moveNav(-1);
-            } else if (hatX > 0.5f) {
-                lastHatNav = now;
-                if (!adjustFocusedBar(1)) moveNav(1);
-            } else if (hatX < -0.5f) {
-                lastHatNav = now;
-                if (!adjustFocusedBar(-1)) moveNav(-1);
-            }
-        }
-        // Right stick nudges a focused slider, matching the other built-ins.
-        if (getCurrentFocus() instanceof SeekBar) {
-            float rz = event.getAxisValue(MotionEvent.AXIS_RZ);
-            long rzNow = SystemClock.uptimeMillis();
-            if (Math.abs(rz) > 0.65f && rzNow - lastNavAdjust > 140L) {
-                lastNavAdjust = rzNow;
-                adjustFocusedBar(rz > 0f ? 1 : -1);
-            }
-        }
+        if (controller != null) controller.dispatchGenericMotionEvent(event);
         int source = event.getSource();
         boolean gamepad = (source & InputDevice.SOURCE_JOYSTICK) != 0
                 || (source & InputDevice.SOURCE_GAMEPAD) != 0;
@@ -1907,7 +1916,7 @@ public final class JoystickActivity extends PavoGlassActivity {
     private void addNav(View v) {
         if (v == null || nav.contains(v)) return;
         v.setFocusable(true);
-        v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
         nav.add(v);
     }
 
@@ -1941,44 +1950,14 @@ public final class JoystickActivity extends PavoGlassActivity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (ControllerNav.isSyntheticStickDpad(event)) return true;
-        ControllerNav.noteExternalDpad(event);
         int code = event.getKeyCode();
-        if (event.getAction() == KeyEvent.ACTION_DOWN) {
-            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B) {
-                if (event.getRepeatCount() == 0) finishAnimated();
-                return true;
-            }
-            if (code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_DPAD_CENTER
-                    || code == KeyEvent.KEYCODE_ENTER) {
-                if (event.getRepeatCount() == 0) {
-                    View focused = getCurrentFocus();
-                    if (focused != null) {
-                        Haptics.click(focused);
-                        focused.performClick();
-                    } else {
-                        moveNav(1);
-                    }
-                }
-                return true;
-            }
-            if (code == KeyEvent.KEYCODE_DPAD_UP) {
-                moveNav(-1);
-                return true;
-            }
-            if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
-                moveNav(1);
-                return true;
-            }
-            if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
-                if (!adjustFocusedBar(-1)) moveNav(-1);
-                return true;
-            }
-            if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                if (!adjustFocusedBar(1)) moveNav(1);
-                return true;
-            }
+        if ((code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B)
+                && event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0) {
+            finishAnimated();
+            return true;
         }
+        if (controller != null && controller.dispatchKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
     }
 
