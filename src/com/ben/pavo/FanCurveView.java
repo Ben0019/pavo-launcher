@@ -156,6 +156,14 @@ final class FanCurveView extends View {
         invalidate();
     }
 
+    int selectedTemp() {
+        return selected >= 0 && selected < points.size() ? points.get(selected)[0] : -1;
+    }
+
+    int selectedDuty() {
+        return selected >= 0 && selected < points.size() ? points.get(selected)[1] : -1;
+    }
+
     String curve() {
         return FanCurve.serialize(points);
     }
@@ -438,9 +446,9 @@ final class FanCurveView extends View {
                         || selected >= points.size()) {
                     return true;
                 }
-                int minT = selected == 0 ? 30 : points.get(selected - 1)[0] + 2;
+                int minT = selected == 0 ? 30 : points.get(selected - 1)[0] + 1;
                 int maxT = selected == points.size() - 1
-                        ? 100 : points.get(selected + 1)[0] - 2;
+                        ? 100 : points.get(selected + 1)[0] - 1;
                 if (maxT < minT) maxT = minT;
                 int t = FanCurve.clamp(snap5(tempFor(event.getX())), minT, maxT);
                 int d = FanCurve.clamp(Math.round(dutyFor(event.getY())), 0, 100);

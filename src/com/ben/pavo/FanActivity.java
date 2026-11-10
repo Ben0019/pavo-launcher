@@ -485,14 +485,26 @@ public final class FanActivity extends PavoGlassActivity {
             @Override
             public void onCurveChanged(String value) {
                 if (mode == MODE_HOLD) {
-                    // HOLD keeps the guard curve editable; save the dragged
-                    // shape and let the crosshair follow its last point.
+                    // HOLD keeps the guard curve editable; the dragged point
+                    // becomes the hold point. Never read the last point: that
+                    // is the 100 °C / 100 % guard stop and would max the fan.
                     prefs.setFanHoldCurve(value);
                     List<int[]> pts = FanCurve.points(value);
-                    if (!pts.isEmpty()) {
-                        int[] last = pts.get(pts.size() - 1);
-                        int t = Math.max(45, Math.min(85, last[0]));
-                        int d = Math.max(10, Math.min(100, last[1]));
+                    int t = curveView != null ? curveView.selectedTemp() : -1;
+                    int d = curveView != null ? curveView.selectedDuty() : -1;
+                    if ((t < 0 || d < 0) && !pts.isEmpty()) {
+                        int[] closest = pts.get(0);
+                        for (int[] p : pts) {
+                            if (Math.abs(p[0] - holdTarget) < Math.abs(closest[0] - holdTarget)) {
+                                closest = p;
+                            }
+                        }
+                        t = closest[0];
+                        d = closest[1];
+                    }
+                    if (t >= 0 && d >= 0) {
+                        t = Math.max(45, Math.min(85, t));
+                        d = Math.max(10, Math.min(100, d));
                         holdTarget = t;
                         holdDuty = d;
                         prefs.setFanHoldTargetC(t);
