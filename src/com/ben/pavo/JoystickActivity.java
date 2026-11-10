@@ -25,6 +25,7 @@ import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -121,13 +122,13 @@ public final class JoystickActivity extends PavoGlassActivity {
     private TextView guideText;
     private TextView autoChip;
     private TextView bypassChip;
-    private final TextView[] presetChips = new TextView[6];
+    private final TextView[] presetChips = new TextView[7];
     private static final String[] PRESET_KEYS =
-            {"LINEAR", "SMOOTH", "PRECISE", "FAST", "RACING", "FPS"};
-    private static final int[] PRESET_CURVE = {100, 130, 170, 70, 200, 100};
-    private static final int[] PRESET_FLOOR = {0, 0, 0, 0, 60, 0};
-    /** -1 leaves the current deadzone alone; FPS uses 5% on both sticks. */
-    private static final int[] PRESET_DEADZONE = {-1, -1, -1, -1, -1, 50};
+            {"LINEAR", "SMOOTH", "PRECISE", "FAST", "RACING", "FPS", "ACCEL"};
+    private static final int[] PRESET_CURVE = {100, 130, 170, 70, 200, 100, 200};
+    private static final int[] PRESET_FLOOR = {0, 0, 0, 0, 60, 0, 0};
+    /** -1 leaves the current deadzone alone; FPS and ACCEL use 5%. */
+    private static final int[] PRESET_DEADZONE = {-1, -1, -1, -1, -1, 50, 50};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1036,6 +1037,9 @@ public final class JoystickActivity extends PavoGlassActivity {
         tuning.addView(tuningRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        HorizontalScrollView presetScroll = new HorizontalScrollView(this);
+        presetScroll.setHorizontalScrollBarEnabled(false);
+        presetScroll.setFillViewport(true);
         LinearLayout presetRow = new LinearLayout(this);
         presetRow.setOrientation(LinearLayout.HORIZONTAL);
         presetRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -1072,15 +1076,20 @@ public final class JoystickActivity extends PavoGlassActivity {
             tapClicks(chip);
             addNav(chip);
             presetChips[i] = chip;
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
-                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            chip.setMinWidth(dp(72));
+            chip.setPadding(dp(8), dp(5), dp(8), dp(5));
             if (i > 0) lp.leftMargin = dp(4);
             presetRow.addView(chip, lp);
         }
+        presetScroll.addView(presetRow, new HorizontalScrollView.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams presetLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         presetLp.topMargin = dp(5);
-        tuning.addView(presetRow, presetLp);
+        tuning.addView(presetScroll, presetLp);
 
         deadzoneValue = text(percent(deadzone[selectedStick]), 9.5f, TEXT, true);
         addSlider(leftCol, "Deadzone", deadzone[selectedStick], 300, 0);
