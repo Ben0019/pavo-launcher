@@ -82,6 +82,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         prefs = new Prefs(this);
         ThemeColors.initialize(this);
         accent = ThemeColors.accent();
+        ensurePavoDefault();
         buildUi();
         hideBars();
         installController();
@@ -375,8 +376,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 @Override
                 public void onClick(View v) {
                     Haptics.click(v);
-                    AudioEq.setBands(SoundTunerActivity.this,
-                            AudioEq.expandFive(PRESET_LEVELS[preset]));
+                    AudioEq.setBands(SoundTunerActivity.this, presetLevels(preset));
                     AudioEq.setEnabled(SoundTunerActivity.this, true);
                     refresh();
                 }
@@ -391,6 +391,20 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                     }
                 }
             });
+            if (preset == 0) {
+                chip.setLongClickable(true);
+                chip.setOnLongClickListener(new View.OnLongClickListener() {
+                    @Override
+                    public boolean onLongClick(View v) {
+                        Haptics.longPress(v);
+                        prefs.setEqPavoDefault(currentLevels());
+                        updatePresetSelection();
+                        android.widget.Toast.makeText(SoundTunerActivity.this,
+                                "PAVO default saved", android.widget.Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                });
+            }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
             lp.rightMargin = (i % 3 != 2) ? dp(4) : 0;
@@ -434,6 +448,30 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         updatePresetSelection();
     }
 
+    /** Freezes the current curve as PAVO on upgrade; otherwise seeds the standard one. */
+    private void ensurePavoDefault() {
+        if (prefs.eqPavoDefault() != null) return;
+        int count = AudioEq.bandCount(this);
+        int[] current = new int[count];
+        boolean any = false;
+        for (int i = 0; i < count; i++) {
+            current[i] = prefs.eqBand(i);
+            if (current[i] != 0) any = true;
+        }
+        prefs.setEqPavoDefault(any ? current : AudioEq.expandFive(PRESET_LEVELS[0]));
+    }
+
+    /** Saved PAVO curve when present, otherwise the expanded built-in curve. */
+    private int[] presetLevels(int index) {
+        if (index == 0) {
+            int[] saved = prefs.eqPavoDefault();
+            if (saved != null && saved.length == AudioEq.bandCount(this)) {
+                return saved;
+            }
+        }
+        return AudioEq.expandFive(PRESET_LEVELS[index]);
+    }
+
     private int[] currentLevels() {
         int count = sliders.size();
         int[] levels = new int[count];
@@ -444,7 +482,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     private void updatePresetSelection() {
         int[] levels = currentLevels();
         for (int i = 0; i < presetChips.size(); i++) {
-            boolean selected = matches(levels, AudioEq.expandFive(PRESET_LEVELS[i]));
+            boolean selected = matches(levels, presetLevels(i));
             TextView chip = presetChips.get(i);
             if (chip.hasFocus() && selected) {
                 chip.setBackground(Ui.rounded(accent, dp(10), accent, dp(1)));

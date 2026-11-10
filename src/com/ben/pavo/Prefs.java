@@ -371,6 +371,35 @@ final class Prefs {
         return clamp(sp.getInt("eq_band" + clamp(index, 0, EQ_BANDS - 1), 0), -1200, 1200);
     }
 
+    private static final String KEY_EQ_PAVO_DEFAULT = "eq_pavo_default";
+
+    /** Saved ten-band PAVO curve, or null when the built-in curve is used. */
+    int[] eqPavoDefault() {
+        String raw = sp.getString(KEY_EQ_PAVO_DEFAULT, "");
+        if (raw == null || raw.isEmpty()) return null;
+        String[] parts = raw.split(",");
+        if (parts.length != EQ_BANDS) return null;
+        int[] out = new int[EQ_BANDS];
+        try {
+            for (int i = 0; i < EQ_BANDS; i++) {
+                out[i] = clamp(Integer.parseInt(parts[i].trim()), -1200, 1200);
+            }
+            return out;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    void setEqPavoDefault(int[] levels) {
+        if (levels == null) return;
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < EQ_BANDS; i++) {
+            if (i > 0) b.append(',');
+            b.append(clamp(i < levels.length ? levels[i] : 0, -1200, 1200));
+        }
+        sp.edit().putString(KEY_EQ_PAVO_DEFAULT, b.toString()).apply();
+    }
+
     /** One-time redistribution of the old five-band curve onto ten bands. */
     void migrateEqBands() {
         if (sp.getBoolean("eq_bands10", false)) return;
