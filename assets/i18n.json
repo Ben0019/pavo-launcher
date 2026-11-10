@@ -2085,7 +2085,9 @@
     "FAST": "RYCHLÁ",
     "RACING": "ZÁVODNÍ",
     "RAW": "SYROVÉ",
-    "OUT": "VÝSTUP"
+    "OUT": "VÝSTUP",
+    "FAN RESPONSE": "ODEZVA VENTILÁTORU",
+    "VERY SMOOTH": "VELMI HLADKÁ"
   },
   "da": {
     "Quick Controls": "Hurtigbetjening",
@@ -4173,7 +4175,9 @@
     "FAST": "HURTIG",
     "RACING": "RACING",
     "RAW": "RÅ",
-    "OUT": "UD"
+    "OUT": "UD",
+    "FAN RESPONSE": "FANRESPONS",
+    "VERY SMOOTH": "MEGET BLØD"
   },
   "de": {
     "Quick Controls": "Schnellsteuerung",
@@ -6261,7 +6265,9 @@
     "FAST": "SCHNELL",
     "RACING": "RENNEN",
     "RAW": "ROH",
-    "OUT": "AUSGANG"
+    "OUT": "AUSGANG",
+    "FAN RESPONSE": "LÜFTERREAKTION",
+    "VERY SMOOTH": "SEHR SANFT"
   },
   "el": {
     "Quick Controls": "Γρήγοροι έλεγχοι",
@@ -8349,7 +8355,9 @@
     "FAST": "ΓΡΗΓΟΡΗ",
     "RACING": "ΑΓΩΝΙΣΤΙΚΗ",
     "RAW": "ΑΚΑΤΕΡΓΑΣΤΟ",
-    "OUT": "ΕΞΟΔΟΣ"
+    "OUT": "ΕΞΟΔΟΣ",
+    "FAN RESPONSE": "ΑΠΟΚΡΙΣΗ ΑΝΕΜΙΣΤΗΡΑ",
+    "VERY SMOOTH": "ΠΟΛΥ ΟΜΑΛΗ"
   },
   "es": {
     "Quick Controls": "Controles rápidos",
@@ -10437,7 +10445,9 @@
     "FAST": "RÁPIDA",
     "RACING": "CARRERAS",
     "RAW": "ENTRADA",
-    "OUT": "SALIDA"
+    "OUT": "SALIDA",
+    "FAN RESPONSE": "RESPUESTA DEL VENTILADOR",
+    "VERY SMOOTH": "MUY SUAVE"
   },
   "fi": {
     "Quick Controls": "Pika-asetukset",
@@ -12525,7 +12535,9 @@
     "FAST": "NOPEA",
     "RACING": "KILPAILU",
     "RAW": "RAAKA",
-    "OUT": "LÄHTÖ"
+    "OUT": "LÄHTÖ",
+    "FAN RESPONSE": "TUULETTIMEN VASTE",
+    "VERY SMOOTH": "ERITTÄIN PEHMEÄ"
   },
   "fr": {
     "Quick Controls": "Contrôles rapides",
@@ -14613,7 +14625,9 @@
     "FAST": "RAPIDE",
     "RACING": "COURSE",
     "RAW": "BRUT",
-    "OUT": "SORTIE"
+    "OUT": "SORTIE",
+    "FAN RESPONSE": "RÉPONSE DU VENTILATEUR",
+    "VERY SMOOTH": "TRÈS DOUCE"
   },
   "he": {
     "Quick Controls": "בקרות מהירות",
@@ -16701,7 +16715,9 @@
     "FAST": "מהיר",
     "RACING": "מרוץ",
     "RAW": "גולמי",
-    "OUT": "פלט"
+    "OUT": "פלט",
+    "FAN RESPONSE": "תגובת המאוורר",
+    "VERY SMOOTH": "חלקה מאוד"
   },
   "hu": {
     "Quick Controls": "Gyorsvezérlők",
@@ -18789,7 +18805,9 @@
     "FAST": "GYORS",
     "RACING": "VERSENY",
     "RAW": "NYERS",
-    "OUT": "KIMENET"
+    "OUT": "KIMENET",
+    "FAN RESPONSE": "VENTILÁTOR VÁLASZ",
+    "VERY SMOOTH": "NAGYON LÁGY"
   },
   "id": {
     "Quick Controls": "Kontrol Cepat",
@@ -20877,7 +20895,9 @@
     "FAST": "CEPAT",
     "RACING": "BALAP",
     "RAW": "MENTAH",
-    "OUT": "KELUARAN"
+    "OUT": "KELUARAN",
+    "FAN RESPONSE": "RESPONS KIPAS",
+    "VERY SMOOTH": "SANGAT HALUS"
   },
   "it": {
     "Quick Controls": "Controlli rapidi",
@@ -22965,7 +22985,9 @@
     "FAST": "VELOCE",
     "RACING": "CORSA",
     "RAW": "GREZZO",
-    "OUT": "USCITA"
+    "OUT": "USCITA",
+    "FAN RESPONSE": "RISPOSTA VENTOLA",
+    "VERY SMOOTH": "MOLTO MORBIDA"
   },
   "ja": {
     "Quick Controls": "クイックコントロール",
@@ -25053,7 +25075,9 @@
     "FAST": "高速",
     "RACING": "レーシング",
     "RAW": "生",
-    "OUT": "出力"
+    "OUT": "出力",
+    "FAN RESPONSE": "ファン応答",
+    "VERY SMOOTH": "非常にスムーズ"
   },
   "ko": {
     "Quick Controls": "빠른 컨트롤",
@@ -27141,7 +27165,9 @@
     "FAST": "빠르게",
     "RACING": "레이싱",
     "RAW": "원시",
-    "OUT": "출력"
+    "OUT": "출력",
+    "FAN RESPONSE": "팬 응답",
+    "VERY SMOOTH": "매우 부드럽게"
   },
   "nb": {
     "Quick Controls": "Hurtigkontroller",
@@ -29229,7 +29255,9 @@
     "FAST": "RASK",
     "RACING": "RACING",
     "RAW": "RÅ",
-    "OUT": "UT"
+    "OUT": "UT",
+    "FAN RESPONSE": "VIFTERESPONS",
+    "VERY SMOOTH": "MEGET MYK"
   },
   "nl": {
     "Quick Controls": "Snelle bediening",
@@ -31317,7 +31345,9 @@
     "FAST": "SNEL",
     "RACING": "RACEN",
     "RAW": "RUW",
-    "OUT": "UIT"
+    "OUT": "UIT",
+    "FAN RESPONSE": "VENTILATORRESPONS",
+    "VERY SMOOTH": "ZEER ZACHT"
   },
   "pl": {
     "Quick Controls": "Szybkie sterowanie",
@@ -33405,7 +33435,9 @@
     "FAST": "SZYBKA",
     "RACING": "WYŚCIGOWA",
     "RAW": "SUROWY",
-    "OUT": "WYJŚCIE"
+    "OUT": "WYJŚCIE",
+    "FAN RESPONSE": "REAKCJA WENTYLATORA",
+    "VERY SMOOTH": "BARDZO PŁYNNA"
   },
   "pt": {
     "Quick Controls": "Controles rápidos",
@@ -35493,7 +35525,9 @@
     "FAST": "RÁPIDA",
     "RACING": "CORRIDA",
     "RAW": "BRUTO",
-    "OUT": "SAÍDA"
+    "OUT": "SAÍDA",
+    "FAN RESPONSE": "RESPOSTA DA VENTOINHA",
+    "VERY SMOOTH": "MUITO SUAVE"
   },
   "ro": {
     "Quick Controls": "Comenzi rapide",
@@ -37581,7 +37615,9 @@
     "FAST": "RAPIDĂ",
     "RACING": "CURSE",
     "RAW": "BRUT",
-    "OUT": "IEȘIRE"
+    "OUT": "IEȘIRE",
+    "FAN RESPONSE": "RĂSPUNS VENTILATOR",
+    "VERY SMOOTH": "FOARTE NETEDĂ"
   },
   "ru": {
     "Quick Controls": "Быстрое управление",
@@ -39669,7 +39705,9 @@
     "FAST": "БЫСТРАЯ",
     "RACING": "ГОНОЧНАЯ",
     "RAW": "СЫРОЙ",
-    "OUT": "ВЫХОД"
+    "OUT": "ВЫХОД",
+    "FAN RESPONSE": "ОТКЛИК ВЕНТИЛЯТОРА",
+    "VERY SMOOTH": "ОЧЕНЬ ПЛАВНАЯ"
   },
   "sv": {
     "Quick Controls": "Snabbkontroller",
@@ -41757,7 +41795,9 @@
     "FAST": "SNABB",
     "RACING": "RACING",
     "RAW": "RÅ",
-    "OUT": "UT"
+    "OUT": "UT",
+    "FAN RESPONSE": "FLÄKTRESPONS",
+    "VERY SMOOTH": "MYCKET MJUK"
   },
   "th": {
     "Quick Controls": "การควบคุมด่วน",
@@ -43845,7 +43885,9 @@
     "FAST": "รวดเร็ว",
     "RACING": "แข่งขัน",
     "RAW": "ดิบ",
-    "OUT": "ออก"
+    "OUT": "ออก",
+    "FAN RESPONSE": "การตอบสนองพัดลม",
+    "VERY SMOOTH": "นุ่มนวลมาก"
   },
   "tr": {
     "Quick Controls": "Hızlı Kontroller",
@@ -45933,7 +45975,9 @@
     "FAST": "HIZLI",
     "RACING": "YARIŞ",
     "RAW": "HAM",
-    "OUT": "ÇIKIŞ"
+    "OUT": "ÇIKIŞ",
+    "FAN RESPONSE": "FAN TEPKİSİ",
+    "VERY SMOOTH": "ÇOK YUMUŞAK"
   },
   "uk": {
     "Quick Controls": "Швидке керування",
@@ -48021,7 +48065,9 @@
     "FAST": "ШВИДКА",
     "RACING": "ГОНОЧНА",
     "RAW": "СИРИЙ",
-    "OUT": "ВИХІД"
+    "OUT": "ВИХІД",
+    "FAN RESPONSE": "ВІДГУК ВЕНТИЛЯТОРА",
+    "VERY SMOOTH": "ДУЖЕ ПЛАВНА"
   },
   "vi": {
     "Quick Controls": "Điều khiển nhanh",
@@ -50109,7 +50155,9 @@
     "FAST": "NHANH",
     "RACING": "ĐUA",
     "RAW": "THÔ",
-    "OUT": "RA"
+    "OUT": "RA",
+    "FAN RESPONSE": "PHẢN HỒI QUẠT",
+    "VERY SMOOTH": "RẤT MƯỢT"
   },
   "zh-CN": {
     "Quick Controls": "快捷控制",
@@ -52197,6 +52245,8 @@
     "FAST": "快速",
     "RACING": "竞速",
     "RAW": "原始",
-    "OUT": "输出"
+    "OUT": "输出",
+    "FAN RESPONSE": "风扇响应",
+    "VERY SMOOTH": "非常平滑"
   }
 }

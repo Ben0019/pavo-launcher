@@ -131,6 +131,7 @@ final class FanEngine {
                 controller.seed(PerfTuner.fanPercent(app));
             }
             // High is a hard maximum: do not ease into it.
+            controller.setResponse(prefs.fanResponse());
             int duty = high ? 100
                     : controller.next(curve, temp, SystemClock.uptimeMillis(), smart, hold);
             controlTemp = controller.filteredTemp();

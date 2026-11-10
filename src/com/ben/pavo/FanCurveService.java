@@ -158,6 +158,7 @@ public final class FanCurveService extends Service {
             }
             // High is a hard maximum: do not ease into it or let the curve
             // controller round it down.
+            controller.setResponse(prefs.fanResponse());
             int duty = high ? 100
                     : controller.next(curve, temp, SystemClock.uptimeMillis(), smart, hold);
             if (warmup) duty = -1;  // start silently, keep the current speed

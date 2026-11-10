@@ -111,6 +111,7 @@ public final class FanActivity extends PavoGlassActivity {
     private int manualPct;
     private String curve;
     private final FanCurveController curveController = new FanCurveController();
+    private final TextView[] responseChips = new TextView[4];
     private boolean polling;
     private boolean suppress;
     private boolean applying;
@@ -149,6 +150,7 @@ public final class FanActivity extends PavoGlassActivity {
                     float temp = FanCurve.sourceTemp(temps[0], temps[1],
                             new Prefs(FanActivity.this).fanTempSource());
                     if (temp <= 0f) temp = 40f;
+                    curveController.setResponse(new Prefs(FanActivity.this).fanResponse());
                     int duty = curveController.next(currentCurve, temp,
                             SystemClock.uptimeMillis());
                     if (duty >= 0) {
@@ -552,6 +554,20 @@ public final class FanActivity extends PavoGlassActivity {
         srcInfo.setPadding(dp(7), 0, 0, 0);
         sourceRow.addView(srcInfo);
         curveCard.addView(sourceRow);
+
+        TextView responseLabel = text("FAN RESPONSE", 8.5f, MUTED, true);
+        responseLabel.setLetterSpacing(0.08f);
+        responseLabel.setPadding(0, dp(5), 0, dp(2));
+        curveCard.addView(responseLabel);
+        LinearLayout responseRow = new LinearLayout(this);
+        responseRow.setOrientation(LinearLayout.HORIZONTAL);
+        curveCard.addView(responseRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        addResponseChip(responseRow, "FAST", FanCurveController.RESPONSE_FAST);
+        addResponseChip(responseRow, "BALANCED", FanCurveController.RESPONSE_BALANCED);
+        addResponseChip(responseRow, "SMOOTH", FanCurveController.RESPONSE_SMOOTH);
+        addResponseChip(responseRow, "VERY SMOOTH", FanCurveController.RESPONSE_VERY_SMOOTH);
+        styleResponseChips();
 
         curveHint = text("", 9f, MUTED, false);
         curveHint.setPadding(dp(2), dp(4), dp(2), 0);
@@ -1209,6 +1225,76 @@ public final class FanActivity extends PavoGlassActivity {
         lp.topMargin = dp(9);
         parent.addView(box, lp);
         return box;
+    }
+
+    private void addResponseChip(LinearLayout row, String label, final int value) {
+        TextView chip = text(label, 8.5f, TEXT, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setSingleLine(true);
+        chip.setMinHeight(dp(34));
+        chip.setPadding(dp(4), dp(5), dp(4), dp(5));
+        chip.setFocusable(true);
+        chip.setClickable(true);
+        chip.setDefaultFocusHighlightEnabled(false);
+        chip.setOnTouchListener(new View.OnTouchListener() {
+            @Override public boolean onTouch(View v, android.view.MotionEvent event) {
+                switch (event.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        v.setPressed(true);
+                        v.requestFocus();
+                        return true;
+                    case android.view.MotionEvent.ACTION_UP:
+                        v.setPressed(false);
+                        v.performClick();
+                        return true;
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        v.setPressed(false);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        });
+        chip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                prefs.setFanResponse(value);
+                styleResponseChips();
+                FanControl.update(FanActivity.this);
+            }
+        });
+        chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean hasFocus) {
+                if (hasFocus) Haptics.tick(v);
+                styleResponseChips();
+            }
+        });
+        int index = value;
+        if (index < 0 || index >= responseChips.length) return;
+        responseChips[index] = chip;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        if (row.getChildCount() > 0) lp.leftMargin = dp(6);
+        row.addView(chip, lp);
+    }
+
+    private void styleResponseChips() {
+        int selected = prefs.fanResponse();
+        for (int i = 0; i < responseChips.length; i++) {
+            TextView chip = responseChips[i];
+            if (chip == null) continue;
+            boolean on = i == selected;
+            if (on) {
+                chip.setTextColor(0xFF071018);
+                chip.setBackground(Ui.rounded(accent, dp(9),
+                        chip.isFocused() ? 0xFFFFFFFF : 0x00000000, dp(2)));
+            } else {
+                chip.setTextColor(TEXT);
+                chip.setBackground(chip.isFocused()
+                        ? Ui.rounded(0x26FFFFFF, dp(9), 0xE6FFFFFF, dp(2))
+                        : Ui.rounded(0x22FFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+            }
+        }
     }
 
     private TextView sourceChip(LinearLayout row, String label, int value) {

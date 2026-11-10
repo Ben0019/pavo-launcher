@@ -483,6 +483,10 @@ final class Prefs {
     // --- joystick RGB ---
     /** 0 = CPU, 1 = GPU, 2 = higher of the two. */
     int fanTempSource() { return clamp(sp.getInt("fan_temp_source", 2), 0, 2); }
+    int fanResponse() { return clamp(sp.getInt("fan_response", 2), 0, 3); }
+    void setFanResponse(int value) {
+        sp.edit().putInt("fan_response", clamp(value, 0, 3)).apply();
+    }
     void setFanTempSource(int value) {
         sp.edit().putInt("fan_temp_source", Math.max(0, Math.min(2, value))).apply();
     }

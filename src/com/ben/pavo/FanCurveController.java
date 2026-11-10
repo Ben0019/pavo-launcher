@@ -15,21 +15,53 @@ import java.util.Arrays;
  */
 final class FanCurveController {
 
-    /** Rise time constant. A sustained heat step is ~95 % applied in four seconds. */
-    static final float ATTACK_SEC = 3.0f;
-    /** Rise constant for Smart, which is expected to answer within a second. */
-    static final float FAST_ATTACK_SEC = 1.8f;
+    static final int RESPONSE_FAST = 0;
+    static final int RESPONSE_BALANCED = 1;
+    static final int RESPONSE_SMOOTH = 2;
+    static final int RESPONSE_VERY_SMOOTH = 3;
+
     /** Fall time constant. Holds the blower up while the heatsink is still hot. */
     static final float RELEASE_SEC = 10f;
-    /** Target changes below this many percentage points are not worth a write. */
-    static final int DEADBAND = 4;
     /** Downward slew limit, percentage points per second. */
     static final float FALL_LIMIT = 5f;
     /** Faster release/drop for HOLD when the target is comfortably undershot. */
     static final float HOLD_RELEASE_SEC = 3f;
     static final float HOLD_FALL_LIMIT = 12f;
-    /** Upward slew limit, percentage points per second. */
-    static final float RISE_LIMIT = 10f;
+
+    private float attackSec = 3.0f;
+    private float fastAttackSec = 1.8f;
+    private int deadband = 4;
+    private float riseLimit = 10f;
+
+    /** Select how aggressively the curve follows the filtered temperature. */
+    void setResponse(int response) {
+        switch (response) {
+            case RESPONSE_FAST:
+                attackSec = 1.2f;
+                fastAttackSec = 0.6f;
+                deadband = 2;
+                riseLimit = 60f;
+                break;
+            case RESPONSE_BALANCED:
+                attackSec = 2.0f;
+                fastAttackSec = 1.2f;
+                deadband = 3;
+                riseLimit = 20f;
+                break;
+            case RESPONSE_VERY_SMOOTH:
+                attackSec = 4.5f;
+                fastAttackSec = 2.8f;
+                deadband = 5;
+                riseLimit = 5f;
+                break;
+            default:
+                attackSec = 3.0f;
+                fastAttackSec = 1.8f;
+                deadband = 4;
+                riseLimit = 10f;
+                break;
+        }
+    }
 
     private boolean primed;
     private boolean seeded;
@@ -117,7 +149,7 @@ final class FanCurveController {
         lastMs = nowMs;
 
         float tau = sample > filtered
-                ? (responsive ? FAST_ATTACK_SEC : ATTACK_SEC)
+                ? (responsive ? fastAttackSec : attackSec)
                 : (fastRelease ? HOLD_RELEASE_SEC : RELEASE_SEC);
         float alpha = 1f - (float) Math.exp(-dt / tau);
         filtered += (sample - filtered) * alpha;
@@ -128,11 +160,11 @@ final class FanCurveController {
             return applied;
         }
         int delta = target - applied;
-        if (Math.abs(delta) < DEADBAND) return -1;
+        if (Math.abs(delta) < deadband) return -1;
         if (delta > 0) {
             // A transient spike must not slam the blower to full: climb quickly
             // but in steps, so a cold start does not begin at 100%.
-            int maxRise = Math.max(1, Math.round(RISE_LIMIT * dt));
+            int maxRise = Math.max(1, Math.round(riseLimit * dt));
             applied = Math.min(target, applied + maxRise);
         } else {
             float fallLimit = fastRelease ? HOLD_FALL_LIMIT : FALL_LIMIT;
