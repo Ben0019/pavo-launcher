@@ -89,6 +89,7 @@ public final class PavoInputService extends Service {
     private Thread socketThread;
     private volatile boolean swallowWanted;
     private static volatile boolean panelWanted;
+    private static volatile boolean accessibilityDrawerVisible;
     private long lastEnsureAt;
 
     private WindowManager windowManager;
@@ -468,7 +469,7 @@ public final class PavoInputService extends Service {
                 }
                 socketReady = true;
                 updateNotification("Controller shortcuts active");
-                sendSwallow(drawerOverlayVisible || panelWanted);
+                updateSwallow();
                 main.post(new Runnable() {
                     @Override
                     public void run() {
@@ -534,6 +535,25 @@ public final class PavoInputService extends Service {
     /** Recompute the swallow state from every modal surface that owns input. */
     private void updateSwallow() {
         sendSwallow(drawerOverlayVisible || panelWanted);
+        sendSwallowL3R3(accessibilityDrawerVisible || drawerOverlayVisible);
+    }
+
+    private void sendSwallowL3R3(boolean swallow) {
+        sendCommand("swallow_l3r3 " + (swallow ? 1 : 0) + "\n");
+    }
+
+    /** The accessibility drawer needs L3/R3 hidden from the firmware mouse layer. */
+    static void setAccessibilityDrawerOpen(Context c, boolean open) {
+        accessibilityDrawerVisible = open;
+        PavoInputService s = instance;
+        if (s != null) {
+            s.main.post(new Runnable() {
+                @Override
+                public void run() {
+                    s.updateSwallow();
+                }
+            });
+        }
     }
 
     /** The quick panel takes the controller while it is open. */
@@ -692,6 +712,7 @@ public final class PavoInputService extends Service {
         if (drawerOverlayVisible && handleDrawerControllerKey(raw, down, up, repeat)) {
             return;
         }
+        if (accessibilityDrawerVisible && (raw == 317 || raw == 318)) return;
         handleShortcut(key, down, up, repeat);
     }
 
@@ -1041,6 +1062,9 @@ public final class PavoInputService extends Service {
 
     private boolean handleDrawerControllerKey(int raw, boolean down, boolean up,
                                                boolean repeat) {
+        // L3/R3 are not drawer actions; consume them so they cannot trigger a
+        // firmware mouse click on the app under the cursor.
+        if (raw == 317 || raw == 318) return true;
         int dx = 0;
         int dy = 0;
         switch (raw) {

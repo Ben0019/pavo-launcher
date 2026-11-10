@@ -601,6 +601,7 @@ public final class PavoA11yService extends AccessibilityService {
             drawerOverlay = view;
             drawerOverlayParams = lp;
             drawerOverlayVisible = true;
+            PavoInputService.setAccessibilityDrawerOpen(this, true);
             TouchMapService.notifyModalOverlayChanged();
             setDrawerMotionEvents(true);
             resetDrawerNav();
@@ -672,6 +673,7 @@ public final class PavoA11yService extends AccessibilityService {
         drawerOpening = false;
         drawerOverlayParams = null;
         drawerOverlayVisible = false;
+        PavoInputService.setAccessibilityDrawerOpen(this, false);
         TouchMapService.notifyModalOverlayChanged();
         drawerMapperMode = false;
         setDrawerMotionEvents(false);

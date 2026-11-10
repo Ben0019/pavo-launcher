@@ -2,9 +2,11 @@ package com.ben.pavo;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Shader;
 
 /**
  * Animated drawings for the small set of launcher-owned app icons. The static
@@ -12,6 +14,9 @@ import android.graphics.RectF;
  * animation only replaces the on-screen rendering of the icon itself.
  */
 final class LiveBuiltinIcons {
+    private static int p2;
+    private static int p3;
+    private static int p4;
     static final String PERF_LOG = "com.ben.pavo.perflogs";
     static final String PERF_TUNER = "com.ben.pavo.perftuner";
     static final String DISPLAY = "com.ben.pavo.display";
@@ -66,7 +71,11 @@ final class LiveBuiltinIcons {
 
     static void draw(Canvas c, int size, String pkg, int accent, float phase) {
         if (size <= 0 || pkg == null) return;
-        drawTile(c, size, accent);
+        accent = colorFor(pkg, accent);
+        p2 = colorFor2(pkg, accent);
+        p3 = colorFor3(pkg, accent);
+        p4 = colorFor4(pkg, accent);
+        drawTile(c, size, accent, p2, phase);
         if (PERF_LOG.equals(pkg)) {
             drawLogs(c, size, accent, phase);
         } else if (PERF_TUNER.equals(pkg)) {
@@ -166,24 +175,24 @@ final class LiveBuiltinIcons {
         RectF sheet = new RectF(size * (0.06f + 0.06f * slide), size * 0.24f,
                 size * (0.24f + 0.06f * slide), size * 0.70f);
         Paint sheetFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        sheetFill.setColor(alpha(accent, 0x44));
+        sheetFill.setColor(alpha(p2, 0x44));
         c.drawRoundRect(sheet, size * 0.05f, size * 0.05f, sheetFill);
         Paint sheetLine = new Paint(Paint.ANTI_ALIAS_FLAG);
         sheetLine.setStyle(Paint.Style.STROKE);
         sheetLine.setStrokeWidth(Math.max(1f, size * 0.016f));
-        sheetLine.setColor(alpha(accent, (int) (0x66 + 0x66 * slide)));
+        sheetLine.setColor(alpha(p2, (int) (0x66 + 0x66 * slide)));
         c.drawRoundRect(sheet, size * 0.05f, size * 0.05f, sheetLine);
 
         // floating panel
         RectF panel = new RectF(size * (0.26f + 0.05f * slide), size * 0.22f,
                 size * (0.86f + 0.02f * slide), size * 0.66f);
         Paint panelFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        panelFill.setColor(alpha(accent, 0x22));
+        panelFill.setColor(alpha(p2, 0x22));
         c.drawRoundRect(panel, size * 0.10f, size * 0.10f, panelFill);
         Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
         outline.setStyle(Paint.Style.STROKE);
         outline.setStrokeWidth(Math.max(1f, size * 0.022f));
-        outline.setColor(alpha(accent, 0xE6));
+        outline.setColor(alpha(p2, 0xE6));
         c.drawRoundRect(panel, size * 0.10f, size * 0.10f, outline);
 
         // six tiles, lit in a wave
@@ -194,7 +203,7 @@ final class LiveBuiltinIcons {
             int col = i % 3;
             float wave = (float) (0.5 + 0.5 * Math.sin(
                     (phase * 2.0 - i * 0.11) * Math.PI * 2.0));
-            dot.setColor(alpha(accent, (int) (0x44 + 0xAA * wave)));
+            dot.setColor(alpha(p3, (int) (0x44 + 0xAA * wave)));
             float dx = panel.left + panel.width() * (0.20f + col * 0.30f);
             float dy = panel.top + panel.height() * (0.28f + row * 0.44f);
             c.drawCircle(dx, dy, dotR * (0.75f + 0.45f * wave), dot);
@@ -202,11 +211,11 @@ final class LiveBuiltinIcons {
 
         // status bar under the panel
         Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bar.setColor(alpha(accent, 0x99));
+        bar.setColor(alpha(p2, 0x99));
         c.drawRoundRect(new RectF(size * 0.30f, size * 0.74f,
                 size * 0.70f, size * 0.78f), size * 0.02f, size * 0.02f, bar);
         Paint spark = new Paint(Paint.ANTI_ALIAS_FLAG);
-        spark.setColor(alpha(accent, 0xF2));
+        spark.setColor(alpha(p4, 0xF2));
         float dash = size * 0.10f;
         float x = size * 0.30f + (size * 0.40f - dash) * (float)
                 (0.5 + 0.5 * Math.sin(t * Math.PI * 2.0));
@@ -214,17 +223,99 @@ final class LiveBuiltinIcons {
                 size * 0.02f, size * 0.02f, spark);
     }
 
-    private static void drawTile(Canvas c, int size, int accent) {
+    private static void drawTile(Canvas c, int size, int accent, int second,
+                                 float phase) {
         float r = size * 0.225f;
         Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
         bg.setColor(0xFF101820);
         c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
 
+        // Quiet moving light, not a coloured wash.
+        float sheenY = size * (0.10f + 0.80f * phase);
+        Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
+        sheen.setShader(new LinearGradient(0, sheenY - size * 0.12f,
+                0, sheenY + size * 0.12f,
+                0x00FFFFFF, 0x14FFFFFF,
+                Shader.TileMode.CLAMP));
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, sheen);
+        sheen.setShader(null);
+
         Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
         border.setStyle(Paint.Style.STROKE);
         border.setStrokeWidth(Math.max(1f, size * 0.018f));
-        border.setColor(alpha(accent, 0x66));
+        float pulse = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 2.0);
+        border.setColor(alpha(accent, (int) (0x66 + 0x40 * pulse)));
         c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+    }
+
+    /** Distinct colour per built-in so the drawer is not one accent wash. */
+    static int colorFor(String pkg, int accent) {
+        if (PERF_LOG.equals(pkg)) return 0xFF8BE9FF;
+        if (PERF_TUNER.equals(pkg)) return 0xFFFFC857;
+        if (DISPLAY.equals(pkg)) return 0xFF7CF7C4;
+        if (CONTROLLER.equals(pkg)) return 0xFFB49DFF;
+        if (JOYSTICK.equals(pkg)) return 0xFFFF8FB1;
+        if (RGB.equals(pkg)) return 0xFFFF6BD6;
+        if (FAN.equals(pkg)) return 0xFF6BE3FF;
+        if (TOUCH.equals(pkg)) return 0xFF9CFF6B;
+        if (HEALTH.equals(pkg)) return 0xFFFF7A7A;
+        if (BENCHMARK.equals(pkg)) return 0xFFFFB86B;
+        if (FILE_MANAGER.equals(pkg)) return 0xFFFFD166;
+        if (SCREEN_RECORDER.equals(pkg)) return 0xFFFF5C6C;
+        if (OVERLAY.equals(pkg)) return 0xFF9DB4FF;
+        if (FTP.equals(pkg)) return 0xFF6BE3FF;
+        if (UPDATES.equals(pkg)) return 0xFF69D98B;
+        if (SOUND.equals(pkg)) return 0xFFB49DFF;
+        if (GALLERY.equals(pkg)) return 0xFFFF8FB1;
+        return accent;
+    }
+
+    private static int colorFor2(String pkg, int accent) {
+        if (PERF_LOG.equals(pkg)) return 0xFF69D98B;
+        if (PERF_TUNER.equals(pkg)) return 0xFFFF8A5B;
+        if (DISPLAY.equals(pkg)) return 0xFF22D3EE;
+        if (CONTROLLER.equals(pkg)) return 0xFFFF6BD6;
+        if (JOYSTICK.equals(pkg)) return 0xFF8B5CF6;
+        if (RGB.equals(pkg)) return 0xFFFFC857;
+        if (FAN.equals(pkg)) return 0xFF22D3EE;
+        if (TOUCH.equals(pkg)) return 0xFF22C55E;
+        if (HEALTH.equals(pkg)) return 0xFFFFB86B;
+        if (BENCHMARK.equals(pkg)) return 0xFFFF5C6C;
+        if (FILE_MANAGER.equals(pkg)) return 0xFFFFA94D;
+        if (SCREEN_RECORDER.equals(pkg)) return 0xFFFFC857;
+        if (OVERLAY.equals(pkg)) return 0xFF22D3EE;
+        if (FTP.equals(pkg)) return 0xFF3B82F6;
+        if (UPDATES.equals(pkg)) return 0xFF8BE9FF;
+        if (SOUND.equals(pkg)) return 0xFFFFC857;
+        if (GALLERY.equals(pkg)) return 0xFFFFC857;
+        return blend(accent, 0xFFFFFFFF, 0.35f);
+    }
+
+    private static int colorFor3(String pkg, int accent) {
+        if (PERF_TUNER.equals(pkg)) return 0xFF8BE9FF;
+        if (PERF_LOG.equals(pkg)) return 0xFFFFC857;
+        if (DISPLAY.equals(pkg)) return 0xFFFFC857;
+        if (CONTROLLER.equals(pkg)) return 0xFF7CF7C4;
+        if (JOYSTICK.equals(pkg)) return 0xFF22D3EE;
+        if (FAN.equals(pkg)) return 0xFFFFC857;
+        if (TOUCH.equals(pkg)) return 0xFFFFC857;
+        if (HEALTH.equals(pkg)) return 0xFF22D3EE;
+        if (BENCHMARK.equals(pkg)) return 0xFFFFC857;
+        if (FILE_MANAGER.equals(pkg)) return 0xFF8BE9FF;
+        if (SCREEN_RECORDER.equals(pkg)) return 0xFFFF8FB1;
+        if (OVERLAY.equals(pkg)) return 0xFFFFC857;
+        if (FTP.equals(pkg)) return 0xFF69D98B;
+        if (UPDATES.equals(pkg)) return 0xFFFFC857;
+        if (GALLERY.equals(pkg)) return 0xFF8BE9FF;
+        return blend(accent, 0xFFFFFFFF, 0.55f);
+    }
+
+    private static int colorFor4(String pkg, int accent) {
+        if (BENCHMARK.equals(pkg) || HEALTH.equals(pkg)) return 0xFFD26BFF;
+        if (PERF_LOG.equals(pkg) || FAN.equals(pkg)) return 0xFFD26BFF;
+        if (CONTROLLER.equals(pkg)) return 0xFFFFC857;
+        if (JOYSTICK.equals(pkg)) return 0xFFFFC857;
+        return 0xFFFFFFFF;
     }
 
     private static void drawLogs(Canvas c, int size, int accent, float phase) {
@@ -233,7 +324,7 @@ final class LiveBuiltinIcons {
         int width = Math.round(size * 0.09f);
         int gap = Math.round(size * 0.045f);
         int[] heights = {0x2E, 0x54, 0x3E};
-        int[] colors = {0xFF69D98B, 0xFFFFC857, 0xFF8BE9FF};
+        int[] colors = {p2, p3, p4};
         Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
         float wave = (float) Math.sin(phase * Math.PI * 2.0) * 0.10f;
         for (int i = 0; i < heights.length; i++) {
@@ -248,7 +339,7 @@ final class LiveBuiltinIcons {
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeWidth(Math.max(1.5f, size * 0.045f));
         line.setStrokeCap(Paint.Cap.ROUND);
-        line.setColor(accent);
+        line.setColor(p4);
         Path path = new Path();
         path.moveTo(pad * 0.9f, bottom - size * 0.17f);
         path.lineTo(size * 0.42f, bottom - size * 0.40f);
@@ -258,7 +349,7 @@ final class LiveBuiltinIcons {
         float dotX = size * (0.26f + 0.48f * phase);
         float dotY = bottom - size * 0.34f;
         Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        glow.setColor(alpha(accent, 0x88));
+        glow.setColor(alpha(p2, 0x88));
         c.drawCircle(dotX, dotY, size * 0.045f, glow);
     }
 
@@ -285,7 +376,7 @@ final class LiveBuiltinIcons {
         Paint scan = new Paint(Paint.ANTI_ALIAS_FLAG);
         scan.setStyle(Paint.Style.STROKE);
         scan.setStrokeWidth(Math.max(1f, size * 0.018f));
-        scan.setColor(alpha(accent, 0x66));
+        scan.setColor(alpha(p2, 0x66));
         float sy = frame.top + frame.height() * phase;
         c.drawLine(frame.left + size * 0.04f, sy,
                 frame.right - size * 0.04f, sy, scan);
@@ -303,7 +394,7 @@ final class LiveBuiltinIcons {
         c.drawLine(size * 0.30f, size * 0.50f, size * 0.44f, size * 0.50f, body);
         c.drawLine(size * 0.37f, size * 0.43f, size * 0.37f, size * 0.57f, body);
         Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int[] colors = {0xFFFF6B6B, 0xFF69D98B, 0xFFFFC857, 0xFF8BE9FF};
+        int[] colors = {accent, p2, p3, p4};
         float[] xs = {0.66f, 0.73f, 0.66f, 0.59f};
         float[] ys = {0.43f, 0.50f, 0.57f, 0.50f};
         int active = Math.min(colors.length - 1, (int) (phase * colors.length));
@@ -326,7 +417,7 @@ final class LiveBuiltinIcons {
         Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
         ring.setStyle(Paint.Style.STROKE);
         ring.setStrokeWidth(Math.max(1.4f, size * 0.038f));
-        ring.setColor(alpha(accent, 0xCC));
+        ring.setColor(alpha(p2, 0xCC));
         float radius = size * 0.165f;
         float cy = size * 0.52f;
         float lx = size * 0.30f;
@@ -341,7 +432,7 @@ final class LiveBuiltinIcons {
         c.drawCircle(lx + (float) Math.cos(angle) * orbit,
                 cy + (float) Math.sin(angle) * orbit, size * 0.048f, left);
         Paint right = new Paint(Paint.ANTI_ALIAS_FLAG);
-        right.setColor(0xFF69D98B);
+        right.setColor(p2);
         c.drawCircle(rx + (float) Math.cos(angle + Math.PI) * orbit,
                 cy + (float) Math.sin(angle + Math.PI) * orbit, size * 0.048f, right);
     }
@@ -360,7 +451,7 @@ final class LiveBuiltinIcons {
                 size * 0.57f, size * 0.33f), size * 0.02f, size * 0.02f, p);
 
         Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fill.setColor(0xFF69D98B);
+        fill.setColor(p2);
         c.drawRoundRect(new RectF(size * 0.235f, size * 0.345f,
                 size * 0.63f, size * 0.715f), size * 0.035f, size * 0.035f, fill);
 
@@ -380,7 +471,7 @@ final class LiveBuiltinIcons {
         c.drawPath(path, pulse);
         Paint light = new Paint(Paint.ANTI_ALIAS_FLAG);
         float pulse2 = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 2.0);
-        light.setColor(alpha(0xFF69D98B, Math.round(0x66 + 0x99 * pulse2)));
+        light.setColor(alpha(p3, Math.round(0x66 + 0x99 * pulse2)));
         c.drawCircle(size * 0.77f, size * 0.56f, size * (0.028f + 0.010f * pulse2), light);
     }
 
@@ -391,7 +482,7 @@ final class LiveBuiltinIcons {
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(Math.max(1.3f, size * 0.032f));
         p.setStrokeCap(Paint.Cap.ROUND);
-        p.setColor(alpha(accent, 0xCC));
+        p.setColor(alpha(p2, 0xCC));
         c.drawRoundRect(chip, size * 0.055f, size * 0.055f, p);
         for (int i = 0; i < 3; i++) {
             float x = size * (0.31f + i * 0.19f);
@@ -402,7 +493,7 @@ final class LiveBuiltinIcons {
             c.drawLine(size * 0.73f, y, size * 0.78f, y, p);
         }
         Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fill.setColor(alpha(accent, 0x2A));
+        fill.setColor(alpha(p2, 0x2A));
         c.drawRoundRect(new RectF(chip.left + size * 0.045f, chip.top + size * 0.045f,
                 chip.right - size * 0.045f, chip.bottom - size * 0.045f),
                 size * 0.035f, size * 0.035f, fill);
@@ -411,7 +502,7 @@ final class LiveBuiltinIcons {
         wave.setStyle(Paint.Style.STROKE);
         wave.setStrokeWidth(Math.max(1.5f, size * 0.042f));
         wave.setStrokeCap(Paint.Cap.ROUND);
-        wave.setColor(accent);
+        wave.setColor(p3);
         Path path = new Path();
         float shift = (float) Math.sin(phase * Math.PI * 2.0) * size * 0.035f;
         float amp = (float) Math.sin(phase * Math.PI * 4.0) * size * 0.035f;
@@ -426,7 +517,7 @@ final class LiveBuiltinIcons {
 
         Paint hot = new Paint(Paint.ANTI_ALIAS_FLAG);
         float pulse = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 2.0);
-        hot.setColor(alpha(0xFFFFC857, Math.round(0x66 + 0x99 * pulse)));
+        hot.setColor(alpha(p4, Math.round(0x66 + 0x99 * pulse)));
         c.drawCircle(size * 0.69f, size * 0.36f,
                 size * (0.026f + 0.012f * pulse), hot);
     }
@@ -438,13 +529,13 @@ final class LiveBuiltinIcons {
         gauge.setStrokeWidth(Math.max(1.8f, size * 0.062f));
         RectF arc = new RectF(size * 0.19f, size * 0.22f,
                 size * 0.81f, size * 0.84f);
-        gauge.setColor(alpha(accent, 0x44));
+        gauge.setColor(alpha(p2, 0x44));
         c.drawArc(arc, 150, 240, false, gauge);
-        gauge.setColor(accent);
+        gauge.setColor(p2);
         c.drawArc(arc, 150, 168, false, gauge);
 
         Paint needle = new Paint(Paint.ANTI_ALIAS_FLAG);
-        needle.setColor(lighten(accent, 0.32f));
+        needle.setColor(p3);
         needle.setStrokeWidth(Math.max(1.4f, size * 0.042f));
         needle.setStrokeCap(Paint.Cap.ROUND);
         float cx = size * 0.5f;
@@ -455,7 +546,7 @@ final class LiveBuiltinIcons {
                 cx + (float) Math.cos(angle) * size * 0.25f,
                 cy + (float) Math.sin(angle) * size * 0.25f, needle);
         Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dot.setColor(lighten(accent, 0.32f));
+        dot.setColor(p4);
         c.drawCircle(cx, cy, size * 0.045f, dot);
     }
 
@@ -503,9 +594,9 @@ final class LiveBuiltinIcons {
         p.setStrokeWidth(Math.max(1.5f, size * 0.025f));
         c.drawCircle(cx, cy, radius, p);
         p.setStyle(Paint.Style.FILL);
-        p.setColor(blend(0xFF101820, accent, 0.18f));
+        p.setColor(blend(0xFF101820, p2, 0.22f));
         c.drawCircle(cx, cy, radius * 0.78f, p);
-        p.setColor(lighten(accent, 0.56f));
+        p.setColor(p3);
 
         c.save();
         c.rotate(phase * 360f, cx, cy);
@@ -532,7 +623,7 @@ final class LiveBuiltinIcons {
         air.setStyle(Paint.Style.STROKE);
         air.setStrokeWidth(Math.max(1f, size * 0.018f));
         air.setStrokeCap(Paint.Cap.ROUND);
-        air.setColor(alpha(accent, 0xAA));
+        air.setColor(alpha(p2, 0xAA));
         for (int i = 0; i < 3; i++) {
             float y = size * (0.23f + i * 0.085f);
             c.drawLine(size * 0.78f, y, size * 0.92f, y - size * 0.05f, air);
@@ -543,7 +634,7 @@ final class LiveBuiltinIcons {
         Paint screen = new Paint(Paint.ANTI_ALIAS_FLAG);
         screen.setStyle(Paint.Style.STROKE);
         screen.setStrokeWidth(Math.max(1.3f, size * 0.032f));
-        screen.setColor(alpha(accent, 0xCC));
+        screen.setColor(alpha(p2, 0xCC));
         c.drawRoundRect(new RectF(size * 0.14f, size * 0.22f,
                 size * 0.86f, size * 0.72f), size * 0.07f, size * 0.07f, screen);
 
@@ -556,14 +647,14 @@ final class LiveBuiltinIcons {
         c.drawCircle(size * 0.35f, size * 0.47f, size * 0.09f * grow, target);
         c.drawCircle(size * 0.63f, size * 0.53f, size * 0.10f * grow, target);
         target.setStyle(Paint.Style.FILL);
-        target.setColor(alpha(accent, 0x33));
+        target.setColor(alpha(p2, 0x33));
         c.drawCircle(size * 0.35f, size * 0.47f, size * 0.065f * grow, target);
         c.drawCircle(size * 0.63f, size * 0.53f, size * 0.075f * grow, target);
 
         Paint finger = new Paint(Paint.ANTI_ALIAS_FLAG);
         finger.setColor(0xFFFFFFFF);
         c.drawCircle(size * 0.63f, size * 0.53f, size * 0.032f, finger);
-        finger.setColor(lighten(accent, 0.55f));
+        finger.setColor(p3);
         c.drawCircle(size * 0.35f, size * 0.47f, size * 0.026f, finger);
         Paint apex = new Paint(Paint.ANTI_ALIAS_FLAG);
         apex.setColor(0xAAFFFFFF);
@@ -588,13 +679,13 @@ final class LiveBuiltinIcons {
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeWidth(Math.max(1.6f, s * 0.045f));
         line.setStrokeCap(Paint.Cap.ROUND);
-        line.setColor(alpha(accent, 0x80));
+        line.setColor(alpha(p2, 0x80));
         c.drawLine(cx, cy, lx, ly, line);
         c.drawLine(cx, cy, rx, ry, line);
 
         float beat = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 4.0);
         Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG);
-        halo.setColor(alpha(accent, Math.round(0x10 + 0x30 * beat)));
+        halo.setColor(alpha(p2, Math.round(0x10 + 0x30 * beat)));
         c.drawCircle(cx, cy, s * 0.20f, halo);
 
         float cycle = phase * 2f;
@@ -604,13 +695,13 @@ final class LiveBuiltinIcons {
         Paint node = new Paint(Paint.ANTI_ALIAS_FLAG);
         node.setStyle(Paint.Style.STROKE);
         node.setStrokeWidth(Math.max(1.6f, s * 0.045f));
-        node.setColor(alpha(accent, 0xE6));
+        node.setColor(alpha(p2, 0xE6));
         c.drawCircle(lx, ly, s * 0.062f, node);
         c.drawCircle(rx, ry, s * 0.062f, node);
         c.drawCircle(cx, cy, s * 0.072f, node);
 
         Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dot.setColor(alpha(accent, 0xE6));
+        dot.setColor(alpha(p2, 0xE6));
         c.drawCircle(cx, cy, s * 0.020f, dot);
     }
 
@@ -619,7 +710,7 @@ final class LiveBuiltinIcons {
         float x = x0 + (x1 - x0) * t;
         float y = y0 + (y1 - y0) * t;
         Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        glow.setColor(alpha(accent, 0x44));
+        glow.setColor(alpha(p2, 0x44));
         c.drawCircle(x, y, s * 0.040f, glow);
         Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
         core.setColor(0xFFFFFFFF);
@@ -641,12 +732,12 @@ final class LiveBuiltinIcons {
 
         Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(alpha(accent, 0x22));
+        fill.setColor(alpha(p2, 0x22));
         c.drawPath(folder, fill);
 
         float breath = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 2.0);
         Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        glow.setColor(alpha(accent, Math.round(0x14 + 0x28 * breath)));
+        glow.setColor(alpha(p2, Math.round(0x14 + 0x28 * breath)));
         c.drawRoundRect(new RectF(s * 0.22f, s * 0.38f,
                 s * 0.78f, s * 0.68f), s * 0.03f, s * 0.03f, glow);
 
@@ -666,7 +757,7 @@ final class LiveBuiltinIcons {
         Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
         edge.setStyle(Paint.Style.STROKE);
         edge.setStrokeWidth(Math.max(1f, s * 0.014f));
-        edge.setColor(alpha(accent, 0x88));
+        edge.setColor(alpha(p2, 0x88));
         c.drawRoundRect(paper, s * 0.035f, s * 0.035f, edge);
 
         Paint ink = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -686,14 +777,14 @@ final class LiveBuiltinIcons {
         front.lineTo(s * 0.18f, s * 0.72f);
         front.close();
         Paint frontFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        frontFill.setColor(alpha(accent, 0x33));
+        frontFill.setColor(alpha(p2, 0x33));
         c.drawPath(front, frontFill);
 
         Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeWidth(Math.max(1.4f, s * 0.038f));
         line.setStrokeCap(Paint.Cap.ROUND);
-        line.setColor(alpha(accent, 0xD0));
+        line.setColor(alpha(p2, 0xD0));
         c.drawPath(folder, line);
         c.drawLine(s * 0.22f, s * 0.55f, s * 0.78f, s * 0.55f,
                 line);
@@ -711,11 +802,11 @@ final class LiveBuiltinIcons {
     private static void drawRecorder(Canvas c, int size, int accent, float phase) {
         float s = size;
         Paint boardFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        boardFill.setColor(alpha(accent, 0x22));
+        boardFill.setColor(alpha(p2, 0x22));
         Paint boardLine = new Paint(Paint.ANTI_ALIAS_FLAG);
         boardLine.setStyle(Paint.Style.STROKE);
         boardLine.setStrokeWidth(Math.max(1.2f, s * 0.032f));
-        boardLine.setColor(alpha(accent, 0xD0));
+        boardLine.setColor(alpha(p2, 0xD0));
         RectF board = new RectF(s * 0.18f, s * 0.38f, s * 0.82f, s * 0.76f);
         c.drawRoundRect(board, s * 0.045f, s * 0.045f, boardFill);
         c.drawRoundRect(board, s * 0.045f, s * 0.045f, boardLine);
@@ -729,7 +820,7 @@ final class LiveBuiltinIcons {
         clap.lineTo(s * 0.18f, s * 0.43f);
         clap.close();
         Paint clapFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        clapFill.setColor(alpha(accent, 0x55));
+        clapFill.setColor(alpha(p2, 0x55));
         c.drawPath(clap, clapFill);
 
         Paint stripe = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -743,10 +834,10 @@ final class LiveBuiltinIcons {
         Paint clapLine = new Paint(Paint.ANTI_ALIAS_FLAG);
         clapLine.setStyle(Paint.Style.STROKE);
         clapLine.setStrokeWidth(Math.max(1.2f, s * 0.032f));
-        clapLine.setColor(alpha(accent, 0xD0));
+        clapLine.setColor(alpha(p2, 0xD0));
         c.drawPath(clap, clapLine);
         Paint hinge = new Paint(Paint.ANTI_ALIAS_FLAG);
-        hinge.setColor(alpha(accent, 0xD0));
+        hinge.setColor(alpha(p2, 0xD0));
         c.drawCircle(s * 0.18f, s * 0.38f, s * 0.035f, hinge);
 
         float pulse = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 2.0);
@@ -801,7 +892,7 @@ final class LiveBuiltinIcons {
         RectF photo = new RectF(size * 0.20f, size * 0.24f,
                 size * 0.80f, size * 0.76f);
         Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fill.setColor(alpha(accent, 0x24));
+        fill.setColor(alpha(p2, 0x24));
         c.drawRoundRect(photo, size * 0.06f, size * 0.06f, fill);
 
         Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -809,7 +900,7 @@ final class LiveBuiltinIcons {
         line.setStrokeWidth(Math.max(1.4f, size * 0.036f));
         line.setStrokeCap(Paint.Cap.ROUND);
         line.setStrokeJoin(Paint.Join.ROUND);
-        line.setColor(alpha(accent, 0xD0));
+        line.setColor(alpha(p2, 0xD0));
         c.drawRoundRect(photo, size * 0.06f, size * 0.06f, line);
 
         float wave = (float) Math.sin(phase * Math.PI * 2.0);
@@ -824,7 +915,7 @@ final class LiveBuiltinIcons {
         hills.lineTo(size * 0.53f, size * 0.63f);
         hills.lineTo(size * 0.62f, size * 0.54f);
         hills.lineTo(size * 0.76f, size * 0.68f);
-        line.setColor(alpha(accent, 0xA8));
+        line.setColor(alpha(p2, 0xA8));
         line.setStrokeWidth(Math.max(1.2f, size * 0.03f));
         c.drawPath(hills, line);
 

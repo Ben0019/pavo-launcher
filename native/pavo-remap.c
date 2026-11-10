@@ -104,6 +104,7 @@ static int ui_fd = -1;
 static int server_fd = -1;
 static int client_fd = -1;
 static int swallow_all;
+static int swallow_l3r3;
 static int socket_enabled;
 static int passthrough;
 static char socket_name[108];
@@ -205,6 +206,7 @@ static void close_client(void) {
         swallow_all = 0;
         release_all_targets();
     }
+    swallow_l3r3 = 0;
 }
 
 static void accept_client(void) {
@@ -222,6 +224,18 @@ static void handle_command(char *line) {
     while (end > line && (end[-1] == '\r' || end[-1] == '\n'
                           || end[-1] == ' ' || end[-1] == '\t')) {
         *--end = 0;
+    }
+    if (!strncmp(line, "swallow_l3r3 ", 13)) {
+        int value = 0;
+        if (parse_int(trim(line + 13), &value)) {
+            swallow_l3r3 = value != 0;
+            if (swallow_l3r3) {
+                pressed[317] = 0;
+                pressed[318] = 0;
+                release_all_targets();
+            }
+        }
+        return;
     }
     if (!strncmp(line, "swallow ", 8)) {
         int value = 0;
@@ -391,6 +405,10 @@ static void release_individual(int key, int quick_tap) {
 static void on_key(int code, int value) {
     if (code < 0 || code > KEY_MAX) return;
     socket_send_key(code, value);
+    if (swallow_l3r3 && (code == 317 || code == 318)) {
+        pressed[code] = 0;
+        return;
+    }
     int down = value != 0;
     if (passthrough) {
         if (value == 2) return;
