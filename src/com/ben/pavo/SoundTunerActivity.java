@@ -69,6 +69,8 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     private Prefs prefs;
     private int accent;
     private ControllerNav nav;
+    private boolean locked;
+    private TextView lockChip;
 
     private TextView enableChip;
     private TextView status;
@@ -82,6 +84,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         prefs = new Prefs(this);
         ThemeColors.initialize(this);
         accent = ThemeColors.accent();
+        locked = prefs.eqLocked();
         ensurePavoDefault();
         buildUi();
         hideBars();
@@ -152,7 +155,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         if (focus instanceof EqBandSlider
                 && (code == KeyEvent.KEYCODE_DPAD_LEFT
                         || code == KeyEvent.KEYCODE_DPAD_RIGHT)) {
-            if (down) {
+            if (!locked && down) {
                 ((EqBandSlider) focus).nudge(
                         code == KeyEvent.KEYCODE_DPAD_RIGHT ? 50 : -50);
                 Haptics.tick(focus);
@@ -245,6 +248,8 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         body.addView(presetsLabel, plp);
         addPresetRows(body);
 
+        updateLockChip();
+        applyLockState();
         setContentView(root);
     }
 
@@ -288,6 +293,29 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         clp.gravity = Gravity.TOP | Gravity.END;
         header.addView(close, clp);
+
+        lockChip = text("LOCK", 8.5f, MUTED, true);
+        lockChip.setGravity(Gravity.CENTER);
+        lockChip.setPadding(dp(9), dp(6), dp(9), dp(6));
+        lockChip.setFocusable(true);
+        lockChip.setDefaultFocusHighlightEnabled(false);
+        lockChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                toggleLock();
+            }
+        });
+        lockChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateLockChip();
+            }
+        });
+        FrameLayout.LayoutParams llp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        llp.gravity = Gravity.TOP | Gravity.END;
+        llp.rightMargin = dp(46);
+        llp.topMargin = dp(2);
+        header.addView(lockChip, llp);
         return header;
     }
 
@@ -434,7 +462,8 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             values.get(i).setText(formatDb(level));
         }
         updatePresetSelection();
-        for (EqBandSlider slider : sliders) slider.setEnabled(available);
+        for (EqBandSlider slider : sliders) slider.setEnabled(available && !locked);
+        applyLockState();
     }
 
     private void applyCurveLevel(int index, int level) {
@@ -446,6 +475,39 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         sliders.get(index).setLevel(level);
         values.get(index).setText(formatDb(level));
         updatePresetSelection();
+    }
+
+    private void toggleLock() {
+        locked = !locked;
+        prefs.setEqLocked(locked);
+        applyLockState();
+        updateLockChip();
+    }
+
+    private void applyLockState() {
+        for (EqBandSlider slider : sliders) {
+            slider.setAlpha(locked ? 0.5f : 1f);
+            slider.setEnabled(!locked && AudioEq.available(this));
+        }
+        for (TextView value : values) {
+            value.setAlpha(locked ? 0.6f : 1f);
+        }
+    }
+
+    private void updateLockChip() {
+        if (lockChip == null) return;
+        boolean focused = lockChip.hasFocus();
+        lockChip.setText(locked ? "LOCKED" : "LOCK");
+        lockChip.setTextColor(locked ? 0xFFFFC857 : MUTED);
+        if (locked) {
+            lockChip.setBackground(focused
+                    ? Ui.rounded(0x26FFC857, dp(9), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1EFFC857, dp(9), 0x44FFC857, dp(1)));
+        } else {
+            lockChip.setBackground(focused
+                    ? Ui.rounded(0x1EFFFFFF, dp(9), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1EFFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+        }
     }
 
     /** Freezes the current curve as PAVO on upgrade; otherwise seeds the standard one. */

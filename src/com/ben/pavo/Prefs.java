@@ -373,6 +373,11 @@ final class Prefs {
 
     private static final String KEY_EQ_PAVO_DEFAULT = "eq_pavo_default";
 
+    boolean eqLocked() { return sp.getBoolean("eq_locked", false); }
+    void setEqLocked(boolean locked) {
+        sp.edit().putBoolean("eq_locked", locked).apply();
+    }
+
     /** Saved ten-band PAVO curve, or null when the built-in curve is used. */
     int[] eqPavoDefault() {
         String raw = sp.getString(KEY_EQ_PAVO_DEFAULT, "");

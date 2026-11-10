@@ -22,6 +22,7 @@ final class EqBandSlider extends View {
     private final RectF rect = new RectF();
     private final float trackW;
     private final float knobR;
+    private final float touchHalfW;
     private Listener listener;
     private int min = -1200;
     private int max = 1200;
@@ -32,6 +33,7 @@ final class EqBandSlider extends View {
         super(c);
         trackW = Ui.dpf(c, 4);
         knobR = Ui.dpf(c, 8);
+        touchHalfW = Ui.dpf(c, 15);
         trackPaint.setColor(0x26FFFFFF);
         centrePaint.setColor(0x55FFFFFF);
         centrePaint.setStrokeWidth(Math.max(1f, Ui.dpf(c, 1)));
@@ -70,6 +72,7 @@ final class EqBandSlider extends View {
     }
 
     void nudge(int delta) {
+        if (!isEnabled()) return;
         int next = Math.max(min, Math.min(max, level + delta));
         if (next == level) return;
         level = next;
@@ -102,8 +105,10 @@ final class EqBandSlider extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (!isEnabled()) return false;
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                if (Math.abs(event.getX() - getWidth() / 2f) > touchHalfW) return false;
                 dragging = true;
                 if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
                 updateFromTouch(event.getY(), false);
@@ -129,6 +134,7 @@ final class EqBandSlider extends View {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (!isEnabled()) return true;
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
             nudge(50);
             return true;
