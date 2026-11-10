@@ -1,12 +1,6 @@
 package com.ben.pavo;
 
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.RectF;
-import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -78,7 +72,6 @@ public final class SoundTunerActivity extends PavoGlassActivity {
 
     private TextView enableChip;
     private TextView status;
-    private EqCurveView curve;
     private final List<EqBandSlider> sliders = new ArrayList<>();
     private final List<TextView> values = new ArrayList<>();
     private final List<TextView> presetChips = new ArrayList<>();
@@ -236,17 +229,6 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         column.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        curve = new EqCurveView(this);
-        curve.setListener(new EqCurveView.Listener() {
-            @Override public void onLevelChanged(int index, int level) {
-                applyCurveLevel(index, level);
-            }
-        });
-        LinearLayout.LayoutParams curveLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(108));
-        curveLp.bottomMargin = dp(8);
-        body.addView(curve, curveLp);
-
         TextView bandLabel = sectionLabel(Loc.s(this, "BANDS"));
         body.addView(bandLabel);
 
@@ -345,7 +327,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 }
             });
             LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, dp(110));
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(180));
             slp.topMargin = dp(4);
             slp.bottomMargin = dp(3);
             col.addView(slider, slp);
@@ -437,7 +419,6 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             sliders.get(i).setLevel(level);
             values.get(i).setText(formatDb(level));
         }
-        curve.setLevels(currentLevels(), -1200, 1200);
         updatePresetSelection();
         for (EqBandSlider slider : sliders) slider.setEnabled(available);
     }
@@ -450,7 +431,6 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         AudioEq.setBand(this, index, level);
         sliders.get(index).setLevel(level);
         values.get(index).setText(formatDb(level));
-        curve.setLevels(currentLevels(), -1200, 1200);
         updatePresetSelection();
     }
 
@@ -509,176 +489,4 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         return Ui.dp(this, value);
     }
 
-    /** Curved preview of the five band levels. */
-    private static final class EqCurveView extends View {
-        private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint grid = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path path = new Path();
-        private final Path area = new Path();
-        private final RectF box = new RectF();
-        private int[] levels = new int[Prefs.EQ_BANDS];
-        private int min = -1500;
-        private int max = 1500;
-        private int accent = 0xFFA9BEFF;
-        private Listener listener;
-        private int dragIndex = -1;
-
-        interface Listener {
-            void onLevelChanged(int index, int level);
-        }
-
-        EqCurveView(SoundTunerActivity host) {
-            super(host);
-            accent = host.accent;
-            setWillNotDraw(false);
-            setClickable(true);
-            setFocusable(false);
-            line.setStyle(Paint.Style.STROKE);
-            line.setStrokeWidth(Ui.dp(host, 2.2f));
-            line.setStrokeCap(Paint.Cap.ROUND);
-            line.setStrokeJoin(Paint.Join.ROUND);
-            grid.setStrokeWidth(Math.max(1f, host.getResources().getDisplayMetrics().density));
-            dot.setStrokeWidth(Ui.dp(host, 1.5f));
-            dot.setStyle(Paint.Style.STROKE);
-        }
-
-        void setLevels(int[] next, int min, int max) {
-            this.levels = next == null ? new int[Prefs.EQ_BANDS] : next;
-            this.min = min;
-            this.max = max;
-            invalidate();
-        }
-
-        void setListener(Listener listener) {
-            this.listener = listener;
-        }
-
-        private float plotLeft() {
-            return Ui.dp(getContext(), 14);
-        }
-
-        private float plotRight() {
-            return Math.max(plotLeft() + 1, getWidth() - Ui.dp(getContext(), 14));
-        }
-
-        private float plotTop() {
-            return Ui.dp(getContext(), 14);
-        }
-
-        private float plotBottom() {
-            return Math.max(plotTop() + 1, getHeight() - Ui.dp(getContext(), 14));
-        }
-
-        private int nearestIndex(float x) {
-            if (levels.length == 0) return -1;
-            if (levels.length == 1) return 0;
-            float step = (plotRight() - plotLeft()) / (levels.length - 1f);
-            int index = Math.round((x - plotLeft()) / step);
-            return Math.max(0, Math.min(levels.length - 1, index));
-        }
-
-        private void applyTouch(float y) {
-            if (dragIndex < 0 || dragIndex >= levels.length) return;
-            float top = plotTop();
-            float bottom = plotBottom();
-            float norm = (bottom - y) / Math.max(1f, bottom - top);
-            norm = Math.max(0f, Math.min(1f, norm));
-            int level = min + Math.round(norm * (max - min));
-            level = Math.round(level / 10f) * 10; // 0.1 dB steps, quiet live changes
-            level = Math.max(min, Math.min(max, level));
-            levels[dragIndex] = level;
-            if (listener != null) listener.onLevelChanged(dragIndex, level);
-            invalidate();
-        }
-
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
-            switch (event.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                    getParent().requestDisallowInterceptTouchEvent(true);
-                    dragIndex = nearestIndex(event.getX());
-                    return dragIndex >= 0;
-                case MotionEvent.ACTION_MOVE:
-                    if (dragIndex < 0) return false;
-                    applyTouch(event.getY());
-                    return true;
-                case MotionEvent.ACTION_UP:
-                    if (dragIndex >= 0) applyTouch(event.getY());
-                    dragIndex = -1;
-                    getParent().requestDisallowInterceptTouchEvent(false);
-                    return true;
-                case MotionEvent.ACTION_CANCEL:
-                    dragIndex = -1;
-                    getParent().requestDisallowInterceptTouchEvent(false);
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            float w = getWidth();
-            float h = getHeight();
-            if (w <= 2 || h <= 2) return;
-            box.set(0, 0, w, h);
-            bg.setColor(0x12FFFFFF);
-            canvas.drawRoundRect(box, Ui.dp(getContext(), 14), Ui.dp(getContext(), 14), bg);
-            grid.setColor(0x1AFFFFFF);
-            for (int i = 1; i <= 3; i++) {
-                float y = h * i / 4f;
-                canvas.drawLine(Ui.dp(getContext(), 10), y,
-                        w - Ui.dp(getContext(), 10), y, grid);
-            }
-            if (levels.length == 0) return;
-            float left = plotLeft();
-            float right = plotRight();
-            float top = plotTop();
-            float bottom = plotBottom();
-            float pad = 8f;
-            int count = levels.length;
-            float step = count > 1 ? (right - left) / (count - 1) : 0f;
-            path.reset();
-            area.reset();
-            for (int i = 0; i < count; i++) {
-                float norm = (levels[i] - min) / (float) Math.max(1, max - min);
-                norm = Math.max(0f, Math.min(1f, norm));
-                float x = left + i * step;
-                float y = bottom - norm * (bottom - top);
-                if (i == 0) {
-                    path.moveTo(x, y);
-                    area.moveTo(x, bottom);
-                    area.lineTo(x, y);
-                } else {
-                    path.lineTo(x, y);
-                    area.lineTo(x, y);
-                }
-            }
-            area.lineTo(right, bottom);
-            area.close();
-            fill.setShader(new LinearGradient(0, top, 0, bottom,
-                    (accent & 0x00FFFFFF) | 0x4D000000,
-                    (accent & 0x00FFFFFF) | 0x05000000, Shader.TileMode.CLAMP));
-            canvas.drawPath(area, fill);
-            fill.setShader(null);
-            line.setColor(accent);
-            canvas.drawPath(path, line);
-            dot.setColor(accent);
-            for (int i = 0; i < count; i++) {
-                float norm = (levels[i] - min) / (float) Math.max(1, max - min);
-                norm = Math.max(0f, Math.min(1f, norm));
-                float x = left + i * step;
-                float y = bottom - norm * (bottom - top);
-                if (i == dragIndex) {
-                    Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG);
-                    halo.setColor((accent & 0x00FFFFFF) | 0x33000000);
-                    canvas.drawCircle(x, y, Ui.dp(getContext(), 9), halo);
-                }
-                canvas.drawCircle(x, y, Ui.dp(getContext(), i == dragIndex ? 5 : 4), dot);
-            }
-        }
-    }
 }
