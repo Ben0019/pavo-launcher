@@ -1386,8 +1386,8 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         int nh = Math.max(Ui.dp(uiContext, 40), panel.getMeasuredHeight());
         // Keep the panel to a sensible share of a handheld display: wide
         // enough for the ledger, never so tall that it swallows the game.
-        float fitW = (screenWidthPx() * 0.45f) / (float) nw;
-        float fitH = (screenHeightPx() * 0.75f) / (float) nh;
+        float fitW = (screenWidthPx() * 0.42f) / (float) nw;
+        float fitH = (screenHeightPx() * 0.70f) / (float) nh;
         float fit = Math.max(0.55f, Math.min(1.8f, Math.min(fitW, fitH)));
         if (scale > fit) scale = fit;
         FrameLayout.LayoutParams plp = panel.getLayoutParams()
