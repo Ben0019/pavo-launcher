@@ -587,6 +587,15 @@ final class PerfSampler {
             }
             Intent battery = context.registerReceiver(null,
                     new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            String status = readText(new File("/sys/class/power_supply/battery/status"));
+            if (status != null) {
+                s.charging = "Charging".equalsIgnoreCase(status)
+                        || "Full".equalsIgnoreCase(status);
+            } else if (battery != null) {
+                int st = battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                s.charging = st == BatteryManager.BATTERY_STATUS_CHARGING
+                        || st == BatteryManager.BATTERY_STATUS_FULL;
+            }
             long voltageUv = readLong(new File("/sys/class/power_supply/battery/voltage_now"));
             if (voltageUv <= 0) {
                 int mv = battery == null ? -1

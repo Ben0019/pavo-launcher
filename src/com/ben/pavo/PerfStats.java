@@ -30,6 +30,7 @@ final class PerfStats {
     long appRamKb;
     float powerW;
     float batteryTempC;
+    boolean charging;
     long chargeCounterUah;
     boolean cpuCapped;
     boolean gpuCapped;

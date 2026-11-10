@@ -442,7 +442,8 @@ final class FusionHudRenderer {
         float statW = 0f, statValueW = 0f, statH = 0f;
         if (hero) {
             fpsLine = listOf(span(fpsText(),
-                            stats.fpsValid ? COL_VALUE : COL_DIM, heroPx),
+                            stats.fpsValid ? PerfOverlayView.fpsColor(stats.fps) : COL_DIM,
+                            heroPx),
                     span(" fps", COL_DIM, heroUnitPx));
             String avg = stats.fpsValid ? avgText() : null;
             String low = stats.fpsValid ? lowText(1) : null;
@@ -477,13 +478,21 @@ final class FusionHudRenderer {
         }
         if (showBattery) {
             boolean hasPct = stats.battery >= 0;
+            int batColor = hasPct && stats.battery <= 20
+                    ? PerfOverlayView.batteryColor(stats.battery) : COL_VALUE;
             List<Span> value = hasPct
-                    ? numUnit(String.valueOf(stats.battery), "%", valuePx, unitPx)
+                    ? listOf(span(String.valueOf(stats.battery), batColor, valuePx),
+                            span("%", COL_DIM, unitPx))
                     : listOf(span("\u2014", COL_DIM, valuePx));
-            List<Span> detail = stats.batteryTempC > 0f
-                    ? tempSpans(stats.batteryTempC, detailPx, detailPx * 0.78f) : null;
+            List<Span> detail = new ArrayList<>();
+            if (stats.charging) detail.add(span("\u26A1", COL_BAT, detailPx));
+            if (stats.batteryTempC > 0f) {
+                if (!detail.isEmpty()) detail.add(span("  ", COL_DIM, detailPx));
+                detail.addAll(tempSpans(stats.batteryTempC, detailPx, detailPx * 0.78f));
+            }
             float level = hasPct ? Math.max(0f, Math.min(1f, stats.battery / 100f)) : -1f;
-            modules.add(new Module("BAT", COL_BAT, value, detail, level));
+            modules.add(new Module("BAT", COL_BAT, value,
+                    detail.isEmpty() ? null : detail, level));
         }
         if (showBattery && stats.powerW > 0f) {
             List<Span> value = numUnit(fmt1(stats.powerW), "W", valuePx, unitPx);
@@ -566,7 +575,11 @@ final class FusionHudRenderer {
                 float capPx = sp(7.5f);
                 placeRun(pad, y - ascent(capPx),
                         listOf(span("FRAMETIME", COL_FPS, capPx)));
-                String stat = "min " + fmt1(graphMin()) + "  max " + fmt1(graphMax());
+                float gmin = graphMin();
+                float gmax = graphMax();
+                String stat = gmax - gmin < 0.15f
+                        ? fmt1(gmax) + " ms"
+                        : "min " + fmt1(gmin) + "  max " + fmt1(gmax);
                 float sw = measure(stat, capPx);
                 placeRun(pad + innerW - sw, y - ascent(capPx),
                         listOf(span(stat, COL_DIM, capPx)));
@@ -587,9 +600,7 @@ final class FusionHudRenderer {
                 barFills.add(dot(pad, cy, dotR));
                 barColors.add(m.color);
                 float lx = pad + dotD + sp(6f);
-                float kw = measure(m.key, labelPx);
-                placeRun(lx + labelW - kw, baseline,
-                        listOf(span(m.key, m.color, labelPx)));
+                placeRun(lx, baseline, listOf(span(m.key, m.color, labelPx)));
                 float vx = lx + labelW + sp(7f);
                 float vw = runWidth(m.value);
                 placeRun(vx + valueW - vw, baseline, m.value);

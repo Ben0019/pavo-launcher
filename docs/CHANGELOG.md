@@ -13,7 +13,9 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Idle FPS shows a dim `--` until a live frame stream resolves.
 - CPU, GPU, RAM, battery, power and fan each own one row; watt is a dedicated POWER module.
 - The fan row now shows Pavo's own mode (CURVE, SMALL–LARGE, HOLD or a per-app override) instead of the firmware's limited `fan_mode` value.
-- Panel polish: the header reads `PERF · profile`, POWER is labelled `DEVICE`, the frametime ribbon has a min/max caption, and the ledger has clearer dividers and spacing.
+- Panel polish: header `PERF · profile`, POWER `DEVICE`, tighter dot/label alignment, clearer dividers and spacing.
+- The frametime caption shows a single steady millisecond value or min/max when it varies.
+- Battery shows a charging bolt and a low-level tint; the FPS hero is heat-coloured.
 - Strip mode is unchanged and still switches with a double tap.
 
 ## 1.0.46 — 10 Nov 2026
