@@ -10,7 +10,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.graphics.DashPathEffect;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -95,15 +94,6 @@ public final class JoystickActivity extends PavoGlassActivity {
     private TextView floorValue;
     private float rawLx, rawLy, rawRx, rawRy;
     private TextView statusText;
-    private TextView applyLearnedChip;
-    private TextView clearLearnedChip;
-    private long learnedSamples;
-    private int learnedReconnects;
-    private float learnedRest;
-    private final int[] learnedMin = new int[4];
-    private final int[] learnedMax = new int[4];
-    private final float[] learnedGateL = new float[GATE_POINTS];
-    private final float[] learnedGateR = new float[GATE_POINTS];
     private float restMax;
     private long lastStatusAt;
 
@@ -955,44 +945,6 @@ public final class JoystickActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         autoLp.rightMargin = dp(6);
         statusRow.addView(autoChip, autoLp);
-        clearLearnedChip = text("CLEAR", 8.5f, 0xFFFFC857, true);
-        clearLearnedChip.setPadding(dp(8), dp(4), dp(8), dp(4));
-        clearLearnedChip.setBackground(Ui.rounded(0x22FFC857, dp(9),
-                0x44FFC857, dp(1)));
-        clearLearnedChip.setVisibility(View.GONE);
-        clearLearnedChip.setFocusable(true);
-        clearLearnedChip.setFocusable(true);
-        clearLearnedChip.setDefaultFocusHighlightEnabled(false);
-        clearLearnedChip.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                Haptics.click(v);
-                clearLearned();
-            }
-        });
-        tapClicks(clearLearnedChip);
-        addNav(clearLearnedChip);
-        LinearLayout.LayoutParams clearLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clearLp.rightMargin = dp(6);
-        statusRow.addView(clearLearnedChip, clearLp);
-
-        applyLearnedChip = text("Apply", 8.5f, ACCENT, true);
-        applyLearnedChip.setPadding(dp(8), dp(4), dp(8), dp(4));
-        applyLearnedChip.setBackground(Ui.rounded(0x22FFFFFF, dp(9),
-                0x33FFFFFF, dp(1)));
-        applyLearnedChip.setVisibility(View.GONE);
-        applyLearnedChip.setFocusable(true);
-        applyLearnedChip.setFocusable(true);
-        applyLearnedChip.setDefaultFocusHighlightEnabled(false);
-        applyLearnedChip.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                Haptics.click(v);
-                applyLearned();
-            }
-        });
-        tapClicks(applyLearnedChip);
-        addNav(applyLearnedChip);
-        statusRow.addView(applyLearnedChip);
         LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         statusLp.bottomMargin = dp(4);
@@ -1597,140 +1549,21 @@ public final class JoystickActivity extends PavoGlassActivity {
             if (stickEnabled && !ControllerRemapManager.isRunning(JoystickActivity.this)) {
                 ControllerRemapManager.start(JoystickActivity.this, null);
             }
-            refreshLearn();
             updateStatus();
             handler.postDelayed(this, 2000L);
         }
     };
-
-    private void refreshLearn() {
-        File file = ControllerRemapManager.learnFile(this);
-        if (file == null || !file.isFile()) return;
-        try (java.io.BufferedReader reader =
-                     new java.io.BufferedReader(new java.io.FileReader(file))) {
-            long samples = 0;
-            int reconnects = 0;
-            float rest = 0f;
-            int[] min = new int[4];
-            int[] max = new int[4];
-            float[] gl = new float[GATE_POINTS];
-            float[] gr = new float[GATE_POINTS];
-            String line;
-            while ((line = reader.readLine()) != null) {
-                int eq = line.indexOf('=');
-                if (eq <= 0) continue;
-                String key = line.substring(0, eq).trim();
-                String value = line.substring(eq + 1).trim();
-                if ("samples".equals(key)) {
-                    samples = Long.parseLong(value);
-                } else if ("reconnects".equals(key)) {
-                    reconnects = Integer.parseInt(value);
-                } else if ("rest".equals(key)) {
-                    rest = Integer.parseInt(value) / 1000f;
-                } else if (key.startsWith("axis_")) {
-                    int idx = Integer.parseInt(key.substring(5));
-                    if (idx < 0 || idx > 3) continue;
-                    String[] parts = value.split(":");
-                    if (parts.length != 2) continue;
-                    min[idx] = Integer.parseInt(parts[0]);
-                    max[idx] = Integer.parseInt(parts[1]);
-                } else if ("gate_left".equals(key) || "gate_right".equals(key)) {
-                    float[] target = "gate_left".equals(key) ? gl : gr;
-                    String[] parts = value.split(",");
-                    for (int i = 0; i < GATE_POINTS && i < parts.length; i++) {
-                        target[i] = Integer.parseInt(parts[i]) / 1000f;
-                    }
-                }
-            }
-            learnedSamples = samples;
-            learnedReconnects = reconnects;
-            learnedRest = rest;
-            System.arraycopy(min, 0, learnedMin, 0, 4);
-            System.arraycopy(max, 0, learnedMax, 0, 4);
-            System.arraycopy(gl, 0, learnedGateL, 0, GATE_POINTS);
-            System.arraycopy(gr, 0, learnedGateR, 0, GATE_POINTS);
-            if (pads != null) pads.setLearnedGate(learnedGateL, learnedGateR,
-                    samples >= 200);
-        } catch (Throwable ignored) {
-        }
-    }
 
     private void updateStatus() {
         if (statusText == null) return;
         StringBuilder b = new StringBuilder();
         b.append(ControllerRemapManager.isRunning(this) ? "\u25CF " : "\u25CB ");
         b.append(Loc.s(this, stickEnabled ? "ON" : "OFF"));
-        float jitter = Math.max(restMax, learnedRest);
+        float jitter = restMax;
         if (jitter > 0.001f) {
             b.append(String.format(Locale.US, " \u00B7 rest \u00B1%.1f%%", jitter * 100f));
         }
-        if (learnedSamples > 0) {
-            b.append(learnedSamples >= 1000
-                    ? " \u00B7 " + (learnedSamples / 1000) + "k"
-                    : " \u00B7 " + learnedSamples);
-        }
-        if (learnedReconnects > 0) b.append(" \u00B7 \u21BB").append(learnedReconnects);
         statusText.setText(b.toString());
-        boolean hasLearn = learnedSamples >= 200;
-        if (applyLearnedChip != null) {
-            applyLearnedChip.setVisibility(hasLearn ? View.VISIBLE : View.GONE);
-        }
-        if (clearLearnedChip != null) {
-            clearLearnedChip.setVisibility(hasLearn ? View.VISIBLE : View.GONE);
-        }
-    }
-
-    /** Applies the learned range, gate and a jitter-based deadzone suggestion. */
-    private void applyLearned() {
-        boolean applied = false;
-        for (int i = 0; i < 4; i++) {
-            if (learnedMax[i] - learnedMin[i] > 2000) {
-                mins[i] = learnedMin[i];
-                maxs[i] = learnedMax[i];
-                applied = true;
-            }
-        }
-        int[] left = buildGate(learnedGateL);
-        int[] right = buildGate(learnedGateR);
-        if (left != null) {
-            System.arraycopy(left, 0, gateGain[0], 0, GATE_POINTS);
-            gateEnabled = true;
-            applied = true;
-        }
-        if (right != null) {
-            System.arraycopy(right, 0, gateGain[1], 0, GATE_POINTS);
-            gateEnabled = true;
-            applied = true;
-        }
-        int suggested = (int) Math.ceil(Math.max(restMax, learnedRest) * 1400f);
-        if (suggested > deadzone[selectedStick] && suggested >= 20) {
-            deadzone[selectedStick] = Math.min(300, suggested);
-            applied = true;
-        }
-        if (!applied) {
-            LToast.makeText(this, Loc.s(this, "Apply"), Toast.LENGTH_SHORT).show();
-            return;
-        }
-        stickEnabled = true;
-        saveCalibration(true, true);
-        syncTuningUi();
-        LToast.makeText(this, Loc.s(this, "Saved"), Toast.LENGTH_SHORT).show();
-    }
-
-    /** Forgets everything the daemon learned so far. */
-    private void clearLearned() {
-        try {
-            ControllerRemapManager.learnResetFile(this).createNewFile();
-        } catch (Throwable ignored) {
-        }
-        learnedSamples = 0;
-        learnedReconnects = 0;
-        learnedRest = 0f;
-        Arrays.fill(learnedMin, 0);
-        Arrays.fill(learnedMax, 0);
-        Arrays.fill(learnedGateL, 0f);
-        Arrays.fill(learnedGateR, 0f);
-        updateStatus();
     }
 
     private void openAppPicker() {
@@ -2157,7 +1990,6 @@ public final class JoystickActivity extends PavoGlassActivity {
         private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint rawDot = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint gateLine = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint learnedLine = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint heat = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint legend = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -2166,9 +1998,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         private final float[] leftRaw = new float[2];
         private final float[] rightRaw = new float[2];
         private final int[][] gate = new int[2][GATE_POINTS];
-        private final float[][] learned = new float[2][GATE_POINTS];
         private boolean gateOn;
-        private boolean learnedOn;
         private float deadzone;
         private final Path path = new Path();
         private final RectF arc = new RectF();
@@ -2191,11 +2021,6 @@ public final class JoystickActivity extends PavoGlassActivity {
             gateLine.setStyle(Paint.Style.STROKE);
             gateLine.setStrokeWidth(density * 1.2f);
             gateLine.setColor(0x88FFC857);
-            learnedLine.setStyle(Paint.Style.STROKE);
-            learnedLine.setStrokeWidth(density * 1.0f);
-            learnedLine.setColor(0x55FFFFFF);
-            learnedLine.setPathEffect(new DashPathEffect(
-                    new float[]{density * 4f, density * 3f}, 0f));
             heat.setStyle(Paint.Style.STROKE);
             heat.setStrokeWidth(density * 3.2f);
             heat.setStrokeCap(Paint.Cap.ROUND);
@@ -2238,17 +2063,6 @@ public final class JoystickActivity extends PavoGlassActivity {
                 System.arraycopy(rightGain, 0, gate[1], 0, GATE_POINTS);
             }
             gateOn = on;
-            invalidate();
-        }
-
-        void setLearnedGate(float[] leftRadii, float[] rightRadii, boolean on) {
-            if (leftRadii != null) {
-                System.arraycopy(leftRadii, 0, learned[0], 0, GATE_POINTS);
-            }
-            if (rightRadii != null) {
-                System.arraycopy(rightRadii, 0, learned[1], 0, GATE_POINTS);
-            }
-            learnedOn = on;
             invalidate();
         }
 
@@ -2317,9 +2131,6 @@ public final class JoystickActivity extends PavoGlassActivity {
 
         private void drawGate(Canvas canvas, float cx, float cy, float r, int stick) {
             float outer = r * 0.88f;
-            if (learnedOn) {
-                drawPolygon(canvas, cx, cy, outer, learned[stick], learnedLine, true);
-            }
             if (!gateOn) return;
             path.reset();
             for (int i = 0; i < GATE_POINTS; i++) {

@@ -44,16 +44,6 @@ final class ControllerRemapManager {
         return new File(c.getFilesDir(), CONFIG);
     }
 
-    /** Marker that asks the daemon to forget everything it learned. */
-    static File learnResetFile(Context c) {
-        return new File(c.getFilesDir(), "controller-learn-reset");
-    }
-
-    /** Raw min/max and per-angle radii learned by the daemon. */
-    static File learnFile(Context c) {
-        return new File(c.getFilesDir(), "controller-learn.conf");
-    }
-
     static File binaryFile(Context c) {
         return new File(c.getFilesDir(), BINARY);
     }
