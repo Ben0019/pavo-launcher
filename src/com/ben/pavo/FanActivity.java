@@ -584,13 +584,13 @@ public final class FanActivity extends PavoGlassActivity {
         // HOLD controls: target and speed side by side.
         int holdColor = 0xFF4DD0E1;
         holdRow = new LinearLayout(this);
-        holdRow.setOrientation(LinearLayout.HORIZONTAL);
+        holdRow.setOrientation(LinearLayout.VERTICAL);
         holdRow.setPadding(0, dp(2), 0, 0);
 
         LinearLayout targetCol = new LinearLayout(this);
         targetCol.setOrientation(LinearLayout.VERTICAL);
         holdRow.addView(targetCol, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout targetTop = new LinearLayout(this);
         targetTop.setOrientation(LinearLayout.HORIZONTAL);
@@ -624,8 +624,8 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout dutyCol = new LinearLayout(this);
         dutyCol.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams dutyColLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        dutyColLp.leftMargin = dp(12);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dutyColLp.topMargin = dp(2);
         holdRow.addView(dutyCol, dutyColLp);
 
         LinearLayout dutyTop = new LinearLayout(this);
