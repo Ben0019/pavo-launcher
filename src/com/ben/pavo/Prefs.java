@@ -198,6 +198,10 @@ final class Prefs {
     boolean soundStatusVisible() { return sp.getBoolean("sound_status", true); }
     boolean controllerRemapEnabled() { return sp.getBoolean("remap_enabled", false); }
     boolean controllerStickAutoApp() { return sp.getBoolean("controller_auto_app", true); }
+    boolean stickExpert() { return sp.getBoolean("stick_expert", false); }
+    void setStickExpert(boolean value) {
+        sp.edit().putBoolean("stick_expert", value).apply();
+    }
     void setControllerStickAutoApp(boolean value) {
         sp.edit().putBoolean("controller_auto_app", value).apply();
     }

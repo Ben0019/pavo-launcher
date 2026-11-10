@@ -2087,7 +2087,8 @@
     "RAW": "SYROVÉ",
     "OUT": "VÝSTUP",
     "FAN RESPONSE": "ODEZVA VENTILÁTORU",
-    "VERY SMOOTH": "VELMI HLADKÁ"
+    "VERY SMOOTH": "VELMI HLADKÁ",
+    "EXPERT": "EXPERT"
   },
   "da": {
     "Quick Controls": "Hurtigbetjening",
@@ -4177,7 +4178,8 @@
     "RAW": "RÅ",
     "OUT": "UD",
     "FAN RESPONSE": "FANRESPONS",
-    "VERY SMOOTH": "MEGET BLØD"
+    "VERY SMOOTH": "MEGET BLØD",
+    "EXPERT": "EKSPERT"
   },
   "de": {
     "Quick Controls": "Schnellsteuerung",
@@ -6267,7 +6269,8 @@
     "RAW": "ROH",
     "OUT": "AUSGANG",
     "FAN RESPONSE": "LÜFTERREAKTION",
-    "VERY SMOOTH": "SEHR SANFT"
+    "VERY SMOOTH": "SEHR SANFT",
+    "EXPERT": "EXPERTE"
   },
   "el": {
     "Quick Controls": "Γρήγοροι έλεγχοι",
@@ -8357,7 +8360,8 @@
     "RAW": "ΑΚΑΤΕΡΓΑΣΤΟ",
     "OUT": "ΕΞΟΔΟΣ",
     "FAN RESPONSE": "ΑΠΟΚΡΙΣΗ ΑΝΕΜΙΣΤΗΡΑ",
-    "VERY SMOOTH": "ΠΟΛΥ ΟΜΑΛΗ"
+    "VERY SMOOTH": "ΠΟΛΥ ΟΜΑΛΗ",
+    "EXPERT": "ΕΙΔΙΚΟΣ"
   },
   "es": {
     "Quick Controls": "Controles rápidos",
@@ -10447,7 +10451,8 @@
     "RAW": "ENTRADA",
     "OUT": "SALIDA",
     "FAN RESPONSE": "RESPUESTA DEL VENTILADOR",
-    "VERY SMOOTH": "MUY SUAVE"
+    "VERY SMOOTH": "MUY SUAVE",
+    "EXPERT": "EXPERTO"
   },
   "fi": {
     "Quick Controls": "Pika-asetukset",
@@ -12537,7 +12542,8 @@
     "RAW": "RAAKA",
     "OUT": "LÄHTÖ",
     "FAN RESPONSE": "TUULETTIMEN VASTE",
-    "VERY SMOOTH": "ERITTÄIN PEHMEÄ"
+    "VERY SMOOTH": "ERITTÄIN PEHMEÄ",
+    "EXPERT": "ASIANTUNTIJA"
   },
   "fr": {
     "Quick Controls": "Contrôles rapides",
@@ -14627,7 +14633,8 @@
     "RAW": "BRUT",
     "OUT": "SORTIE",
     "FAN RESPONSE": "RÉPONSE DU VENTILATEUR",
-    "VERY SMOOTH": "TRÈS DOUCE"
+    "VERY SMOOTH": "TRÈS DOUCE",
+    "EXPERT": "EXPERT"
   },
   "he": {
     "Quick Controls": "בקרות מהירות",
@@ -16717,7 +16724,8 @@
     "RAW": "גולמי",
     "OUT": "פלט",
     "FAN RESPONSE": "תגובת המאוורר",
-    "VERY SMOOTH": "חלקה מאוד"
+    "VERY SMOOTH": "חלקה מאוד",
+    "EXPERT": "מומחה"
   },
   "hu": {
     "Quick Controls": "Gyorsvezérlők",
@@ -18807,7 +18815,8 @@
     "RAW": "NYERS",
     "OUT": "KIMENET",
     "FAN RESPONSE": "VENTILÁTOR VÁLASZ",
-    "VERY SMOOTH": "NAGYON LÁGY"
+    "VERY SMOOTH": "NAGYON LÁGY",
+    "EXPERT": "EXPERT"
   },
   "id": {
     "Quick Controls": "Kontrol Cepat",
@@ -20897,7 +20906,8 @@
     "RAW": "MENTAH",
     "OUT": "KELUARAN",
     "FAN RESPONSE": "RESPONS KIPAS",
-    "VERY SMOOTH": "SANGAT HALUS"
+    "VERY SMOOTH": "SANGAT HALUS",
+    "EXPERT": "AHLI"
   },
   "it": {
     "Quick Controls": "Controlli rapidi",
@@ -22987,7 +22997,8 @@
     "RAW": "GREZZO",
     "OUT": "USCITA",
     "FAN RESPONSE": "RISPOSTA VENTOLA",
-    "VERY SMOOTH": "MOLTO MORBIDA"
+    "VERY SMOOTH": "MOLTO MORBIDA",
+    "EXPERT": "ESPERTO"
   },
   "ja": {
     "Quick Controls": "クイックコントロール",
@@ -25077,7 +25088,8 @@
     "RAW": "生",
     "OUT": "出力",
     "FAN RESPONSE": "ファン応答",
-    "VERY SMOOTH": "非常にスムーズ"
+    "VERY SMOOTH": "非常にスムーズ",
+    "EXPERT": "エキスパート"
   },
   "ko": {
     "Quick Controls": "빠른 컨트롤",
@@ -27167,7 +27179,8 @@
     "RAW": "원시",
     "OUT": "출력",
     "FAN RESPONSE": "팬 응답",
-    "VERY SMOOTH": "매우 부드럽게"
+    "VERY SMOOTH": "매우 부드럽게",
+    "EXPERT": "전문가"
   },
   "nb": {
     "Quick Controls": "Hurtigkontroller",
@@ -29257,7 +29270,8 @@
     "RAW": "RÅ",
     "OUT": "UT",
     "FAN RESPONSE": "VIFTERESPONS",
-    "VERY SMOOTH": "MEGET MYK"
+    "VERY SMOOTH": "MEGET MYK",
+    "EXPERT": "EKSPERT"
   },
   "nl": {
     "Quick Controls": "Snelle bediening",
@@ -31347,7 +31361,8 @@
     "RAW": "RUW",
     "OUT": "UIT",
     "FAN RESPONSE": "VENTILATORRESPONS",
-    "VERY SMOOTH": "ZEER ZACHT"
+    "VERY SMOOTH": "ZEER ZACHT",
+    "EXPERT": "EXPERT"
   },
   "pl": {
     "Quick Controls": "Szybkie sterowanie",
@@ -33437,7 +33452,8 @@
     "RAW": "SUROWY",
     "OUT": "WYJŚCIE",
     "FAN RESPONSE": "REAKCJA WENTYLATORA",
-    "VERY SMOOTH": "BARDZO PŁYNNA"
+    "VERY SMOOTH": "BARDZO PŁYNNA",
+    "EXPERT": "EKSPERT"
   },
   "pt": {
     "Quick Controls": "Controles rápidos",
@@ -35527,7 +35543,8 @@
     "RAW": "BRUTO",
     "OUT": "SAÍDA",
     "FAN RESPONSE": "RESPOSTA DA VENTOINHA",
-    "VERY SMOOTH": "MUITO SUAVE"
+    "VERY SMOOTH": "MUITO SUAVE",
+    "EXPERT": "ESPECIALISTA"
   },
   "ro": {
     "Quick Controls": "Comenzi rapide",
@@ -37617,7 +37634,8 @@
     "RAW": "BRUT",
     "OUT": "IEȘIRE",
     "FAN RESPONSE": "RĂSPUNS VENTILATOR",
-    "VERY SMOOTH": "FOARTE NETEDĂ"
+    "VERY SMOOTH": "FOARTE NETEDĂ",
+    "EXPERT": "EXPERT"
   },
   "ru": {
     "Quick Controls": "Быстрое управление",
@@ -39707,7 +39725,8 @@
     "RAW": "СЫРОЙ",
     "OUT": "ВЫХОД",
     "FAN RESPONSE": "ОТКЛИК ВЕНТИЛЯТОРА",
-    "VERY SMOOTH": "ОЧЕНЬ ПЛАВНАЯ"
+    "VERY SMOOTH": "ОЧЕНЬ ПЛАВНАЯ",
+    "EXPERT": "ЭКСПЕРТ"
   },
   "sv": {
     "Quick Controls": "Snabbkontroller",
@@ -41797,7 +41816,8 @@
     "RAW": "RÅ",
     "OUT": "UT",
     "FAN RESPONSE": "FLÄKTRESPONS",
-    "VERY SMOOTH": "MYCKET MJUK"
+    "VERY SMOOTH": "MYCKET MJUK",
+    "EXPERT": "EXPERT"
   },
   "th": {
     "Quick Controls": "การควบคุมด่วน",
@@ -43887,7 +43907,8 @@
     "RAW": "ดิบ",
     "OUT": "ออก",
     "FAN RESPONSE": "การตอบสนองพัดลม",
-    "VERY SMOOTH": "นุ่มนวลมาก"
+    "VERY SMOOTH": "นุ่มนวลมาก",
+    "EXPERT": "ผู้เชี่ยวชาญ"
   },
   "tr": {
     "Quick Controls": "Hızlı Kontroller",
@@ -45977,7 +45998,8 @@
     "RAW": "HAM",
     "OUT": "ÇIKIŞ",
     "FAN RESPONSE": "FAN TEPKİSİ",
-    "VERY SMOOTH": "ÇOK YUMUŞAK"
+    "VERY SMOOTH": "ÇOK YUMUŞAK",
+    "EXPERT": "UZMAN"
   },
   "uk": {
     "Quick Controls": "Швидке керування",
@@ -48067,7 +48089,8 @@
     "RAW": "СИРИЙ",
     "OUT": "ВИХІД",
     "FAN RESPONSE": "ВІДГУК ВЕНТИЛЯТОРА",
-    "VERY SMOOTH": "ДУЖЕ ПЛАВНА"
+    "VERY SMOOTH": "ДУЖЕ ПЛАВНА",
+    "EXPERT": "ЕКСПЕРТ"
   },
   "vi": {
     "Quick Controls": "Điều khiển nhanh",
@@ -50157,7 +50180,8 @@
     "RAW": "THÔ",
     "OUT": "RA",
     "FAN RESPONSE": "PHẢN HỒI QUẠT",
-    "VERY SMOOTH": "RẤT MƯỢT"
+    "VERY SMOOTH": "RẤT MƯỢT",
+    "EXPERT": "CHUYÊN GIA"
   },
   "zh-CN": {
     "Quick Controls": "快捷控制",
@@ -52247,6 +52271,7 @@
     "RAW": "原始",
     "OUT": "输出",
     "FAN RESPONSE": "风扇响应",
-    "VERY SMOOTH": "非常平滑"
+    "VERY SMOOTH": "非常平滑",
+    "EXPERT": "专家"
   }
 }

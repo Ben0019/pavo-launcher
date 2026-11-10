@@ -54,6 +54,8 @@ public final class JoystickActivity extends PavoGlassActivity {
     private boolean calibrationApplied;
     private boolean stickEnabled;
     private int selectedStick;
+    private boolean expertMode;
+    private TextView expertChip;
     private final int[] deadzone = {60, 60};
     private final int[] curve = {100, 100};
     private final int[] floor = {0, 0};
@@ -140,8 +142,10 @@ public final class JoystickActivity extends PavoGlassActivity {
         prefs = new Prefs(this);
         profileStore = new ControllerProfileStore(this);
         pads = new StickPadView(this);
+        expertMode = prefs.stickExpert();
         ensureGlobalStickProfile();
         loadCalibration();
+        ensureExpertForValues();
         buildUi();
         hideBars();
     }
@@ -1012,6 +1016,29 @@ public final class JoystickActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         rightParams.leftMargin = dp(6);
         stickRow.addView(rightTab, rightParams);
+
+        expertChip = text("EXPERT", 8f, MUTED, true);
+        expertChip.setGravity(Gravity.CENTER);
+        expertChip.setPadding(dp(8), dp(5), dp(8), dp(5));
+        expertChip.setFocusable(true);
+        expertChip.setDefaultFocusHighlightEnabled(false);
+        expertChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                toggleExpert();
+            }
+        });
+        expertChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateExpertChip();
+            }
+        });
+        tapClicks(expertChip);
+        addNav(expertChip);
+        LinearLayout.LayoutParams expertLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        expertLp.leftMargin = dp(6);
+        stickRow.addView(expertChip, expertLp);
         tuning.addView(stickRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -1086,6 +1113,9 @@ public final class JoystickActivity extends PavoGlassActivity {
         updateLayerChip();
         updatePresetChips();
         updateAutoChip();
+        ensureExpertForValues();
+        applyExpertLimits();
+        updateExpertChip();
         refreshPreview();
 
         LinearLayout tuneRow = new LinearLayout(this);
@@ -1757,6 +1787,9 @@ public final class JoystickActivity extends PavoGlassActivity {
         updateLayerChip();
         updatePresetChips();
         updateAutoChip();
+        ensureExpertForValues();
+        applyExpertLimits();
+        updateExpertChip();
         refreshPreview();
     }
 
@@ -1810,6 +1843,60 @@ public final class JoystickActivity extends PavoGlassActivity {
             layerChip.setBackground(focused
                     ? Ui.rounded(0x1EFFFFFF, dp(10), 0xE6FFFFFF, dp(1.5f))
                     : Ui.rounded(0x1EFFFFFF, dp(10), 0x33FFFFFF, dp(1)));
+        }
+    }
+
+    private void ensureExpertForValues() {
+        if (expertMode) return;
+        for (int s = 0; s < 2; s++) {
+            if (deadzone[s] > 300 || curve[s] > 200) {
+                expertMode = true;
+                return;
+            }
+        }
+    }
+
+    private void applyExpertLimits() {
+        int dzMax = expertMode ? 500 : 300;
+        int curveMax = expertMode ? 250 : 150;
+        if (deadzoneBar != null) {
+            deadzoneBar.setMax(dzMax);
+            deadzoneBar.setProgress(Math.max(0, Math.min(dzMax, deadzone[selectedStick])));
+        }
+        if (curveBar != null) {
+            curveBar.setMax(curveMax);
+            curveBar.setProgress(Math.max(0, Math.min(curveMax, curve[selectedStick] - 50)));
+        }
+    }
+
+    private void toggleExpert() {
+        expertMode = !expertMode;
+        prefs.setStickExpert(expertMode);
+        if (!expertMode) {
+            for (int s = 0; s < 2; s++) {
+                deadzone[s] = Math.min(300, deadzone[s]);
+                curve[s] = Math.max(50, Math.min(200, curve[s]));
+            }
+        }
+        applyExpertLimits();
+        updateExpertChip();
+        syncTuningUi();
+        saveCalibration(stickEnabled, true);
+    }
+
+    private void updateExpertChip() {
+        if (expertChip == null) return;
+        boolean focused = expertChip.hasFocus();
+        if (expertMode) {
+            expertChip.setTextColor(0xFF061015);
+            expertChip.setBackground(focused
+                    ? Ui.rounded(0xFFFFC857, dp(9), 0xFFFFFFFF, dp(1.5f))
+                    : Ui.rounded(0xFFFFC857, dp(9)));
+        } else {
+            expertChip.setTextColor(MUTED);
+            expertChip.setBackground(focused
+                    ? Ui.rounded(0x1EFFFFFF, dp(9), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1EFFFFFF, dp(9), 0x33FFFFFF, dp(1)));
         }
     }
 
