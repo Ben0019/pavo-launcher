@@ -406,7 +406,7 @@ public final class FanActivity extends PavoGlassActivity {
                     graphDutyStickAt = now;
                     float power = Math.min(1f, (Math.abs(ry) - 0.18f) / 0.82f);
                     int steps = 1 + (power > 0.60f ? 1 : 0) + (power > 0.88f ? 1 : 0);
-                    curveView.adjustSelectedDuty(ry < 0f ? 5 * steps : -5 * steps);
+                    curveView.adjustSelectedDuty(ry < 0f ? steps : -steps);
                     return true;
                 }
             }

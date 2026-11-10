@@ -8,8 +8,12 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +39,10 @@ final class FanCurveView extends View {
     private final Paint targetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint targetDot = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint focusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint bubbleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint bubbleStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF plot = new RectF();
+    private final RectF bubble = new RectF();
     private final Path path = new Path();
     private final Path fill = new Path();
 
@@ -51,6 +58,13 @@ final class FanCurveView extends View {
     private boolean editable = true;
     private boolean focused;
     private long lastHaptic;
+    private final Handler longPressHandler = new Handler(Looper.getMainLooper());
+    private Runnable longPressAction;
+    private boolean downOnPoint;
+    private boolean dragging;
+    private boolean longPressFired;
+    private float downX;
+    private float downY;
 
     FanCurveView(Context c) {
         super(c);
@@ -85,6 +99,11 @@ final class FanCurveView extends View {
         focusPaint.setStyle(Paint.Style.STROKE);
         focusPaint.setStrokeWidth(Ui.dpf(c, 2f));
         focusPaint.setColor(ACCENT);
+        bubbleFill.setStyle(Paint.Style.FILL);
+        bubbleFill.setColor(0xE60B0E14);
+        bubbleStroke.setStyle(Paint.Style.STROKE);
+        bubbleStroke.setStrokeWidth(Ui.dpf(c, 1f));
+        bubbleStroke.setColor(0x99FFFFFF);
         setFocusable(true);
         setFocusableInTouchMode(true);
         setDefaultFocusHighlightEnabled(false);
@@ -111,6 +130,9 @@ final class FanCurveView extends View {
      *                 ends at the user's hold point.
      */
     void setCurve(String value, boolean terminal) {
+        cancelPointLongPress();
+        dragging = false;
+        longPressFired = false;
         curve = value == null ? FanCurve.DEFAULT
                 : terminal ? FanCurve.ensureTerminal(value) : value;
         points.clear();
@@ -272,6 +294,37 @@ final class FanCurveView extends View {
                     tx, plot.top + Ui.dpf(getContext(), 10f), textPaint);
             textPaint.setColor(MUTED);
         }
+        if ((focused || dragging) && selected >= 0 && selected < points.size()) {
+            drawPointBubble(c);
+        }
+    }
+
+    private void drawPointBubble(Canvas c) {
+        int[] p = points.get(selected);
+        float x = xFor(p[0]);
+        float y = yFor(p[1]);
+        String label = Loc.number(getContext(), p[0] + "°") + "  ·  " + p[1] + "%";
+        textPaint.setTextSize(Ui.dpf(getContext(), 8f));
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        float tw = textPaint.measureText(label);
+        float padX = Ui.dpf(getContext(), 6f);
+        float padY = Ui.dpf(getContext(), 4f);
+        float bw = tw + padX * 2f;
+        float bh = Ui.dpf(getContext(), 8f) + padY * 2f;
+        float bx = Math.max(plot.left, Math.min(plot.right - bw, x - bw / 2f));
+        float by = y - bh - Ui.dpf(getContext(), 7f);
+        if (by < plot.top) by = y + Ui.dpf(getContext(), 7f);
+        by = Math.min(by, plot.bottom - bh);
+        bubble.set(bx, by, bx + bw, by + bh);
+        float radius = Ui.dpf(getContext(), 6f);
+        c.drawRoundRect(bubble, radius, radius, bubbleFill);
+        c.drawRoundRect(bubble, radius, radius, bubbleStroke);
+        textPaint.setColor(0xFFFFFFFF);
+        float baseline = by + bh / 2f
+                - (textPaint.ascent() + textPaint.descent()) / 2f;
+        c.drawText(label, bx + bw / 2f, baseline, textPaint);
+        textPaint.setColor(MUTED);
+        textPaint.setTextSize(Ui.dpf(getContext(), 7.2f));
     }
 
     boolean moveSelection(int delta) {
@@ -313,37 +366,58 @@ final class FanCurveView extends View {
     public boolean onTouchEvent(MotionEvent event) {
         if (!editable || points.isEmpty()) return false;
         switch (event.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-            case MotionEvent.ACTION_MOVE: {
+            case MotionEvent.ACTION_DOWN: {
                 layoutPlot();
+                downX = event.getX();
+                downY = event.getY();
+                dragging = false;
+                longPressFired = false;
                 int best = -1;
                 float bestD = Float.MAX_VALUE;
                 for (int i = 0; i < points.size(); i++) {
                     int[] p = points.get(i);
-                    float dx = event.getX() - xFor(p[0]);
-                    float dy = event.getY() - yFor(p[1]);
+                    float dx = downX - xFor(p[0]);
+                    float dy = downY - yFor(p[1]);
                     float d = dx * dx + dy * dy;
                     if (d < bestD) {
                         bestD = d;
                         best = i;
                     }
                 }
-                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                    if (best < 0 || bestD > Ui.dpf(getContext(), 32) * Ui.dpf(getContext(), 32)) {
-                        return false;
-                    }
-                    selected = best;
+                float hit = Ui.dpf(getContext(), 12f);
+                downOnPoint = best >= 0 && bestD <= hit * hit;
+                if (downOnPoint) selected = best;
+                requestFocus();
+                if (getParent() != null) {
                     getParent().requestDisallowInterceptTouchEvent(true);
                 }
-                if (selected < 0) return true;
-                int minT = selected == 0 ? 30 : points.get(selected - 1)[0] + 5;
-                int maxT = selected == points.size() - 1 ? 100 : points.get(selected + 1)[0] - 5;
+                scheduleLongPress();
+                invalidate();
+                return true;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                if (longPressFired) return true;
+                float dx = event.getX() - downX;
+                float dy = event.getY() - downY;
+                if (!dragging && Math.hypot(dx, dy) > Ui.dpf(getContext(), 8f)) {
+                    dragging = true;
+                    cancelPointLongPress();
+                }
+                if (!dragging || !downOnPoint || selected < 0
+                        || selected >= points.size()) {
+                    return true;
+                }
+                int minT = selected == 0 ? 30 : points.get(selected - 1)[0] + 2;
+                int maxT = selected == points.size() - 1
+                        ? 100 : points.get(selected + 1)[0] - 2;
                 if (maxT < minT) maxT = minT;
                 int t = FanCurve.clamp(snap5(tempFor(event.getX())), minT, maxT);
-                int d = FanCurve.clamp(snap5(dutyFor(event.getY())), 0, 100);
+                int d = FanCurve.clamp(Math.round(dutyFor(event.getY())), 0, 100);
+                int[] p = points.get(selected);
+                if (p[0] == t && p[1] == d) return true;
                 points.set(selected, new int[]{t, d});
                 curve = FanCurve.serialize(points);
-                long now = android.os.SystemClock.uptimeMillis();
+                long now = SystemClock.uptimeMillis();
                 if (now - lastHaptic >= 45) {
                     lastHaptic = now;
                     Haptics.tick(this);
@@ -353,11 +427,84 @@ final class FanCurveView extends View {
                 return true;
             }
             case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+            case MotionEvent.ACTION_CANCEL: {
+                cancelPointLongPress();
+                dragging = false;
+                longPressFired = false;
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                }
                 Haptics.click(this);
                 return true;
+            }
         }
         return super.onTouchEvent(event);
+    }
+
+    private void scheduleLongPress() {
+        cancelPointLongPress();
+        longPressAction = new Runnable() {
+            @Override public void run() {
+                longPressFired = true;
+                if (downOnPoint) {
+                    removeSelectedPoint();
+                } else {
+                    addPointAt(downX, downY);
+                }
+                longPressAction = null;
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                }
+            }
+        };
+        longPressHandler.postDelayed(longPressAction,
+                ViewConfiguration.getLongPressTimeout());
+    }
+
+    private void cancelPointLongPress() {
+        if (longPressAction == null) return;
+        longPressHandler.removeCallbacks(longPressAction);
+        longPressAction = null;
+    }
+
+    /** Insert a point at the long-press position, keeping the min gap. */
+    private boolean addPointAt(float x, float y) {
+        if (!editable || points.size() >= 24) return false;
+        int t = FanCurve.clamp(Math.round(tempFor(x)), 31, 99);
+        int index = 0;
+        while (index < points.size() && points.get(index)[0] < t) index++;
+        if (index <= 0 || index >= points.size()) return false;
+        int prev = points.get(index - 1)[0];
+        int next = points.get(index)[0];
+        if (t - prev < 2) t = prev + 2;
+        if (next - t < 2) t = next - 2;
+        if (t <= prev || t >= next) return false;
+        int d = FanCurve.clamp(Math.round(dutyFor(y)), 0, 100);
+        points.add(index, new int[]{t, d});
+        selected = index;
+        curve = FanCurve.serialize(points);
+        invalidate();
+        if (listener != null) listener.onCurveChanged(curve);
+        Haptics.longPress(this);
+        return true;
+    }
+
+    /** Remove the selected point. Endpoints stay so the curve keeps its range. */
+    private boolean removeSelectedPoint() {
+        if (!editable || points.size() <= 2) return false;
+        if (selected <= 0 || selected >= points.size() - 1) return false;
+        points.remove(selected);
+        if (selected >= points.size()) selected = points.size() - 1;
+        curve = FanCurve.serialize(points);
+        invalidate();
+        if (listener != null) listener.onCurveChanged(curve);
+        Haptics.longPress(this);
+        return true;
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        cancelPointLongPress();
+        super.onDetachedFromWindow();
     }
 }
