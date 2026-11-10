@@ -62,7 +62,7 @@ final class ControllerRemapManager {
      * socket, so mapped shortcuts and the floating drawer keep working.
      */
     static void ensureInputDaemon(Context context) {
-        if (context == null) return;
+        if (context == null || ControllerProfiles.bypassActive) return;
         // Touch Mapper grabs the controller exclusively; keep the pass-through
         // daemon out of the way for as long as any touch map is enabled.
         if (TouchMapManager.isActive() || TouchMapManager.isRunning(context)) return;
@@ -71,7 +71,7 @@ final class ControllerRemapManager {
     }
 
     static void ensureStarted(final Context context) {
-        if (context == null) return;
+        if (context == null || ControllerProfiles.bypassActive) return;
         if (new Prefs(context).controllerRemapEnabled()) start(context, null);
         else ensureInputDaemon(context);
     }
@@ -87,6 +87,7 @@ final class ControllerRemapManager {
     private static synchronized void startInternal(final Context context,
                                                    final Callback callback,
                                                    final boolean forInput) {
+        if (ControllerProfiles.bypassActive) return;
         if (starting) {
             if (callback != null) notifyWhenReady(context, callback);
             return;
@@ -394,29 +395,35 @@ final class ControllerRemapManager {
         try (BufferedReader r = new BufferedReader(new InputStreamReader(
                 new FileInputStream("/proc/bus/input/devices"), StandardCharsets.UTF_8))) {
             String name = null;
+            String phys = null;
             String handlers = null;
             String line;
             while ((line = r.readLine()) != null) {
                 String t = line.trim();
                 if (t.isEmpty()) {
-                    String device = eventNode(name, handlers, preferredName);
+                    String device = eventNode(name, phys, handlers, preferredName);
                     if (device != null) return device;
                     name = null;
+                    phys = null;
                     handlers = null;
                 } else if (t.startsWith("N: Name=")) {
                     name = t.substring(7).trim();
+                } else if (t.startsWith("P: Phys=")) {
+                    phys = t.substring(7).trim();
                 } else if (t.startsWith("H: Handlers=")) {
                     handlers = t.substring(12).trim();
                 }
             }
-            return eventNode(name, handlers, preferredName);
+            return eventNode(name, phys, handlers, preferredName);
         } catch (Throwable ignored) {
             return null;
         }
     }
 
-    private static String eventNode(String name, String handlers, String preferredName) {
+    private static String eventNode(String name, String phys, String handlers,
+                                    String preferredName) {
         if (name == null || handlers == null) return null;
+        if (phys != null && phys.contains("pavo-remap")) return null;
         String lower = name.toLowerCase(java.util.Locale.US);
         if (lower.contains("virtual") || lower.contains("pavo")) return null;
         boolean preferred = preferredName != null && !preferredName.isEmpty()

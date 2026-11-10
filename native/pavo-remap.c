@@ -724,11 +724,16 @@ static int create_virtual(void) {
     copy_capabilities(src_fd, ui_fd);
     struct uinput_setup setup;
     memset(&setup, 0, sizeof(setup));
-    setup.id.bustype = BUS_VIRTUAL;
-    setup.id.vendor = 0x2020;
-    setup.id.product = 0x0111;
-    setup.id.version = 0x0001;
-    snprintf(setup.name, sizeof(setup.name), "Aurora Virtual Controller");
+    // Present the remapped controller as a common Xbox pad. Games that
+    // whitelist controller names/IDs then accept the virtual device, while
+    // the private physical path lets our own scanner skip it.
+    setup.id.bustype = BUS_USB;
+    setup.id.vendor = 0x045e;
+    setup.id.product = 0x0b13;
+    setup.id.version = 0x0903;
+    snprintf(setup.name, sizeof(setup.name), "Xbox Wireless Controller");
+    char phys[] = "pavo-remap";
+    ioctl(ui_fd, UI_SET_PHYS, phys);
     if (ioctl(ui_fd, UI_DEV_SETUP, &setup) < 0
             || ioctl(ui_fd, UI_DEV_CREATE) < 0) {
         close(ui_fd);
@@ -738,28 +743,58 @@ static int create_virtual(void) {
     return 1;
 }
 
+static int event_node(const char *handlers, char *out, size_t out_size) {
+    if (!handlers || !handlers[0]) return 0;
+    char copy[256];
+    snprintf(copy, sizeof(copy), "%s", handlers);
+    char *save = NULL;
+    for (char *token = strtok_r(copy, " \t", &save);
+         token != NULL;
+         token = strtok_r(NULL, " \t", &save)) {
+        if (!strncmp(token, "event", 5)) {
+            snprintf(out, out_size, "/dev/input/%s", token);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static int find_default_device(char *out, size_t out_size) {
-    FILE *f = popen("getevent -lp 2>/dev/null", "r");
+    FILE *f = fopen("/proc/bus/input/devices", "r");
     if (!f) return 0;
     char line[512];
-    char current[256] = {0};
+    char name[256] = {0};
+    char phys[256] = {0};
+    char handlers[256] = {0};
     int found = 0;
     while (fgets(line, sizeof(line), f)) {
         char *t = trim(line);
-        if (!strncmp(t, "add device", 10)) {
-            char *slash = strchr(t, '/');
-            if (slash) snprintf(current, sizeof(current), "%s", slash);
-        } else if (!strncmp(t, "name:", 5) && current[0]) {
-            char *name = trim(t + 5);
-            if (strcasestr(name, "odin controller")
-                    || (strcasestr(name, "controller") && !strcasestr(name, "aurora"))) {
-                snprintf(out, out_size, "%s", current);
-                found = 1;
-                break;
+        if (!*t) {
+            if (name[0] && handlers[0]
+                    && !strcasestr(phys, "pavo-remap")
+                    && !strcasestr(name, "aurora")
+                    && (strcasestr(name, "odin controller")
+                        || strcasestr(name, "controller"))) {
+                found = event_node(handlers, out, out_size);
+                if (found) break;
             }
+            name[0] = phys[0] = handlers[0] = 0;
+        } else if (!strncmp(t, "N: Name=", 8)) {
+            snprintf(name, sizeof(name), "%s", trim(t + 8));
+        } else if (!strncmp(t, "P: Phys=", 8)) {
+            snprintf(phys, sizeof(phys), "%s", trim(t + 8));
+        } else if (!strncmp(t, "H: Handlers=", 12)) {
+            snprintf(handlers, sizeof(handlers), "%s", trim(t + 12));
         }
     }
-    pclose(f);
+    if (!found && name[0] && handlers[0]
+            && !strcasestr(phys, "pavo-remap")
+            && !strcasestr(name, "aurora")
+            && (strcasestr(name, "odin controller")
+                || strcasestr(name, "controller"))) {
+        found = event_node(handlers, out, out_size);
+    }
+    fclose(f);
     return found;
 }
 

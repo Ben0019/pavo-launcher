@@ -120,6 +120,7 @@ public final class JoystickActivity extends PavoGlassActivity {
     private ProgressBar guideBar;
     private TextView guideText;
     private TextView autoChip;
+    private TextView bypassChip;
     private final TextView[] presetChips = new TextView[5];
     private static final String[] PRESET_KEYS =
             {"LINEAR", "SMOOTH", "PRECISE", "FAST", "RACING"};
@@ -188,7 +189,10 @@ public final class JoystickActivity extends PavoGlassActivity {
         PavoA11yService.setRemapUiActive(false);
         PavoInputService.setRemapUiActive(false);
         if (remapWasEnabled || calibrationApplied) {
-            ControllerRemapManager.ensureStarted(this);
+            ControllerProfiles.sync(this);
+            if (!ControllerProfiles.bypassActive) {
+                ControllerRemapManager.ensureStarted(this);
+            }
         }
     }
 
@@ -945,6 +949,27 @@ public final class JoystickActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         autoLp.rightMargin = dp(6);
         statusRow.addView(autoChip, autoLp);
+
+        bypassChip = text("BYPASS", 8.5f, MUTED, true);
+        bypassChip.setPadding(dp(8), dp(4), dp(8), dp(4));
+        bypassChip.setFocusable(true);
+        bypassChip.setDefaultFocusHighlightEnabled(false);
+        bypassChip.setVisibility(View.GONE);
+        bypassChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Haptics.click(v);
+                toggleBypass();
+            }
+        });
+        bypassChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean focused) {
+                updateBypassChip();
+            }
+        });
+        tapClicks(bypassChip);
+        addNav(bypassChip);
+        statusRow.addView(bypassChip);
+
         LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         statusLp.bottomMargin = dp(4);
@@ -1065,6 +1090,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         updateLayerChip();
         updatePresetChips();
         updateAutoChip();
+        updateBypassChip();
         ensureExpertForValues();
         applyExpertLimits();
         updateExpertChip();
@@ -1546,10 +1572,12 @@ public final class JoystickActivity extends PavoGlassActivity {
     private final Runnable healthTick = new Runnable() {
         @Override public void run() {
             if (isFinishing() || isDestroyed()) return;
-            if (stickEnabled && !ControllerRemapManager.isRunning(JoystickActivity.this)) {
+            if (stickEnabled && !ControllerProfiles.bypassActive
+                    && !ControllerRemapManager.isRunning(JoystickActivity.this)) {
                 ControllerRemapManager.start(JoystickActivity.this, null);
             }
             updateStatus();
+            updateBypassChip();
             handler.postDelayed(this, 2000L);
         }
     };
@@ -1620,6 +1648,7 @@ public final class JoystickActivity extends PavoGlassActivity {
         updateLayerChip();
         updatePresetChips();
         updateAutoChip();
+        updateBypassChip();
         ensureExpertForValues();
         applyExpertLimits();
         updateExpertChip();
@@ -1787,6 +1816,32 @@ public final class JoystickActivity extends PavoGlassActivity {
                     ? Ui.rounded(0x1EFFFFFF, dp(9), 0xE6FFFFFF, dp(1.5f))
                     : Ui.rounded(0x1EFFFFFF, dp(9), 0x33FFFFFF, dp(1)));
         }
+    }
+
+    private void updateBypassChip() {
+        if (bypassChip == null) return;
+        boolean show = targetPkg != null && !targetPkg.isEmpty();
+        bypassChip.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+        boolean on = prefs.controllerBypass(targetPkg);
+        boolean focused = bypassChip.hasFocus();
+        bypassChip.setTextColor(on ? 0xFFFFC857 : MUTED);
+        if (on) {
+            bypassChip.setBackground(focused
+                    ? Ui.rounded(0x26FFC857, dp(9), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1EFFC857, dp(9), 0x44FFC857, dp(1)));
+        } else {
+            bypassChip.setBackground(focused
+                    ? Ui.rounded(0x1EFFFFFF, dp(9), 0xE6FFFFFF, dp(1.5f))
+                    : Ui.rounded(0x1EFFFFFF, dp(9), 0x33FFFFFF, dp(1)));
+        }
+    }
+
+    private void toggleBypass() {
+        if (targetPkg == null || targetPkg.isEmpty()) return;
+        prefs.setControllerBypass(targetPkg, !prefs.controllerBypass(targetPkg));
+        ControllerProfiles.markDirty();
+        updateBypassChip();
     }
 
     private void updateStickTabs() {

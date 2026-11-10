@@ -198,6 +198,34 @@ final class Prefs {
     boolean soundStatusVisible() { return sp.getBoolean("sound_status", true); }
     boolean controllerRemapEnabled() { return sp.getBoolean("remap_enabled", false); }
     boolean controllerStickAutoApp() { return sp.getBoolean("controller_auto_app", true); }
+
+    private static final String KEY_CONTROLLER_BYPASS = "controller_bypass_apps";
+
+    java.util.Set<String> controllerBypassApps() {
+        java.util.Set<String> stored = sp.getStringSet(KEY_CONTROLLER_BYPASS,
+                java.util.Collections.emptySet());
+        return new java.util.HashSet<>(stored);
+    }
+
+    boolean hasControllerBypassApps() {
+        return !sp.getStringSet(KEY_CONTROLLER_BYPASS,
+                java.util.Collections.emptySet()).isEmpty();
+    }
+
+    boolean controllerBypass(String pkg) {
+        return pkg != null && !pkg.isEmpty()
+                && sp.getStringSet(KEY_CONTROLLER_BYPASS,
+                        java.util.Collections.emptySet()).contains(pkg);
+    }
+
+    void setControllerBypass(String pkg, boolean on) {
+        if (pkg == null || pkg.isEmpty()) return;
+        java.util.Set<String> apps = controllerBypassApps();
+        boolean changed = on ? apps.add(pkg) : apps.remove(pkg);
+        if (changed) {
+            sp.edit().putStringSet(KEY_CONTROLLER_BYPASS, apps).apply();
+        }
+    }
     boolean stickExpert() { return sp.getBoolean("stick_expert", false); }
     void setStickExpert(boolean value) {
         sp.edit().putBoolean("stick_expert", value).apply();

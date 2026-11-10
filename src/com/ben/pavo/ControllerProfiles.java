@@ -10,18 +10,33 @@ final class ControllerProfiles {
 
     /** True while Controller Remapper is open, so editing is not overwritten. */
     static volatile boolean activityOpen;
+    /** True while the foreground app asked for a direct physical controller. */
+    static volatile boolean bypassActive;
+    static volatile String bypassPkg = "";
     private static volatile boolean dirty = true;
     private static String lastKey = "";
     private static long lastRequestAt;
 
     private ControllerProfiles() {}
 
+    private static void updateBypass(Context c, String foreground) {
+        boolean bypass = foreground != null && new Prefs(c).controllerBypass(foreground);
+        boolean was = bypassActive;
+        bypassActive = bypass;
+        bypassPkg = bypass ? foreground : "";
+        if (bypass) {
+            if (ControllerRemapManager.isRunning(c)) ControllerRemapManager.stop(c);
+        } else if (was) {
+            ControllerRemapManager.ensureStarted(c);
+        }
+    }
+
     static void markDirty() {
         dirty = true;
     }
 
     static void sync(Context context) {
-        if (context == null || activityOpen) return;
+        if (context == null) return;
         Context c = context.getApplicationContext();
         // The accessibility service is direct-boot aware and starts before the
         // user unlocks; credential-encrypted prefs throw until then. The 1.2 s
@@ -29,6 +44,12 @@ final class ControllerProfiles {
         android.os.UserManager um =
                 (android.os.UserManager) c.getSystemService(Context.USER_SERVICE);
         if (um != null && !um.isUserUnlocked()) return;
+        if (activityOpen) {
+            // Editing a controller screen needs the daemon even if the app that
+            // was in front asked for a bypass. Re-evaluate when it closes.
+            updateBypass(c, null);
+            return;
+        }
         ControllerProfileStore store = new ControllerProfileStore(c);
         // App profiles need a fresh foreground snapshot. Other services only
         // refresh it while their own per-app features are active, so request it
@@ -40,7 +61,10 @@ final class ControllerProfiles {
                 ForegroundApp.request(c);
             }
         }
-        String pkg = ForegroundApp.read(c);
+        String foreground = ForegroundApp.read(c);
+        if (foreground != null && foreground.equals(c.getPackageName())) foreground = null;
+        updateBypass(c, foreground);
+        String pkg = foreground;
         // Auto-switch is optional: when off, the global profile keeps applying
         // to every app, including the stick tuning stored with it.
         if (!new Prefs(c).controllerStickAutoApp()) pkg = null;
