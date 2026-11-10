@@ -395,22 +395,26 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     }
 
     private void addPresetRows(LinearLayout body) {
+        final int columns = 9;
         LinearLayout row = null;
         for (int i = 0; i < PRESET_NAMES.length; i++) {
-            if (i % 3 == 0) {
+            if (i % columns == 0) {
                 row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
                 LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                if (i > 0) rlp.topMargin = dp(5);
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+                if (i > 0) rlp.topMargin = dp(3);
                 body.addView(row, rlp);
             }
             final int preset = i;
-            TextView chip = text(Loc.s(this, PRESET_NAMES[i]), 9f, TEXT, true);
+            TextView chip = text(Loc.s(this, PRESET_NAMES[i]), 8f, TEXT, true);
             chip.setGravity(Gravity.CENTER);
+            chip.setSingleLine(true);
+            chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
             chip.setFocusable(true);
-            chip.setFocusable(true);
-            chip.setPadding(dp(4), dp(7), dp(4), dp(7));
+            chip.setDefaultFocusHighlightEnabled(false);
+            chip.setPadding(dp(2), dp(4), dp(2), dp(4));
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -424,7 +428,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 @Override
                 public void onFocusChange(View v, boolean hasFocus) {
                     if (hasFocus) {
-                        v.setBackground(Ui.rounded(0x26FFFFFF, dp(10), accent, dp(1)));
+                        v.setBackground(Ui.rounded(0x26FFFFFF, dp(9), accent, dp(1)));
                     } else {
                         updatePresetSelection();
                     }
@@ -445,8 +449,9 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 });
             }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            lp.rightMargin = (i % 3 != 2) ? dp(4) : 0;
+                    0, dp(24), 1f);
+            lp.rightMargin = (i % columns != columns - 1
+                    && i != PRESET_NAMES.length - 1) ? dp(3) : 0;
             row.addView(chip, lp);
             presetChips.add(chip);
         }
