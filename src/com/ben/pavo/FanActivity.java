@@ -472,12 +472,13 @@ public final class FanActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
 
         // The graph gets the full width and its own card.
-        LinearLayout curveCard = card(content, "FAN CURVE", "");
+        LinearLayout curveCard = card(content, "", "");
         LinearLayout.LayoutParams curveLp = (LinearLayout.LayoutParams) curveCard.getLayoutParams();
         curveLp.height = 0;
         curveLp.weight = 1f;
         curveLp.topMargin = 0;
         curveCard.setLayoutParams(curveLp);
+        curveCard.setPadding(0, 0, 0, 0);
         curveView = new FanCurveView(this);
         curveView.setCurve(displayedCurve());
         curveView.setListener(new FanCurveView.Listener() {
@@ -548,7 +549,7 @@ public final class FanActivity extends PavoGlassActivity {
         rightLp.leftMargin = dp(5);
         bottom.addView(right, rightLp);
 
-        LinearLayout controlsCard = card(left, "FAN RESPONSE", "");
+        LinearLayout controlsCard = card(left, "", "");
         LinearLayout.LayoutParams controlsLp =
                 (LinearLayout.LayoutParams) controlsCard.getLayoutParams();
         controlsLp.topMargin = dp(0);
@@ -570,10 +571,6 @@ public final class FanActivity extends PavoGlassActivity {
         sourceRow.addView(srcInfo);
         controlsCard.addView(sourceRow);
 
-        TextView responseLabel = text("FAN RESPONSE", 8.5f, MUTED, true);
-        responseLabel.setLetterSpacing(0.08f);
-        responseLabel.setPadding(0, dp(5), 0, dp(2));
-        curveCard.addView(responseLabel);
         LinearLayout responseRow = new LinearLayout(this);
         responseRow.setOrientation(LinearLayout.HORIZONTAL);
         controlsCard.addView(responseRow, new LinearLayout.LayoutParams(
@@ -1170,10 +1167,12 @@ public final class FanActivity extends PavoGlassActivity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(14), dp(9), dp(14), dp(9));
         box.setBackground(Ui.rounded(CARD_FILL, dp(18), CARD_BORDER, dp(1)));
-        TextView t = text(title, 10.5f, accent, true);
-        t.setLetterSpacing(0.12f);
-        t.setPadding(2, 0, 2, 0);
-        box.addView(t);
+        if (title != null && !title.isEmpty()) {
+            TextView t = text(title, 10.5f, accent, true);
+            t.setLetterSpacing(0.12f);
+            t.setPadding(2, 0, 2, 0);
+            box.addView(t);
+        }
         if (hint != null && !hint.isEmpty()) {
             TextView h = text(hint, 9.5f, MUTED, false);
             h.setPadding(2, dp(2), 2, dp(5));

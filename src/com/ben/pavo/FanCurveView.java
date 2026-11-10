@@ -142,10 +142,10 @@ final class FanCurveView extends View {
     }
 
     private void layoutPlot() {
-        float left = Ui.dpf(getContext(), 36);
-        float top = Ui.dpf(getContext(), 12);
-        float right = getWidth() - Ui.dpf(getContext(), 18);
-        float bottom = getHeight() - Ui.dpf(getContext(), 30);
+        float left = Ui.dpf(getContext(), 30);
+        float top = Ui.dpf(getContext(), 6);
+        float right = getWidth() - Ui.dpf(getContext(), 10);
+        float bottom = getHeight() - Ui.dpf(getContext(), 22);
         plot.set(left, top, Math.max(left + 1, right), Math.max(top + 1, bottom));
     }
 
