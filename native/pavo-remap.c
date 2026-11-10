@@ -105,6 +105,7 @@ static int server_fd = -1;
 static int client_fd = -1;
 static int swallow_all;
 static int swallow_l3r3;
+static int l3r3_marker;
 static int socket_enabled;
 static int passthrough;
 static char socket_name[108];
@@ -114,6 +115,7 @@ static char config_path[512];
 static char pid_path[512];
 static char device[256];
 static char park_path[512];
+static char l3r3_path[512];
 static int stick_active[2];
 static char trace_path[512];
 static dev_t src_dev_id;
@@ -405,7 +407,7 @@ static void release_individual(int key, int quick_tap) {
 static void on_key(int code, int value) {
     if (code < 0 || code > KEY_MAX) return;
     socket_send_key(code, value);
-    if (swallow_l3r3 && (code == 317 || code == 318)) {
+    if ((swallow_l3r3 || l3r3_marker) && (code == 317 || code == 318)) {
         pressed[code] = 0;
         return;
     }
@@ -1010,6 +1012,7 @@ static void derive_side_path(char *out, size_t size, const char *name) {
 
 static void derive_park_path(void) {
     derive_side_path(park_path, sizeof(park_path), "controller-passthrough");
+    derive_side_path(l3r3_path, sizeof(l3r3_path), "controller-l3r3-swallow");
     derive_side_path(trace_path, sizeof(trace_path), "controller-trace");
 }
 
@@ -1125,6 +1128,15 @@ int main(int argc, char **argv) {
             next_config_check = now_ms + CONFIG_POLL_MS;
         }
         update_grab();
+        int marker = l3r3_path[0] && access(l3r3_path, F_OK) == 0;
+        if (marker != l3r3_marker) {
+            l3r3_marker = marker;
+            if (marker) {
+                pressed[317] = 0;
+                pressed[318] = 0;
+                release_all_targets();
+            }
+        }
         if (now_ms >= next_source_check) {
             next_source_check = now_ms + 1000;
             if (!source_alive() && reconnect_source()) {

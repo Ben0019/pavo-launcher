@@ -1419,6 +1419,7 @@ public final class PavoInputService extends Service {
         drawerOverlay = view;
         drawerOverlayParams = lp;
         drawerOverlayVisible = true;
+        ControllerRemapManager.setDrawerL3R3Blocked(this, true);
         TouchMapService.notifyModalOverlayChanged();
         view.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
             @Override
@@ -1482,6 +1483,7 @@ public final class PavoInputService extends Service {
         drawerOverlay = null;
         drawerOverlayParams = null;
         drawerOverlayVisible = false;
+        ControllerRemapManager.setDrawerL3R3Blocked(this, false);
         drawerOpening = false;
         TouchMapService.notifyModalOverlayChanged();
         drawerMapperMode = false;

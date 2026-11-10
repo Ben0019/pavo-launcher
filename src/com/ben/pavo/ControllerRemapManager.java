@@ -40,6 +40,26 @@ final class ControllerRemapManager {
     private ControllerRemapManager() {
     }
 
+    /** Marker read by the daemon to hide L3/R3 from the firmware mouse layer. */
+    static File l3r3MarkerFile(Context c) {
+        return new File(c.getFilesDir(), "controller-l3r3-swallow");
+    }
+
+    static void setDrawerL3R3Blocked(Context c, boolean blocked) {
+        if (c == null) return;
+        try {
+            File marker = l3r3MarkerFile(c);
+            if (blocked) {
+                marker.getParentFile().mkdirs();
+                if (!marker.exists()) new FileOutputStream(marker).close();
+            } else if (marker.exists() && !marker.delete()) {
+                Log.w(TAG, "could not clear " + marker);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "could not update L3/R3 marker", t);
+        }
+    }
+
     static File configFile(Context c) {
         return new File(c.getFilesDir(), CONFIG);
     }
