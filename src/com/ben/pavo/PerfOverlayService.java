@@ -1384,36 +1384,15 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
             return new int[]{Math.round(baseWidthPx * scale),
                     Math.round(baseHeightPx * scale), Math.round(scale * 1000f)};
         }
-        // Prefer the detailed single column. Only when it would grow past
-        // 70% of the display height do we try the denser two-column layout,
-        // and only if that can stay inside the 42% width guard.
-        panel.setColumns(1);
         panel.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         int nw = Math.max(Ui.dp(uiContext, 96), panel.getMeasuredWidth());
         int nh = Math.max(Ui.dp(uiContext, 40), panel.getMeasuredHeight());
-        float maxW = screenWidthPx() * 0.42f;
-        float maxH = screenHeightPx() * 0.70f;
-        float fit = Math.max(0.55f, Math.min(1.8f, Math.min(maxW / nw, maxH / nh)));
-        float requested = Math.max(desiredScale, prefs.perfOverlayScale());
-        requested = Math.max(0.55f, Math.min(1.8f, requested));
-        if (nh * requested > maxH) {
-            panel.setColumns(2);
-            panel.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-            int nw2 = Math.max(Ui.dp(uiContext, 96), panel.getMeasuredWidth());
-            int nh2 = Math.max(Ui.dp(uiContext, 40), panel.getMeasuredHeight());
-            float fit2 = Math.max(0.55f,
-                    Math.min(1.8f, Math.min(maxW / nw2, maxH / nh2)));
-            // Do not shrink the type drastically just to gain two columns.
-            if (fit2 >= 0.55f && fit2 >= fit * 0.82f) {
-                nw = nw2;
-                nh = nh2;
-                fit = fit2;
-            } else {
-                panel.setColumns(1);
-            }
-        }
+        // Keep the panel to a sensible share of a handheld display: wide
+        // enough for the ledger, never so tall that it swallows the game.
+        float fitW = (screenWidthPx() * 0.42f) / (float) nw;
+        float fitH = (screenHeightPx() * 0.70f) / (float) nh;
+        float fit = Math.max(0.55f, Math.min(1.8f, Math.min(fitW, fitH)));
         if (scale > fit) scale = fit;
         FrameLayout.LayoutParams plp = panel.getLayoutParams()
                 instanceof FrameLayout.LayoutParams

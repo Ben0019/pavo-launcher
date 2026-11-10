@@ -811,11 +811,6 @@ final class PerfOverlayView extends LinearLayout {
         return getMeasuredWidth();
     }
 
-    /** Ask the Fusion panel for the detailed or dense column layout. */
-    void setColumns(int columns) {
-        if (fusion != null) fusion.setColumns(columns);
-    }
-
     boolean graphShown() {
         if (fusion != null) return fusion.graphShown();
         return graph != null && graph.getVisibility() == View.VISIBLE;
