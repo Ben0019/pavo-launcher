@@ -410,7 +410,8 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 @Override
                 public void onClick(View v) {
                     Haptics.click(v);
-                    AudioEq.setBands(SoundTunerActivity.this, PRESET_LEVELS[preset]);
+                    AudioEq.setBands(SoundTunerActivity.this,
+                            AudioEq.expandFive(PRESET_LEVELS[preset]));
                     AudioEq.setEnabled(SoundTunerActivity.this, true);
                     refresh();
                 }
@@ -487,7 +488,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
     private void updatePresetSelection() {
         int[] levels = currentLevels();
         for (int i = 0; i < presetChips.size(); i++) {
-            boolean selected = matches(levels, PRESET_LEVELS[i]);
+            boolean selected = matches(levels, AudioEq.expandFive(PRESET_LEVELS[i]));
             TextView chip = presetChips.get(i);
             if (chip.hasFocus() && selected) {
                 chip.setBackground(Ui.rounded(accent, dp(10), accent, dp(1)));

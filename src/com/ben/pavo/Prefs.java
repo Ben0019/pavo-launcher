@@ -365,10 +365,23 @@ final class Prefs {
     boolean perfCores() { return sp.getBoolean("perf_cores", true); }
 
     // System-wide five-band equalizer.
-    static final int EQ_BANDS = 5;
+    static final int EQ_BANDS = 10;
     boolean eqEnabled() { return sp.getBoolean("eq_enabled", false); }
     int eqBand(int index) {
         return clamp(sp.getInt("eq_band" + clamp(index, 0, EQ_BANDS - 1), 0), -1200, 1200);
+    }
+
+    /** One-time redistribution of the old five-band curve onto ten bands. */
+    void migrateEqBands() {
+        if (sp.getBoolean("eq_bands10", false)) return;
+        int[] old = new int[AudioEq.OLD_FREQ_HZ.length];
+        for (int i = 0; i < old.length; i++) old[i] = eqBand(i);
+        int[] expanded = AudioEq.expandFive(old);
+        SharedPreferences.Editor editor = sp.edit();
+        for (int i = 0; i < EQ_BANDS; i++) {
+            editor.putInt("eq_band" + i, expanded[i]);
+        }
+        editor.putBoolean("eq_bands10", true).apply();
     }
     String perfControllerRaw() {
         return sp.getString("perf_controller_raw", DEFAULT_CONTROLLER_RAW);

@@ -11,7 +11,11 @@ import android.media.audiofx.DynamicsProcessing;
  * applies to the live output mix.
  */
 final class AudioEq {
-    private static final float[] FREQ_HZ = {60f, 230f, 910f, 3600f, 14000f};
+    /** Standard ten-band graphic equalizer. */
+    private static final float[] FREQ_HZ = {
+            31f, 62f, 125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f};
+    /** Frequencies used by the original five-band build, for migration. */
+    static final int[] OLD_FREQ_HZ = {60, 230, 910, 3600, 14000};
     private static final int BANDS = FREQ_HZ.length;
     private static final float MAX_GAIN_DB = 12f;
     private static final int CHANNELS = 2;
@@ -62,6 +66,31 @@ final class AudioEq {
         return Math.round(MAX_GAIN_DB * 100f);
     }
 
+    /** Expands a five-band preset/curve onto the ten-band frequency grid. */
+    static int[] expandFive(int[] five) {
+        int[] out = new int[BANDS];
+        if (five == null || five.length == 0) return out;
+        for (int i = 0; i < BANDS; i++) {
+            float f = FREQ_HZ[i];
+            if (f <= OLD_FREQ_HZ[0]) {
+                out[i] = five[0];
+                continue;
+            }
+            if (f >= OLD_FREQ_HZ[OLD_FREQ_HZ.length - 1]) {
+                out[i] = five[five.length - 1];
+                continue;
+            }
+            int lo = 0;
+            while (lo < OLD_FREQ_HZ.length - 2 && f > OLD_FREQ_HZ[lo + 1]) lo++;
+            float a = (float) Math.log(OLD_FREQ_HZ[lo]);
+            float b = (float) Math.log(OLD_FREQ_HZ[lo + 1]);
+            float t = ((float) Math.log(f) - a) / Math.max(0.0001f, b - a);
+            t = Math.max(0f, Math.min(1f, t));
+            out[i] = Math.round(five[lo] + (five[lo + 1] - five[lo]) * t);
+        }
+        return out;
+    }
+
     static synchronized int centerHz(Context c, int band) {
         if (band < 0 || band >= BANDS) return 0;
         return Math.round(FREQ_HZ[band]);
@@ -90,6 +119,7 @@ final class AudioEq {
     }
 
     static synchronized void apply(Context c) {
+        if (c != null) new Prefs(c).migrateEqBands();
         if (!available(c)) return;
         Prefs p = new Prefs(c);
         try {
