@@ -1957,6 +1957,33 @@ public final class JoystickActivity extends PavoGlassActivity {
             finishAnimated();
             return true;
         }
+        if (code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_DPAD_CENTER
+                || code == KeyEvent.KEYCODE_ENTER) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN
+                    && event.getRepeatCount() == 0) {
+                View focused = getCurrentFocus();
+                if (focused != null && !(focused instanceof SeekBar)
+                        && focused.isLongClickable()) {
+                    navPressTarget = focused;
+                    navLongFired = false;
+                    handler.removeCallbacks(navLongPress);
+                    handler.postDelayed(navLongPress,
+                            android.view.ViewConfiguration.getLongPressTimeout());
+                    return true;
+                }
+            } else if (event.getAction() == KeyEvent.ACTION_UP
+                    && navPressTarget != null) {
+                handler.removeCallbacks(navLongPress);
+                View target = navPressTarget;
+                navPressTarget = null;
+                if (!navLongFired) {
+                    Haptics.click(target);
+                    target.performClick();
+                }
+                navLongFired = false;
+                return true;
+            }
+        }
         if (controller != null && controller.dispatchKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
     }
