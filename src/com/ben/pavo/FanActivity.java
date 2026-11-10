@@ -466,27 +466,13 @@ public final class FanActivity extends PavoGlassActivity {
         column.addView(divider, dlp);
 
         LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.HORIZONTAL);
+        content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.TOP);
         LinearLayout.LayoutParams contentLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
 
-        LinearLayout left = new LinearLayout(this);
-        left.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 1.12f);
-        leftLp.rightMargin = dp(5);
-        content.addView(left, leftLp);
-
-        LinearLayout right = new LinearLayout(this);
-        right.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 1.08f);
-        rightLp.leftMargin = dp(5);
-        content.addView(right, rightLp);
-
-        // The graph now occupies the large left area where the outline used to be.
-        LinearLayout curveCard = card(left, "FAN CURVE", "");
+        // The graph gets the full width and its own card.
+        LinearLayout curveCard = card(content, "FAN CURVE", "");
         LinearLayout.LayoutParams curveLp = (LinearLayout.LayoutParams) curveCard.getLayoutParams();
         curveLp.height = 0;
         curveLp.weight = 1f;
@@ -539,6 +525,35 @@ public final class FanActivity extends PavoGlassActivity {
         });
         curveCard.addView(curveView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.HORIZONTAL);
+        bottom.setGravity(Gravity.TOP);
+        LinearLayout.LayoutParams bottomLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        bottomLp.topMargin = dp(5);
+        content.addView(bottom, bottomLp);
+
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.12f);
+        leftLp.rightMargin = dp(5);
+        bottom.addView(left, leftLp);
+
+        LinearLayout right = new LinearLayout(this);
+        right.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.08f);
+        rightLp.leftMargin = dp(5);
+        bottom.addView(right, rightLp);
+
+        LinearLayout controlsCard = card(left, "FAN RESPONSE", "");
+        LinearLayout.LayoutParams controlsLp =
+                (LinearLayout.LayoutParams) controlsCard.getLayoutParams();
+        controlsLp.topMargin = dp(0);
+        controlsCard.setPadding(dp(14), dp(7), dp(14), dp(7));
+
         LinearLayout sourceRow = new LinearLayout(this);
         sourceRow.setOrientation(LinearLayout.HORIZONTAL);
         sourceRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -553,7 +568,7 @@ public final class FanActivity extends PavoGlassActivity {
         srcInfo = text("", 8.2f, MUTED, false);
         srcInfo.setPadding(dp(7), 0, 0, 0);
         sourceRow.addView(srcInfo);
-        curveCard.addView(sourceRow);
+        controlsCard.addView(sourceRow);
 
         TextView responseLabel = text("FAN RESPONSE", 8.5f, MUTED, true);
         responseLabel.setLetterSpacing(0.08f);
@@ -561,7 +576,7 @@ public final class FanActivity extends PavoGlassActivity {
         curveCard.addView(responseLabel);
         LinearLayout responseRow = new LinearLayout(this);
         responseRow.setOrientation(LinearLayout.HORIZONTAL);
-        curveCard.addView(responseRow, new LinearLayout.LayoutParams(
+        controlsCard.addView(responseRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         addResponseChip(responseRow, "FAST", FanCurveController.RESPONSE_FAST);
         addResponseChip(responseRow, "BALANCED", FanCurveController.RESPONSE_BALANCED);
@@ -571,7 +586,7 @@ public final class FanActivity extends PavoGlassActivity {
 
         curveHint = text("", 9f, MUTED, false);
         curveHint.setPadding(dp(2), dp(4), dp(2), 0);
-        curveCard.addView(curveHint);
+        controlsCard.addView(curveHint);
 
         // Target-temperature control for HOLD. Hidden unless HOLD is selected.
         int holdColor = 0xFF4DD0E1;
@@ -709,78 +724,22 @@ public final class FanActivity extends PavoGlassActivity {
             }
         });
         holdRow.setVisibility(View.GONE);
-        curveCard.addView(holdRow);
+        controlsCard.addView(holdRow);
 
-        // Rear outline tucked into the card's top-right corner.
-        FrameLayout outlineHolder = new FrameLayout(this);
-        boolean tight = Ui.widthDp(this) < 700;
-        LinearLayout.LayoutParams holderLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(tight ? 150 : 175));
-        right.addView(outlineHolder, holderLp);
-        backView = new FanBackView(this);
-        FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        outlineHolder.addView(backView, blp);
-        demoChip = text("DEMO", 8.5f, accent, true);
-        demoChip.setGravity(Gravity.CENTER);
-        demoChip.setPadding(dp(9), dp(4), dp(9), dp(4));
-        demoChip.setContentDescription("Demo the fan airflow outline");
-        demoChip.setFocusable(true);
-        demoChip.setFocusable(true);
-        demoChip.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Haptics.click(v);
-                if (demoActive) stopFanDemo(true); else startFanDemo();
-            }
-        });
-        demoChip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View v, boolean focused) {
-                styleDemoChip();
-            }
-        });
-        FrameLayout.LayoutParams demoLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.START);
-        demoLp.topMargin = dp(2);
-        demoLp.leftMargin = dp(2);
-        outlineHolder.addView(demoChip, demoLp);
-        styleDemoChip();
-
-        // Labels and live telemetry sit directly beneath the outline.
-        LinearLayout info = new LinearLayout(this);
-        info.setOrientation(LinearLayout.VERTICAL);
-        info.setPadding(dp(2), 0, dp(2), dp(2));
-        TextView rear = text(String.format(Loc.s(this, "%s  ·  REAR"),
-                DeviceProfile.get(this).name.toUpperCase()), 10.5f, accent, true);
-        rear.setLetterSpacing(0.12f);
-        rear.setGravity(Gravity.END);
-        info.addView(rear);
-        TextView live = text("LIVE REAR AIRFLOW", 9f, MUTED, false);
-        live.setGravity(Gravity.END);
-        live.setPadding(0, dp(2), 0, 0);
-        info.addView(live);
+        LinearLayout statsCard = card(right, "STATUS", "");
+        LinearLayout.LayoutParams statsCardLp =
+                (LinearLayout.LayoutParams) statsCard.getLayoutParams();
+        statsCardLp.topMargin = dp(0);
+        statsCard.setPadding(dp(14), dp(7), dp(14), dp(7));
         LinearLayout stats = new LinearLayout(this);
         stats.setOrientation(LinearLayout.HORIZONTAL);
         stats.setGravity(Gravity.END);
-        stats.setPadding(0, dp(4), 0, 0);
         rpmValue = stat(stats, "RPM", "—", 1f);
         dutyValue = stat(stats, "SPEED", "—", 1f);
         tempValue = stat(stats, "CPU", "—", 1.0f);
         gpuValue = stat(stats, "GPU", "—", 1.0f);
-        LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        statsLp.gravity = Gravity.END;
-        info.addView(stats, statsLp);
-        LinearLayout.LayoutParams infoLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        infoLp.gravity = Gravity.END;
-        right.addView(info, infoLp);
-
-        View rightSpacer = new View(this);
-        right.addView(rightSpacer, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        statsCard.addView(stats, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout presets = card(right, "SYSTEM PRESET", "");
         LinearLayout.LayoutParams presetsLp = (LinearLayout.LayoutParams) presets.getLayoutParams();
@@ -1857,7 +1816,9 @@ public final class FanActivity extends PavoGlassActivity {
                     prefs.fanTempSource());
         }
         if (temp > 0) currentTemp = temp;
-        backView.setTelemetry(displayRpm, actualDuty, state.cpuTemp, state.gpuTemp);
+        if (backView != null) {
+            backView.setTelemetry(displayRpm, actualDuty, state.cpuTemp, state.gpuTemp);
+        }
         if (displayRpm > 0) {
             rpmValue.setText((estimated ? "~" : "") + String.format(Locale.US, "%,d", displayRpm));
             rpmValue.setContentDescription(estimated
