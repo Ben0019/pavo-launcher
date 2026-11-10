@@ -3,7 +3,9 @@ package com.ben.pavo;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.drawable.ColorDrawable;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -44,6 +46,10 @@ final class EqBandSlider extends View {
         setClickable(true);
         setFocusable(true);
         setFocusableInTouchMode(true);
+        setDefaultFocusHighlightEnabled(false);
+        // A transparent foreground stops ControllerNav adding its rectangular
+        // focus ring; this view draws a ring around the knob instead.
+        setForeground(new ColorDrawable(0x00000000));
     }
 
     void setListener(Listener listener) {
@@ -101,6 +107,20 @@ final class EqBandSlider extends View {
 
         canvas.drawCircle(cx, y, glowR(), glowPaint);
         canvas.drawCircle(cx, y, knobR, knobPaint);
+        if (hasFocus()) {
+            Paint focus = new Paint(Paint.ANTI_ALIAS_FLAG);
+            focus.setStyle(Paint.Style.STROKE);
+            focus.setStrokeWidth(Math.max(1.5f, Ui.dpf(getContext(), 1.4f)));
+            focus.setColor(0xFFFFFFFF);
+            canvas.drawCircle(cx, y, knobR * 1.9f, focus);
+        }
+    }
+
+    @Override
+    protected void onFocusChanged(boolean gainFocus, int direction,
+                                  Rect previouslyFocusedRect) {
+        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
+        invalidate();
     }
 
     @Override

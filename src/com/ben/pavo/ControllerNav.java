@@ -50,6 +50,16 @@ final class ControllerNav {
     private float sliderX;
     private boolean sliderScheduled;
     private boolean rightStickHeld;
+    private EqBandSlider eqSlider;
+    private int eqSign;
+    private long eqLastAt;
+    private final Runnable eqRepeat = new Runnable() {
+        @Override public void run() {
+            if (eqSlider == null || eqSign == 0) return;
+            eqSlider.nudge(eqSign * 30);
+            handler.postDelayed(this, 90L);
+        }
+    };
     private final Runnable sliderRepeat = new Runnable() {
         @Override public void run() {
             sliderScheduled = false;
@@ -93,11 +103,13 @@ final class ControllerNav {
             pendingDpadTask = null;
         }
         stickEngaged = false;
+        stopEqSlider();
     }
 
     /** Permanently detach (activity destruction). */
     void release() {
         cancel();
+        stopEqSlider();
         handler.removeCallbacksAndMessages(null);
     }
 
@@ -213,6 +225,7 @@ final class ControllerNav {
 
     private void focusView(View view) {
         if (view == null) return;
+        if (!(view instanceof EqBandSlider)) stopEqSlider();
         android.util.Log.d("PavoLog", "focus -> " + describe(view));
         if (!view.requestFocus()) view.requestFocusFromTouch();
         view.post(new Runnable() {
@@ -317,6 +330,15 @@ final class ControllerNav {
         if (active) lastStickMotionAt = now;
 
         View focus = currentFocus();
+        float rightY = StickScroll.rightY(event);
+        if (focus instanceof EqBandSlider) {
+            if (Math.abs(rightY) < 0.30f) {
+                stopEqSlider();
+            } else if (Math.abs(rightY) >= 0.45f) {
+                startEqSlider((EqBandSlider) focus, rightY, now);
+                return true;
+            }
+        }
         boolean sliderActive = false;
         if (focus instanceof SeekBar) {
             float rx = SliderStick.rightX(event);
@@ -363,6 +385,26 @@ final class ControllerNav {
             performMove(y > 0f ? 3 : 2);
         }
         return true;
+    }
+
+    private void startEqSlider(EqBandSlider slider, float value, long now) {
+        // ABS_RZ reports stick-up as negative; flip so up boosts the band.
+        int sign = (-value) > 0f ? 1 : -1;
+        if (slider != eqSlider || sign != eqSign) {
+            if (now - eqLastAt < 80L) return;
+            eqSlider = slider;
+            eqSign = sign;
+            eqLastAt = now;
+            slider.nudge(sign * 50);
+            handler.removeCallbacks(eqRepeat);
+            handler.postDelayed(eqRepeat, 300L);
+        }
+    }
+
+    private void stopEqSlider() {
+        handler.removeCallbacks(eqRepeat);
+        eqSlider = null;
+        eqSign = 0;
     }
 
     private void startSlider(SeekBar bar, float x) {
