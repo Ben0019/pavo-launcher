@@ -579,7 +579,7 @@ final class FusionHudRenderer {
                 float gmax = graphMax();
                 String stat = gmax - gmin < 0.15f
                         ? fmt1(gmax) + " ms"
-                        : "min " + fmt1(gmin) + "  max " + fmt1(gmax);
+                        : "min " + fmt1(gmin) + "  max " + fmt1(gmax) + " ms";
                 float sw = measure(stat, capPx);
                 placeRun(pad + innerW - sw, y - ascent(capPx),
                         listOf(span(stat, COL_DIM, capPx)));
