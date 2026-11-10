@@ -208,15 +208,20 @@ final class FanCurve {
      * ramp meant low temperatures kept the fan well under the set speed.
      */
     static String holdFlatCurve(float targetC, int dutyPct) {
-        int t = clamp(Math.round(targetC), 45, 85);
-        int d = clamp(dutyPct, 10, 100);
-        StringBuilder b = new StringBuilder();
-        b.append(t - 15).append(':').append(d);
+        int t = clamp(Math.round(targetC), 30, 95);
+        int d = clamp(dutyPct, 0, 100);
+        java.util.TreeMap<Integer, Integer> map = new java.util.TreeMap<>();
+        map.put(Math.max(30, t - 15), d);
         for (int dt = 0; dt <= 25; dt++) {
             int temp = t + dt;
             if (temp > 100) break;
             int duty = dt == 0 ? d : Math.min(100, d + dt * 5);
-            b.append(',').append(temp).append(':').append(duty);
+            map.put(temp, duty);
+        }
+        StringBuilder b = new StringBuilder();
+        for (java.util.Map.Entry<Integer, Integer> e : map.entrySet()) {
+            if (b.length() > 0) b.append(',');
+            b.append(e.getKey()).append(':').append(e.getValue());
         }
         return ensureTerminal(b.toString());
     }

@@ -23,6 +23,11 @@ final class FanCurveView extends View {
         void onCurveChanged(String curve);
     }
 
+    interface HoldListener {
+        void onHoldMoved(int temp, int duty);
+        void onHoldReleased();
+    }
+
     private static final int ACCENT = 0xFF8BE9FF;
     private static final int MUTED = 0x88FFFFFF;
 
@@ -49,6 +54,9 @@ final class FanCurveView extends View {
     private final List<int[]> points = new ArrayList<>();
     private String curve = FanCurve.DEFAULT;
     private Listener listener;
+    private HoldListener holdListener;
+    private boolean holdDraggable;
+    private boolean draggingHold;
     private int selected = 1;
     private float liveTemp = 40f;
     private int liveDuty = 30;
@@ -122,6 +130,15 @@ final class FanCurveView extends View {
 
     void setListener(Listener l) {
         listener = l;
+    }
+
+    void setHoldListener(HoldListener l) {
+        holdListener = l;
+    }
+
+    void setHoldDraggable(boolean value) {
+        holdDraggable = value;
+        if (!value) draggingHold = false;
     }
 
     void setEditable(boolean value) {
@@ -310,16 +327,26 @@ final class FanCurveView extends View {
                     tx, plot.top + Ui.dpf(getContext(), 10f), textPaint);
             textPaint.setColor(MUTED);
         }
-        if ((focused || dragging) && selected >= 0 && selected < points.size()) {
+        if ((focused || dragging || draggingHold)
+                && (draggingHold || (selected >= 0 && selected < points.size()))) {
             drawPointBubble(c);
         }
     }
 
     private void drawPointBubble(Canvas c) {
-        int[] p = points.get(selected);
-        float x = xFor(p[0]);
-        float y = yFor(p[1]);
-        String label = Loc.number(getContext(), p[0] + "°") + "  ·  " + p[1] + "%";
+        int temp;
+        int duty;
+        if (draggingHold) {
+            temp = Math.round(targetC);
+            duty = targetDuty;
+        } else {
+            int[] p = points.get(selected);
+            temp = p[0];
+            duty = p[1];
+        }
+        float x = xFor(temp);
+        float y = yFor(duty);
+        String label = Loc.number(getContext(), temp + "°") + "  ·  " + duty + "%";
         float textSize = Ui.dpf(getContext(), 9f);
         textPaint.setTextSize(textSize);
         textPaint.setTextAlign(Paint.Align.CENTER);
@@ -408,7 +435,25 @@ final class FanCurveView extends View {
                 touchY = downY;
                 touching = true;
                 dragging = false;
+                draggingHold = false;
                 longPressFired = false;
+                float holdHit = Ui.dpf(getContext(), 32f);
+                if (holdDraggable && targetDuty >= 0) {
+                    float hx = xFor(Math.round(targetC));
+                    float hy = yFor(targetDuty);
+                    float hdx = downX - hx;
+                    float hdy = downY - hy;
+                    if (hdx * hdx + hdy * hdy <= holdHit * holdHit) {
+                        draggingHold = true;
+                        requestFocus();
+                        if (getParent() != null) {
+                            getParent().requestDisallowInterceptTouchEvent(true);
+                        }
+                        cancelPointLongPress();
+                        invalidate();
+                        return true;
+                    }
+                }
                 int best = -1;
                 float bestD = Float.MAX_VALUE;
                 for (int i = 0; i < points.size(); i++) {
@@ -435,6 +480,15 @@ final class FanCurveView extends View {
             case MotionEvent.ACTION_MOVE: {
                 touchX = event.getX();
                 touchY = event.getY();
+                if (draggingHold) {
+                    int t = FanCurve.clamp(Math.round(tempFor(event.getX())), 30, 95);
+                    int d = FanCurve.clamp(Math.round(dutyFor(event.getY())), 0, 100);
+                    targetC = t;
+                    targetDuty = d;
+                    invalidate();
+                    if (holdListener != null) holdListener.onHoldMoved(t, d);
+                    return true;
+                }
                 if (longPressFired) return true;
                 float dx = event.getX() - downX;
                 float dy = event.getY() - downY;
@@ -468,6 +522,16 @@ final class FanCurveView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL: {
                 cancelPointLongPress();
+                if (draggingHold) {
+                    draggingHold = false;
+                    touching = false;
+                    if (getParent() != null) {
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                    }
+                    Haptics.click(this);
+                    if (holdListener != null) holdListener.onHoldReleased();
+                    return true;
+                }
                 dragging = false;
                 longPressFired = false;
                 touching = false;

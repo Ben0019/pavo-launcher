@@ -531,10 +531,10 @@ final class Prefs {
         sp.edit().putInt("fan_app_mode", clamp(v, 0, FanProfile.MODE_HOLD)).apply();
     }
     int fanHoldTargetC() {
-        return clamp(sp.getInt("fan_hold_target_c", 65), 45, 85);
+        return clamp(sp.getInt("fan_hold_target_c", 65), 30, 95);
     }
     void setFanHoldTargetC(int v) {
-        sp.edit().putInt("fan_hold_target_c", clamp(v, 45, 85)).apply();
+        sp.edit().putInt("fan_hold_target_c", clamp(v, 30, 95)).apply();
     }
     String fanHoldCurve() {
         return sp.getString("fan_hold_curve", null);
@@ -547,10 +547,10 @@ final class Prefs {
         sp.edit().remove("fan_hold_curve").apply();
     }
     int fanHoldDuty() {
-        return clamp(sp.getInt("fan_hold_duty", 100), 10, 100);
+        return clamp(sp.getInt("fan_hold_duty", 100), 0, 100);
     }
     void setFanHoldDuty(int v) {
-        sp.edit().putInt("fan_hold_duty", clamp(v, 10, 100)).apply();
+        sp.edit().putInt("fan_hold_duty", clamp(v, 0, 100)).apply();
     }
     void setFanManualPercent(int v) {
         sp.edit().putInt("fan_manual_percent", clamp(v, 10, 100)).apply();
