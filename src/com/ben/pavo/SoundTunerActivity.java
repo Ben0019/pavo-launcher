@@ -8,8 +8,6 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -23,7 +21,6 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.SeekBar;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -77,13 +74,12 @@ public final class SoundTunerActivity extends PavoGlassActivity {
 
     private Prefs prefs;
     private int accent;
-    private boolean updating;
     private ControllerNav nav;
 
     private TextView enableChip;
     private TextView status;
     private EqCurveView curve;
-    private final List<SeekBar> bars = new ArrayList<>();
+    private final List<EqBandSlider> sliders = new ArrayList<>();
     private final List<TextView> values = new ArrayList<>();
     private final List<TextView> presetChips = new ArrayList<>();
 
@@ -159,13 +155,13 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             return true;
         }
         View focus = getCurrentFocus();
-        if (focus instanceof SeekBar
-                && (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT)) {
+        if (focus instanceof EqBandSlider
+                && (code == KeyEvent.KEYCODE_DPAD_LEFT
+                        || code == KeyEvent.KEYCODE_DPAD_RIGHT)) {
             if (down) {
-                SeekBar bar = (SeekBar) focus;
-                int step = code == KeyEvent.KEYCODE_DPAD_RIGHT ? 100 : -100;
-                bar.setProgress(Math.max(0, Math.min(bar.getMax(), bar.getProgress() + step)));
-                Haptics.tick(bar);
+                ((EqBandSlider) focus).nudge(
+                        code == KeyEvent.KEYCODE_DPAD_RIGHT ? 50 : -50);
+                Haptics.tick(focus);
             }
             return true;
         }
@@ -247,7 +243,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
             }
         });
         LinearLayout.LayoutParams curveLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(132));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(108));
         curveLp.bottomMargin = dp(8);
         body.addView(curve, curveLp);
 
@@ -257,9 +253,7 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         int count = Math.min(Prefs.EQ_BANDS, Math.max(1, AudioEq.bandCount(this)));
         int min = AudioEq.minLevel(this);
         int max = AudioEq.maxLevel(this);
-        for (int i = 0; i < count; i++) {
-            addBandRow(body, i, min, max);
-        }
+        addVerticalBands(body, count, min, max);
 
         TextView presetsLabel = sectionLabel(Loc.s(this, "PRESETS"));
         LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
@@ -322,71 +316,60 @@ public final class SoundTunerActivity extends PavoGlassActivity {
         return v;
     }
 
-    private void addBandRow(LinearLayout body, final int index, int min, int max) {
+    private void addVerticalBands(LinearLayout body, int count, int min, int max) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(6), dp(3), dp(6), dp(3));
-        row.setBackground(Ui.rounded(0x0CFFFFFF, dp(10), 0x12FFFFFF, dp(1)));
+        row.setGravity(Gravity.TOP);
+        for (int i = 0; i < count; i++) {
+            final int index = i;
+            LinearLayout col = new LinearLayout(this);
+            col.setOrientation(LinearLayout.VERTICAL);
+            col.setGravity(Gravity.CENTER_HORIZONTAL);
+            col.setPadding(dp(1), 0, dp(1), 0);
 
-        int hz = AudioEq.centerHz(this, index);
-        if (hz <= 0) hz = new int[]{60, 230, 910, 3600, 14000}[index % 5];
-        TextView name = text(formatHz(hz), 9.5f, MUTED, true);
-        name.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-        row.addView(name, new LinearLayout.LayoutParams(dp(66),
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+            int level = prefs.eqBand(index);
+            TextView value = text(formatDb(level), 8.5f, accent, true);
+            value.setGravity(Gravity.CENTER);
+            value.setSingleLine(true);
+            col.addView(value, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        final SeekBar bar = new SeekBar(this);
-        bar.setMax(Math.max(1, max - min));
-        bar.setProgress(Math.max(0, Math.min(bar.getMax(), prefs.eqBand(index) - min)));
-        bar.setProgressTintList(ColorStateList.valueOf(accent));
-        GradientDrawable thumb = new GradientDrawable();
-        thumb.setShape(GradientDrawable.OVAL);
-        thumb.setColor(accent);
-        thumb.setSize(dp(16), dp(16));
-        bar.setThumb(thumb);
-        bar.setThumbOffset(0);
-        bar.setSplitTrack(false);
-        bar.setPadding(dp(8), dp(2), dp(8), dp(2));
-        bar.setFocusable(true);
-        bar.setFocusable(true);
-        bar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View v, boolean hasFocus) {
-                View parent = (View) v.getParent();
-                parent.setBackground(Ui.rounded(hasFocus ? 0x22FFFFFF : 0x0CFFFFFF,
-                        dp(10), hasFocus ? accent : 0x12FFFFFF, dp(1)));
-            }
-        });
-        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (updating) return;
-                int level = min + progress;
-                AudioEq.setBand(SoundTunerActivity.this, index, level);
-                values.get(index).setText(formatDb(level));
-                curve.setLevels(currentLevels(), -1200, 1200);
-                updatePresetSelection();
-            }
+            EqBandSlider slider = new EqBandSlider(this);
+            slider.setRange(min, max);
+            slider.setLevel(level);
+            slider.setAccent(accent);
+            slider.setListener(new EqBandSlider.Listener() {
+                @Override public void onLevel(int millibels, boolean released) {
+                    applyCurveLevel(index, millibels);
+                }
+            });
+            LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(110));
+            slp.topMargin = dp(4);
+            slp.bottomMargin = dp(3);
+            col.addView(slider, slp);
 
-            @Override public void onStartTrackingTouch(SeekBar seekBar) { }
+            int hz = AudioEq.centerHz(this, index);
+            if (hz <= 0) hz = new int[]{31, 62, 125, 250, 500,
+                    1000, 2000, 4000, 8000, 16000}[index % 10];
+            TextView freq = text(formatHz(hz), 8f, MUTED, true);
+            freq.setGravity(Gravity.CENTER);
+            freq.setSingleLine(true);
+            col.addView(freq, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
 
-            @Override public void onStopTrackingTouch(SeekBar seekBar) { }
-        });
-        row.addView(bar, new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView value = text(formatDb(prefs.eqBand(index)), 10f, accent, true);
-        value.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        row.addView(value, new LinearLayout.LayoutParams(dp(72),
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(4);
-        body.addView(row, lp);
-        bars.add(bar);
-        values.add(value);
+            row.addView(col, new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            sliders.add(slider);
+            values.add(value);
+        }
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        rlp.topMargin = dp(2);
+        body.addView(row, rlp);
     }
 
     private void addPresetRows(LinearLayout body) {
@@ -448,38 +431,31 @@ public final class SoundTunerActivity extends PavoGlassActivity {
                 : "Equalizer unavailable on this device."));
         status.setTextColor(available ? MUTED : 0xFFFF8A80);
 
-        updating = true;
-        int min = AudioEq.minLevel(this);
-        int max = AudioEq.maxLevel(this);
-        int count = Math.min(bars.size(), AudioEq.bandCount(this));
+        int count = Math.min(sliders.size(), AudioEq.bandCount(this));
         for (int i = 0; i < count; i++) {
             int level = prefs.eqBand(i);
-            bars.get(i).setProgress(Math.max(0, Math.min(bars.get(i).getMax(), level - min)));
+            sliders.get(i).setLevel(level);
             values.get(i).setText(formatDb(level));
         }
         curve.setLevels(currentLevels(), -1200, 1200);
-        updating = false;
         updatePresetSelection();
-        for (SeekBar bar : bars) bar.setEnabled(available);
+        for (EqBandSlider slider : sliders) slider.setEnabled(available);
     }
 
     private void applyCurveLevel(int index, int level) {
-        if (index < 0 || index >= bars.size()) return;
+        if (index < 0 || index >= sliders.size()) return;
         int min = AudioEq.minLevel(this);
         int max = AudioEq.maxLevel(this);
         level = Math.max(min, Math.min(max, level));
         AudioEq.setBand(this, index, level);
-        updating = true;
-        bars.get(index).setProgress(Math.max(0,
-                Math.min(bars.get(index).getMax(), level - min)));
-        updating = false;
+        sliders.get(index).setLevel(level);
         values.get(index).setText(formatDb(level));
         curve.setLevels(currentLevels(), -1200, 1200);
         updatePresetSelection();
     }
 
     private int[] currentLevels() {
-        int count = bars.size();
+        int count = sliders.size();
         int[] levels = new int[count];
         for (int i = 0; i < count; i++) levels[i] = prefs.eqBand(i);
         return levels;
