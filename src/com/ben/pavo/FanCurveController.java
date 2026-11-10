@@ -14,20 +14,20 @@ package com.ben.pavo;
 final class FanCurveController {
 
     /** Rise time constant. A sustained heat step is ~95 % applied in four seconds. */
-    static final float ATTACK_SEC = 1.2f;
+    static final float ATTACK_SEC = 2.0f;
     /** Rise constant for Smart, which is expected to answer within a second. */
-    static final float FAST_ATTACK_SEC = 0.6f;
+    static final float FAST_ATTACK_SEC = 1.2f;
     /** Fall time constant. Holds the blower up while the heatsink is still hot. */
     static final float RELEASE_SEC = 10f;
     /** Target changes below this many percentage points are not worth a write. */
-    static final int DEADBAND = 2;
+    static final int DEADBAND = 3;
     /** Downward slew limit, percentage points per second. */
     static final float FALL_LIMIT = 5f;
     /** Faster release/drop for HOLD when the target is comfortably undershot. */
     static final float HOLD_RELEASE_SEC = 3f;
     static final float HOLD_FALL_LIMIT = 12f;
     /** Upward slew limit, percentage points per second. */
-    static final float RISE_LIMIT = 60f;
+    static final float RISE_LIMIT = 20f;
 
     private boolean primed;
     private boolean seeded;
@@ -97,8 +97,9 @@ final class FanCurveController {
         window[samples % 3] = raw;
         samples++;
         // A single hot sample from one core is a burst, not heat in the heatsink.
-        float sample = responsive || samples >= 3
-                ? raw : median(window[0], window[1], window[2]);
+        // Use the median in every mode so Smart cannot chase one sensor spike.
+        float sample = samples >= 3
+                ? median(window[0], window[1], window[2]) : raw;
         if (!primed) {
             primed = true;
             filtered = sample;
@@ -126,7 +127,7 @@ final class FanCurveController {
             return applied;
         }
         int delta = target - applied;
-        if (Math.abs(delta) < DEADBAND && !(responsive && delta > 0)) return -1;
+        if (Math.abs(delta) < DEADBAND) return -1;
         if (delta > 0) {
             // A transient spike must not slam the blower to full: climb quickly
             // but in steps, so a cold start does not begin at 100%.
