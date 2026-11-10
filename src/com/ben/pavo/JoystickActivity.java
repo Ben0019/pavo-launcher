@@ -1046,6 +1046,18 @@ public final class JoystickActivity extends PavoGlassActivity {
                     applyPreset(preset);
                 }
             });
+            chip.setLongClickable(true);
+            chip.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) {
+                    Haptics.longPress(v);
+                    applyPreset(preset);
+                    LToast.makeText(JoystickActivity.this,
+                            Loc.s(JoystickActivity.this, PRESET_KEYS[preset]) + " "
+                                    + Loc.s(JoystickActivity.this, "RESET"),
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+            });
             chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
                 @Override public void onFocusChange(View v, boolean focused) {
                     updatePresetChips();
@@ -1877,15 +1889,20 @@ public final class JoystickActivity extends PavoGlassActivity {
      * change, so handle the press ourselves for a deterministic click.
      */
     private void tapClicks(final View v) {
+        final long[] downAt = {0L};
         v.setOnTouchListener(new View.OnTouchListener() {
             @Override public boolean onTouch(View view, MotionEvent event) {
                 int action = event.getActionMasked();
                 if (action == MotionEvent.ACTION_DOWN) {
+                    downAt[0] = SystemClock.uptimeMillis();
                     view.setPressed(true);
                     view.requestFocus();
                 } else if (action == MotionEvent.ACTION_UP) {
+                    boolean held = SystemClock.uptimeMillis() - downAt[0]
+                            >= android.view.ViewConfiguration.getLongPressTimeout();
                     view.setPressed(false);
-                    view.performClick();
+                    if (held && view.isLongClickable()) view.performLongClick();
+                    else view.performClick();
                 } else if (action == MotionEvent.ACTION_CANCEL) {
                     view.setPressed(false);
                 }
@@ -2098,9 +2115,9 @@ public final class JoystickActivity extends PavoGlassActivity {
             label.setColor(0x99FFFFFF);
             label.setTextSize(scaled * 8.5f);
             label.setTextAlign(Paint.Align.CENTER);
-            legend.setColor(0x88FFFFFF);
+            legend.setColor(0x99FFFFFF);
             legend.setTextSize(scaled * 7.5f);
-            legend.setTextAlign(Paint.Align.CENTER);
+            legend.setTextAlign(Paint.Align.LEFT);
             setFocusable(false);
             setWillNotDraw(false);
         }
@@ -2163,9 +2180,28 @@ public final class JoystickActivity extends PavoGlassActivity {
                     Loc.s(getContext(), "LEFT STICK"));
             drawPad(canvas, w * 0.73f, y, r, right, rightRaw, 1,
                     Loc.s(getContext(), "RIGHT STICK"));
-            String text = Loc.s(getContext(), "RAW") + " \u25CB    "
-                    + Loc.s(getContext(), "OUT") + " \u25CF";
-            canvas.drawText(text, w * 0.5f, density * 11f, legend);
+            String rawText = Loc.s(getContext(), "RAW");
+            String outText = Loc.s(getContext(), "OUT");
+            float baseline = density * 11f;
+            float dotCy = baseline - density * 2.5f;
+            float gap = density * 4f;
+            float groupGap = density * 10f;
+            float dotR = density * 2.4f;
+            float rawW = legend.measureText(rawText);
+            float outW = legend.measureText(outText);
+            float total = rawW + gap + dotR * 2f + groupGap
+                    + outW + gap + dotR * 2f;
+            float x = w * 0.5f - total * 0.5f;
+            legend.setTextAlign(Paint.Align.LEFT);
+            legend.setColor(rawDot.getColor());
+            canvas.drawText(rawText, x, baseline, legend);
+            x += rawW + gap;
+            canvas.drawCircle(x + dotR, dotCy, dotR, rawDot);
+            x += dotR * 2f + groupGap;
+            legend.setColor(dot.getColor());
+            canvas.drawText(outText, x, baseline, legend);
+            x += outW + gap;
+            canvas.drawCircle(x + dotR, dotCy, dotR, dot);
         }
 
         private void drawPad(Canvas canvas, float cx, float cy, float r,
