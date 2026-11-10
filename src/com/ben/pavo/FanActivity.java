@@ -730,7 +730,7 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout.LayoutParams statsCardLp =
                 (LinearLayout.LayoutParams) statsCard.getLayoutParams();
         statsCardLp.topMargin = dp(0);
-        statsCard.setPadding(dp(14), dp(7), dp(14), dp(7));
+        statsCard.setPadding(dp(14), dp(4), dp(14), dp(4));
         LinearLayout stats = new LinearLayout(this);
         stats.setOrientation(LinearLayout.HORIZONTAL);
         stats.setGravity(Gravity.END);
@@ -744,7 +744,7 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout presets = card(right, "SYSTEM PRESET", "");
         LinearLayout.LayoutParams presetsLp = (LinearLayout.LayoutParams) presets.getLayoutParams();
         presetsLp.topMargin = dp(4);
-        presets.setPadding(dp(14), dp(9), dp(14), dp(9));
+        presets.setPadding(dp(14), dp(10), dp(14), dp(10));
         LinearLayout row1 = new LinearLayout(this);
         row1.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout row2 = new LinearLayout(this);
@@ -753,7 +753,7 @@ public final class FanActivity extends PavoGlassActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams row2Lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        row2Lp.topMargin = dp(7);
+        row2Lp.topMargin = dp(8);
         presets.addView(row2, row2Lp);
         for (int i = 0; i < MODE_VALUES.length; i++) {
             LinearLayout row = i < 4 ? row1 : row2;
@@ -1344,11 +1344,11 @@ public final class FanActivity extends PavoGlassActivity {
     }
 
     private void addModeChip(LinearLayout row, String label, int value, boolean selected) {
-        final TextView chip = text(label, 9.5f, TEXT, true);
+        final TextView chip = text(label, 10.5f, TEXT, true);
         chip.setGravity(Gravity.CENTER);
         chip.setSingleLine(true);
-        chip.setMinHeight(dp(40));
-        chip.setPadding(dp(4), dp(7), dp(4), dp(7));
+        chip.setMinHeight(dp(48));
+        chip.setPadding(dp(4), dp(9), dp(4), dp(9));
         chip.setFocusable(true);
         chip.setFocusable(true);
         chip.setClickable(true);
@@ -1464,18 +1464,18 @@ public final class FanActivity extends PavoGlassActivity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.END);
-        TextView l = text(label, 8.5f, MUTED, true);
+        TextView l = text(label, 7.5f, MUTED, true);
         l.setGravity(Gravity.END);
-        TextView v = text(value, 12f, TEXT, true);
+        TextView v = text(value, 10.5f, TEXT, true);
         v.setSingleLine(true);
         v.setGravity(Gravity.END);
-        v.setPadding(0, dp(1), 0, 0);
+        v.setPadding(0, 0, 0, 0);
         LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         box.addView(l, textLp);
         box.addView(v, textLp);
         row.addView(box, new LinearLayout.LayoutParams(
-                dp(76), ViewGroup.LayoutParams.WRAP_CONTENT));
+                dp(68), ViewGroup.LayoutParams.WRAP_CONTENT));
         return v;
     }
 
