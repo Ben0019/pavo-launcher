@@ -652,8 +652,9 @@ final class LiveBuiltinIcons {
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeWidth(Math.max(1.6f, s * 0.045f));
         line.setStrokeCap(Paint.Cap.ROUND);
-        line.setColor(alpha(p2, 0x80));
+        line.setColor(alpha(accent, 0x99));
         c.drawLine(cx, cy, lx, ly, line);
+        line.setColor(alpha(p3, 0x99));
         c.drawLine(cx, cy, rx, ry, line);
 
         float beat = 0.5f + 0.5f * (float) Math.sin(phase * Math.PI * 4.0);
@@ -663,27 +664,29 @@ final class LiveBuiltinIcons {
 
         float cycle = phase * 2f;
         packet(c, cx, cy, lx, ly, cycle % 1f, s, accent);
-        packet(c, rx, ry, cx, cy, (cycle + 0.5f) % 1f, s, accent);
+        packet(c, rx, ry, cx, cy, (cycle + 0.5f) % 1f, s, p3);
 
         Paint node = new Paint(Paint.ANTI_ALIAS_FLAG);
         node.setStyle(Paint.Style.STROKE);
         node.setStrokeWidth(Math.max(1.6f, s * 0.045f));
-        node.setColor(alpha(p2, 0xE6));
+        node.setColor(alpha(accent, 0xE6));
         c.drawCircle(lx, ly, s * 0.062f, node);
+        node.setColor(alpha(p3, 0xE6));
         c.drawCircle(rx, ry, s * 0.062f, node);
+        node.setColor(alpha(p2, 0xE6));
         c.drawCircle(cx, cy, s * 0.072f, node);
 
         Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dot.setColor(alpha(p2, 0xE6));
+        dot.setColor(alpha(p4, 0xE6));
         c.drawCircle(cx, cy, s * 0.020f, dot);
     }
 
     private static void packet(Canvas c, float x0, float y0, float x1, float y1,
-                               float t, float s, int accent) {
+                               float t, float s, int colour) {
         float x = x0 + (x1 - x0) * t;
         float y = y0 + (y1 - y0) * t;
         Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        glow.setColor(alpha(p2, 0x44));
+        glow.setColor(alpha(colour, 0x55));
         c.drawCircle(x, y, s * 0.040f, glow);
         Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
         core.setColor(0xFFFFFFFF);
