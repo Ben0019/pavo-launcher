@@ -17,6 +17,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - The frametime caption shows a single steady millisecond value or min/max when it varies.
 - Battery shows a charging bolt and a low-level tint; the FPS hero is heat-coloured.
 - Strip mode now groups `BATT % / temp`, `PWR` and `FAN mode / duty`, adds FPS average and 1% low, uses lighter separators, and wraps to a second line if the row is too long.
+- Strip mode has a 75% minimum scale so it cannot be pinched down to unreadable text.
 - Strip mode is unchanged and still switches with a double tap.
 
 ## 1.0.46 — 10 Nov 2026

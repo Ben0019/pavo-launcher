@@ -1369,8 +1369,12 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
         float maxW = (sw - Ui.dp(uiContext, 12)) / (float) Math.max(1, baseWidthPx);
         float maxH = (sh - Ui.dp(uiContext, 12)) / (float) Math.max(1, baseHeightPx);
         float max = Math.min(1.8f, Math.min(maxW, maxH));
-        max = Math.max(0.55f, max);
-        return Math.max(0.55f, Math.min(max, wanted));
+        // The strip is a single row of small text; below ~75% it stops being
+        // comfortably readable. The panel can go smaller because it is taller.
+        boolean strip = panel != null ? panel.horizontal() : prefs.perfOverlayHorizontal();
+        float min = strip ? 0.75f : 0.55f;
+        max = Math.max(min, max);
+        return Math.max(min, Math.min(max, wanted));
     }
 
     // The panel is a single adaptive module card. The old five size modes
@@ -1385,6 +1389,7 @@ public final class PerfOverlayService extends Service implements PerfOverlayMenu
      */
     private int[] scaledWindowSize() {
         if (panel == null || panel.horizontal()) {
+            scale = Math.max(0.75f, scale);
             return new int[]{Math.round(baseWidthPx * scale),
                     Math.round(baseHeightPx * scale), Math.round(scale * 1000f)};
         }
