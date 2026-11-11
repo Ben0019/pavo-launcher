@@ -221,6 +221,8 @@ public final class PavoA11yService extends AccessibilityService {
     static final String ACTION_SHOW_RECENTS = "com.ben.pavo.SHOW_RECENTS";
 
 
+    /** Shorter than the 450 ms recents hold, so a hold never also taps. */
+    private static final long MAPPED_HOLD_MS = 300L;
     private static final int CAPTURE_PERF = 0;
     private static final int CAPTURE_DRAWER = 1;
     private static final int CAPTURE_PERFLOG = 2;
@@ -329,12 +331,16 @@ public final class PavoA11yService extends AccessibilityService {
         }
     };
 
+    /**
+     * A hold on the performance shortcut does not open its popup menu any more:
+     * that gesture belongs to the recents sheet on the Z button. Holding only
+     * suppresses the tap action.
+     */
     private final Runnable mappedLongPress = new Runnable() {
         @Override
         public void run() {
             if (mappedDown == null) return;
             mappedLongFired = true;
-            PerfOverlayService.showMenuFromShortcut(PavoA11yService.this);
         }
     };
 
@@ -476,11 +482,18 @@ public final class PavoA11yService extends AccessibilityService {
     }
 
     private void showRecentsOverlayAsync() {
+        // Show from the cached snapshots straight away so Back and the Z hold
+        // feel instant, then refresh the captures for the next open.
+        main.post(PavoA11yService.this::showRecentsOverlay);
         new Thread(new Runnable() {
             @Override
             public void run() {
+                try {
+                    Thread.sleep(1200L);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
                 RecentsSnapshotCache.refresh(PavoA11yService.this);
-                main.post(PavoA11yService.this::showRecentsOverlay);
             }
         }, "pavo-recents-refresh").start();
     }
@@ -544,22 +557,26 @@ public final class PavoA11yService extends AccessibilityService {
         }
     }
 
-    private void startBackMonitor() {
+    private void startRecentsMonitor() {
         new Thread(new Runnable() {
             @Override
             public void run() {
                 if (!PServer.available()) return;
-                File script = new File(getCacheDir(), "pavo-back-monitor.sh");
+                // Retire the old long-Back watcher left by a previous build.
+                PServer.run("p=$(cat /data/local/tmp/pavo-back-monitor.pid "
+                        + "2>/dev/null); [ -n \"$p\" ] && kill -9 -$p "
+                        + "2>/dev/null; rm -f /data/local/tmp/pavo-back-monitor.pid");
+                File script = new File(getCacheDir(), "pavo-recents-monitor.sh");
                 String text = "#!/system/bin/sh\n"
-                        + "lock=/data/local/tmp/pavo-back-monitor.pid\n"
+                        + "lock=/data/local/tmp/pavo-recents-monitor.pid\n"
                         + "if [ -f \"$lock\" ]; then p=$(cat \"$lock\"); "
                         + "[ -d \"/proc/$p\" ] && exit 0; fi\n"
                         + "echo $$ > \"$lock\"\n"
-                        + "tok=/data/local/tmp/pavo-back-token\n"
+                        + "tok=/data/local/tmp/pavo-recents-token\n"
                         + "watch() {\n"
                         + "  getevent -lt \"$1\" 2>/dev/null | while read -r line; do\n"
                         + "    case \"$line\" in\n"
-                        + "      *KEY_BACK*DOWN*)\n"
+                        + "      *BTN_Z*DOWN*)\n"
                         + "        t=$(date +%s%N)\n"
                         + "        echo \"$t\" > \"$tok\"\n"
                         + "        ( sleep 0.45\n"
@@ -570,7 +587,7 @@ public final class PavoA11yService extends AccessibilityService {
                         + "          fi\n"
                         + "        ) &\n"
                         + "        ;;\n"
-                        + "      *KEY_BACK*UP*) rm -f \"$tok\" ;;\n"
+                        + "      *BTN_Z*UP*) rm -f \"$tok\" ;;\n"
                         + "    esac\n"
                         + "  done\n"
                         + "}\n"
@@ -590,7 +607,7 @@ public final class PavoA11yService extends AccessibilityService {
         }, "pavo-back-monitor").start();
     }
 
-    private void stopBackMonitor() {
+    private void stopRecentsMonitor() {
         if (!PServer.available()) return;
         PServer.run("p=$(cat /data/local/tmp/pavo-back-monitor.pid 2>/dev/null); "
                 + "[ -n \"$p\" ] && kill -9 -$p 2>/dev/null; "
@@ -1020,7 +1037,7 @@ public final class PavoA11yService extends AccessibilityService {
         PavoInputService.ensureStarted(this);
         QuickPanelEdgeHandle.attach(this);
         registerRecentsReceiver();
-        startBackMonitor();
+        startRecentsMonitor();
         if (new Prefs(this).controllerRemapEnabled()
                 && !TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()
@@ -1218,8 +1235,7 @@ public final class PavoA11yService extends AccessibilityService {
                 mappedDown = key;
                 mappedLongFired = false;
                 keyHandler.removeCallbacks(mappedLongPress);
-                keyHandler.postDelayed(mappedLongPress,
-                        ViewConfiguration.getLongPressTimeout());
+                keyHandler.postDelayed(mappedLongPress, MAPPED_HOLD_MS);
             }
         } else if (up) {
             keyHandler.removeCallbacks(mappedLongPress);
@@ -1242,7 +1258,7 @@ public final class PavoA11yService extends AccessibilityService {
         stopControllerListener();
         hideDrawerOverlay();
         hideRecentsOverlay();
-        stopBackMonitor();
+        stopRecentsMonitor();
         if (recentsReceiver != null) {
             try { unregisterReceiver(recentsReceiver); } catch (Throwable ignored) {}
             recentsReceiver = null;
@@ -1511,8 +1527,7 @@ public final class PavoA11yService extends AccessibilityService {
                 mappedDown = key;
                 mappedLongFired = false;
                 keyHandler.removeCallbacks(mappedLongPress);
-                keyHandler.postDelayed(mappedLongPress,
-                        ViewConfiguration.getLongPressTimeout());
+                keyHandler.postDelayed(mappedLongPress, MAPPED_HOLD_MS);
             }
         } else if (up) {
             keyHandler.removeCallbacks(mappedLongPress);

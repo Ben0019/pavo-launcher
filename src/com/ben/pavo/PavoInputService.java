@@ -54,6 +54,8 @@ public final class PavoInputService extends Service {
     private static volatile boolean pendingDrawerToggle;
     private static volatile boolean pendingDrawerStyle;
 
+    /** Shorter than the 450 ms recents hold, so a hold never also taps. */
+    private static final long MAPPED_HOLD_MS = 300L;
     private static final int CAPTURE_PERF = 0;
     private static final int CAPTURE_DRAWER = 1;
     private static final int CAPTURE_PERFLOG = 2;
@@ -178,12 +180,12 @@ public final class PavoInputService extends Service {
         }
     };
 
+    /** A hold on the performance shortcut is reserved for the recents sheet. */
     private final Runnable mappedLongPress = new Runnable() {
         @Override
         public void run() {
             if (mappedDown == null) return;
             mappedLongFired = true;
-            PerfOverlayService.showMenuFromShortcut(PavoInputService.this);
         }
     };
 
@@ -990,7 +992,7 @@ public final class PavoInputService extends Service {
                 mappedDown = key;
                 mappedLongFired = false;
                 main.removeCallbacks(mappedLongPress);
-                main.postDelayed(mappedLongPress, ViewConfiguration.getLongPressTimeout());
+                main.postDelayed(mappedLongPress, MAPPED_HOLD_MS);
             }
         } else if (up) {
             main.removeCallbacks(mappedLongPress);

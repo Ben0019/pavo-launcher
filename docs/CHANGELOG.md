@@ -15,6 +15,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - The fan row now shows Pavo's own mode (CURVE, SMALL–LARGE, HOLD or a per-app override) instead of the firmware's limited `fan_mode` value.
 - Panel polish: header `PERF · profile`, POWER `DEVICE`, tighter dot/label alignment, clearer dividers and spacing.
 - The frametime caption shows a single steady millisecond value or min/max when it varies.
+- Holding the controller shortcut no longer opens the overlay menu, so the same hold can open recents. Long-press the panel itself for the menu.
 - Battery shows a charging bolt and a low-level tint; the FPS hero is heat-coloured.
 - Strip mode now groups `BATT % / temp`, `PWR` and `FAN mode / duty`, adds FPS average and 1% low, uses lighter separators, and wraps to a second line if the row is too long.
 - Strip mode has a 75% minimum scale so it cannot be pinched down to unreadable text.
@@ -24,11 +25,11 @@ Every release in plain language: what changed, why it matters, and nothing else.
 ### Navigation
 
 - Home on a secondary home page returns to the first page; Home on the first page opens the app drawer.
-- Back on the home screen opens Pavo's own recent-apps sheet with per-app close and Clear all; both also remove the matching system tasks, so the firmware Recents stays in sync. Drawers, folders and menus still close first.
-- Long-press the physical Back button over any app to open the same floating recents sheet. Short Back is unchanged, the app stays in front, and the current app is omitted from the list.
-- Recents is now a large bottom panel: task-preview cards with app headers, centred when they fit and horizontally scrollable when they don't, with a Clear all pill below.
+- Back on the home screen opens Pavo's own recent-apps sheet with per-app close and swipe-down clear; both also remove the matching system tasks, so the firmware Recents stays in sync. Drawers, folders and menus still close first.
+- Hold the Z button on the controller to open the same floating recents sheet over any app. A short press keeps the button's normal action, the app stays in front, and the current app is omitted from the list.
+- Recents is now a compact bottom panel that wraps its cards: task-preview cards with app headers, centred and sized to fit, with a grab handle at the top and horizontal scrolling when they don't fit.
 - Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
-- Back long-press is detected both on the front-key input node and inside the native controller remapper, so it works whether the button is routed through `ff_key` or the Odin Controller.
+- The Z long-press is detected inside the native controller remapper and on the controller input node, so it works whether the button is routed through the daemon or straight to Android.
 - Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.
 
 

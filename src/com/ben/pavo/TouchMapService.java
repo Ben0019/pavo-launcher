@@ -85,7 +85,6 @@ public final class TouchMapService extends Service {
         public void run() {
             if (!perfShortcutDown) return;
             perfShortcutLongFired = true;
-            PerfOverlayService.showMenuFromShortcut(TouchMapService.this);
             schedule(0L);
         }
     };
