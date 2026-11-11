@@ -25,7 +25,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Large bottom recents panel with task-preview cards and a Clear all action. */
+/** Large bottom recents panel with task-preview cards and a swipe-down clear handle. */
 final class RecentsOverlayView extends FrameLayout {
     interface Listener {
         void onDismiss();
@@ -35,6 +35,9 @@ final class RecentsOverlayView extends FrameLayout {
     private final Listener listener;
     private long ignoreBackUntil;
     private boolean empty;
+    private boolean dismissing;
+    private LinearLayout panel;
+    private LinearLayout strip;
 
     RecentsOverlayView(Context c, Listener listener) {
         super(c);
@@ -79,7 +82,7 @@ final class RecentsOverlayView extends FrameLayout {
     }
 
     private void build() {
-        LinearLayout panel = new LinearLayout(ctx);
+        panel = new LinearLayout(ctx);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 9),
                 Ui.dp(ctx, 10), Ui.dp(ctx, 9));
@@ -87,11 +90,53 @@ final class RecentsOverlayView extends FrameLayout {
                 0x33FFFFFF, Ui.dp(ctx, 1)));
         panel.setClickable(true);
 
+        final List<String> visible = new ArrayList<>();
+
+        FrameLayout handleArea = new FrameLayout(ctx);
+        View handle = new View(ctx);
+        handle.setBackground(Ui.rounded(0x66FFFFFF, Ui.dp(ctx, 2)));
+        handleArea.addView(handle, new FrameLayout.LayoutParams(
+                Ui.dp(ctx, 40), Ui.dp(ctx, 4), Gravity.CENTER));
+        LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(
+                Ui.dp(ctx, 120), Ui.dp(ctx, 20));
+        handleLp.gravity = Gravity.CENTER_HORIZONTAL;
+        panel.addView(handleArea, handleLp);
+        final float[] handleDownY = {0f};
+        final boolean[] handleDragging = {false};
+        handleArea.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    handleDownY[0] = event.getRawY();
+                    handleDragging[0] = false;
+                    return true;
+                case android.view.MotionEvent.ACTION_MOVE: {
+                    float dy = event.getRawY() - handleDownY[0];
+                    if (dy > 0f) {
+                        handleDragging[0] = true;
+                        panel.setTranslationY(dy);
+                    }
+                    return true;
+                }
+                case android.view.MotionEvent.ACTION_UP:
+                    if (handleDragging[0]) {
+                        float dy = event.getRawY() - handleDownY[0];
+                        if (dy > Ui.dp(ctx, 60)) animateClear(visible);
+                        else panel.animate().translationY(0f).setDuration(150L).start();
+                    }
+                    return true;
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    panel.animate().translationY(0f).setDuration(150L).start();
+                    return true;
+                default:
+                    return false;
+            }
+        });
+
         HorizontalScrollView scroll = new HorizontalScrollView(ctx);
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
         scroll.setFillViewport(true);
-        LinearLayout strip = new LinearLayout(ctx);
+        strip = new LinearLayout(ctx);
         strip.setOrientation(LinearLayout.HORIZONTAL);
         strip.setGravity(Gravity.CENTER_HORIZONTAL);
         scroll.addView(strip, new FrameLayout.LayoutParams(
@@ -105,8 +150,7 @@ final class RecentsOverlayView extends FrameLayout {
         }
         if (foreground != null && !foreground.isEmpty()) recent.remove(foreground);
 
-        List<String> visible = new ArrayList<>();
-        View firstCard = null;
+        List<Apps.Entry> entries = new ArrayList<>();
         for (String pkg : recent) {
             String cls = null;
             try {
@@ -119,10 +163,15 @@ final class RecentsOverlayView extends FrameLayout {
             if (cls == null) continue;
             Apps.Entry e = Apps.entryFor(ctx, pkg, cls);
             if (e == null) continue;
-            List<Apps.Entry> one = new ArrayList<>();
-            one.add(e);
-            Apps.loadIcons(ctx, one, Ui.dp(ctx, 24));
+            entries.add(e);
+        }
+        Apps.loadIcons(ctx, entries, Ui.dp(ctx, 24));
 
+        final int cardW = cardWidth(entries.size());
+        final int previewH = previewHeight(cardW);
+
+        View firstCard = null;
+        for (Apps.Entry e : entries) {
             LinearLayout card = new LinearLayout(ctx);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 6),
@@ -163,15 +212,19 @@ final class RecentsOverlayView extends FrameLayout {
                 parent.removeView(card);
                 if (!hasCards(parent)) {
                     dismiss();
-                } else if (wasFocused) {
-                    View next = firstCard(parent);
-                    if (next != null) next.requestFocus();
+                } else {
+                    reflow();
+                    if (wasFocused) {
+                        View next = firstCard(parent);
+                        if (next != null) next.requestFocus();
+                    }
                 }
             });
             header.addView(close);
 
             FrameLayout preview = new FrameLayout(ctx);
-            File snap = RecentsSnapshotCache.snapshotFor(ctx, pkg);
+            preview.setTag(PREVIEW_TAG);
+            File snap = RecentsSnapshotCache.snapshotFor(ctx, e.pkg);
             Bitmap previewBmp = null;
             if (snap != null) {
                 try {
@@ -207,7 +260,7 @@ final class RecentsOverlayView extends FrameLayout {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
             LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 110));
+                    ViewGroup.LayoutParams.MATCH_PARENT, previewH);
             plp.topMargin = Ui.dp(ctx, 7);
             card.addView(preview, plp);
 
@@ -231,10 +284,10 @@ final class RecentsOverlayView extends FrameLayout {
             });
 
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 210), ViewGroup.LayoutParams.WRAP_CONTENT);
+                    cardW, ViewGroup.LayoutParams.WRAP_CONTENT);
             clp.rightMargin = Ui.dp(ctx, 8);
             strip.addView(card, clp);
-            visible.add(pkg);
+            visible.add(e.pkg);
             if (firstCard == null) firstCard = card;
         }
 
@@ -244,24 +297,6 @@ final class RecentsOverlayView extends FrameLayout {
         panel.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        TextView clear = text("Clear all", 11f, 0xFFE8C86A, false);
-        clear.setGravity(Gravity.CENTER);
-        clear.setPadding(Ui.dp(ctx, 20), 0, Ui.dp(ctx, 20), 0);
-        clear.setBackground(Ui.rounded(0x1FFFFFFF, Ui.dp(ctx, 22),
-                0x33FFFFFF, Ui.dp(ctx, 1)));
-        clear.setOnClickListener(v -> {
-            for (String pkg : visible) RecentApps.remove(ctx, pkg);
-            new Thread(() -> {
-                for (String pkg : visible) RecentApps.removeSystemTask(pkg);
-            }).start();
-            dismiss();
-        });
-        LinearLayout.LayoutParams clearLp = new LinearLayout.LayoutParams(
-                Ui.dp(ctx, 190), Ui.dp(ctx, 36));
-        clearLp.gravity = Gravity.CENTER_HORIZONTAL;
-        clearLp.topMargin = Ui.dp(ctx, 8);
-        panel.addView(clear, clearLp);
 
         addView(panel, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -285,6 +320,51 @@ final class RecentsOverlayView extends FrameLayout {
             if (CARD_TAG.equals(v.getTag())) return v;
         }
         return null;
+    }
+
+    private static final String PREVIEW_TAG = "pavo-recent-preview";
+
+    /** Cards grow or shrink so the row always fills the panel sensibly. */
+    private int cardWidth(int count) {
+        int avail = getResources().getDisplayMetrics().widthPixels
+                - Ui.dp(ctx, 20)      // root side padding
+                - Ui.dp(ctx, 20);     // panel side padding
+        int gap = Ui.dp(ctx, 8);
+        int min = Ui.dp(ctx, 170);
+        int max = Ui.dp(ctx, 340);
+        if (count <= 0) return min;
+        int fit = (avail - gap * (count - 1)) / count;
+        return Math.max(min, Math.min(max, fit));
+    }
+
+    /** Wider cards get a taller preview, capped so the sheet still fits. */
+    private int previewHeight(int width) {
+        return Math.max(Ui.dp(ctx, 110),
+                Math.min(Ui.dp(ctx, 140), Math.round(width * 0.34f)));
+    }
+
+    /** Re-apply adaptive sizes after a card is removed. */
+    private void reflow() {
+        if (strip == null) return;
+        int count = 0;
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            if (CARD_TAG.equals(strip.getChildAt(i).getTag())) count++;
+        }
+        int w = cardWidth(count);
+        int h = previewHeight(w);
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            View card = strip.getChildAt(i);
+            if (!CARD_TAG.equals(card.getTag())) continue;
+            ViewGroup.LayoutParams lp = card.getLayoutParams();
+            lp.width = w;
+            card.setLayoutParams(lp);
+            View preview = card.findViewWithTag(PREVIEW_TAG);
+            if (preview != null) {
+                ViewGroup.LayoutParams plp = preview.getLayoutParams();
+                plp.height = h;
+                preview.setLayoutParams(plp);
+            }
+        }
     }
 
     private GradientDrawable fallbackBackground(Bitmap icon) {
@@ -344,7 +424,24 @@ final class RecentsOverlayView extends FrameLayout {
         return t;
     }
 
+    private void animateClear(final List<String> visible) {
+        if (dismissing) return;
+        dismissing = true;
+        Haptics.tick(panel);
+        float target = Math.max(panel.getHeight(), Ui.dp(ctx, 120)) + Ui.dp(ctx, 30);
+        panel.animate().translationY(target).alpha(0f).setDuration(180L)
+                .withEndAction(() -> {
+                    for (String pkg : visible) RecentApps.remove(ctx, pkg);
+                    new Thread(() -> {
+                        for (String pkg : visible) RecentApps.removeSystemTask(pkg);
+                    }).start();
+                    if (listener != null) listener.onDismiss();
+                }).start();
+    }
+
     private void dismiss() {
+        if (dismissing) return;
+        dismissing = true;
         if (listener != null) listener.onDismiss();
     }
 }
