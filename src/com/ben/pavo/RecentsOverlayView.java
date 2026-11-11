@@ -446,7 +446,7 @@ final class RecentsOverlayView extends FrameLayout {
 
         // Accent glass pill: flat tint (no gradient banding), soft edge and a ripple.
         View.OnClickListener clearAction = v -> clearAll();
-        int pillRadius = dip(13);
+        int pillRadius = dip(11);
         int accent = ThemeColors.accent();
         GradientDrawable pill = new GradientDrawable();
         pill.setShape(GradientDrawable.RECTANGLE);
@@ -456,12 +456,12 @@ final class RecentsOverlayView extends FrameLayout {
         GradientDrawable pillMask = new GradientDrawable();
         pillMask.setColor(0xFFFFFFFF);
         pillMask.setCornerRadius(pillRadius);
-        TextView clearLabel = text("CLEAR ALL", 9.5f * scale, 0xFFF7FAFF, false);
+        TextView clearLabel = text("CLEAR ALL", 9f * scale, 0xFFF7FAFF, false);
         clearLabel.setTypeface(android.graphics.Typeface.create(
                 "sans-serif-medium", android.graphics.Typeface.NORMAL));
         clearLabel.setGravity(Gravity.CENTER);
         clearLabel.setLetterSpacing(0.10f);
-        clearLabel.setPadding(dip(20), 0, dip(20), 0);
+        clearLabel.setPadding(dip(14), 0, dip(14), 0);
         clearLabel.setBackground(new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(
                         ColorTuning.withAlpha(accent, 0x55)), pill, pillMask));
@@ -471,8 +471,9 @@ final class RecentsOverlayView extends FrameLayout {
         // Symmetrical header: the label sits halfway between the sheet edge
         // and the top of the cards.
         LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, dip(26));
+                ViewGroup.LayoutParams.WRAP_CONTENT, dip(22));
         handleLp.gravity = Gravity.CENTER_HORIZONTAL;
+        handleLp.topMargin = dip(5);
         handleLp.bottomMargin = dip(6);
         panel.addView(handleRow, handleLp);
 

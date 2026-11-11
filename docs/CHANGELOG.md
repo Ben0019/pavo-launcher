@@ -28,7 +28,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Back on the home screen opens Pavo's own recent-apps sheet with per-app close and swipe-down clear; both also remove the matching system tasks, so the firmware Recents stays in sync. Drawers, folders and menus still close first.
 - Hold the Z button on the controller to open the same floating recents sheet over any app, and hold it again to close. A short press keeps the button's normal action, the app stays in front, and the current app is omitted from the list.
 - Tap anywhere outside the recents sheet to dismiss it, and Back closes it right away instead of being ignored for the first second.
-- The clear-all control is a compact accent capsule now: theme-tinted fill and edge, medium-weight tracked label, a ripple on tap and breathing room above the cards. The app cards are untouched.
+- The clear-all control is a small accent capsule now: theme-tinted fill and edge, medium-weight tracked label, a ripple, inset from the sheet edge and centred above the cards, which are untouched.
 - The sheet no longer comes up empty: when the app you are in is the only recent, it stays in the list instead of the hold doing nothing.
 - Controller support for the recents sheet: the D-pad or left stick moves a focus ring across the cards, A opens the focused app, A on the Clear all label clears them all, and Y closes the focused one. Hold a direction to sweep quickly through the row, with the cards gliding instead of jumping.
 - Long-press a card, or hold A on it, to lock or unlock the app. Locked apps show a padlock, keep their X dimmed and survive Y, the close button and clear-all until unlocked.
