@@ -76,9 +76,9 @@ final class RecentsOverlayView extends FrameLayout {
         LinearLayout bar = new LinearLayout(ctx);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(Ui.dp(ctx, 5), Ui.dp(ctx, 4),
-                Ui.dp(ctx, 5), Ui.dp(ctx, 3));
-        bar.setBackground(Ui.rounded(0xE80C1017, Ui.dp(ctx, 18),
+        bar.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 5),
+                Ui.dp(ctx, 6), Ui.dp(ctx, 4));
+        bar.setBackground(Ui.rounded(0xE80C1017, Ui.dp(ctx, 20),
                 0x44FFFFFF, Ui.dp(ctx, 1)));
 
         List<String> recent = RecentApps.list(ctx);
@@ -104,7 +104,7 @@ final class RecentsOverlayView extends FrameLayout {
             if (e == null) continue;
             List<Apps.Entry> one = new ArrayList<>();
             one.add(e);
-            Apps.loadIcons(ctx, one, Ui.dp(ctx, 36));
+            Apps.loadIcons(ctx, one, Ui.dp(ctx, 42));
 
             LinearLayout cell = new LinearLayout(ctx);
             cell.setOrientation(LinearLayout.VERTICAL);
@@ -142,18 +142,18 @@ final class RecentsOverlayView extends FrameLayout {
                 ImageView icon = new ImageView(ctx);
                 icon.setImageBitmap(e.icon);
                 FrameLayout.LayoutParams ilp = new FrameLayout.LayoutParams(
-                        Ui.dp(ctx, 36), Ui.dp(ctx, 36), Gravity.CENTER);
+                        Ui.dp(ctx, 42), Ui.dp(ctx, 42), Gravity.CENTER);
                 thumb.addView(icon, ilp);
             }
 
-            TextView x = text("\u2715", 9f, 0xAAFFFFFF, false);
+            TextView x = text("\u2715", 10f, 0xAAFFFFFF, false);
             x.setGravity(Gravity.CENTER);
-            x.setBackground(Ui.rounded(0x66000000, Ui.dp(ctx, 8)));
+            x.setBackground(Ui.rounded(0x66000000, Ui.dp(ctx, 9)));
             x.setFocusable(false);
             FrameLayout.LayoutParams xlp = new FrameLayout.LayoutParams(
-                    Ui.dp(ctx, 16), Ui.dp(ctx, 16), Gravity.TOP | Gravity.END);
-            xlp.topMargin = Ui.dp(ctx, 1);
-            xlp.rightMargin = Ui.dp(ctx, 1);
+                    Ui.dp(ctx, 18), Ui.dp(ctx, 18), Gravity.TOP | Gravity.END);
+            xlp.topMargin = Ui.dp(ctx, 2);
+            xlp.rightMargin = Ui.dp(ctx, 2);
             thumb.addView(x, xlp);
             x.setOnClickListener(v -> {
                 boolean wasFocused = cell.isFocused();
@@ -170,15 +170,15 @@ final class RecentsOverlayView extends FrameLayout {
             });
 
             TextView name = text(e.label == null || e.label.isEmpty() ? e.pkg : e.label,
-                    8.5f, 0xE6FFFFFF, false);
+                    9.5f, 0xE6FFFFFF, false);
             name.setSingleLine(true);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
             name.setGravity(Gravity.CENTER);
 
             cell.addView(thumb, new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 48), Ui.dp(ctx, 48)));
+                    Ui.dp(ctx, 56), Ui.dp(ctx, 56)));
             LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 52), ViewGroup.LayoutParams.WRAP_CONTENT);
+                    Ui.dp(ctx, 62), ViewGroup.LayoutParams.WRAP_CONTENT);
             nlp.topMargin = Ui.dp(ctx, 2);
             cell.addView(name, nlp);
 
@@ -199,8 +199,8 @@ final class RecentsOverlayView extends FrameLayout {
                 return false;
             });
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 52), ViewGroup.LayoutParams.WRAP_CONTENT);
-            clp.rightMargin = Ui.dp(ctx, 4);
+                    Ui.dp(ctx, 62), ViewGroup.LayoutParams.WRAP_CONTENT);
+            clp.rightMargin = Ui.dp(ctx, 5);
             bar.addView(cell, clp);
             added = true;
             if (firstTile == null) firstTile = cell;
