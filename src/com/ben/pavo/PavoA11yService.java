@@ -494,12 +494,12 @@ public final class PavoA11yService extends AccessibilityService {
         if (view.isEmpty()) return;
         int flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 flags,
                 PixelFormat.TRANSLUCENT);
-        lp.gravity = Gravity.BOTTOM;
+        lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
         lp.setTitle("Pavo recents");
         if (Build.VERSION.SDK_INT >= 28) {
             lp.layoutInDisplayCutoutMode =

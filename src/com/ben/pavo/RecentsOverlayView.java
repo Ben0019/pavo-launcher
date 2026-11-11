@@ -37,6 +37,7 @@ final class RecentsOverlayView extends FrameLayout {
     private boolean empty;
     private boolean dismissing;
     private LinearLayout panel;
+    private LinearLayout strip;
 
     RecentsOverlayView(Context c, Listener listener) {
         super(c);
@@ -135,7 +136,7 @@ final class RecentsOverlayView extends FrameLayout {
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
         scroll.setFillViewport(true);
-        LinearLayout strip = new LinearLayout(ctx);
+        strip = new LinearLayout(ctx);
         strip.setOrientation(LinearLayout.HORIZONTAL);
         strip.setGravity(Gravity.CENTER_HORIZONTAL);
         scroll.addView(strip, new FrameLayout.LayoutParams(
@@ -210,9 +211,12 @@ final class RecentsOverlayView extends FrameLayout {
                 parent.removeView(card);
                 if (!hasCards(parent)) {
                     dismiss();
-                } else if (wasFocused) {
-                    View next = firstCard(parent);
-                    if (next != null) next.requestFocus();
+                } else {
+                    resizePanel();
+                    if (wasFocused) {
+                        View next = firstCard(parent);
+                        if (next != null) next.requestFocus();
+                    }
                 }
             });
             header.addView(close);
@@ -282,6 +286,7 @@ final class RecentsOverlayView extends FrameLayout {
                     cardW, ViewGroup.LayoutParams.WRAP_CONTENT);
             clp.rightMargin = Ui.dp(ctx, 8);
             strip.addView(card, clp);
+            normalizeSpacing();
             visible.add(e.pkg);
             if (firstCard == null) firstCard = card;
         }
@@ -293,10 +298,11 @@ final class RecentsOverlayView extends FrameLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        // The sheet hugs its cards; each card keeps its own size.
         addView(panel, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                panelWidth(),
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM));
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
         if (firstCard != null) firstCard.requestFocus();
     }
 
@@ -315,6 +321,52 @@ final class RecentsOverlayView extends FrameLayout {
             if (CARD_TAG.equals(v.getTag())) return v;
         }
         return null;
+    }
+
+    /** Only the gaps between cards, never a trailing one, so both sides match. */
+    private void normalizeSpacing() {
+        if (strip == null) return;
+        int gap = Ui.dp(ctx, 8);
+        int cards = 0;
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            if (CARD_TAG.equals(strip.getChildAt(i).getTag())) cards++;
+        }
+        int seen = 0;
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            View card = strip.getChildAt(i);
+            if (!CARD_TAG.equals(card.getTag())) continue;
+            LinearLayout.LayoutParams lp =
+                    (LinearLayout.LayoutParams) card.getLayoutParams();
+            if (lp == null) continue;
+            lp.rightMargin = (++seen < cards) ? gap : 0;
+            card.setLayoutParams(lp);
+        }
+    }
+
+    /** Sheet width for the current row of cards, capped to the screen. */
+    private int panelWidth() {
+        int row = 0;
+        if (strip != null) {
+            for (int i = 0; i < strip.getChildCount(); i++) {
+                View card = strip.getChildAt(i);
+                ViewGroup.LayoutParams lp = card.getLayoutParams();
+                if (lp == null) continue;
+                row += lp.width + ((LinearLayout.LayoutParams) lp).rightMargin;
+            }
+        }
+        int avail = getResources().getDisplayMetrics().widthPixels - Ui.dp(ctx, 20);
+        return Math.max(Ui.dp(ctx, 150),
+                Math.min(row + Ui.dp(ctx, 20), avail));
+    }
+
+    /** Keep the sheet wrapped around the cards after one is removed. */
+    private void resizePanel() {
+        normalizeSpacing();
+        if (panel == null) return;
+        ViewGroup.LayoutParams lp = panel.getLayoutParams();
+        if (lp == null) return;
+        lp.width = panelWidth();
+        panel.setLayoutParams(lp);
     }
 
     /**
