@@ -5,14 +5,21 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Outline;
+import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
@@ -23,21 +30,47 @@ import android.widget.TextView;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-/** Large bottom recents panel with task-preview cards and a swipe-down clear handle. */
+/**
+ * Bottom recents sheet: task-preview cards, a swipe-down clear handle, and
+ * controller navigation with a focus ring. A opens the focused app (or clears
+ * everything from the handle), Y closes the focused app, and a long press on a
+ * card or on A locks/unlocks it.
+ */
 final class RecentsOverlayView extends FrameLayout {
     interface Listener {
         void onDismiss();
     }
 
+    private static final String CARD_TAG = "pavo-recent-card";
+    private static final String LOCK_TAG = "pavo-recent-lock";
+    private static final String CLOSE_TAG = "pavo-recent-close";
+    private static final long STICK_FIRST_MS = 300L;
+    private static final long STICK_REPEAT_MS = 190L;
+    private static final float STICK_THRESHOLD = 0.55f;
+
     private final Context ctx;
     private final Listener listener;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final List<View> cards = new ArrayList<>();
+    private final Map<View, String> cardPkg = new HashMap<>();
+
     private long ignoreBackUntil;
     private boolean empty;
     private boolean dismissing;
     private LinearLayout panel;
     private LinearLayout strip;
+    private HorizontalScrollView hScroll;
+    private View handleRow;
+    private FocusRingDrawable ring;
+    private View focusedView;
+    private Runnable aHold;
+    private boolean aLongFired;
+    private long dPadNext;
+    private long stickNext;
 
     RecentsOverlayView(Context c, Listener listener) {
         super(c);
@@ -48,7 +81,7 @@ final class RecentsOverlayView extends FrameLayout {
         setFocusableInTouchMode(true);
         setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), Ui.dp(ctx, 10));
         setOnTouchListener((v, event) -> {
-            if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN
                     && isOutsideSheet(event)) {
                 dismiss();
                 return true;
@@ -56,6 +89,7 @@ final class RecentsOverlayView extends FrameLayout {
             return false;
         });
         build();
+        addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> positionRing());
     }
 
     void setIgnoreBackUntil(long timeMs) {
@@ -70,26 +104,197 @@ final class RecentsOverlayView extends FrameLayout {
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         requestFocus();
+        post(this::positionRing);
     }
+
+    // ------------------------------------------------------------------
+    // Controller input
+    // ------------------------------------------------------------------
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int code = event.getKeyCode();
+        boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+        long now = SystemClock.uptimeMillis();
+
         if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B) {
-            if (event.getAction() == KeyEvent.ACTION_UP
-                    && SystemClock.uptimeMillis() >= ignoreBackUntil) {
-                dismiss();
+            if (!down && SystemClock.uptimeMillis() >= ignoreBackUntil) dismiss();
+            return true;
+        }
+        if (code == KeyEvent.KEYCODE_HOME) {
+            if (!down) dismiss();
+            return true;
+        }
+        if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (down && (event.getRepeatCount() == 0 || now >= dPadNext)) {
+                dPadNext = now + 160L;
+                moveCard(code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
             }
             return true;
         }
-        if (code == KeyEvent.KEYCODE_HOME && event.getAction() == KeyEvent.ACTION_UP) {
-            dismiss();
+        if (code == KeyEvent.KEYCODE_DPAD_UP) {
+            if (down && event.getRepeatCount() == 0) focusHandle();
+            return true;
+        }
+        if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (down && event.getRepeatCount() == 0) focusCard(0);
+            return true;
+        }
+        if (isSelectKey(code)) {
+            if (down) {
+                if (event.getRepeatCount() == 0) beginAHold();
+                return true;
+            }
+            cancelAHold();
+            if (!aLongFired) activate();
+            return true;
+        }
+        if (code == KeyEvent.KEYCODE_BUTTON_Y) {
+            if (down && event.getRepeatCount() == 0) removeFocused();
             return true;
         }
         return super.dispatchKeyEvent(event);
     }
 
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_MOVE
+                && (event.getSource() & InputDevice.SOURCE_JOYSTICK)
+                == InputDevice.SOURCE_JOYSTICK) {
+            float x = event.getAxisValue(MotionEvent.AXIS_X);
+            float y = event.getAxisValue(MotionEvent.AXIS_Y);
+            float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+            float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+            if (Math.abs(x) < STICK_THRESHOLD) x = hatX;
+            if (Math.abs(y) < STICK_THRESHOLD) y = hatY;
+            long now = SystemClock.uptimeMillis();
+            if (now >= stickNext) {
+                if (Math.abs(x) >= STICK_THRESHOLD) {
+                    moveCard(x > 0f ? 1 : -1);
+                    stickNext = now + STICK_REPEAT_MS;
+                    return true;
+                }
+                if (Math.abs(y) >= STICK_THRESHOLD) {
+                    if (y < 0f) focusHandle();
+                    else focusCard(0);
+                    stickNext = now + STICK_REPEAT_MS;
+                    return true;
+                }
+            }
+        }
+        return super.dispatchGenericMotionEvent(event);
+    }
+
+    private static boolean isSelectKey(int code) {
+        return code == KeyEvent.KEYCODE_BUTTON_A
+                || code == KeyEvent.KEYCODE_DPAD_CENTER
+                || code == KeyEvent.KEYCODE_ENTER
+                || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+    }
+
+    private void beginAHold() {
+        cancelAHold();
+        aLongFired = false;
+        aHold = () -> {
+            aLongFired = true;
+            View card = focusedCard();
+            if (card != null) toggleLock(card);
+        };
+        main.postDelayed(aHold, ViewConfiguration.getLongPressTimeout());
+    }
+
+    private void cancelAHold() {
+        if (aHold != null) {
+            main.removeCallbacks(aHold);
+            aHold = null;
+        }
+    }
+
+    private void activate() {
+        if (focusedView == handleRow) {
+            clearAll();
+            return;
+        }
+        View card = focusedCard();
+        if (card != null) card.performClick();
+    }
+
+    private View focusedCard() {
+        if (focusedView == null || !cards.contains(focusedView)) return null;
+        return focusedView;
+    }
+
+    private void focusCard(int index) {
+        if (cards.isEmpty()) {
+            focusHandle();
+            return;
+        }
+        int i = Math.max(0, Math.min(cards.size() - 1, index));
+        View card = cards.get(i);
+        focusedView = card;
+        card.requestFocus();
+        ensureVisible(card);
+        post(this::positionRing);
+    }
+
+    private void moveCard(int direction) {
+        if (cards.isEmpty()) return;
+        int i = cards.indexOf(focusedView);
+        if (i < 0) i = 0;
+        else i = Math.max(0, Math.min(cards.size() - 1, i + direction));
+        focusCard(i);
+    }
+
+    private void focusHandle() {
+        if (handleRow == null) return;
+        focusedView = handleRow;
+        handleRow.requestFocus();
+        post(this::positionRing);
+    }
+
+    private void ensureVisible(View card) {
+        if (hScroll == null || card == null) return;
+        int viewWidth = hScroll.getWidth();
+        if (viewWidth <= 0) return;
+        int scrollX = hScroll.getScrollX();
+        if (card.getLeft() < scrollX) {
+            hScroll.scrollTo(card.getLeft(), 0);
+        } else if (card.getRight() > scrollX + viewWidth) {
+            hScroll.scrollTo(card.getRight() - viewWidth, 0);
+        }
+    }
+
+    private void positionRing() {
+        if (ring == null) return;
+        View target = focusedView;
+        if (target == null || target.getWidth() <= 0 || target.getHeight() <= 0) {
+            ring.setBounds(0, 0, 0, 0);
+            ring.invalidateSelf();
+            return;
+        }
+        int[] self = new int[2];
+        int[] loc = new int[2];
+        getLocationOnScreen(self);
+        target.getLocationOnScreen(loc);
+        int pad = Ui.dp(ctx, 2);
+        int left = loc[0] - self[0] - pad;
+        int top = loc[1] - self[1] - pad;
+        ring.setAccent(ThemeColors.accent());
+        ring.setRingRadius(FocusRingView.radiusFor(target, ctx));
+        ring.setBounds(left, top, left + target.getWidth() + pad * 2,
+                top + target.getHeight() + pad * 2);
+        ring.invalidateSelf();
+    }
+
+    // ------------------------------------------------------------------
+    // Layout
+    // ------------------------------------------------------------------
+
     private void build() {
+        ring = new FocusRingDrawable(ctx, ThemeColors.accent());
+        ring.setPlateColor(0x00000000);
+        getOverlay().add(ring);
+
         panel = new LinearLayout(ctx);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(Ui.dp(ctx, 10), 0,
@@ -98,28 +303,37 @@ final class RecentsOverlayView extends FrameLayout {
                 0x33FFFFFF, Ui.dp(ctx, 1)));
         panel.setClickable(true);
 
-        final List<String> visible = new ArrayList<>();
-
-        FrameLayout handleArea = new FrameLayout(ctx);
+        handleRow = new FrameLayout(ctx);
         View handle = new View(ctx);
         handle.setBackground(Ui.rounded(0x66FFFFFF, Ui.dp(ctx, 2)));
-        handleArea.addView(handle, new FrameLayout.LayoutParams(
+        ((FrameLayout) handleRow).addView(handle, new FrameLayout.LayoutParams(
                 Ui.dp(ctx, 40), Ui.dp(ctx, 4), Gravity.CENTER));
         // Symmetrical header: the pill sits halfway between the sheet edge
         // and the top of the cards.
         LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(
                 Ui.dp(ctx, 120), Ui.dp(ctx, 26));
         handleLp.gravity = Gravity.CENTER_HORIZONTAL;
-        panel.addView(handleArea, handleLp);
+        panel.addView(handleRow, handleLp);
+
+        handleRow.setFocusable(true);
+        handleRow.setFocusableInTouchMode(true);
+        handleRow.setClickable(true);
+        handleRow.setOnClickListener(v -> clearAll());
+        handleRow.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                focusedView = v;
+                positionRing();
+            }
+        });
         final float[] handleDownY = {0f};
         final boolean[] handleDragging = {false};
-        handleArea.setOnTouchListener((v, event) -> {
+        handleRow.setOnTouchListener((v, event) -> {
             switch (event.getActionMasked()) {
-                case android.view.MotionEvent.ACTION_DOWN:
+                case MotionEvent.ACTION_DOWN:
                     handleDownY[0] = event.getRawY();
                     handleDragging[0] = false;
                     return true;
-                case android.view.MotionEvent.ACTION_MOVE: {
+                case MotionEvent.ACTION_MOVE: {
                     float dy = event.getRawY() - handleDownY[0];
                     if (dy > 0f) {
                         handleDragging[0] = true;
@@ -127,14 +341,16 @@ final class RecentsOverlayView extends FrameLayout {
                     }
                     return true;
                 }
-                case android.view.MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_UP:
                     if (handleDragging[0]) {
                         float dy = event.getRawY() - handleDownY[0];
-                        if (dy > Ui.dp(ctx, 60)) animateClear(visible);
+                        if (dy > Ui.dp(ctx, 60)) clearAll();
                         else panel.animate().translationY(0f).setDuration(150L).start();
+                    } else {
+                        v.performClick();
                     }
                     return true;
-                case android.view.MotionEvent.ACTION_CANCEL:
+                case MotionEvent.ACTION_CANCEL:
                     panel.animate().translationY(0f).setDuration(150L).start();
                     return true;
                 default:
@@ -142,14 +358,15 @@ final class RecentsOverlayView extends FrameLayout {
             }
         });
 
-        HorizontalScrollView scroll = new HorizontalScrollView(ctx);
-        scroll.setHorizontalScrollBarEnabled(false);
-        scroll.setClipToPadding(false);
-        scroll.setFillViewport(true);
+        hScroll = new HorizontalScrollView(ctx);
+        hScroll.setHorizontalScrollBarEnabled(false);
+        hScroll.setClipToPadding(false);
+        hScroll.setFillViewport(true);
+        hScroll.setOnScrollChangeListener((v, sx, sy, osx, osy) -> positionRing());
         strip = new LinearLayout(ctx);
         strip.setOrientation(LinearLayout.HORIZONTAL);
         strip.setGravity(Gravity.CENTER_HORIZONTAL);
-        scroll.addView(strip, new FrameLayout.LayoutParams(
+        hScroll.addView(strip, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -173,15 +390,13 @@ final class RecentsOverlayView extends FrameLayout {
 
         final int previewH = Ui.dp(ctx, 110);
 
-        View firstCard = null;
         for (Apps.Entry e : entries) {
             LinearLayout card = new LinearLayout(ctx);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 6),
                     Ui.dp(ctx, 6), Ui.dp(ctx, 6));
-            card.setBackground(Ui.rounded(0xE814181F, Ui.dp(ctx, 18),
-                    0x33FFFFFF, Ui.dp(ctx, 1)));
             card.setFocusable(true);
+            card.setFocusableInTouchMode(true);
             card.setTag(CARD_TAG);
 
             LinearLayout header = new LinearLayout(ctx);
@@ -202,26 +417,27 @@ final class RecentsOverlayView extends FrameLayout {
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
             nlp.leftMargin = Ui.dp(ctx, 7);
             header.addView(appName, nlp);
+
+            LockGlyph lock = new LockGlyph(ctx);
+            lock.setTag(LOCK_TAG);
+            LinearLayout.LayoutParams lockLp = new LinearLayout.LayoutParams(
+                    Ui.dp(ctx, 13), Ui.dp(ctx, 13));
+            lockLp.rightMargin = Ui.dp(ctx, 6);
+            lock.setVisibility(RecentApps.isLocked(ctx, e.pkg) ? VISIBLE : GONE);
+            header.addView(lock, lockLp);
+
             TextView close = text("\u2715", 10f, 0xCCFFFFFF, false);
             close.setGravity(Gravity.CENTER);
             close.setFocusable(false);
+            close.setTag(CLOSE_TAG);
             close.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 3),
                     Ui.dp(ctx, 6), Ui.dp(ctx, 3));
             close.setOnClickListener(v -> {
-                boolean wasFocused = card.isFocused();
-                RecentApps.remove(ctx, e.pkg);
-                new Thread(() -> RecentApps.removeSystemTask(e.pkg)).start();
-                ViewGroup parent = (ViewGroup) card.getParent();
-                parent.removeView(card);
-                if (!hasCards(parent)) {
-                    dismiss();
-                } else {
-                    resizePanel();
-                    if (wasFocused) {
-                        View next = firstCard(parent);
-                        if (next != null) next.requestFocus();
-                    }
+                if (RecentApps.isLocked(ctx, e.pkg)) {
+                    Haptics.longPress(card);
+                    return;
                 }
+                removeCard(card);
             });
             header.addView(close);
 
@@ -272,33 +488,33 @@ final class RecentsOverlayView extends FrameLayout {
                 launch(entry);
                 dismiss();
             });
-            card.setOnFocusChangeListener((v, has) -> card.setBackground(
-                    Ui.rounded(0xE814181F, Ui.dp(ctx, 20),
-                            has ? 0x99FFFFFF : 0x33FFFFFF, Ui.dp(ctx, 1))));
-            card.setOnKeyListener((v, keyCode, event) -> {
-                if (event.getAction() == KeyEvent.ACTION_DOWN
-                        && (keyCode == KeyEvent.KEYCODE_BUTTON_A
-                        || keyCode == KeyEvent.KEYCODE_DPAD_CENTER
-                        || keyCode == KeyEvent.KEYCODE_ENTER)) {
-                    card.performClick();
-                    return true;
+            card.setOnLongClickListener(v -> {
+                toggleLock(card);
+                return true;
+            });
+            card.setOnFocusChangeListener((v, has) -> {
+                applyCardLook(v);
+                if (has) {
+                    focusedView = v;
+                    ensureVisible(v);
+                    positionRing();
                 }
-                return false;
             });
 
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                     cardW, ViewGroup.LayoutParams.WRAP_CONTENT);
             clp.rightMargin = Ui.dp(ctx, 8);
             strip.addView(card, clp);
+            cards.add(card);
+            cardPkg.put(card, e.pkg);
+            applyCardLook(card);
             normalizeSpacing();
-            visible.add(e.pkg);
-            if (firstCard == null) firstCard = card;
         }
 
-        empty = visible.isEmpty();
+        empty = cards.isEmpty();
         if (empty) return;
 
-        panel.addView(scroll, new LinearLayout.LayoutParams(
+        panel.addView(hScroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -307,7 +523,115 @@ final class RecentsOverlayView extends FrameLayout {
                 panelWidth(),
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
-        if (firstCard != null) firstCard.requestFocus();
+        focusCard(0);
+    }
+
+    private void applyCardLook(View card) {
+        String pkg = cardPkg.get(card);
+        boolean locked = pkg != null && RecentApps.isLocked(ctx, pkg);
+        boolean focused = card.isFocused();
+        int border = focused ? 0x99FFFFFF : (locked ? 0x66E8C86A : 0x33FFFFFF);
+        card.setBackground(Ui.rounded(0xE814181F, Ui.dp(ctx, 20),
+                border, Ui.dp(ctx, 1)));
+        View close = card.findViewWithTag(CLOSE_TAG);
+        if (close != null) close.setAlpha(locked ? 0.35f : 1f);
+        View lock = card.findViewWithTag(LOCK_TAG);
+        if (lock != null) lock.setVisibility(locked ? VISIBLE : GONE);
+    }
+
+    private void toggleLock(View card) {
+        String pkg = cardPkg.get(card);
+        if (pkg == null) return;
+        boolean locked = !RecentApps.isLocked(ctx, pkg);
+        RecentApps.setLocked(ctx, pkg, locked);
+        Haptics.longPress(card);
+        applyCardLook(card);
+        positionRing();
+    }
+
+    private void removeFocused() {
+        View card = focusedCard();
+        if (card == null) return;
+        String pkg = cardPkg.get(card);
+        if (pkg != null && RecentApps.isLocked(ctx, pkg)) {
+            Haptics.longPress(card);
+            return;
+        }
+        removeCard(card);
+    }
+
+    /** Remove one card and keep the sheet around whatever is left. */
+    private void removeCard(View card) {
+        String pkg = cardPkg.get(card);
+        if (pkg == null) return;
+        boolean wasFocused = card.isFocused() || focusedView == card;
+        RecentApps.remove(ctx, pkg);
+        new Thread(() -> RecentApps.removeSystemTask(pkg)).start();
+        Haptics.tick(card);
+        strip.removeView(card);
+        cards.remove(card);
+        cardPkg.remove(card);
+        if (cards.isEmpty()) {
+            dismiss();
+            return;
+        }
+        normalizeSpacing();
+        resizePanel();
+        if (wasFocused) focusCard(0);
+        else post(this::positionRing);
+    }
+
+    /** Clear every unlocked app; locked cards stay put. */
+    private void clearAll() {
+        if (dismissing) return;
+        List<View> removable = new ArrayList<>();
+        for (View card : cards) {
+            String pkg = cardPkg.get(card);
+            if (pkg != null && !RecentApps.isLocked(ctx, pkg)) removable.add(card);
+        }
+        if (removable.isEmpty()) {
+            Haptics.longPress(panel);
+            panel.animate().translationY(0f).setDuration(150L).start();
+            return;
+        }
+        if (removable.size() < cards.size()) {
+            // Locked apps stay; drop the rest in place.
+            for (View card : new ArrayList<>(removable)) {
+                String pkg = cardPkg.get(card);
+                if (pkg == null) continue;
+                RecentApps.remove(ctx, pkg);
+                new Thread(() -> RecentApps.removeSystemTask(pkg)).start();
+                strip.removeView(card);
+                cards.remove(card);
+                cardPkg.remove(card);
+            }
+            Haptics.tick(panel);
+            normalizeSpacing();
+            resizePanel();
+            panel.animate().translationY(0f).setDuration(150L).start();
+            focusCard(0);
+            return;
+        }
+        animateClear(removable);
+    }
+
+    private void animateClear(final List<View> removed) {
+        dismissing = true;
+        Haptics.tick(panel);
+        final List<String> pkgs = new ArrayList<>();
+        for (View card : removed) {
+            String pkg = cardPkg.get(card);
+            if (pkg != null) pkgs.add(pkg);
+        }
+        float target = Math.max(panel.getHeight(), Ui.dp(ctx, 120)) + Ui.dp(ctx, 30);
+        panel.animate().translationY(target).alpha(0f).setDuration(180L)
+                .withEndAction(() -> {
+                    for (String pkg : pkgs) RecentApps.remove(ctx, pkg);
+                    new Thread(() -> {
+                        for (String pkg : pkgs) RecentApps.removeSystemTask(pkg);
+                    }).start();
+                    if (listener != null) listener.onDismiss();
+                }).start();
     }
 
     /** Resolve stored packages to launchable app entries. */
@@ -331,7 +655,7 @@ final class RecentsOverlayView extends FrameLayout {
     }
 
     /** True when a touch lands on the empty area around the sheet. */
-    private boolean isOutsideSheet(android.view.MotionEvent event) {
+    private boolean isOutsideSheet(MotionEvent event) {
         if (panel == null || panel.getWidth() == 0) return false;
         int[] loc = new int[2];
         panel.getLocationOnScreen(loc);
@@ -341,53 +665,27 @@ final class RecentsOverlayView extends FrameLayout {
                 || y < loc[1] || y > loc[1] + panel.getHeight();
     }
 
-    private static final String CARD_TAG = "pavo-recent-card";
-
-    private static boolean hasCards(ViewGroup strip) {
-        for (int i = 0; i < strip.getChildCount(); i++) {
-            if (CARD_TAG.equals(strip.getChildAt(i).getTag())) return true;
-        }
-        return false;
-    }
-
-    private static View firstCard(ViewGroup strip) {
-        for (int i = 0; i < strip.getChildCount(); i++) {
-            View v = strip.getChildAt(i);
-            if (CARD_TAG.equals(v.getTag())) return v;
-        }
-        return null;
-    }
-
     /** Only the gaps between cards, never a trailing one, so both sides match. */
     private void normalizeSpacing() {
         if (strip == null) return;
         int gap = Ui.dp(ctx, 8);
-        int cards = 0;
-        for (int i = 0; i < strip.getChildCount(); i++) {
-            if (CARD_TAG.equals(strip.getChildAt(i).getTag())) cards++;
-        }
-        int seen = 0;
-        for (int i = 0; i < strip.getChildCount(); i++) {
-            View card = strip.getChildAt(i);
-            if (!CARD_TAG.equals(card.getTag())) continue;
+        int count = cards.size();
+        for (int i = 0; i < cards.size(); i++) {
             LinearLayout.LayoutParams lp =
-                    (LinearLayout.LayoutParams) card.getLayoutParams();
+                    (LinearLayout.LayoutParams) cards.get(i).getLayoutParams();
             if (lp == null) continue;
-            lp.rightMargin = (++seen < cards) ? gap : 0;
-            card.setLayoutParams(lp);
+            lp.rightMargin = (i + 1 < count) ? gap : 0;
+            cards.get(i).setLayoutParams(lp);
         }
     }
 
     /** Sheet width for the current row of cards, capped to the screen. */
     private int panelWidth() {
         int row = 0;
-        if (strip != null) {
-            for (int i = 0; i < strip.getChildCount(); i++) {
-                View card = strip.getChildAt(i);
-                ViewGroup.LayoutParams lp = card.getLayoutParams();
-                if (lp == null) continue;
-                row += lp.width + ((LinearLayout.LayoutParams) lp).rightMargin;
-            }
+        for (View card : cards) {
+            ViewGroup.LayoutParams lp = card.getLayoutParams();
+            if (lp == null) continue;
+            row += lp.width + ((LinearLayout.LayoutParams) lp).rightMargin;
         }
         int avail = getResources().getDisplayMetrics().widthPixels - Ui.dp(ctx, 20);
         return Math.max(Ui.dp(ctx, 150),
@@ -476,24 +774,41 @@ final class RecentsOverlayView extends FrameLayout {
         return t;
     }
 
-    private void animateClear(final List<String> visible) {
-        if (dismissing) return;
-        dismissing = true;
-        Haptics.tick(panel);
-        float target = Math.max(panel.getHeight(), Ui.dp(ctx, 120)) + Ui.dp(ctx, 30);
-        panel.animate().translationY(target).alpha(0f).setDuration(180L)
-                .withEndAction(() -> {
-                    for (String pkg : visible) RecentApps.remove(ctx, pkg);
-                    new Thread(() -> {
-                        for (String pkg : visible) RecentApps.removeSystemTask(pkg);
-                    }).start();
-                    if (listener != null) listener.onDismiss();
-                }).start();
-    }
-
     private void dismiss() {
         if (dismissing) return;
         dismissing = true;
+        cancelAHold();
         if (listener != null) listener.onDismiss();
+    }
+
+    /** Small padlock badge shown on locked cards. */
+    private static final class LockGlyph extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        LockGlyph(Context c) {
+            super(c);
+            paint.setColor(0xFFE8C86A);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Ui.dpf(c, 1.3f));
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            setClickable(false);
+            setFocusable(false);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            float w = getWidth();
+            float h = getHeight();
+            float bodyW = w * 0.74f;
+            float bodyH = h * 0.50f;
+            float left = (w - bodyW) / 2f;
+            float top = h * 0.46f;
+            float r = Ui.dpf(getContext(), 1.4f);
+            canvas.drawRoundRect(left, top, left + bodyW, top + bodyH, r, r, paint);
+            float shackleR = bodyW * 0.30f;
+            canvas.drawArc(left + bodyW / 2f - shackleR, top - shackleR * 1.55f,
+                    left + bodyW / 2f + shackleR, top + shackleR * 0.55f,
+                    180f, 180f, false, paint);
+        }
     }
 }

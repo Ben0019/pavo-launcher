@@ -4,12 +4,16 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Small, launcher-owned recent-app list, fed by the accessibility foreground tracker. */
 final class RecentApps {
     private static final String FILE = "pavo_recents";
     private static final String KEY = "apps";
+    private static final String LOCKED_KEY = "locked";
     private static final int MAX = 8;
     private static final Object LOCK = new Object();
 
@@ -38,9 +42,44 @@ final class RecentApps {
         }
     }
 
+    /** Locked apps survive clear-all, the X button and Y until unlocked. */
+    static boolean isLocked(Context c, String pkg) {
+        if (c == null || pkg == null || pkg.isEmpty()) return false;
+        synchronized (LOCK) {
+            return lockedSet(c).contains(pkg);
+        }
+    }
+
+    static void setLocked(Context c, String pkg, boolean locked) {
+        if (c == null || pkg == null || pkg.isEmpty()) return;
+        synchronized (LOCK) {
+            Set<String> set = new LinkedHashSet<>(lockedSet(c));
+            boolean changed = locked ? set.add(pkg) : set.remove(pkg);
+            if (!changed) return;
+            StringBuilder b = new StringBuilder();
+            for (String p : set) {
+                if (b.length() > 0) b.append('|');
+                b.append(p);
+            }
+            if (b.length() == 0) prefs(c).edit().remove(LOCKED_KEY).apply();
+            else prefs(c).edit().putString(LOCKED_KEY, b.toString()).apply();
+        }
+    }
+
+    private static Set<String> lockedSet(Context c) {
+        String raw = prefs(c).getString(LOCKED_KEY, "");
+        if (raw == null || raw.isEmpty()) return Collections.emptySet();
+        Set<String> out = new LinkedHashSet<>();
+        for (String pkg : raw.split("\\|")) {
+            if (pkg != null && !pkg.isEmpty()) out.add(pkg);
+        }
+        return out;
+    }
+
     static void remove(Context c, String pkg) {
         if (c == null || pkg == null || pkg.isEmpty()) return;
         synchronized (LOCK) {
+            if (lockedSet(c).contains(pkg)) return;
             List<String> list = read(c);
             if (!list.remove(pkg)) return;
             StringBuilder b = new StringBuilder();
