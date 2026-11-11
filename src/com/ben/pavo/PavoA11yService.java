@@ -1017,7 +1017,6 @@ public final class PavoA11yService extends AccessibilityService {
                 || fanMode == PerfTuner.FAN_SMART || fanMode == PerfTuner.FAN_HIGH) {
             FanControl.start(this);
         }
-        HomeGuard.sync(this);
         ServiceNotifications.cancelPersistent(this);
         RgbService.dropForegroundRow();
         registerScreenOn();

@@ -915,13 +915,6 @@ final class Prefs {
         sp.edit().putString("quick_combo", value == null ? "" : value).apply();
     }
 
-    // --- home key gesture ---
-    boolean homeTwoPress() { return sp.getBoolean("home_two_press", false); }
-
-    void setHomeTwoPress(boolean value) {
-        sp.edit().putBoolean("home_two_press", value).apply();
-    }
-
     // --- recents sheet ---
     boolean recentsOverlayEnabled() { return sp.getBoolean("recents_overlay", true); }
 

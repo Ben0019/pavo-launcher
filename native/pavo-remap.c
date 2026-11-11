@@ -108,16 +108,6 @@ static int swallow_l3r3;
 static int l3r3_marker;
 static int socket_enabled;
 static int passthrough;
-static int front_fd = -1;
-static int front_out_fd = -1;
-static int front_grabbed;
-static int home_guard;
-static int home_pending;
-static long long home_first_ms;
-static long long next_guard_check;
-static char home_guard_path[512];
-
-static void refresh_home_guard(void);
 static char socket_name[108];
 static char command_buffer[1024];
 static size_t command_length;
@@ -502,11 +492,6 @@ static void on_key(int code, int value) {
 
 static void tick(void) {
     now_ms = monotonic_ms();
-    if (now_ms >= next_guard_check) {
-        next_guard_check = now_ms + 500;
-        refresh_home_guard();
-    }
-    if (home_pending && now_ms - home_first_ms > 1500) home_pending = 0;
     for (int i = 0; i <= KEY_MAX; i++) {
         if (pending[i] && pressed[i] && now_ms >= pending_at[i]) {
             pending[i] = 0;
@@ -1026,7 +1011,6 @@ static void derive_side_path(char *out, size_t size, const char *name) {
 }
 
 static void derive_park_path(void) {
-    derive_side_path(home_guard_path, sizeof(home_guard_path), "home_guard");
     derive_side_path(park_path, sizeof(park_path), "controller-passthrough");
     derive_side_path(l3r3_path, sizeof(l3r3_path), "controller-l3r3-swallow");
     derive_side_path(trace_path, sizeof(trace_path), "controller-trace");
@@ -1070,160 +1054,6 @@ static void update_grab(void) {
     }
 }
 
-/* ---------------------------------------------------------------- */
-/* Front keys (ff_key): optional two-press Home guard                */
-/* ---------------------------------------------------------------- */
-
-static int find_front_device(char *out, size_t out_size) {
-    FILE *f = fopen("/proc/bus/input/devices", "r");
-    if (!f) return 0;
-    char line[512];
-    char name[256] = {0};
-    char handlers[256] = {0};
-    int found = 0;
-    while (fgets(line, sizeof(line), f)) {
-        char *t = trim(line);
-        if (!*t) {
-            if (name[0] && handlers[0] && strstr(name, "ff_key")) {
-                found = event_node(handlers, out, out_size);
-                if (found) break;
-            }
-            name[0] = handlers[0] = 0;
-        } else if (!strncmp(t, "N: Name=", 8)) {
-            snprintf(name, sizeof(name), "%s", trim(t + 8));
-        } else if (!strncmp(t, "H: Handlers=", 12)) {
-            snprintf(handlers, sizeof(handlers), "%s", trim(t + 12));
-        }
-    }
-    if (!found && name[0] && handlers[0] && strstr(name, "ff_key")) {
-        found = event_node(handlers, out, out_size);
-    }
-    fclose(f);
-    return found;
-}
-
-static int open_front(void) {
-    char path[256];
-    if (!find_front_device(path, sizeof(path))) return 0;
-    front_fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    if (front_fd < 0) return 0;
-    if (ioctl(front_fd, EVIOCGRAB, 1) < 0) {
-        close(front_fd);
-        front_fd = -1;
-        return 0;
-    }
-    front_grabbed = 1;
-    return 1;
-}
-
-static void emit_front_key(int code, int value) {
-    if (front_out_fd < 0) return;
-    struct input_event ev;
-    memset(&ev, 0, sizeof(ev));
-    ev.type = EV_KEY;
-    ev.code = (uint16_t)code;
-    ev.value = value;
-    ssize_t ignored = write(front_out_fd, &ev, sizeof(ev));
-    memset(&ev, 0, sizeof(ev));
-    ev.type = EV_SYN;
-    ev.code = SYN_REPORT;
-    ignored = write(front_out_fd, &ev, sizeof(ev));
-    (void)ignored;
-}
-
-static void home_tap(void) {
-    emit_front_key(KEY_HOMEPAGE, 1);
-    emit_front_key(KEY_HOMEPAGE, 0);
-}
-
-static int create_front_output(void) {
-    front_out_fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK | O_CLOEXEC);
-    if (front_out_fd < 0) return 0;
-    ioctl(front_out_fd, UI_SET_EVBIT, EV_KEY);
-    if (front_fd >= 0) {
-        uint8_t bits[(KEY_MAX + 8) / 8];
-        memset(bits, 0, sizeof(bits));
-        if (ioctl(front_fd, EVIOCGBIT(EV_KEY, sizeof(bits)), bits) >= 0) {
-            for (int code = 0; code <= KEY_MAX; code++) {
-                if (bits[code / 8] & (1 << (code % 8))) {
-                    ioctl(front_out_fd, UI_SET_KEYBIT, code);
-                }
-            }
-        }
-    }
-    ioctl(front_out_fd, UI_SET_KEYBIT, KEY_HOMEPAGE);
-    ioctl(front_out_fd, UI_SET_KEYBIT, KEY_HOME);
-    struct uinput_setup setup;
-    memset(&setup, 0, sizeof(setup));
-    setup.id.bustype = BUS_USB;
-    setup.id.vendor = 0x1209;
-    setup.id.product = 0x0001;
-    setup.id.version = 1;
-    snprintf(setup.name, sizeof(setup.name), "Pavo Front Keys");
-    char phys[] = "pavo-front";
-    ioctl(front_out_fd, UI_SET_PHYS, phys);
-    if (ioctl(front_out_fd, UI_DEV_SETUP, &setup) < 0
-            || ioctl(front_out_fd, UI_DEV_CREATE) < 0) {
-        close(front_out_fd);
-        front_out_fd = -1;
-        return 0;
-    }
-    return 1;
-}
-
-static void handle_home(int value) {
-    if (value == 0) return;
-    if (!home_guard) {
-        if (value == 1) home_tap();
-        return;
-    }
-    long long now = monotonic_ms();
-    if (value == 1) {
-        if (home_pending && now - home_first_ms <= 1200) {
-            home_pending = 0;
-            home_tap();
-        } else {
-            home_pending = 1;
-            home_first_ms = now;
-        }
-    }
-}
-
-/* Forward one front-key event; Home is handled separately. */
-static void on_front_event(const struct input_event *ev) {
-    if (ev->type != EV_KEY) return;
-    if (ev->code == KEY_HOMEPAGE) {
-        handle_home(ev->value);
-        return;
-    }
-    emit_front_key(ev->code, ev->value);
-}
-
-static void read_front(void) {
-    struct input_event ev[32];
-    ssize_t n = read(front_fd, ev, sizeof(ev));
-    if (n <= 0) return;
-    for (size_t i = 0; i < (size_t)n / sizeof(ev[0]); i++) {
-        on_front_event(&ev[i]);
-    }
-}
-
-static void refresh_home_guard(void) {
-    int next = home_guard;
-    if (home_guard_path[0]) {
-        FILE *f = fopen(home_guard_path, "r");
-        if (f) {
-            char line[16] = {0};
-            if (fgets(line, sizeof(line), f)) next = atoi(line) != 0;
-            else next = 0;
-            fclose(f);
-        } else {
-            next = 0;
-        }
-    }
-    home_guard = next;
-}
-
 static void usage(const char *name) {
     fprintf(stderr, "usage: %s [--device PATH] --config PATH [--pid PATH] [--socket NAME]\n", name);
 }
@@ -1263,22 +1093,12 @@ int main(int argc, char **argv) {
         fprintf(stderr, "open %s: %s\n", device, strerror(errno));
         return 1;
     }
-    if (!open_front()) {
-        fprintf(stderr, "front keys unavailable\n");
-    }
     if (!create_virtual()) {
         fprintf(stderr, "uinput create failed: %s\n", strerror(errno));
         ioctl(src_fd, EVIOCGRAB, 0);
         close(src_fd);
         return 1;
     }
-    if (front_fd >= 0 && !create_front_output()) {
-        /* Never keep the front keys grabbed without a way to forward them. */
-        ioctl(front_fd, EVIOCGRAB, 0);
-        close(front_fd);
-        front_fd = -1;
-    }
-    refresh_home_guard();
     reset_config();
     load_config();
     config_changed();
@@ -1343,7 +1163,7 @@ int main(int argc, char **argv) {
         }
         if (timeout < 0) timeout = 0;
 
-        struct pollfd pfds[3];
+        struct pollfd pfds[2];
         pfds[0].fd = src_fd;
         pfds[0].events = POLLIN;
         pfds[0].revents = 0;
@@ -1360,13 +1180,6 @@ int main(int argc, char **argv) {
             count++;
         }
 
-        if (front_fd >= 0) {
-            pfds[count].fd = front_fd;
-            pfds[count].events = POLLIN;
-            pfds[count].revents = 0;
-            count++;
-        }
-
         int pr = poll(pfds, (nfds_t)count, timeout);
         if (pr < 0 && errno != EINTR) break;
         if (pr <= 0) continue;
@@ -1375,17 +1188,6 @@ int main(int argc, char **argv) {
             accept_client();
         } else if (count > 1 && pfds[1].fd == client_fd) {
             if (pfds[1].revents & (POLLIN | POLLHUP | POLLERR)) read_commands();
-        }
-
-        for (int i = 1; i < count; i++) {
-            if (front_fd >= 0 && pfds[i].fd == front_fd) {
-                if (pfds[i].revents & POLLIN) read_front();
-                if (pfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                    ioctl(front_fd, EVIOCGRAB, 0);
-                    close(front_fd);
-                    front_fd = -1;
-                }
-            }
         }
 
         if (!(pfds[0].revents & POLLIN)) continue;

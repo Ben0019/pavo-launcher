@@ -15087,17 +15087,24 @@ public final class MainActivity extends Activity {
                     }
                 });
         addSleepMethodChooser(panel);
-        addSwitch(panel, "Home needs two presses", prefs.homeTwoPress(),
+        boolean odinHomeGuard = Settings.System.getInt(getContentResolver(),
+                "prevent_press_home_accidentally", 0) == 1;
+        addSwitch(panel, "Home needs two presses (Odin)", odinHomeGuard,
                 new BoolCallback() {
                     @Override
                     public void onValue(boolean value) {
-                        HomeGuard.set(MainActivity.this, value);
+                        boolean ok = PerfTuner.Root.writeOk("settings put system "
+                                + "prevent_press_home_accidentally " + (value ? 1 : 0));
+                        if (!ok) {
+                            Toast.makeText(MainActivity.this,
+                                    "Could not change the Odin Home setting",
+                                    Toast.LENGTH_SHORT).show();
+                        }
                     }
                 });
         TextView odinHint = new LTextView(this);
-        odinHint.setText("Pavo handles the front Home key itself: the first press is "
-                + "ignored and a second press within a second goes home. The Odin "
-                + "firmware guard is switched off so the two do not fight.");
+        odinHint.setText("Odin firmware option: in other apps, Home must be pressed twice. "
+                + "Turn it off if the second press does not return home.");
         odinHint.setTextColor(0x66FFFFFF);
         odinHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         odinHint.setPadding(0, 0, 0, Ui.dp(this, 6));

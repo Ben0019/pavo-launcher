@@ -40,7 +40,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Swipe a card up or down in the recents sheet to close that app: a deliberate drag or a quick flick closes it, a short nudge springs back, horizontal drags still scroll the row, and locked apps resist the swipe just like Y and the X button.
 - Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
 - The Z long-press is detected inside the native controller remapper and on the controller input node, so it works whether the button is routed through the daemon or straight to Android.
-- "Home needs two presses" is now Pavo's own gesture: the controller daemon takes over the front-key node, ignores the first press and sends Home on a second press within a second. It works from any app, and the Odin firmware guard is switched off automatically so the two never fight. Back and Power keep working through the same path.
+- Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.
 - Home from another app always lands on the first home page with overlays closed. With Odin's two-press guard on, the second press is ignored for over a second, so a double press returns home instead of opening the app drawer.
 
 
