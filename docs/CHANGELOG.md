@@ -20,6 +20,14 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Strip mode has a 75% minimum scale so it cannot be pinched down to unreadable text.
 - Strip mode is unchanged and still switches with a double tap.
 
+
+### Navigation
+
+- Home on a secondary home page returns to the first page; Home on the first page opens the app drawer.
+- Back on the home screen opens the system Recents switcher; drawers, folders and menus still close first.
+- Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.
+
+
 ## 1.0.46 — 10 Nov 2026
 
 ### Performance overlay

@@ -1135,8 +1135,40 @@ public final class MainActivity extends Activity {
             intent.removeExtra("pavo_check_updates");
             Updater.checkAndInstall(this);
         }
+        boolean homeIntent = intent != null
+                && Intent.ACTION_MAIN.equals(intent.getAction())
+                && intent.hasCategory(Intent.CATEGORY_HOME);
+        if (homeIntent && (activityResumed || hasWindowFocus())) {
+            handleHomePress();
+        }
         setIntent(intent);
         handleShortcutIntent(intent);
+    }
+
+    /** Home while the launcher is already in front: page first, then drawer. */
+    private void handleHomePress() {
+        if (settingsDialog != null && settingsDialog.isShowing()) {
+            if (settingsSubmenuGlass != null) closeSettingsSubmenu();
+            else settingsDialog.dismiss();
+            return;
+        }
+        if (isFolderVisible()) {
+            closeFolder();
+            return;
+        }
+        if (activeMenu != null) {
+            dismissActiveMenu();
+            return;
+        }
+        if (isDrawerVisible()) {
+            closeDrawer();
+            return;
+        }
+        if (pager != null && pager.currentPage() > 0) {
+            pager.setPage(0, true);
+            return;
+        }
+        openDrawer(prefs.drawerButtonPopup());
     }
 
     private volatile long pinnedSyncAt;
@@ -1615,7 +1647,14 @@ public final class MainActivity extends Activity {
             dismissActiveMenu();
             return;
         }
-        // A home screen should never exit on Back.
+        if (settingsDialog != null && settingsDialog.isShowing()) {
+            if (settingsSubmenuGlass != null) closeSettingsSubmenu();
+            else settingsDialog.dismiss();
+            return;
+        }
+        // Back on the home screen opens the system Recents switcher instead
+        // of leaving the launcher with no visible action.
+        PavoA11yService.openRecents();
     }
 
     /** Keep the dock within its visible capacity after older builds or odd drops. */
@@ -14874,6 +14913,28 @@ public final class MainActivity extends Activity {
                     }
                 });
         addSleepMethodChooser(panel);
+        boolean odinHomeGuard = Settings.System.getInt(getContentResolver(),
+                "prevent_press_home_accidentally", 0) == 1;
+        addSwitch(panel, "Home needs two presses (Odin)", odinHomeGuard,
+                new BoolCallback() {
+                    @Override
+                    public void onValue(boolean value) {
+                        boolean ok = PerfTuner.Root.writeOk("settings put system "
+                                + "prevent_press_home_accidentally " + (value ? 1 : 0));
+                        if (!ok) {
+                            Toast.makeText(MainActivity.this,
+                                    "Could not change the Odin Home setting",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+        TextView odinHint = new LTextView(this);
+        odinHint.setText("Odin firmware option: in other apps, Home must be pressed twice. "
+                + "Turn it off if the second press does not return home.");
+        odinHint.setTextColor(0x66FFFFFF);
+        odinHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        odinHint.setPadding(0, 0, 0, Ui.dp(this, 6));
+        panel.addView(odinHint);
 
         panel.use("Feedback");
         addSection(panel, "Feedback");
@@ -17455,8 +17516,10 @@ public final class MainActivity extends Activity {
                         if (!isDrawerVisible() && !isFolderVisible()) restoreControllerFocus();
                     }
                 }, popupClose ? 430 : 320);
+            } else if (settingsDialog == null || !settingsDialog.isShowing()) {
+                // Back at the home screen opens the system Recents switcher.
+                PavoA11yService.openRecents();
             }
-            // Back on the home screen should not leave the launcher.
             return true;
         }
         if (isPageKey(code)) {
