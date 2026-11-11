@@ -444,11 +444,25 @@ final class RecentsOverlayView extends FrameLayout {
                 0x33FFFFFF, Math.max(1, dip(1))));
         panel.setClickable(true);
 
-        TextView clearLabel = text("Clear all", 10.5f * scale, 0xCCFFFFFF, false);
+        // Glass pill: soft light gradient, hairline border and a ripple.
+        View.OnClickListener clearAction = v -> clearAll();
+        int pillRadius = dip(13);
+        GradientDrawable pill = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x24FFFFFF, 0x0FFFFFFF});
+        pill.setCornerRadius(pillRadius);
+        pill.setStroke(Math.max(1, dip(1)), 0x33FFFFFF);
+        GradientDrawable pillMask = new GradientDrawable();
+        pillMask.setColor(0xFFFFFFFF);
+        pillMask.setCornerRadius(pillRadius);
+        TextView clearLabel = text("CLEAR ALL", 10f * scale, 0xF2FFFFFF, true);
         clearLabel.setGravity(Gravity.CENTER);
-        clearLabel.setLetterSpacing(0.06f);
-        clearLabel.setPadding(dip(10), 0, dip(10), 0);
-        clearLabel.setBackground(Ui.rounded(0x1AFFFFFF, dip(12)));
+        clearLabel.setLetterSpacing(0.12f);
+        clearLabel.setPadding(dip(18), 0, dip(18), 0);
+        clearLabel.setBackground(new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x33FFFFFF), pill, pillMask));
+        clearLabel.setClickable(true);
+        clearLabel.setOnClickListener(clearAction);
         handleRow = clearLabel;
         // Symmetrical header: the label sits halfway between the sheet edge
         // and the top of the cards.
