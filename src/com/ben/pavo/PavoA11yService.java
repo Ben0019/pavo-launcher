@@ -545,22 +545,27 @@ public final class PavoA11yService extends AccessibilityService {
                         + "[ -d \"/proc/$p\" ] && exit 0; fi\n"
                         + "echo $$ > \"$lock\"\n"
                         + "tok=/data/local/tmp/pavo-back-token\n"
-                        + "getevent -lt /dev/input/event5 2>/dev/null | while read -r line; do\n"
-                        + "  case \"$line\" in\n"
-                        + "    *KEY_BACK*DOWN*)\n"
-                        + "      t=$(date +%s%N)\n"
-                        + "      echo \"$t\" > \"$tok\"\n"
-                        + "      ( sleep 0.45\n"
-                        + "        if [ \"$(cat \"$tok\" 2>/dev/null)\" = \"$t\" ]; then\n"
-                        + "          rm -f \"$tok\"\n"
-                        + "          am broadcast -a " + ACTION_SHOW_RECENTS
+                        + "watch() {\n"
+                        + "  getevent -lt \"$1\" 2>/dev/null | while read -r line; do\n"
+                        + "    case \"$line\" in\n"
+                        + "      *KEY_BACK*DOWN*)\n"
+                        + "        t=$(date +%s%N)\n"
+                        + "        echo \"$t\" > \"$tok\"\n"
+                        + "        ( sleep 0.45\n"
+                        + "          if [ \"$(cat \"$tok\" 2>/dev/null)\" = \"$t\" ]; then\n"
+                        + "            rm -f \"$tok\"\n"
+                        + "            am broadcast -a " + ACTION_SHOW_RECENTS
                         + " >/dev/null 2>&1\n"
-                        + "        fi\n"
-                        + "      ) &\n"
-                        + "      ;;\n"
-                        + "    *KEY_BACK*UP*) rm -f \"$tok\" ;;\n"
-                        + "  esac\n"
-                        + "done\n"
+                        + "          fi\n"
+                        + "        ) &\n"
+                        + "        ;;\n"
+                        + "      *KEY_BACK*UP*) rm -f \"$tok\" ;;\n"
+                        + "    esac\n"
+                        + "  done\n"
+                        + "}\n"
+                        + "watch /dev/input/event5 &\n"
+                        + "watch /dev/input/event8 &\n"
+                        + "wait\n"
                         + "rm -f \"$lock\"\n";
                 try {
                     try (FileOutputStream out = new FileOutputStream(script)) {
@@ -576,8 +581,9 @@ public final class PavoA11yService extends AccessibilityService {
 
     private void stopBackMonitor() {
         if (!PServer.available()) return;
-        PServer.run("kill $(cat /data/local/tmp/pavo-back-monitor.pid) "
-                + "2>/dev/null; rm -f /data/local/tmp/pavo-back-monitor.pid");
+        PServer.run("p=$(cat /data/local/tmp/pavo-back-monitor.pid 2>/dev/null); "
+                + "[ -n \"$p\" ] && kill -9 -$p 2>/dev/null; "
+                + "rm -f /data/local/tmp/pavo-back-monitor.pid");
     }
 
     /**

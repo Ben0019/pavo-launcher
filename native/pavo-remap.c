@@ -104,6 +104,9 @@ static int ui_fd = -1;
 static int server_fd = -1;
 static int client_fd = -1;
 static int swallow_all;
+static int back_down;
+static int back_fired;
+static long long back_down_ms;
 static int swallow_l3r3;
 static int l3r3_marker;
 static int socket_enabled;
@@ -412,6 +415,28 @@ static void on_key(int code, int value) {
         return;
     }
     int down = value != 0;
+    if (!config.capture && code == KEY_BACK) {
+        if (value == 1) {
+            if (!back_down) {
+                back_down = 1;
+                back_down_ms = monotonic_ms();
+                back_fired = 0;
+            }
+            return;
+        }
+        if (value == 2) return;
+        if (value == 0) {
+            if (!back_down) return;
+            back_down = 0;
+            int fired = back_fired;
+            back_fired = 0;
+            if (!fired) {
+                output_key(KEY_BACK, 1);
+                output_key(KEY_BACK, 0);
+            }
+            return;
+        }
+    }
     if (passthrough) {
         if (value == 2) return;
         if (!down) {
@@ -492,6 +517,12 @@ static void on_key(int code, int value) {
 
 static void tick(void) {
     now_ms = monotonic_ms();
+    if (back_down && !back_fired && now_ms - back_down_ms >= 450) {
+        back_fired = 1;
+        int ignored = system("am broadcast -a com.ben.pavo.SHOW_RECENTS "
+                ">/dev/null 2>&1");
+        (void)ignored;
+    }
     for (int i = 0; i <= KEY_MAX; i++) {
         if (pending[i] && pressed[i] && now_ms >= pending_at[i]) {
             pending[i] = 0;
