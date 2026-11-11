@@ -4,8 +4,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.PorterDuff;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Outline;
 import android.graphics.drawable.GradientDrawable;
 import android.os.SystemClock;
 import android.util.TypedValue;
@@ -13,15 +14,18 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Thin floating dock of recent apps, shown over any app by the accessibility layer. */
+/** Large bottom recents panel with task-preview cards and a Clear all action. */
 final class RecentsOverlayView extends FrameLayout {
     interface Listener {
         void onDismiss();
@@ -39,11 +43,16 @@ final class RecentsOverlayView extends FrameLayout {
         setClipChildren(false);
         setClickable(false);
         setFocusableInTouchMode(true);
+        setPadding(Ui.dp(ctx, 14), 0, Ui.dp(ctx, 14), Ui.dp(ctx, 14));
         build();
     }
 
     void setIgnoreBackUntil(long timeMs) {
         ignoreBackUntil = timeMs;
+    }
+
+    boolean isEmpty() {
+        return empty;
     }
 
     @Override
@@ -70,13 +79,24 @@ final class RecentsOverlayView extends FrameLayout {
     }
 
     private void build() {
-        LinearLayout bar = new LinearLayout(ctx);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 6),
-                Ui.dp(ctx, 8), Ui.dp(ctx, 5));
-        bar.setBackground(Ui.rounded(0xE80C1017, Ui.dp(ctx, 24),
-                0x44FFFFFF, Ui.dp(ctx, 1)));
+        LinearLayout panel = new LinearLayout(ctx);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(Ui.dp(ctx, 14), Ui.dp(ctx, 12),
+                Ui.dp(ctx, 14), Ui.dp(ctx, 12));
+        panel.setBackground(Ui.rounded(0xF210141A, Ui.dp(ctx, 26),
+                0x33FFFFFF, Ui.dp(ctx, 1)));
+        panel.setClickable(true);
+
+        HorizontalScrollView scroll = new HorizontalScrollView(ctx);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.setClipToPadding(false);
+        scroll.setFillViewport(true);
+        LinearLayout strip = new LinearLayout(ctx);
+        strip.setOrientation(LinearLayout.HORIZONTAL);
+        strip.setGravity(Gravity.CENTER_HORIZONTAL);
+        scroll.addView(strip, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         List<String> recent = RecentApps.list(ctx);
         String foreground = PavoA11yService.focusedPackage();
@@ -85,9 +105,8 @@ final class RecentsOverlayView extends FrameLayout {
         }
         if (foreground != null && !foreground.isEmpty()) recent.remove(foreground);
 
-        boolean added = false;
-        View firstTile = null;
         List<String> visible = new ArrayList<>();
+        View firstCard = null;
         for (String pkg : recent) {
             String cls = null;
             try {
@@ -102,140 +121,168 @@ final class RecentsOverlayView extends FrameLayout {
             if (e == null) continue;
             List<Apps.Entry> one = new ArrayList<>();
             one.add(e);
-            Apps.loadIcons(ctx, one, Ui.dp(ctx, 52));
+            Apps.loadIcons(ctx, one, Ui.dp(ctx, 24));
 
-            LinearLayout cell = new LinearLayout(ctx);
-            cell.setOrientation(LinearLayout.VERTICAL);
-            cell.setGravity(Gravity.CENTER_HORIZONTAL);
-            cell.setFocusable(true);
-            cell.setTag(TILE_TAG);
+            LinearLayout card = new LinearLayout(ctx);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setPadding(Ui.dp(ctx, 7), Ui.dp(ctx, 7),
+                    Ui.dp(ctx, 7), Ui.dp(ctx, 7));
+            card.setBackground(Ui.rounded(0xE814181F, Ui.dp(ctx, 20),
+                    0x33FFFFFF, Ui.dp(ctx, 1)));
+            card.setFocusable(true);
+            card.setTag(CARD_TAG);
 
-            FrameLayout thumb = new FrameLayout(ctx);
-            thumb.setBackground(fallbackBackground(e.icon));
-            ImageView icon = new ImageView(ctx);
-            icon.setImageBitmap(e.icon);
-            FrameLayout.LayoutParams ilp = new FrameLayout.LayoutParams(
-                    Ui.dp(ctx, 56), Ui.dp(ctx, 56), Gravity.CENTER);
-            thumb.addView(icon, ilp);
-
-            TextView x = text("\u2715", 11f, 0xAAFFFFFF, false);
-            x.setGravity(Gravity.CENTER);
-            x.setBackground(Ui.rounded(0x66000000, Ui.dp(ctx, 10)));
-            x.setFocusable(false);
-            FrameLayout.LayoutParams xlp = new FrameLayout.LayoutParams(
-                    Ui.dp(ctx, 20), Ui.dp(ctx, 20), Gravity.TOP | Gravity.END);
-            xlp.topMargin = Ui.dp(ctx, 2);
-            xlp.rightMargin = Ui.dp(ctx, 2);
-            thumb.addView(x, xlp);
-            x.setOnClickListener(v -> {
-                boolean wasFocused = cell.isFocused();
+            LinearLayout header = new LinearLayout(ctx);
+            header.setOrientation(LinearLayout.HORIZONTAL);
+            header.setGravity(Gravity.CENTER_VERTICAL);
+            header.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 4),
+                    Ui.dp(ctx, 4), Ui.dp(ctx, 4));
+            header.setBackground(Ui.rounded(0x14FFFFFF, Ui.dp(ctx, 12)));
+            ImageView appIcon = new ImageView(ctx);
+            appIcon.setImageBitmap(e.icon);
+            header.addView(appIcon, new LinearLayout.LayoutParams(
+                    Ui.dp(ctx, 22), Ui.dp(ctx, 22)));
+            TextView appName = text(e.label == null || e.label.isEmpty() ? e.pkg : e.label,
+                    11.5f, 0xF2FFFFFF, false);
+            appName.setSingleLine(true);
+            appName.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            nlp.leftMargin = Ui.dp(ctx, 7);
+            header.addView(appName, nlp);
+            TextView close = text("\u2715", 11f, 0xCCFFFFFF, false);
+            close.setGravity(Gravity.CENTER);
+            close.setFocusable(false);
+            close.setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 4),
+                    Ui.dp(ctx, 8), Ui.dp(ctx, 4));
+            close.setOnClickListener(v -> {
+                boolean wasFocused = card.isFocused();
                 RecentApps.remove(ctx, e.pkg);
                 new Thread(() -> RecentApps.removeSystemTask(e.pkg)).start();
-                ViewGroup parent = (ViewGroup) cell.getParent();
-                parent.removeView(cell);
-                if (!hasTiles(parent)) {
+                ViewGroup parent = (ViewGroup) card.getParent();
+                parent.removeView(card);
+                if (!hasCards(parent)) {
                     dismiss();
                 } else if (wasFocused) {
-                    View next = firstTile(parent);
+                    View next = firstCard(parent);
                     if (next != null) next.requestFocus();
                 }
             });
+            header.addView(close);
 
-            cell.addView(thumb, new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 68), Ui.dp(ctx, 68)));
+            FrameLayout preview = new FrameLayout(ctx);
+            File snap = RecentsSnapshotCache.snapshotFor(ctx, pkg);
+            Bitmap previewBmp = null;
+            if (snap != null) {
+                try {
+                    previewBmp = BitmapFactory.decodeFile(snap.getAbsolutePath());
+                } catch (Throwable ignored) {
+                }
+            }
+            if (previewBmp != null) {
+                preview.setBackgroundColor(0xFF0C1017);
+                ImageView image = new ImageView(ctx);
+                image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                image.setImageBitmap(previewBmp);
+                preview.addView(image, new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT));
+                preview.setClipToOutline(true);
+                preview.setOutlineProvider(new ViewOutlineProvider() {
+                    @Override
+                    public void getOutline(View view, Outline outline) {
+                        outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(),
+                                Ui.dp(ctx, 14));
+                    }
+                });
+            } else {
+                preview.setBackground(fallbackBackground(e.icon));
+                ImageView icon = new ImageView(ctx);
+                icon.setImageBitmap(e.icon);
+                preview.addView(icon, new FrameLayout.LayoutParams(
+                        Ui.dp(ctx, 54), Ui.dp(ctx, 54), Gravity.CENTER));
+            }
+
+            card.addView(header, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 132));
+            plp.topMargin = Ui.dp(ctx, 7);
+            card.addView(preview, plp);
 
             final Apps.Entry entry = e;
-            cell.setOnClickListener(v -> {
+            card.setOnClickListener(v -> {
                 launch(entry);
                 dismiss();
             });
-            cell.setOnFocusChangeListener((v, has) -> thumb.setAlpha(has ? 1f : 0.92f));
-            cell.setOnKeyListener((v, keyCode, event) -> {
+            card.setOnFocusChangeListener((v, has) -> card.setBackground(
+                    Ui.rounded(0xE814181F, Ui.dp(ctx, 20),
+                            has ? 0x99FFFFFF : 0x33FFFFFF, Ui.dp(ctx, 1))));
+            card.setOnKeyListener((v, keyCode, event) -> {
                 if (event.getAction() == KeyEvent.ACTION_DOWN
                         && (keyCode == KeyEvent.KEYCODE_BUTTON_A
                         || keyCode == KeyEvent.KEYCODE_DPAD_CENTER
                         || keyCode == KeyEvent.KEYCODE_ENTER)) {
-                    cell.performClick();
+                    card.performClick();
                     return true;
                 }
                 return false;
             });
+
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 68), ViewGroup.LayoutParams.WRAP_CONTENT);
-            clp.rightMargin = Ui.dp(ctx, 6);
-            bar.addView(cell, clp);
+                    Ui.dp(ctx, 248), ViewGroup.LayoutParams.WRAP_CONTENT);
+            clp.rightMargin = Ui.dp(ctx, 10);
+            strip.addView(card, clp);
             visible.add(pkg);
-            added = true;
-            if (firstTile == null) firstTile = cell;
+            if (firstCard == null) firstCard = card;
         }
 
-        if (added) {
-            View divider = new View(ctx);
-            divider.setBackgroundColor(0x33FFFFFF);
-            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 1), Ui.dp(ctx, 28));
-            dlp.leftMargin = Ui.dp(ctx, 1);
-            dlp.rightMargin = Ui.dp(ctx, 5);
-            bar.addView(divider, dlp);
+        empty = visible.isEmpty();
+        if (empty) return;
 
-            FrameLayout clear = new FrameLayout(ctx);
-            clear.setBackground(Ui.rounded(0x26FFFFFF, Ui.dp(ctx, 20)));
-            clear.setFocusable(true);
-            clear.setContentDescription("Clear recent apps");
-            ImageView trash = new ImageView(ctx);
-            trash.setImageResource(R.drawable.ic_recents_clear);
-            trash.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
-            clear.addView(trash, new FrameLayout.LayoutParams(
-                    Ui.dp(ctx, 22), Ui.dp(ctx, 22), Gravity.CENTER));
-            clear.setOnClickListener(v -> {
-                for (String pkg : visible) RecentApps.remove(ctx, pkg);
-                new Thread(() -> {
-                    for (String pkg : visible) RecentApps.removeSystemTask(pkg);
-                }).start();
-                dismiss();
-            });
-            clear.setOnFocusChangeListener((v, has) -> clear.setBackground(
-                    Ui.rounded(has ? 0x40FFFFFF : 0x26FFFFFF, Ui.dp(ctx, 20),
-                            has ? 0x66FFFFFF : 0, Ui.dp(ctx, 1))));
-            clear.setOnKeyListener((v, keyCode, event) -> {
-                if (event.getAction() == KeyEvent.ACTION_DOWN
-                        && (keyCode == KeyEvent.KEYCODE_BUTTON_A
-                        || keyCode == KeyEvent.KEYCODE_DPAD_CENTER
-                        || keyCode == KeyEvent.KEYCODE_ENTER)) {
-                    clear.performClick();
-                    return true;
-                }
-                return false;
-            });
-            bar.addView(clear, new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 40), Ui.dp(ctx, 40)));
-        }
+        panel.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        empty = !added;
-        addView(bar, new FrameLayout.LayoutParams(
+        TextView clear = text("Clear all", 12f, 0xFFE8C86A, false);
+        clear.setGravity(Gravity.CENTER);
+        clear.setPadding(Ui.dp(ctx, 26), 0, Ui.dp(ctx, 26), 0);
+        clear.setBackground(Ui.rounded(0x1FFFFFFF, Ui.dp(ctx, 22),
+                0x33FFFFFF, Ui.dp(ctx, 1)));
+        clear.setOnClickListener(v -> {
+            for (String pkg : visible) RecentApps.remove(ctx, pkg);
+            new Thread(() -> {
+                for (String pkg : visible) RecentApps.removeSystemTask(pkg);
+            }).start();
+            dismiss();
+        });
+        LinearLayout.LayoutParams clearLp = new LinearLayout.LayoutParams(
+                Ui.dp(ctx, 220), Ui.dp(ctx, 44));
+        clearLp.gravity = Gravity.CENTER_HORIZONTAL;
+        clearLp.topMargin = Ui.dp(ctx, 10);
+        panel.addView(clear, clearLp);
+
+        addView(panel, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER));
-        if (firstTile != null) firstTile.requestFocus();
+                Gravity.BOTTOM));
+        if (firstCard != null) firstCard.requestFocus();
     }
 
-    boolean isEmpty() {
-        return empty;
-    }
+    private static final String CARD_TAG = "pavo-recent-card";
 
-    private static final String TILE_TAG = "pavo-recent-tile";
-
-    private static boolean hasTiles(ViewGroup bar) {
-        for (int i = 0; i < bar.getChildCount(); i++) {
-            if (TILE_TAG.equals(bar.getChildAt(i).getTag())) return true;
+    private static boolean hasCards(ViewGroup strip) {
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            if (CARD_TAG.equals(strip.getChildAt(i).getTag())) return true;
         }
         return false;
     }
 
-    private static View firstTile(ViewGroup bar) {
-        for (int i = 0; i < bar.getChildCount(); i++) {
-            View v = bar.getChildAt(i);
-            if (TILE_TAG.equals(v.getTag())) return v;
+    private static View firstCard(ViewGroup strip) {
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            View v = strip.getChildAt(i);
+            if (CARD_TAG.equals(v.getTag())) return v;
         }
         return null;
     }
@@ -265,9 +312,8 @@ final class RecentsOverlayView extends FrameLayout {
         }
         GradientDrawable g = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                new int[]{0xB0000000 | (base & 0x00FFFFFF), 0xF010141A});
-        g.setCornerRadius(Ui.dp(ctx, 10));
-        g.setStroke(Ui.dp(ctx, 1), 0x44FFFFFF);
+                new int[]{0xB0000000 | (base & 0x00FFFFFF), 0xF00C1017});
+        g.setCornerRadius(Ui.dp(ctx, 14));
         return g;
     }
 

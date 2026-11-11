@@ -476,7 +476,13 @@ public final class PavoA11yService extends AccessibilityService {
     }
 
     private void showRecentsOverlayAsync() {
-        main.post(this::showRecentsOverlay);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                RecentsSnapshotCache.refresh(PavoA11yService.this);
+                main.post(PavoA11yService.this::showRecentsOverlay);
+            }
+        }, "pavo-recents-refresh").start();
     }
 
     private void showRecentsOverlay() {
@@ -488,13 +494,12 @@ public final class PavoA11yService extends AccessibilityService {
         if (view.isEmpty()) return;
         int flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 flags,
                 PixelFormat.TRANSLUCENT);
-        lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-        lp.y = Ui.dp(uiContext, 22);
+        lp.gravity = Gravity.BOTTOM;
         lp.setTitle("Pavo recents");
         if (Build.VERSION.SDK_INT >= 28) {
             lp.layoutInDisplayCutoutMode =
