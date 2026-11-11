@@ -436,15 +436,16 @@ final class RecentsOverlayView extends FrameLayout {
                 0x33FFFFFF, Ui.dp(ctx, 1)));
         panel.setClickable(true);
 
-        handleRow = new FrameLayout(ctx);
-        View handle = new View(ctx);
-        handle.setBackground(Ui.rounded(0x66FFFFFF, Ui.dp(ctx, 2)));
-        ((FrameLayout) handleRow).addView(handle, new FrameLayout.LayoutParams(
-                Ui.dp(ctx, 40), Ui.dp(ctx, 4), Gravity.CENTER));
-        // Symmetrical header: the pill sits halfway between the sheet edge
+        TextView clearLabel = text("Clear all", 10.5f, 0xCCFFFFFF, false);
+        clearLabel.setGravity(Gravity.CENTER);
+        clearLabel.setLetterSpacing(0.06f);
+        clearLabel.setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), 0);
+        clearLabel.setBackground(Ui.rounded(0x1AFFFFFF, Ui.dp(ctx, 12)));
+        handleRow = clearLabel;
+        // Symmetrical header: the label sits halfway between the sheet edge
         // and the top of the cards.
         LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(
-                Ui.dp(ctx, 120), Ui.dp(ctx, 26));
+                ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(ctx, 26));
         handleLp.gravity = Gravity.CENTER_HORIZONTAL;
         panel.addView(handleRow, handleLp);
 
