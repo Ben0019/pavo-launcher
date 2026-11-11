@@ -1160,8 +1160,10 @@ public final class MainActivity extends Activity {
     /** Home while the launcher is already in front: page first, then drawer. */
     private void handleHomePress() {
         // A guarded Home (two presses) fires again right after we surface;
-        // that second press must not toggle the drawer open.
-        if (SystemClock.uptimeMillis() - homeBringAt < 600L) return;
+        // that second press must not toggle the drawer open. With the Odin
+        // guard on, the second press can arrive up to a second later.
+        long homeWindow = homeGuardOn() ? 1300L : 600L;
+        if (SystemClock.uptimeMillis() - homeBringAt < homeWindow) return;
         if (recentsDialog != null && recentsDialog.isShowing()) {
             recentsDialog.dismiss();
             return;
@@ -1188,6 +1190,11 @@ public final class MainActivity extends Activity {
             return;
         }
         openDrawer(prefs.drawerButtonPopup());
+    }
+
+    private boolean homeGuardOn() {
+        return Settings.System.getInt(getContentResolver(),
+                "prevent_press_home_accidentally", 0) == 1;
     }
 
     /** Land on the first home page with every overlay closed. */
