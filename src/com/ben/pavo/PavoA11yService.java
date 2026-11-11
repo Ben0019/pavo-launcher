@@ -61,6 +61,7 @@ public final class PavoA11yService extends AccessibilityService {
     private static volatile boolean autoAcceptProjection;
     private static volatile long autoAcceptProjectionUntil;
     private static volatile String foregroundPackage;
+    private static volatile String foregroundClass;
     private android.content.BroadcastReceiver screenOnReceiver;
     private volatile boolean wakeWatcherRunning;
     private Thread wakeWatcher;
@@ -76,6 +77,11 @@ public final class PavoA11yService extends AccessibilityService {
      */
     static String foregroundPackage() {
         return foregroundPackage;
+    }
+
+    /** Activity class of the foreground window, when it reported one. */
+    static String foregroundClass() {
+        return foregroundClass;
     }
 
     interface VisualListener {
@@ -1968,13 +1974,16 @@ public final class PavoA11yService extends AccessibilityService {
                 // is in front; they must not overwrite the real foreground app.
                 // Only true overlays are skipped; the launcher must be recorded
                 // so that going Home clears the app that was in front.
+                String cls = event.getClassName() == null
+                        ? null : event.getClassName().toString();
                 if (!name.equals("com.android.systemui")
                         && !name.equals("com.odin.gameassistant")
                         && !name.contains("inputmethod")
                         && ownWindowIsForeground(name, event.getClassName())) {
                     foregroundPackage = name;
+                    foregroundClass = cls;
                     foregroundAt = SystemClock.uptimeMillis();
-                    RecentApps.note(this, name);
+                    RecentApps.note(this, name, cls);
                 }
             }
         }

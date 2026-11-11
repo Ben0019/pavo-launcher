@@ -20,12 +20,22 @@ final class RecentApps {
     private RecentApps() {}
 
     static void note(Context c, String pkg) {
-        if (c == null || !eligible(c, pkg)) return;
+        note(c, pkg, null);
+    }
+
+    /**
+     * Records a recent. Built-in screens share the launcher package, so they
+     * are keyed by "package/activity" and everything else by package alone.
+     */
+    static void note(Context c, String pkg, String cls) {
+        if (c == null) return;
+        String key = keyFor(c, pkg, cls);
+        if (key == null) return;
         synchronized (LOCK) {
             List<String> list = read(c);
-            if (!list.isEmpty() && pkg.equals(list.get(0))) return;
-            list.remove(pkg);
-            list.add(0, pkg);
+            if (!list.isEmpty() && key.equals(list.get(0))) return;
+            list.remove(key);
+            list.add(0, key);
             while (list.size() > MAX) list.remove(list.size() - 1);
             StringBuilder b = new StringBuilder();
             for (String p : list) {
@@ -34,6 +44,27 @@ final class RecentApps {
             }
             prefs(c).edit().putString(KEY, b.toString()).apply();
         }
+    }
+
+    /** Recents key for a window, or null when it should not be listed. */
+    static String keyFor(Context c, String pkg, String cls) {
+        if (pkg == null || pkg.isEmpty()) return null;
+        if (pkg.equals(c.getPackageName())) {
+            return Builtins.isBuiltinClass(cls) ? pkg + "/" + cls : null;
+        }
+        return eligible(c, pkg) ? pkg : null;
+    }
+
+    static String packageOf(String key) {
+        if (key == null) return null;
+        int slash = key.indexOf('/');
+        return slash < 0 ? key : key.substring(0, slash);
+    }
+
+    static String activityOf(String key) {
+        if (key == null) return null;
+        int slash = key.indexOf('/');
+        return slash < 0 ? null : key.substring(slash + 1);
     }
 
     static List<String> list(Context c) {

@@ -537,23 +537,36 @@ final class RecentsOverlayView extends FrameLayout {
         if (foreground == null || foreground.isEmpty()) {
             foreground = PavoA11yService.foregroundPackage();
         }
+        String foregroundKey = foreground;
+        String foregroundCls = PavoA11yService.foregroundClass();
+        if (foreground != null && foreground.equals(ctx.getPackageName())
+                && Builtins.isBuiltinClass(foregroundCls)) {
+            foregroundKey = foreground + "/" + foregroundCls;
+        }
         List<Apps.Entry> entries = new ArrayList<>();
+        List<String> entryKeys = new ArrayList<>();
         boolean skippedForeground = false;
-        if (foreground != null && !foreground.isEmpty()) {
+        if (foregroundKey != null && !foregroundKey.isEmpty()) {
             List<String> without = new ArrayList<>(recent);
-            without.remove(foreground);
-            entries = entriesFor(without);
+            without.remove(foregroundKey);
+            entries = entriesFor(without, entryKeys);
             // Holding Z from an app that is the only recent would otherwise
             // show nothing at all, so fall back to listing it.
             skippedForeground = !entries.isEmpty();
         }
-        if (!skippedForeground) entries = entriesFor(recent);
+        if (!skippedForeground) {
+            entryKeys = new ArrayList<>();
+            entries = entriesFor(recent, entryKeys);
+        }
         Apps.loadIcons(ctx, entries, Ui.dp(ctx, 24));
 
         final int previewH = Math.max(Ui.dp(ctx, 70),
                 Math.round(Ui.dp(ctx, 110) * scale));
 
+        int entryIndex = 0;
         for (Apps.Entry e : entries) {
+            String storeKey = entryIndex < entryKeys.size()
+                    ? entryKeys.get(entryIndex++) : e.pkg;
             LinearLayout card = new LinearLayout(ctx);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setPadding(dip(6), dip(6), dip(6), dip(6));
@@ -602,7 +615,10 @@ final class RecentsOverlayView extends FrameLayout {
             header.addView(close);
 
             FrameLayout preview = new FrameLayout(ctx);
-            File snap = RecentsSnapshotCache.snapshotFor(ctx, e.pkg);
+            // Built-ins live in our package, so the cached task snapshot would
+            // be the launcher itself; always show their own icon instead.
+            File snap = e.pkg != null && e.pkg.equals(ctx.getPackageName())
+                    ? null : RecentsSnapshotCache.snapshotFor(ctx, e.pkg);
             Bitmap previewBmp = null;
             if (snap != null) {
                 try {
@@ -633,6 +649,10 @@ final class RecentsOverlayView extends FrameLayout {
                 preview.addView(icon, new FrameLayout.LayoutParams(
                         dip(46), dip(46), Gravity.CENTER));
             }
+            // The preview swallows taps on some builds; forward both gestures
+            // to the card so tap opens and hold locks.
+            preview.setOnClickListener(v -> card.performClick());
+            preview.setOnLongClickListener(v -> card.performLongClick());
 
             final int cardW = cardWidthFor(previewBmp, previewH);
             card.addView(header, new LinearLayout.LayoutParams(
@@ -666,7 +686,7 @@ final class RecentsOverlayView extends FrameLayout {
             clp.rightMargin = dip(8);
             strip.addView(card, clp);
             cards.add(card);
-            cardPkg.put(card, e.pkg);
+            cardPkg.put(card, storeKey);
             applyCardLook(card);
             normalizeSpacing();
         }
@@ -726,7 +746,9 @@ final class RecentsOverlayView extends FrameLayout {
         if (pkg == null) return;
         boolean wasFocused = card.isFocused() || focusedView == card;
         RecentApps.remove(ctx, pkg);
-        new Thread(() -> RecentApps.removeSystemTask(pkg)).start();
+        if (!pkg.startsWith(ctx.getPackageName() + "/")) {
+            new Thread(() -> RecentApps.removeSystemTask(pkg)).start();
+        }
         Haptics.tick(card);
         if (focusedView == card) focusedView = null;
         if (cards.size() <= 1) hideRing();
@@ -762,7 +784,9 @@ final class RecentsOverlayView extends FrameLayout {
                 String pkg = cardPkg.get(card);
                 if (pkg == null) continue;
                 RecentApps.remove(ctx, pkg);
-                new Thread(() -> RecentApps.removeSystemTask(pkg)).start();
+                if (!pkg.startsWith(ctx.getPackageName() + "/")) {
+                    new Thread(() -> RecentApps.removeSystemTask(pkg)).start();
+                }
                 strip.removeView(card);
                 cards.remove(card);
                 cardPkg.remove(card);
@@ -790,16 +814,33 @@ final class RecentsOverlayView extends FrameLayout {
                 .withEndAction(() -> {
                     for (String pkg : pkgs) RecentApps.remove(ctx, pkg);
                     new Thread(() -> {
-                        for (String pkg : pkgs) RecentApps.removeSystemTask(pkg);
+                        for (String pkg : pkgs) {
+                            if (!pkg.startsWith(ctx.getPackageName() + "/")) {
+                                RecentApps.removeSystemTask(pkg);
+                            }
+                        }
                     }).start();
                     if (listener != null) listener.onDismiss();
                 }).start();
     }
 
-    /** Resolve stored packages to launchable app entries. */
-    private List<Apps.Entry> entriesFor(List<String> pkgs) {
+    /** Resolve stored recents keys to launchable app entries. */
+    private List<Apps.Entry> entriesFor(List<String> keys, List<String> keptKeys) {
         List<Apps.Entry> list = new ArrayList<>();
-        for (String pkg : pkgs) {
+        for (String key : keys) {
+            String builtin = RecentApps.activityOf(key);
+            if (builtin != null) {
+                // Draw built-in icons large enough for the preview, then let
+                // the header scale them down so they stay crisp.
+                Apps.Entry e = Builtins.entryFor(ctx, builtin, Ui.dp(ctx, 64));
+                if (e != null) {
+                    list.add(e);
+                    keptKeys.add(key);
+                }
+                continue;
+            }
+            String pkg = RecentApps.packageOf(key);
+            if (pkg == null) continue;
             String cls = null;
             try {
                 Intent launch = ctx.getPackageManager().getLaunchIntentForPackage(pkg);
@@ -812,6 +853,7 @@ final class RecentsOverlayView extends FrameLayout {
             Apps.Entry e = Apps.entryFor(ctx, pkg, cls);
             if (e == null) continue;
             list.add(e);
+            keptKeys.add(key);
         }
         return list;
     }
@@ -911,13 +953,20 @@ final class RecentsOverlayView extends FrameLayout {
 
     private void launch(Apps.Entry entry) {
         Intent intent = null;
-        try {
-            intent = ctx.getPackageManager().getLaunchIntentForPackage(entry.pkg);
-        } catch (Throwable ignored) {
-        }
-        if (intent == null) {
+        if (entry.pkg != null && entry.pkg.equals(ctx.getPackageName())
+                && Builtins.isBuiltinClass(entry.activity)) {
+            // Built-ins share our package; launch the exact activity.
             intent = new Intent().setComponent(
                     new ComponentName(entry.pkg, entry.activity));
+        } else {
+            try {
+                intent = ctx.getPackageManager().getLaunchIntentForPackage(entry.pkg);
+            } catch (Throwable ignored) {
+            }
+            if (intent == null) {
+                intent = new Intent().setComponent(
+                        new ComponentName(entry.pkg, entry.activity));
+            }
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
