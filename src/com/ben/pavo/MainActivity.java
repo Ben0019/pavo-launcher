@@ -604,6 +604,8 @@ public final class MainActivity extends Activity {
     }
 
     private boolean activityResumed;
+    /** When Home brought the launcher back to the front. */
+    private long homeBringAt;
     private long lastUserActivityAt;
 
     private boolean homeIdleEligible() {
@@ -1142,8 +1144,14 @@ public final class MainActivity extends Activity {
         boolean homeIntent = intent != null
                 && Intent.ACTION_MAIN.equals(intent.getAction())
                 && intent.hasCategory(Intent.CATEGORY_HOME);
-        if (homeIntent && (activityResumed || hasWindowFocus())) {
-            handleHomePress();
+        if (homeIntent) {
+            if (activityResumed || hasWindowFocus()) {
+                handleHomePress();
+            } else {
+                // Coming back from another app: always land on the home page.
+                homeBringAt = SystemClock.uptimeMillis();
+                resetToHome();
+            }
         }
         setIntent(intent);
         handleShortcutIntent(intent);
@@ -1151,6 +1159,9 @@ public final class MainActivity extends Activity {
 
     /** Home while the launcher is already in front: page first, then drawer. */
     private void handleHomePress() {
+        // A guarded Home (two presses) fires again right after we surface;
+        // that second press must not toggle the drawer open.
+        if (SystemClock.uptimeMillis() - homeBringAt < 600L) return;
         if (recentsDialog != null && recentsDialog.isShowing()) {
             recentsDialog.dismiss();
             return;
@@ -1177,6 +1188,16 @@ public final class MainActivity extends Activity {
             return;
         }
         openDrawer(prefs.drawerButtonPopup());
+    }
+
+    /** Land on the first home page with every overlay closed. */
+    private void resetToHome() {
+        if (recentsDialog != null && recentsDialog.isShowing()) recentsDialog.dismiss();
+        if (settingsDialog != null && settingsDialog.isShowing()) settingsDialog.dismiss();
+        if (isFolderVisible()) closeFolder();
+        if (activeMenu != null) dismissActiveMenu();
+        if (isDrawerVisible()) closeDrawer();
+        if (pager != null && pager.currentPage() != 0) pager.setPage(0, false);
     }
 
     /** Pavo's own recent-app sheet; system Recents is unreliable with a 3p home. */

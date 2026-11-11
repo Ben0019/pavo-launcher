@@ -36,6 +36,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
 - The Z long-press is detected inside the native controller remapper and on the controller input node, so it works whether the button is routed through the daemon or straight to Android.
 - Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.
+- Home from another app always lands on the first home page with overlays closed, and the extra press of a guarded double press no longer opens the app drawer behind your back.
 
 
 ## 1.0.46 — 10 Nov 2026
