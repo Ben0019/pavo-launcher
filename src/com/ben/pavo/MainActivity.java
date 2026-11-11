@@ -1197,37 +1197,10 @@ public final class MainActivity extends Activity {
         card.setBackground(Ui.rounded(0xF210141A, Ui.dp(this, 22),
                 0x33FFFFFF, Ui.dp(this, 1)));
 
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = new LTextView(this);
-        title.setText("RECENT APPS");
-        title.setTextColor(0xCCFFFFFF);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        title.setLetterSpacing(0.12f);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        header.addView(title, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView close = new LTextView(this);
-        close.setText("CLOSE");
-        close.setTextColor(0x99FFFFFF);
-        close.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        close.setPadding(Ui.dp(this, 10), Ui.dp(this, 6),
-                Ui.dp(this, 4), Ui.dp(this, 6));
-        close.setOnClickListener(v -> dialog.dismiss());
-        header.addView(close);
-        card.addView(header, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         List<String> recent = RecentApps.list(this);
-        if (recent.isEmpty()) {
-            TextView empty = new LTextView(this);
-            empty.setText("No recent apps yet");
-            empty.setTextColor(0x88FFFFFF);
-            empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-            empty.setPadding(0, Ui.dp(this, 18), 0, Ui.dp(this, 18));
-            card.addView(empty);
-        } else {
+        if (recent.isEmpty()) return;
+        {
             for (String pkg : recent) {
                 Apps.Entry e = findPkg(pkg);
                 if (e == null) e = Apps.entryFor(this, pkg, null);
@@ -1297,21 +1270,6 @@ public final class MainActivity extends Activity {
                 rlp.topMargin = Ui.dp(this, 4);
                 card.addView(row, rlp);
             }
-            TextView clear = new LTextView(this);
-            clear.setText("Clear all");
-            clear.setTextColor(0xFF8FB8FF);
-            clear.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-            clear.setGravity(Gravity.CENTER);
-            clear.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 2));
-            clear.setOnClickListener(v -> {
-                final List<String> closing = new ArrayList<>(RecentApps.list(this));
-                RecentApps.clear(this);
-                dialog.dismiss();
-                new Thread(() -> {
-                    for (String pkg : closing) removeSystemTask(pkg);
-                }).start();
-            });
-            card.addView(clear);
         }
 
         wrapper.addView(card, new FrameLayout.LayoutParams(

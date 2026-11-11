@@ -471,8 +471,18 @@ public final class PavoA11yService extends AccessibilityService {
     static boolean showRecents(Context context) {
         PavoA11yService s = instance;
         if (s == null) return false;
-        s.main.post(s::showRecentsOverlay);
+        s.showRecentsOverlayAsync();
         return true;
+    }
+
+    private void showRecentsOverlayAsync() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                RecentsSnapshotCache.refresh(PavoA11yService.this);
+                main.post(PavoA11yService.this::showRecentsOverlay);
+            }
+        }, "pavo-recents-refresh").start();
     }
 
     private void showRecentsOverlay() {
@@ -481,14 +491,16 @@ public final class PavoA11yService extends AccessibilityService {
         if (wm == null) return;
         RecentsOverlayView view = new RecentsOverlayView(uiContext,
                 this::hideRecentsOverlay);
+        if (view.isEmpty()) return;
         int flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 flags,
                 PixelFormat.TRANSLUCENT);
-        lp.gravity = Gravity.TOP | Gravity.START;
+        lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+        lp.y = Ui.dp(uiContext, 22);
         lp.setTitle("Pavo recents");
         if (Build.VERSION.SDK_INT >= 28) {
             lp.layoutInDisplayCutoutMode =
@@ -521,7 +533,7 @@ public final class PavoA11yService extends AccessibilityService {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (intent != null && ACTION_SHOW_RECENTS.equals(intent.getAction())) {
-                    showRecentsOverlay();
+                    showRecentsOverlayAsync();
                 }
             }
         };
