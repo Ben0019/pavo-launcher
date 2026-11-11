@@ -4,6 +4,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.PorterDuff;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.SystemClock;
@@ -86,6 +87,7 @@ final class RecentsOverlayView extends FrameLayout {
 
         boolean added = false;
         View firstTile = null;
+        List<String> visible = new ArrayList<>();
         for (String pkg : recent) {
             String cls = null;
             try {
@@ -162,8 +164,51 @@ final class RecentsOverlayView extends FrameLayout {
                     Ui.dp(ctx, 68), ViewGroup.LayoutParams.WRAP_CONTENT);
             clp.rightMargin = Ui.dp(ctx, 6);
             bar.addView(cell, clp);
+            visible.add(pkg);
             added = true;
             if (firstTile == null) firstTile = cell;
+        }
+
+        if (added) {
+            View divider = new View(ctx);
+            divider.setBackgroundColor(0x33FFFFFF);
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                    Ui.dp(ctx, 1), Ui.dp(ctx, 28));
+            dlp.leftMargin = Ui.dp(ctx, 1);
+            dlp.rightMargin = Ui.dp(ctx, 5);
+            bar.addView(divider, dlp);
+
+            FrameLayout clear = new FrameLayout(ctx);
+            clear.setBackground(Ui.rounded(0x26FFFFFF, Ui.dp(ctx, 20)));
+            clear.setFocusable(true);
+            clear.setContentDescription("Clear recent apps");
+            ImageView trash = new ImageView(ctx);
+            trash.setImageResource(R.drawable.ic_recents_clear);
+            trash.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
+            clear.addView(trash, new FrameLayout.LayoutParams(
+                    Ui.dp(ctx, 22), Ui.dp(ctx, 22), Gravity.CENTER));
+            clear.setOnClickListener(v -> {
+                for (String pkg : visible) RecentApps.remove(ctx, pkg);
+                new Thread(() -> {
+                    for (String pkg : visible) RecentApps.removeSystemTask(pkg);
+                }).start();
+                dismiss();
+            });
+            clear.setOnFocusChangeListener((v, has) -> clear.setBackground(
+                    Ui.rounded(has ? 0x40FFFFFF : 0x26FFFFFF, Ui.dp(ctx, 20),
+                            has ? 0x66FFFFFF : 0, Ui.dp(ctx, 1))));
+            clear.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() == KeyEvent.ACTION_DOWN
+                        && (keyCode == KeyEvent.KEYCODE_BUTTON_A
+                        || keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+                        || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    clear.performClick();
+                    return true;
+                }
+                return false;
+            });
+            bar.addView(clear, new LinearLayout.LayoutParams(
+                    Ui.dp(ctx, 40), Ui.dp(ctx, 40)));
         }
 
         empty = !added;
