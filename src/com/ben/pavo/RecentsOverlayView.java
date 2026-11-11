@@ -54,6 +54,8 @@ final class RecentsOverlayView extends FrameLayout {
 
     private final Context ctx;
     private final Listener listener;
+    /** Uniform sheet size multiplier (60 % – 170 %). */
+    private final float scale;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<View> cards = new ArrayList<>();
     private final Map<View, String> cardPkg = new HashMap<>();
@@ -85,10 +87,11 @@ final class RecentsOverlayView extends FrameLayout {
         super(c);
         ctx = c;
         this.listener = listener;
+        scale = new Prefs(c).recentsHeightPercent() / 100f;
         setClipChildren(false);
         setClickable(true);
         setFocusableInTouchMode(true);
-        setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), Ui.dp(ctx, 10));
+        setPadding(dip(10), 0, dip(10), dip(10));
         setOnTouchListener((v, event) -> {
             if (event.getActionMasked() == MotionEvent.ACTION_DOWN
                     && isOutsideSheet(event)) {
@@ -99,6 +102,11 @@ final class RecentsOverlayView extends FrameLayout {
         });
         build();
         addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> positionRing());
+    }
+
+    /** dp scaled with the sheet size, never below one pixel. */
+    private int dip(int value) {
+        return Math.max(1, Math.round(Ui.dp(ctx, value) * scale));
     }
 
     void setIgnoreBackUntil(long timeMs) {
@@ -389,7 +397,7 @@ final class RecentsOverlayView extends FrameLayout {
         int[] loc = new int[2];
         getLocationOnScreen(self);
         target.getLocationOnScreen(loc);
-        int pad = Ui.dp(ctx, 2);
+        int pad = dip(2);
         final int left = loc[0] - self[0] - pad;
         final int top = loc[1] - self[1] - pad;
         final int right = left + target.getWidth() + pad * 2;
@@ -431,22 +439,21 @@ final class RecentsOverlayView extends FrameLayout {
 
         panel = new LinearLayout(ctx);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(Ui.dp(ctx, 10), 0,
-                Ui.dp(ctx, 10), Ui.dp(ctx, 9));
-        panel.setBackground(Ui.rounded(0xF210141A, Ui.dp(ctx, 22),
-                0x33FFFFFF, Ui.dp(ctx, 1)));
+        panel.setPadding(dip(10), 0, dip(10), dip(9));
+        panel.setBackground(Ui.rounded(0xF210141A, dip(22),
+                0x33FFFFFF, Math.max(1, dip(1))));
         panel.setClickable(true);
 
-        TextView clearLabel = text("Clear all", 10.5f, 0xCCFFFFFF, false);
+        TextView clearLabel = text("Clear all", 10.5f * scale, 0xCCFFFFFF, false);
         clearLabel.setGravity(Gravity.CENTER);
         clearLabel.setLetterSpacing(0.06f);
-        clearLabel.setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), 0);
-        clearLabel.setBackground(Ui.rounded(0x1AFFFFFF, Ui.dp(ctx, 12)));
+        clearLabel.setPadding(dip(10), 0, dip(10), 0);
+        clearLabel.setBackground(Ui.rounded(0x1AFFFFFF, dip(12)));
         handleRow = clearLabel;
         // Symmetrical header: the label sits halfway between the sheet edge
         // and the top of the cards.
         LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(ctx, 26));
+                ViewGroup.LayoutParams.WRAP_CONTENT, dip(26));
         handleLp.gravity = Gravity.CENTER_HORIZONTAL;
         panel.addView(handleRow, handleLp);
 
@@ -479,7 +486,7 @@ final class RecentsOverlayView extends FrameLayout {
                 case MotionEvent.ACTION_UP:
                     if (handleDragging[0]) {
                         float dy = event.getRawY() - handleDownY[0];
-                        if (dy > Ui.dp(ctx, 60)) clearAll();
+                        if (dy > dip(60)) clearAll();
                         else panel.animate().translationY(0f).setDuration(150L).start();
                     } else {
                         v.performClick();
@@ -523,13 +530,13 @@ final class RecentsOverlayView extends FrameLayout {
         if (!skippedForeground) entries = entriesFor(recent);
         Apps.loadIcons(ctx, entries, Ui.dp(ctx, 24));
 
-        final int previewH = Ui.dp(ctx, 110);
+        final int previewH = Math.max(Ui.dp(ctx, 70),
+                Math.round(Ui.dp(ctx, 110) * scale));
 
         for (Apps.Entry e : entries) {
             LinearLayout card = new LinearLayout(ctx);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 6),
-                    Ui.dp(ctx, 6), Ui.dp(ctx, 6));
+            card.setPadding(dip(6), dip(6), dip(6), dip(6));
             card.setFocusable(true);
             card.setFocusableInTouchMode(true);
             card.setTag(CARD_TAG);
@@ -537,36 +544,34 @@ final class RecentsOverlayView extends FrameLayout {
             LinearLayout header = new LinearLayout(ctx);
             header.setOrientation(LinearLayout.HORIZONTAL);
             header.setGravity(Gravity.CENTER_VERTICAL);
-            header.setPadding(Ui.dp(ctx, 5), Ui.dp(ctx, 3),
-                    Ui.dp(ctx, 3), Ui.dp(ctx, 3));
-            header.setBackground(Ui.rounded(0x14FFFFFF, Ui.dp(ctx, 11)));
+            header.setPadding(dip(5), dip(3), dip(3), dip(3));
+            header.setBackground(Ui.rounded(0x14FFFFFF, dip(11)));
             ImageView appIcon = new ImageView(ctx);
             appIcon.setImageBitmap(e.icon);
             header.addView(appIcon, new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 20), Ui.dp(ctx, 20)));
+                    dip(20), dip(20)));
             TextView appName = text(e.label == null || e.label.isEmpty() ? e.pkg : e.label,
-                    10.5f, 0xF2FFFFFF, false);
+                    10.5f * scale, 0xF2FFFFFF, false);
             appName.setSingleLine(true);
             appName.setEllipsize(android.text.TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            nlp.leftMargin = Ui.dp(ctx, 7);
+            nlp.leftMargin = dip(7);
             header.addView(appName, nlp);
 
             LockGlyph lock = new LockGlyph(ctx);
             lock.setTag(LOCK_TAG);
             LinearLayout.LayoutParams lockLp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 13), Ui.dp(ctx, 13));
-            lockLp.rightMargin = Ui.dp(ctx, 6);
+                    dip(13), dip(13));
+            lockLp.rightMargin = dip(6);
             lock.setVisibility(RecentApps.isLocked(ctx, e.pkg) ? VISIBLE : GONE);
             header.addView(lock, lockLp);
 
-            TextView close = text("\u2715", 10f, 0xCCFFFFFF, false);
+            TextView close = text("\u2715", 10f * scale, 0xCCFFFFFF, false);
             close.setGravity(Gravity.CENTER);
             close.setFocusable(false);
             close.setTag(CLOSE_TAG);
-            close.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 3),
-                    Ui.dp(ctx, 6), Ui.dp(ctx, 3));
+            close.setPadding(dip(6), dip(3), dip(6), dip(3));
             close.setOnClickListener(v -> {
                 if (RecentApps.isLocked(ctx, e.pkg)) {
                     Haptics.longPress(card);
@@ -598,7 +603,7 @@ final class RecentsOverlayView extends FrameLayout {
                     @Override
                     public void getOutline(View view, Outline outline) {
                         outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(),
-                                Ui.dp(ctx, 12));
+                                dip(12));
                     }
                 });
             } else {
@@ -606,16 +611,16 @@ final class RecentsOverlayView extends FrameLayout {
                 ImageView icon = new ImageView(ctx);
                 icon.setImageBitmap(e.icon);
                 preview.addView(icon, new FrameLayout.LayoutParams(
-                        Ui.dp(ctx, 46), Ui.dp(ctx, 46), Gravity.CENTER));
+                        dip(46), dip(46), Gravity.CENTER));
             }
 
-            final int cardW = cardWidthFor(previewBmp);
+            final int cardW = cardWidthFor(previewBmp, previewH);
             card.addView(header, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
             LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, previewH);
-            plp.topMargin = Ui.dp(ctx, 7);
+            plp.topMargin = dip(7);
             card.addView(preview, plp);
 
             final Apps.Entry entry = e;
@@ -638,7 +643,7 @@ final class RecentsOverlayView extends FrameLayout {
 
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                     cardW, ViewGroup.LayoutParams.WRAP_CONTENT);
-            clp.rightMargin = Ui.dp(ctx, 8);
+            clp.rightMargin = dip(8);
             strip.addView(card, clp);
             cards.add(card);
             cardPkg.put(card, e.pkg);
@@ -666,8 +671,8 @@ final class RecentsOverlayView extends FrameLayout {
         boolean locked = pkg != null && RecentApps.isLocked(ctx, pkg);
         boolean focused = card.isFocused();
         int border = focused ? 0x99FFFFFF : (locked ? 0x66E8C86A : 0x33FFFFFF);
-        card.setBackground(Ui.rounded(0xE814181F, Ui.dp(ctx, 20),
-                border, Ui.dp(ctx, 1)));
+        card.setBackground(Ui.rounded(0xE814181F, dip(20),
+                border, Math.max(1, dip(1))));
         View close = card.findViewWithTag(CLOSE_TAG);
         if (close != null) close.setAlpha(locked ? 0.35f : 1f);
         View lock = card.findViewWithTag(LOCK_TAG);
@@ -760,7 +765,7 @@ final class RecentsOverlayView extends FrameLayout {
             String pkg = cardPkg.get(card);
             if (pkg != null) pkgs.add(pkg);
         }
-        float target = Math.max(panel.getHeight(), Ui.dp(ctx, 120)) + Ui.dp(ctx, 30);
+        float target = Math.max(panel.getHeight(), dip(120)) + dip(30);
         panel.animate().translationY(target).alpha(0f).setDuration(180L)
                 .withEndAction(() -> {
                     for (String pkg : pkgs) RecentApps.remove(ctx, pkg);
@@ -805,7 +810,7 @@ final class RecentsOverlayView extends FrameLayout {
     /** Only the gaps between cards, never a trailing one, so both sides match. */
     private void normalizeSpacing() {
         if (strip == null) return;
-        int gap = Ui.dp(ctx, 8);
+        int gap = dip(8);
         int count = cards.size();
         for (int i = 0; i < cards.size(); i++) {
             LinearLayout.LayoutParams lp =
@@ -824,9 +829,8 @@ final class RecentsOverlayView extends FrameLayout {
             if (lp == null) continue;
             row += lp.width + ((LinearLayout.LayoutParams) lp).rightMargin;
         }
-        int avail = getResources().getDisplayMetrics().widthPixels - Ui.dp(ctx, 20);
-        return Math.max(Ui.dp(ctx, 150),
-                Math.min(row + Ui.dp(ctx, 20), avail));
+        int avail = getResources().getDisplayMetrics().widthPixels - dip(20);
+        return Math.max(dip(150), Math.min(row + dip(20), avail));
     }
 
     /** Keep the sheet wrapped around the cards after one is removed. */
@@ -843,15 +847,16 @@ final class RecentsOverlayView extends FrameLayout {
      * Card width follows the app window's own shape, so the preview is shown at
      * its real proportions instead of being stretched wide.
      */
-    private int cardWidthFor(Bitmap preview) {
+    private int cardWidthFor(Bitmap preview, int previewHeight) {
         float aspect = 16f / 9f;
         if (preview != null && !preview.isRecycled()
                 && preview.getWidth() > 0 && preview.getHeight() > 0) {
             aspect = preview.getWidth() / (float) preview.getHeight();
         }
         aspect = Math.max(0.62f, Math.min(2.35f, aspect));
-        int w = Math.round(Ui.dp(ctx, 110) * aspect) + Ui.dp(ctx, 12);
-        return Math.max(Ui.dp(ctx, 130), Math.min(Ui.dp(ctx, 340), w));
+        int w = Math.round(previewHeight * aspect) + dip(12);
+        int avail = getResources().getDisplayMetrics().widthPixels - dip(40);
+        return Math.max(dip(130), Math.min(avail, w));
     }
 
     private GradientDrawable fallbackBackground(Bitmap icon) {
@@ -880,7 +885,7 @@ final class RecentsOverlayView extends FrameLayout {
         GradientDrawable g = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 new int[]{0xB0000000 | (base & 0x00FFFFFF), 0xF00C1017});
-        g.setCornerRadius(Ui.dp(ctx, 14));
+        g.setCornerRadius(dip(14));
         return g;
     }
 

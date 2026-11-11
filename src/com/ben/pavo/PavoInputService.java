@@ -63,6 +63,8 @@ public final class PavoInputService extends Service {
     private static final int CAPTURE_DRAWER_COMBO = 4;
     private static final int CAPTURE_QUICK = 5;
     private static final int CAPTURE_QUICK_COMBO = 6;
+    private static final int CAPTURE_RECENTS_LONG = 7;
+    private static final int CAPTURE_RECENTS_SHORT = 8;
     private static volatile boolean capturing;
     private static volatile int captureTarget = CAPTURE_PERF;
     private static volatile long captureDeadline;
@@ -73,6 +75,17 @@ public final class PavoInputService extends Service {
     private long comboLastAt;
     private float quickStickX;
     private float quickStickY;
+    private String recentsDown;
+    private boolean recentsLongFired;
+
+    private final Runnable recentsHold = new Runnable() {
+        @Override
+        public void run() {
+            if (recentsDown == null) return;
+            recentsLongFired = true;
+            PavoA11yService.toggleRecents(PavoInputService.this);
+        }
+    };
     private float quickHatX;
     private float quickHatY;
 
@@ -330,6 +343,14 @@ public final class PavoInputService extends Service {
         return beginCapture(c, CAPTURE_DRAWER_COMBO);
     }
 
+    static boolean beginRecentsLongCapture(Context c) {
+        return beginCapture(c, CAPTURE_RECENTS_LONG);
+    }
+
+    static boolean beginRecentsShortCapture(Context c) {
+        return beginCapture(c, CAPTURE_RECENTS_SHORT);
+    }
+
     private static boolean beginCapture(final Context context, final int target) {
         if (context == null) return false;
         captureTarget = target;
@@ -354,6 +375,10 @@ public final class PavoInputService extends Service {
                 ? "Press a controller button for quick controls"
                 : target == CAPTURE_PERFLOG
                 ? "Press a controller button to open Perf Log options"
+                : target == CAPTURE_RECENTS_LONG
+                ? "Hold this button to open recents"
+                : target == CAPTURE_RECENTS_SHORT
+                ? "Tap this button to open recents"
                 : "Press a controller button for the overlay", Toast.LENGTH_LONG).show();
         return true;
     }
@@ -672,6 +697,8 @@ public final class PavoInputService extends Service {
             if (target == CAPTURE_DRAWER) prefs.setDrawerControllerRaw(key);
             else if (target == CAPTURE_PERFLOG) prefs.setPerfLogControllerRaw(key);
             else if (target == CAPTURE_QUICK) prefs.setQuickControllerRaw(key);
+            else if (target == CAPTURE_RECENTS_LONG) prefs.setRecentsLongRaw(key);
+            else if (target == CAPTURE_RECENTS_SHORT) prefs.setRecentsShortRaw(key);
             else prefs.setPerfControllerRaw(key);
             capturing = false;
             swallowCaptureUp = key;
@@ -683,6 +710,8 @@ public final class PavoInputService extends Service {
                     String prefix = target == CAPTURE_DRAWER ? "App drawer shortcut: "
                             : target == CAPTURE_PERFLOG ? "Perf Log popup shortcut: "
                             : target == CAPTURE_QUICK ? "Quick controls shortcut: "
+                            : target == CAPTURE_RECENTS_LONG ? "Recents hold: "
+                            : target == CAPTURE_RECENTS_SHORT ? "Recents tap: "
                             : "Controller shortcut: ";
                     LToast.makeText(PavoInputService.this, prefix + label
                             + (movedFrom == null ? "" : "  ·  moved from " + movedFrom),
@@ -831,6 +860,8 @@ public final class PavoInputService extends Service {
      * and report the old owner so the toast can say where it moved from.
      */
     private static String takeShortcutFrom(Prefs prefs, int target, String key) {
+        // A hold gesture coexists with every tap shortcut, so it never steals.
+        if (target == CAPTURE_RECENTS_LONG) return null;
         String from = null;
         if (target != CAPTURE_PERF && key.equals(prefs.perfControllerRaw())) {
             prefs.setPerfControllerRaw("");
@@ -847,6 +878,10 @@ public final class PavoInputService extends Service {
         if (target != CAPTURE_QUICK && key.equals(prefs.quickControllerRaw())) {
             prefs.setQuickControllerRaw("");
             from = "quick controls";
+        }
+        if (target != CAPTURE_RECENTS_SHORT && key.equals(prefs.recentsShortRaw())) {
+            prefs.setRecentsShortRaw("");
+            from = "recents tap";
         }
         return from;
     }
@@ -935,6 +970,32 @@ public final class PavoInputService extends Service {
 
     private void handleShortcut(final String key, boolean down, boolean up, boolean repeat) {
         Prefs prefs = new Prefs(this);
+        String recentsLong = prefs.recentsLongRaw();
+        String recentsShort = prefs.recentsShortRaw();
+        boolean recentsHoldKey = recentsLong != null && !recentsLong.isEmpty()
+                && recentsLong.equals(key);
+        boolean recentsTapKey = recentsShort != null && !recentsShort.isEmpty()
+                && recentsShort.equals(key);
+        if (recentsHoldKey || recentsTapKey) {
+            if (down) {
+                if (recentsHoldKey && recentsDown == null) {
+                    recentsDown = key;
+                    recentsLongFired = false;
+                    main.removeCallbacks(recentsHold);
+                    main.postDelayed(recentsHold, 450L);
+                }
+            } else if (up) {
+                main.removeCallbacks(recentsHold);
+                boolean fired = recentsLongFired;
+                recentsDown = null;
+                recentsLongFired = false;
+                if (recentsTapKey && !fired) {
+                    PavoA11yService.toggleRecents(this);
+                    return;
+                }
+            }
+            if (recentsTapKey) return;
+        }
         if (PerfLogActivity.isVisible()) {
             String perfLogMapped = prefs.perfLogControllerRaw();
             if (perfLogMapped != null && !perfLogMapped.isEmpty()

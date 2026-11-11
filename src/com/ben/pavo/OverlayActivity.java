@@ -61,6 +61,9 @@ public final class OverlayActivity extends PavoGlassActivity {
     private TextView quickShortcutRow;
     private TextView quickComboRow;
     private TextView shortcutRow;
+    private TextView recentsLongRow;
+    private TextView recentsShortRow;
+    private TextView recentsChip;
     private TextView perfShortcutRow;
     private TextView perfComboRow;
     private TextView drawerComboRow;
@@ -249,6 +252,7 @@ public final class OverlayActivity extends PavoGlassActivity {
         buildShortcutsSection(middle);
         buildQuickControlsSection(middle);
         buildDrawerSection(right);
+        buildRecentsSection(right);
         // Short 4:3 panels keep the 3x2 grid too: equal cards with no scrolling.
         reflowColumns(content, left, middle, right,
                 compact ? 3 : Ui.columns(this, 3));
@@ -275,7 +279,7 @@ public final class OverlayActivity extends PavoGlassActivity {
 
         // Build order: overlay, metrics, shortcuts, quick, drawer, drawer style.
         List<View> ordered = new ArrayList<>();
-        int[] order = {0, 1, 3, 2, 4, 5};
+        int[] order = {0, 1, 3, 2, 6, 4, 5};
         for (int index : order) {
             if (index < cards.size()) ordered.add(cards.get(index));
         }
@@ -587,6 +591,69 @@ public final class OverlayActivity extends PavoGlassActivity {
         clearRow(shortcuts, true);
     }
 
+    private void buildRecentsSection(LinearLayout parent) {
+        LinearLayout box = sectionWeighted(parent, Loc.s(this, "RECENTS"),
+                "Bottom app switcher sheet.");
+
+        recentsChip = toggle(box, "SHOW RECENTS", prefs.recentsOverlayEnabled(),
+                new Toggle() {
+                    @Override
+                    public void onChanged(boolean value) {
+                        prefs.setRecentsOverlayEnabled(value);
+                        if (!value) PavoA11yService.hideRecents();
+                        refreshState();
+                    }
+                });
+
+        slider(box, "Size", 60, 170, prefs.recentsHeightPercent(), "%",
+                new IntValue() {
+                    @Override
+                    public void onValue(int value) {
+                        prefs.setRecentsHeightPercent(value);
+                    }
+                });
+
+        recentsLongRow = recentsCaptureRow(box, true);
+        recentsShortRow = recentsCaptureRow(box, false);
+    }
+
+    /** "Hold" and "tap" bindings for the recents sheet. */
+    private TextView recentsCaptureRow(LinearLayout box, final boolean hold) {
+        TextView row = text("", 10f, TEXT, false);
+        row.setPadding(dp(10), dp(8), dp(10), dp(8));
+        row.setBackground(Ui.rounded(0x18FFFFFF, dp(11), 0x22FFFFFF, dp(1)));
+        attachFocus(row);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean started = hold
+                        ? PavoInputService.beginRecentsLongCapture(OverlayActivity.this)
+                        : PavoInputService.beginRecentsShortCapture(OverlayActivity.this);
+                if (started) {
+                    LToast.makeText(OverlayActivity.this,
+                            hold ? "Press a controller button to hold for recents"
+                                 : "Press a controller button to tap for recents",
+                            android.widget.Toast.LENGTH_LONG).show();
+                    v.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            refreshState();
+                        }
+                    }, 4200L);
+                } else {
+                    LToast.makeText(OverlayActivity.this,
+                            "Controller service unavailable. Check PServer or accessibility.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(7);
+        box.addView(row, lp);
+        return row;
+    }
+
     private void buildMetricsSection(LinearLayout parent) {
         LinearLayout box = sectionWeighted(parent, "METRICS", null, 0.6f);
         LinearLayout row = null;
@@ -879,6 +946,19 @@ public final class OverlayActivity extends PavoGlassActivity {
                     PavoA11yService.drawerControllerLabel(prefs));
             shortcutRow.setText(String.format(
                     Loc.s(this, "Shortcut: %s  ·  tap to map"), mapped));
+        }
+        if (recentsChip != null) {
+            setChipSelected(recentsChip, prefs.recentsOverlayEnabled());
+        }
+        if (recentsLongRow != null) {
+            String mapped = controllerShortcut(PavoA11yService.recentsLongLabel(prefs));
+            recentsLongRow.setText(String.format(
+                    Loc.s(this, "Hold: %s  ·  tap to map"), mapped));
+        }
+        if (recentsShortRow != null) {
+            String mapped = controllerShortcut(PavoA11yService.recentsShortLabel(prefs));
+            recentsShortRow.setText(String.format(
+                    Loc.s(this, "Tap: %s  ·  tap to map"), mapped));
         }
         if (perfShortcutRow != null) {
             String mapped = controllerShortcut(

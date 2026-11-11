@@ -233,6 +233,17 @@ public final class PavoA11yService extends AccessibilityService {
     private String swallowCaptureUp;
     private String mappedDown;
     private boolean mappedLongFired;
+    private String recentsDown;
+    private boolean recentsLongFired;
+
+    private final Runnable recentsHold = new Runnable() {
+        @Override
+        public void run() {
+            if (recentsDown == null) return;
+            recentsLongFired = true;
+            toggleRecents(PavoA11yService.this);
+        }
+    };
     private String drawerMappedDown;
     private boolean drawerLongFired;
     private String perfLogMappedDown;
@@ -439,6 +450,17 @@ public final class PavoA11yService extends AccessibilityService {
         return friendlyKey(prefs == null ? "" : prefs.perfLogControllerRaw());
     }
 
+    static String recentsLongLabel(Prefs prefs) {
+        String raw = prefs == null ? "" : prefs.recentsLongRaw();
+        String label = friendlyKey(raw);
+        return Prefs.DEFAULT_CONTROLLER_RAW.equals(raw) ? label + " (default)" : label;
+    }
+
+    static String recentsShortLabel(Prefs prefs) {
+        String raw = prefs == null ? "" : prefs.recentsShortRaw();
+        return raw == null || raw.isEmpty() ? "Not set" : friendlyKey(raw);
+    }
+
     private static String friendlyKey(String raw) {
         if (raw == null || raw.isEmpty()) return "Not mapped";
         switch (raw) {
@@ -475,10 +497,26 @@ public final class PavoA11yService extends AccessibilityService {
     }
 
     static boolean showRecents(Context context) {
+        if (context != null && !new Prefs(context).recentsOverlayEnabled()) return false;
         PavoA11yService s = instance;
         if (s == null) return false;
         s.showRecentsOverlayAsync();
         return true;
+    }
+
+    /** Close the sheet if it is showing. */
+    static void hideRecents() {
+        PavoA11yService s = instance;
+        if (s != null) s.hideRecentsOverlay();
+    }
+
+    /** Open the sheet if closed, close it if open. */
+    static void toggleRecents(Context context) {
+        PavoA11yService s = instance;
+        if (s == null) return;
+        if (!new Prefs(context != null ? context : s).recentsOverlayEnabled()) return;
+        if (s.recentsOverlay != null) s.hideRecentsOverlay();
+        else s.showRecentsOverlayAsync();
     }
 
     private void showRecentsOverlayAsync() {
@@ -547,6 +585,7 @@ public final class PavoA11yService extends AccessibilityService {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (intent != null && ACTION_SHOW_RECENTS.equals(intent.getAction())) {
+                    if (!new Prefs(PavoA11yService.this).recentsOverlayEnabled()) return;
                     if (recentsOverlay != null) hideRecentsOverlay();
                     else showRecentsOverlayAsync();
                 }
@@ -558,63 +597,6 @@ public final class PavoA11yService extends AccessibilityService {
         } else {
             registerReceiver(recentsReceiver, filter);
         }
-    }
-
-    private void startRecentsMonitor() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                if (!PServer.available()) return;
-                // Retire the old long-Back watcher left by a previous build.
-                PServer.run("p=$(cat /data/local/tmp/pavo-back-monitor.pid "
-                        + "2>/dev/null); [ -n \"$p\" ] && kill -9 -$p "
-                        + "2>/dev/null; rm -f /data/local/tmp/pavo-back-monitor.pid");
-                File script = new File(getCacheDir(), "pavo-recents-monitor.sh");
-                String text = "#!/system/bin/sh\n"
-                        + "lock=/data/local/tmp/pavo-recents-monitor.pid\n"
-                        + "if [ -f \"$lock\" ]; then p=$(cat \"$lock\"); "
-                        + "[ -d \"/proc/$p\" ] && exit 0; fi\n"
-                        + "echo $$ > \"$lock\"\n"
-                        + "tok=/data/local/tmp/pavo-recents-token\n"
-                        + "watch() {\n"
-                        + "  getevent -lt \"$1\" 2>/dev/null | while read -r line; do\n"
-                        + "    case \"$line\" in\n"
-                        + "      *BTN_Z*DOWN*)\n"
-                        + "        t=$(date +%s%N)\n"
-                        + "        echo \"$t\" > \"$tok\"\n"
-                        + "        ( sleep 0.45\n"
-                        + "          if [ \"$(cat \"$tok\" 2>/dev/null)\" = \"$t\" ]; then\n"
-                        + "            rm -f \"$tok\"\n"
-                        + "            am broadcast -a " + ACTION_SHOW_RECENTS
-                        + " >/dev/null 2>&1\n"
-                        + "          fi\n"
-                        + "        ) &\n"
-                        + "        ;;\n"
-                        + "      *BTN_Z*UP*) rm -f \"$tok\" ;;\n"
-                        + "    esac\n"
-                        + "  done\n"
-                        + "}\n"
-                        + "watch /dev/input/event5 &\n"
-                        + "watch /dev/input/event8 &\n"
-                        + "wait\n"
-                        + "rm -f \"$lock\"\n";
-                try {
-                    try (FileOutputStream out = new FileOutputStream(script)) {
-                        out.write(text.getBytes(StandardCharsets.UTF_8));
-                    }
-                    PServer.run("setsid sh " + script.getAbsolutePath()
-                            + " >/dev/null 2>&1 &");
-                } catch (Throwable ignored) {
-                }
-            }
-        }, "pavo-back-monitor").start();
-    }
-
-    private void stopRecentsMonitor() {
-        if (!PServer.available()) return;
-        PServer.run("p=$(cat /data/local/tmp/pavo-back-monitor.pid 2>/dev/null); "
-                + "[ -n \"$p\" ] && kill -9 -$p 2>/dev/null; "
-                + "rm -f /data/local/tmp/pavo-back-monitor.pid");
     }
 
     /**
@@ -1040,7 +1022,6 @@ public final class PavoA11yService extends AccessibilityService {
         PavoInputService.ensureStarted(this);
         QuickPanelEdgeHandle.attach(this);
         registerRecentsReceiver();
-        startRecentsMonitor();
         if (new Prefs(this).controllerRemapEnabled()
                 && !TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()
@@ -1231,6 +1212,37 @@ public final class PavoA11yService extends AccessibilityService {
             }
             return;
         }
+        String recentsLong = prefs.recentsLongRaw();
+        String recentsShort = prefs.recentsShortRaw();
+        boolean recentsHoldKey = recentsLong != null && !recentsLong.isEmpty()
+                && recentsLong.equals(key);
+        boolean recentsTapKey = recentsShort != null && !recentsShort.isEmpty()
+                && recentsShort.equals(key);
+        if (recentsHoldKey || recentsTapKey) {
+            if (down) {
+                if (recentsHoldKey && recentsDown == null) {
+                    recentsDown = key;
+                    recentsLongFired = false;
+                    keyHandler.removeCallbacks(recentsHold);
+                    keyHandler.postDelayed(recentsHold, 450L);
+                }
+            } else if (up) {
+                keyHandler.removeCallbacks(recentsHold);
+                boolean fired = recentsLongFired;
+                recentsDown = null;
+                recentsLongFired = false;
+                if (recentsTapKey && !fired) {
+                    main.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            toggleRecents(PavoA11yService.this);
+                        }
+                    });
+                    return;
+                }
+            }
+            if (recentsTapKey) return;
+        }
         String mapped = prefs.perfControllerRaw();
         if (mapped == null || mapped.isEmpty() || !mapped.equals(key)) return;
         if (down) {
@@ -1261,7 +1273,6 @@ public final class PavoA11yService extends AccessibilityService {
         stopControllerListener();
         hideDrawerOverlay();
         hideRecentsOverlay();
-        stopRecentsMonitor();
         if (recentsReceiver != null) {
             try { unregisterReceiver(recentsReceiver); } catch (Throwable ignored) {}
             recentsReceiver = null;

@@ -1209,6 +1209,9 @@ public final class MainActivity extends Activity {
 
     /** Pavo's own recent-app sheet; system Recents is unreliable with a 3p home. */
     private void showRecents() {
+        // When the recents sheet is turned off in Overlay & Drawer, Back on the
+        // home screen does nothing instead of falling back to the old dialog.
+        if (!new Prefs(this).recentsOverlayEnabled()) return;
         if (PavoA11yService.showRecents(this)) return;
         if (recentsDialog != null && recentsDialog.isShowing()) return;
         final Dialog dialog = new Dialog(this);

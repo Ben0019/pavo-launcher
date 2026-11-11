@@ -915,6 +915,33 @@ final class Prefs {
         sp.edit().putString("quick_combo", value == null ? "" : value).apply();
     }
 
+    // --- recents sheet ---
+    boolean recentsOverlayEnabled() { return sp.getBoolean("recents_overlay", true); }
+
+    void setRecentsOverlayEnabled(boolean value) {
+        sp.edit().putBoolean("recents_overlay", value).apply();
+    }
+
+    String recentsLongRaw() {
+        return sp.getString("recents_long_raw", DEFAULT_CONTROLLER_RAW);
+    }
+
+    void setRecentsLongRaw(String key) {
+        sp.edit().putString("recents_long_raw", key == null ? "" : key).apply();
+    }
+
+    String recentsShortRaw() { return sp.getString("recents_short_raw", ""); }
+
+    void setRecentsShortRaw(String key) {
+        sp.edit().putString("recents_short_raw", key == null ? "" : key).apply();
+    }
+
+    int recentsHeightPercent() { return clamp(sp.getInt("recents_height", 100), 60, 170); }
+
+    void setRecentsHeightPercent(int value) {
+        sp.edit().putInt("recents_height", clamp(value, 60, 170)).apply();
+    }
+
     String perfCombo() { return sp.getString("perf_combo", ""); }
     void setPerfCombo(String value) {
         sp.edit().putString("perf_combo", value == null ? "" : value).apply();
