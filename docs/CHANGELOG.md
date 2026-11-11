@@ -37,6 +37,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Pavo's own apps (Fan Control, Display, File Manager, Screen Recorder, ...) now appear as their own cards in the recents sheet, with the same icons as the launcher, and can be locked or closed like any app.
 - Overlay & Drawer has a new Recents card: turn the sheet on or off, resize it from 60 % to 170 % (every side scales, text included), and remap the controller buttons for holding and tapping to open it (the tap default is Back, which is what already opens it from the home screen). Turning it off also stops Back on the home screen from opening the old fallback dialog.
 - Recents is now a compact bottom panel that wraps its cards: task-preview cards with app headers, centred and sized to fit, with a Clear all label at the top and horizontal scrolling when they don't fit.
+- Swipe a card up or down in the recents sheet to close that app; a short swipe springs back, and locked apps resist the swipe just like Y and the X button.
 - Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
 - The Z long-press is detected inside the native controller remapper and on the controller input node, so it works whether the button is routed through the daemon or straight to Android.
 - Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.

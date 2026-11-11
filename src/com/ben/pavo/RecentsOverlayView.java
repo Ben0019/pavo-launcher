@@ -649,10 +649,6 @@ final class RecentsOverlayView extends FrameLayout {
                 preview.addView(icon, new FrameLayout.LayoutParams(
                         dip(46), dip(46), Gravity.CENTER));
             }
-            // The preview swallows taps on some builds; forward both gestures
-            // to the card so tap opens and hold locks.
-            preview.setOnClickListener(v -> card.performClick());
-            preview.setOnLongClickListener(v -> card.performLongClick());
 
             final int cardW = cardWidthFor(previewBmp, previewH);
             card.addView(header, new LinearLayout.LayoutParams(
@@ -668,9 +664,78 @@ final class RecentsOverlayView extends FrameLayout {
                 launch(entry);
                 dismiss();
             });
-            card.setOnLongClickListener(v -> {
+            final float[] downRawY = {0f};
+            final boolean[] cardDragging = {false};
+            final boolean[] cardLongFired = {false};
+            final int touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
+            final Runnable cardHold = () -> {
+                if (cardDragging[0]) return;
+                cardLongFired[0] = true;
                 toggleLock(card);
-                return true;
+            };
+            card.setOnTouchListener((v, event) -> {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downRawY[0] = event.getRawY();
+                        cardDragging[0] = false;
+                        cardLongFired[0] = false;
+                        main.removeCallbacks(cardHold);
+                        main.postDelayed(cardHold, ViewConfiguration.getLongPressTimeout());
+                        return true;
+                    case MotionEvent.ACTION_MOVE: {
+                        float dy = event.getRawY() - downRawY[0];
+                        if (!cardDragging[0] && Math.abs(dy) > touchSlop) {
+                            cardDragging[0] = true;
+                            main.removeCallbacks(cardHold);
+                        }
+                        if (cardDragging[0]) {
+                            float limit = Math.max(dip(40), card.getHeight() * 0.65f);
+                            float travel = Math.max(-limit, Math.min(limit, dy));
+                            card.setTranslationY(travel);
+                            card.setAlpha(1f - Math.min(0.6f,
+                                    Math.abs(travel) / limit * 0.6f));
+                        }
+                        return true;
+                    }
+                    case MotionEvent.ACTION_UP: {
+                        main.removeCallbacks(cardHold);
+                        if (cardLongFired[0]) return true;
+                        if (cardDragging[0]) {
+                            float dy = event.getRawY() - downRawY[0];
+                            String key = cardPkg.get(card);
+                            boolean locked = key != null && RecentApps.isLocked(ctx, key);
+                            if (Math.abs(dy) > dip(56) && locked) {
+                                Haptics.longPress(card);
+                                card.animate().translationY(0f).alpha(1f)
+                                        .setDuration(130L).start();
+                            } else if (Math.abs(dy) > dip(56)) {
+                                Haptics.tick(card);
+                                float end = dy < 0f
+                                        ? -(card.getHeight() + dip(30))
+                                        : card.getHeight() + dip(30);
+                                card.animate().translationY(end).alpha(0f)
+                                        .setDuration(130L)
+                                        .withEndAction(() -> removeCard(card))
+                                        .start();
+                            } else {
+                                card.animate().translationY(0f).alpha(1f)
+                                        .setDuration(130L).start();
+                            }
+                        } else {
+                            card.performClick();
+                        }
+                        return true;
+                    }
+                    case MotionEvent.ACTION_CANCEL:
+                        main.removeCallbacks(cardHold);
+                        if (cardDragging[0]) {
+                            card.animate().translationY(0f).alpha(1f)
+                                    .setDuration(130L).start();
+                        }
+                        return true;
+                    default:
+                        return false;
+                }
             });
             card.setOnFocusChangeListener((v, has) -> {
                 applyCardLook(v);
@@ -744,6 +809,10 @@ final class RecentsOverlayView extends FrameLayout {
     private void removeCard(View card) {
         String pkg = cardPkg.get(card);
         if (pkg == null) return;
+        if (RecentApps.isLocked(ctx, pkg)) {
+            Haptics.longPress(card);
+            return;
+        }
         boolean wasFocused = card.isFocused() || focusedView == card;
         RecentApps.remove(ctx, pkg);
         if (!pkg.startsWith(ctx.getPackageName() + "/")) {
