@@ -835,6 +835,47 @@ final class Apps {
         return b;
     }
 
+    /** Quick controls: three multicoloured sliders on the shared tile. */
+    static Bitmap quickControlsIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+
+        int[] colours = {0xFF6EC6FF, 0xFF69D98B, 0xFFFFB86B};
+        float[] knobs = {0.64f, 0.40f, 0.56f};
+        float x0 = size * 0.21f;
+        float x1 = size * 0.79f;
+        float trackW = Math.max(1.6f, size * 0.052f);
+        float knobR = Math.max(2.2f, size * 0.072f);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        for (int i = 0; i < 3; i++) {
+            float y = size * (0.32f + i * 0.18f);
+            float kx = x0 + (x1 - x0) * knobs[i];
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(trackW);
+            p.setColor(0x33FFFFFF);
+            c.drawLine(x0, y, x1, y, p);
+            p.setColor((0xCC << 24) | (colours[i] & 0x00FFFFFF));
+            c.drawLine(x0, y, kx, y, p);
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(colours[i]);
+            c.drawCircle(kx, y, knobR, p);
+            p.setColor(0x99FFFFFF);
+            c.drawCircle(kx, y, knobR * 0.34f, p);
+        }
+        return b;
+    }
+
     static Bitmap overlayIcon(int px, int accent) {
         int size = Math.max(24, px);
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);

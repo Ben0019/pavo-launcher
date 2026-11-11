@@ -634,7 +634,7 @@ final class AppDrawerOverlayView extends FrameLayout {
         DeviceProfile profile = DeviceProfile.get(context);
         int accent = ColorTuning.colour(accent());
         Apps.Entry quick = new Apps.Entry(Loc.s(context, "Quick Controls"), QUICK_PKG, "");
-        quick.icon = Apps.letterTile("\u2261", px);
+        quick.icon = Apps.quickControlsIcon(px, accent);
         out.add(quick);
         Apps.Entry tuner = new Apps.Entry(Loc.s(context, "Performance Tuner"), PERF_TUNER_PKG, "");
         tuner.icon = Apps.performanceTunerIcon(px, accent);

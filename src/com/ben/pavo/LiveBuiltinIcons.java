@@ -32,6 +32,7 @@ final class LiveBuiltinIcons {
     static final String UPDATES = "com.ben.pavo.updates";
     static final String SOUND = "com.ben.pavo.sound";
     static final String GALLERY = "com.ben.pavo.gallery";
+    static final String QUICK = "com.ben.pavo.quick";
 
     private LiveBuiltinIcons() {}
 
@@ -44,7 +45,8 @@ final class LiveBuiltinIcons {
                 || BENCHMARK.equals(pkg) || FILE_MANAGER.equals(pkg)
                 || SCREEN_RECORDER.equals(pkg) || OVERLAY.equals(pkg)
                 || FTP.equals(pkg) || UPDATES.equals(pkg)
-                || SOUND.equals(pkg) || GALLERY.equals(pkg);
+                || SOUND.equals(pkg) || GALLERY.equals(pkg)
+                || QUICK.equals(pkg);
     }
 
     static long duration(String pkg) {
@@ -64,6 +66,7 @@ final class LiveBuiltinIcons {
         if (UPDATES.equals(pkg)) return 3400L;
         if (SOUND.equals(pkg)) return 3000L;
         if (GALLERY.equals(pkg)) return 6200L;
+        if (QUICK.equals(pkg)) return 5200L;
         return 2400L;
     }
 
@@ -108,6 +111,8 @@ final class LiveBuiltinIcons {
             drawSound(c, size, accent, phase);
         } else if (GALLERY.equals(pkg)) {
             drawGallery(c, size, accent, phase);
+        } else if (QUICK.equals(pkg)) {
+            drawQuick(c, size, accent, phase);
         }
         if (UPDATES.equals(pkg) && Updater.isUpdateAvailable()) {
             drawUpdateBadge(c, size, phase);
@@ -133,6 +138,45 @@ final class LiveBuiltinIcons {
         rim.setStrokeWidth(Math.max(1f, size * 0.012f));
         rim.setColor(0x66FFFFFF);
         c.drawCircle(cx, cy, radius, rim);
+    }
+
+    /** Quick controls: three sliders whose knobs glide back and forth. */
+    private static void drawQuick(Canvas c, int size, int accent, float phase) {
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        float tileR = size * 0.225f;
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), tileR, tileR, border);
+
+        int[] colours = {0xFF6EC6FF, 0xFF69D98B, 0xFFFFB86B};
+        float x0 = size * 0.21f;
+        float x1 = size * 0.79f;
+        float trackW = Math.max(1.6f, size * 0.052f);
+        float knobR = Math.max(2.2f, size * 0.072f);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        for (int i = 0; i < 3; i++) {
+            double wave = Math.sin((phase + i * 0.33f) * Math.PI * 2.0);
+            float pos = 0.18f + 0.64f * (float) (0.5 + 0.5 * wave);
+            float y = size * (0.32f + i * 0.18f);
+            float kx = x0 + (x1 - x0) * pos;
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(trackW);
+            p.setColor(0x33FFFFFF);
+            c.drawLine(x0, y, x1, y, p);
+            p.setColor((0xCC << 24) | (colours[i] & 0x00FFFFFF));
+            c.drawLine(x0, y, kx, y, p);
+
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(colours[i]);
+            p.setAlpha(0x2E);
+            c.drawCircle(kx, y, knobR * 1.9f, p);
+            p.setAlpha(0xFF);
+            c.drawCircle(kx, y, knobR, p);
+            p.setColor(0x99FFFFFF);
+            c.drawCircle(kx, y, knobR * 0.34f, p);
+        }
     }
 
     /** Pavo Updates: the refresh arrow turns once per cycle. */
