@@ -61,6 +61,7 @@ import android.service.wallpaper.WallpaperService;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Spannable;
+import android.text.TextUtils;
 import android.text.SpannableString;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
@@ -317,6 +318,7 @@ public final class MainActivity extends Activity {
     private Backdrop settingsBackdrop;
     private final Map<String, LinearLayout> settingsCategoryPanels = new HashMap<>();
     private Dialog settingsDialog;
+    private Dialog recentsDialog;
     private FrameLayout settingsRootView;
     private View settingsCardView;
     private View settingsSubmenuScrim;
@@ -1147,6 +1149,10 @@ public final class MainActivity extends Activity {
 
     /** Home while the launcher is already in front: page first, then drawer. */
     private void handleHomePress() {
+        if (recentsDialog != null && recentsDialog.isShowing()) {
+            recentsDialog.dismiss();
+            return;
+        }
         if (settingsDialog != null && settingsDialog.isShowing()) {
             if (settingsSubmenuGlass != null) closeSettingsSubmenu();
             else settingsDialog.dismiss();
@@ -1169,6 +1175,145 @@ public final class MainActivity extends Activity {
             return;
         }
         openDrawer(prefs.drawerButtonPopup());
+    }
+
+    /** Pavo's own recent-app sheet; system Recents is unreliable with a 3p home. */
+    private void showRecents() {
+        if (recentsDialog != null && recentsDialog.isShowing()) return;
+        android.util.Log.d("PavoLog", "show recents n=" + RecentApps.list(this).size());
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        FrameLayout wrapper = new FrameLayout(this);
+        int pad = Ui.dp(this, 14);
+        wrapper.setPadding(pad, pad, pad, pad);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(Ui.dp(this, 18), Ui.dp(this, 16),
+                Ui.dp(this, 18), Ui.dp(this, 14));
+        card.setBackground(Ui.rounded(0xF210141A, Ui.dp(this, 22),
+                0x33FFFFFF, Ui.dp(this, 1)));
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = new LTextView(this);
+        title.setText("RECENT APPS");
+        title.setTextColor(0xCCFFFFFF);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        title.setLetterSpacing(0.12f);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        header.addView(title, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView close = new LTextView(this);
+        close.setText("CLOSE");
+        close.setTextColor(0x99FFFFFF);
+        close.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        close.setPadding(Ui.dp(this, 10), Ui.dp(this, 6),
+                Ui.dp(this, 4), Ui.dp(this, 6));
+        close.setOnClickListener(v -> dialog.dismiss());
+        header.addView(close);
+        card.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        List<String> recent = RecentApps.list(this);
+        if (recent.isEmpty()) {
+            TextView empty = new LTextView(this);
+            empty.setText("No recent apps yet");
+            empty.setTextColor(0x88FFFFFF);
+            empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            empty.setPadding(0, Ui.dp(this, 18), 0, Ui.dp(this, 18));
+            card.addView(empty);
+        } else {
+            for (String pkg : recent) {
+                Apps.Entry e = findPkg(pkg);
+                if (e == null) e = Apps.entryFor(this, pkg, null);
+                if (e == null) continue;
+                List<Apps.Entry> one = new ArrayList<>();
+                one.add(e);
+                Apps.loadIcons(this, one, Ui.dp(this, 40));
+
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(Ui.dp(this, 8), Ui.dp(this, 7),
+                        Ui.dp(this, 8), Ui.dp(this, 7));
+                row.setBackground(Ui.rounded(0x14FFFFFF, Ui.dp(this, 12)));
+                row.setFocusable(true);
+
+                ImageView icon = new ImageView(this);
+                icon.setImageBitmap(e.icon);
+                row.addView(icon, new LinearLayout.LayoutParams(
+                        Ui.dp(this, 40), Ui.dp(this, 40)));
+
+                TextView label = new LTextView(this);
+                label.setText(e.label == null || e.label.isEmpty() ? e.pkg : e.label);
+                label.setTextColor(0xF2FFFFFF);
+                label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+                label.setSingleLine(true);
+                label.setEllipsize(TextUtils.TruncateAt.END);
+                LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                llp.leftMargin = Ui.dp(this, 12);
+                row.addView(label, llp);
+
+                final Apps.Entry entry = e;
+                row.setOnClickListener(v -> {
+                    dialog.dismiss();
+                    launch(Item.app(entry.pkg, entry.activity), null);
+                });
+                row.setOnFocusChangeListener((v, has) -> row.setBackground(
+                        Ui.rounded(has ? 0x30FFFFFF : 0x14FFFFFF, Ui.dp(this, 12),
+                                has ? 0x66FFFFFF : 0, Ui.dp(this, 1))));
+                row.setOnKeyListener((v, keyCode, event) -> {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN
+                            && (keyCode == KeyEvent.KEYCODE_BUTTON_A
+                            || keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+                            || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                        row.performClick();
+                        return true;
+                    }
+                    return false;
+                });
+                LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+                rlp.topMargin = Ui.dp(this, 4);
+                card.addView(row, rlp);
+            }
+            TextView clear = new LTextView(this);
+            clear.setText("Clear all");
+            clear.setTextColor(0xFF8FB8FF);
+            clear.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            clear.setGravity(Gravity.CENTER);
+            clear.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 2));
+            clear.setOnClickListener(v -> {
+                RecentApps.clear(this);
+                dialog.dismiss();
+            });
+            card.addView(clear);
+        }
+
+        wrapper.addView(card, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        dialog.setContentView(wrapper);
+        Window w = dialog.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            w.setGravity(Gravity.BOTTOM);
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams lp = w.getAttributes();
+            lp.dimAmount = 0.45f;
+            w.setAttributes(lp);
+        }
+        recentsDialog = dialog;
+        dialog.setOnDismissListener(d -> {
+            if (recentsDialog == dialog) recentsDialog = null;
+        });
+        dialog.show();
     }
 
     private volatile long pinnedSyncAt;
@@ -1634,6 +1779,10 @@ public final class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (recentsDialog != null && recentsDialog.isShowing()) {
+            recentsDialog.dismiss();
+            return;
+        }
         if (folderOverlay != null && folderOverlay.getVisibility() == View.VISIBLE) {
             closeFolder();
             return;
@@ -1654,7 +1803,7 @@ public final class MainActivity extends Activity {
         }
         // Back on the home screen opens the system Recents switcher instead
         // of leaving the launcher with no visible action.
-        PavoA11yService.openRecents();
+        showRecents();
     }
 
     /** Keep the dock within its visible capacity after older builds or odd drops. */
@@ -17507,6 +17656,10 @@ public final class MainActivity extends Activity {
         if (isBackKey(code)) {
             if (event.getRepeatCount() > 0) return true;
             controllerActive = true;
+            if (recentsDialog != null && recentsDialog.isShowing()) {
+                recentsDialog.dismiss();
+                return true;
+            }
             if (isDrawerVisible() || isFolderVisible()) {
                 final boolean popupClose = drawerPopup && isDrawerVisible();
                 onBackPressed();
@@ -17517,8 +17670,14 @@ public final class MainActivity extends Activity {
                     }
                 }, popupClose ? 430 : 320);
             } else if (settingsDialog == null || !settingsDialog.isShowing()) {
-                // Back at the home screen opens the system Recents switcher.
-                PavoA11yService.openRecents();
+                // Defer one key cycle so the dialog does not receive the same
+                // Back key-up that opened it.
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        showRecents();
+                    }
+                }, 120L);
             }
             return true;
         }

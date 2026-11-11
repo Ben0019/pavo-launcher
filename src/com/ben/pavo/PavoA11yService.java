@@ -360,12 +360,6 @@ public final class PavoA11yService extends AccessibilityService {
         return s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
     }
 
-    static boolean openRecents() {
-        if (PServer.available() && PServer.run("input keyevent 187")) return true;
-        PavoA11yService s = instance;
-        return s != null && s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS);
-    }
-
     static boolean lockScreen() {
         if (PServer.available() && PServer.run("input keyevent 223")) return true;
         PavoA11yService s = instance;
@@ -1799,6 +1793,7 @@ public final class PavoA11yService extends AccessibilityService {
                         && ownWindowIsForeground(name, event.getClassName())) {
                     foregroundPackage = name;
                     foregroundAt = SystemClock.uptimeMillis();
+                    RecentApps.note(this, name);
                 }
             }
         }
