@@ -37,7 +37,6 @@ final class RecentsOverlayView extends FrameLayout {
     private boolean empty;
     private boolean dismissing;
     private LinearLayout panel;
-    private LinearLayout strip;
 
     RecentsOverlayView(Context c, Listener listener) {
         super(c);
@@ -136,7 +135,7 @@ final class RecentsOverlayView extends FrameLayout {
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
         scroll.setFillViewport(true);
-        strip = new LinearLayout(ctx);
+        LinearLayout strip = new LinearLayout(ctx);
         strip.setOrientation(LinearLayout.HORIZONTAL);
         strip.setGravity(Gravity.CENTER_HORIZONTAL);
         scroll.addView(strip, new FrameLayout.LayoutParams(
@@ -167,8 +166,7 @@ final class RecentsOverlayView extends FrameLayout {
         }
         Apps.loadIcons(ctx, entries, Ui.dp(ctx, 24));
 
-        final int cardW = cardWidth(entries.size());
-        final int previewH = previewHeight(cardW);
+        final int previewH = Ui.dp(ctx, 110);
 
         View firstCard = null;
         for (Apps.Entry e : entries) {
@@ -212,18 +210,14 @@ final class RecentsOverlayView extends FrameLayout {
                 parent.removeView(card);
                 if (!hasCards(parent)) {
                     dismiss();
-                } else {
-                    reflow();
-                    if (wasFocused) {
-                        View next = firstCard(parent);
-                        if (next != null) next.requestFocus();
-                    }
+                } else if (wasFocused) {
+                    View next = firstCard(parent);
+                    if (next != null) next.requestFocus();
                 }
             });
             header.addView(close);
 
             FrameLayout preview = new FrameLayout(ctx);
-            preview.setTag(PREVIEW_TAG);
             File snap = RecentsSnapshotCache.snapshotFor(ctx, e.pkg);
             Bitmap previewBmp = null;
             if (snap != null) {
@@ -256,6 +250,7 @@ final class RecentsOverlayView extends FrameLayout {
                         Ui.dp(ctx, 46), Ui.dp(ctx, 46), Gravity.CENTER));
             }
 
+            final int cardW = cardWidthFor(previewBmp);
             card.addView(header, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -322,49 +317,19 @@ final class RecentsOverlayView extends FrameLayout {
         return null;
     }
 
-    private static final String PREVIEW_TAG = "pavo-recent-preview";
-
-    /** Cards grow or shrink so the row always fills the panel sensibly. */
-    private int cardWidth(int count) {
-        int avail = getResources().getDisplayMetrics().widthPixels
-                - Ui.dp(ctx, 20)      // root side padding
-                - Ui.dp(ctx, 20);     // panel side padding
-        int gap = Ui.dp(ctx, 8);
-        int min = Ui.dp(ctx, 170);
-        int max = Ui.dp(ctx, 340);
-        if (count <= 0) return min;
-        int fit = (avail - gap * (count - 1)) / count;
-        return Math.max(min, Math.min(max, fit));
-    }
-
-    /** Wider cards get a taller preview, capped so the sheet still fits. */
-    private int previewHeight(int width) {
-        return Math.max(Ui.dp(ctx, 110),
-                Math.min(Ui.dp(ctx, 140), Math.round(width * 0.34f)));
-    }
-
-    /** Re-apply adaptive sizes after a card is removed. */
-    private void reflow() {
-        if (strip == null) return;
-        int count = 0;
-        for (int i = 0; i < strip.getChildCount(); i++) {
-            if (CARD_TAG.equals(strip.getChildAt(i).getTag())) count++;
+    /**
+     * Card width follows the app window's own shape, so the preview is shown at
+     * its real proportions instead of being stretched wide.
+     */
+    private int cardWidthFor(Bitmap preview) {
+        float aspect = 16f / 9f;
+        if (preview != null && !preview.isRecycled()
+                && preview.getWidth() > 0 && preview.getHeight() > 0) {
+            aspect = preview.getWidth() / (float) preview.getHeight();
         }
-        int w = cardWidth(count);
-        int h = previewHeight(w);
-        for (int i = 0; i < strip.getChildCount(); i++) {
-            View card = strip.getChildAt(i);
-            if (!CARD_TAG.equals(card.getTag())) continue;
-            ViewGroup.LayoutParams lp = card.getLayoutParams();
-            lp.width = w;
-            card.setLayoutParams(lp);
-            View preview = card.findViewWithTag(PREVIEW_TAG);
-            if (preview != null) {
-                ViewGroup.LayoutParams plp = preview.getLayoutParams();
-                plp.height = h;
-                preview.setLayoutParams(plp);
-            }
-        }
+        aspect = Math.max(0.62f, Math.min(2.35f, aspect));
+        int w = Math.round(Ui.dp(ctx, 110) * aspect) + Ui.dp(ctx, 12);
+        return Math.max(Ui.dp(ctx, 130), Math.min(Ui.dp(ctx, 340), w));
     }
 
     private GradientDrawable fallbackBackground(Bitmap icon) {
