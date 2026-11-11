@@ -1181,6 +1181,7 @@ public final class MainActivity extends Activity {
 
     /** Pavo's own recent-app sheet; system Recents is unreliable with a 3p home. */
     private void showRecents() {
+        if (PavoA11yService.showRecents(this)) return;
         if (recentsDialog != null && recentsDialog.isShowing()) return;
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);

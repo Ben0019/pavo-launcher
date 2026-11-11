@@ -2,7 +2,10 @@ package com.ben.pavo;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -212,6 +215,10 @@ public final class PavoA11yService extends AccessibilityService {
     private AppDrawerOverlayView drawerOverlay;
     private WindowManager.LayoutParams drawerOverlayParams;
     private boolean drawerOpening;
+    private RecentsOverlayView recentsOverlay;
+    private WindowManager.LayoutParams recentsOverlayParams;
+    private BroadcastReceiver recentsReceiver;
+    static final String ACTION_SHOW_RECENTS = "com.ben.pavo.SHOW_RECENTS";
 
 
     private static final int CAPTURE_PERF = 0;
@@ -459,6 +466,118 @@ public final class PavoA11yService extends AccessibilityService {
             default:
                 return raw.replace('_', ' ');
         }
+    }
+
+    static boolean showRecents(Context context) {
+        PavoA11yService s = instance;
+        if (s == null) return false;
+        s.main.post(s::showRecentsOverlay);
+        return true;
+    }
+
+    private void showRecentsOverlay() {
+        if (recentsOverlay != null || uiContext == null) return;
+        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        if (wm == null) return;
+        RecentsOverlayView view = new RecentsOverlayView(uiContext,
+                this::hideRecentsOverlay);
+        int flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                flags,
+                PixelFormat.TRANSLUCENT);
+        lp.gravity = Gravity.TOP | Gravity.START;
+        lp.setTitle("Pavo recents");
+        if (Build.VERSION.SDK_INT >= 28) {
+            lp.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
+        try {
+            wm.addView(view, lp);
+            recentsOverlay = view;
+            recentsOverlayParams = lp;
+            view.setIgnoreBackUntil(SystemClock.uptimeMillis() + 1200L);
+            view.requestFocus();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void hideRecentsOverlay() {
+        if (recentsOverlay == null) return;
+        try {
+            WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+            if (wm != null) wm.removeView(recentsOverlay);
+        } catch (Throwable ignored) {
+        }
+        recentsOverlay = null;
+        recentsOverlayParams = null;
+    }
+
+    private void registerRecentsReceiver() {
+        if (recentsReceiver != null) return;
+        recentsReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent != null && ACTION_SHOW_RECENTS.equals(intent.getAction())) {
+                    showRecentsOverlay();
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter(ACTION_SHOW_RECENTS);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(recentsReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(recentsReceiver, filter);
+        }
+    }
+
+    private void startBackMonitor() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (!PServer.available()) return;
+                File script = new File(getCacheDir(), "pavo-back-monitor.sh");
+                String text = "#!/system/bin/sh\n"
+                        + "lock=/data/local/tmp/pavo-back-monitor.pid\n"
+                        + "if [ -f \"$lock\" ]; then p=$(cat \"$lock\"); "
+                        + "[ -d \"/proc/$p\" ] && exit 0; fi\n"
+                        + "echo $$ > \"$lock\"\n"
+                        + "tok=/data/local/tmp/pavo-back-token\n"
+                        + "getevent -lt /dev/input/event5 2>/dev/null | while read -r line; do\n"
+                        + "  case \"$line\" in\n"
+                        + "    *KEY_BACK*DOWN*)\n"
+                        + "      t=$(date +%s%N)\n"
+                        + "      echo \"$t\" > \"$tok\"\n"
+                        + "      ( sleep 0.45\n"
+                        + "        if [ \"$(cat \"$tok\" 2>/dev/null)\" = \"$t\" ]; then\n"
+                        + "          rm -f \"$tok\"\n"
+                        + "          am broadcast -a " + ACTION_SHOW_RECENTS
+                        + " >/dev/null 2>&1\n"
+                        + "        fi\n"
+                        + "      ) &\n"
+                        + "      ;;\n"
+                        + "    *KEY_BACK*UP*) rm -f \"$tok\" ;;\n"
+                        + "  esac\n"
+                        + "done\n"
+                        + "rm -f \"$lock\"\n";
+                try {
+                    try (FileOutputStream out = new FileOutputStream(script)) {
+                        out.write(text.getBytes(StandardCharsets.UTF_8));
+                    }
+                    PServer.run("setsid sh " + script.getAbsolutePath()
+                            + " >/dev/null 2>&1 &");
+                } catch (Throwable ignored) {
+                }
+            }
+        }, "pavo-back-monitor").start();
+    }
+
+    private void stopBackMonitor() {
+        if (!PServer.available()) return;
+        PServer.run("kill $(cat /data/local/tmp/pavo-back-monitor.pid) "
+                + "2>/dev/null; rm -f /data/local/tmp/pavo-back-monitor.pid");
     }
 
     /**
@@ -883,6 +1002,8 @@ public final class PavoA11yService extends AccessibilityService {
         main.postDelayed(profileSync, 1200L);
         PavoInputService.ensureStarted(this);
         QuickPanelEdgeHandle.attach(this);
+        registerRecentsReceiver();
+        startBackMonitor();
         if (new Prefs(this).controllerRemapEnabled()
                 && !TouchMapManager.isRunning(this)
                 && !TouchMapManager.isStarting()
@@ -947,6 +1068,10 @@ public final class PavoA11yService extends AccessibilityService {
 
     @Override
     public boolean onKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            android.util.Log.d("PavoLog", "a11y back action=" + event.getAction()
+                    + " repeat=" + event.getRepeatCount() + " long=" + event.isLongPress());
+        }
         int raw = ControllerMapConfig.rawFor(event);
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0;
@@ -1099,6 +1224,12 @@ public final class PavoA11yService extends AccessibilityService {
     public boolean onUnbind(android.content.Intent intent) {
         stopControllerListener();
         hideDrawerOverlay();
+        hideRecentsOverlay();
+        stopBackMonitor();
+        if (recentsReceiver != null) {
+            try { unregisterReceiver(recentsReceiver); } catch (Throwable ignored) {}
+            recentsReceiver = null;
+        }
         QuickPanelHost.dismiss();
         QuickPanelEdgeHandle.detach();
         keyHandler.removeCallbacksAndMessages(null);

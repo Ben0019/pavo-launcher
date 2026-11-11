@@ -53,6 +53,24 @@ final class RecentApps {
         }
     }
 
+    static void removeSystemTask(String pkg) {
+        if (pkg == null || pkg.isEmpty() || !PServer.available()) return;
+        String out = PServer.exec("dumpsys activity recents | grep -A1 -F \""
+                + pkg + "\"", 1400L);
+        if (out == null || out.isEmpty()) return;
+        java.util.regex.Matcher root = java.util.regex.Pattern
+                .compile("rootTaskId=(\\d+)").matcher(out);
+        boolean any = false;
+        while (root.find()) {
+            any = true;
+            PServer.run("am stack remove " + root.group(1));
+        }
+        if (any) return;
+        java.util.regex.Matcher task = java.util.regex.Pattern
+                .compile("Task\\{[^}]*#(\\d+)").matcher(out);
+        while (task.find()) PServer.run("am stack remove " + task.group(1));
+    }
+
     static void clear(Context c) {
         synchronized (LOCK) {
             prefs(c).edit().remove(KEY).apply();
