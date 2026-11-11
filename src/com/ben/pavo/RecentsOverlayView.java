@@ -444,23 +444,27 @@ final class RecentsOverlayView extends FrameLayout {
                 0x33FFFFFF, Math.max(1, dip(1))));
         panel.setClickable(true);
 
-        // Glass pill: soft light gradient, hairline border and a ripple.
+        // Accent glass pill: flat tint (no gradient banding), soft edge and a ripple.
         View.OnClickListener clearAction = v -> clearAll();
         int pillRadius = dip(13);
-        GradientDrawable pill = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x24FFFFFF, 0x0FFFFFFF});
+        int accent = ThemeColors.accent();
+        GradientDrawable pill = new GradientDrawable();
+        pill.setShape(GradientDrawable.RECTANGLE);
+        pill.setColor(ColorTuning.withAlpha(accent, 0x3A));
         pill.setCornerRadius(pillRadius);
-        pill.setStroke(Math.max(1, dip(1)), 0x33FFFFFF);
+        pill.setStroke(Math.max(1, dip(1)), ColorTuning.withAlpha(accent, 0x66));
         GradientDrawable pillMask = new GradientDrawable();
         pillMask.setColor(0xFFFFFFFF);
         pillMask.setCornerRadius(pillRadius);
-        TextView clearLabel = text("CLEAR ALL", 10f * scale, 0xF2FFFFFF, true);
+        TextView clearLabel = text("CLEAR ALL", 9.5f * scale, 0xFFF7FAFF, false);
+        clearLabel.setTypeface(android.graphics.Typeface.create(
+                "sans-serif-medium", android.graphics.Typeface.NORMAL));
         clearLabel.setGravity(Gravity.CENTER);
-        clearLabel.setLetterSpacing(0.12f);
-        clearLabel.setPadding(dip(18), 0, dip(18), 0);
+        clearLabel.setLetterSpacing(0.10f);
+        clearLabel.setPadding(dip(20), 0, dip(20), 0);
         clearLabel.setBackground(new android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(0x33FFFFFF), pill, pillMask));
+                android.content.res.ColorStateList.valueOf(
+                        ColorTuning.withAlpha(accent, 0x55)), pill, pillMask));
         clearLabel.setClickable(true);
         clearLabel.setOnClickListener(clearAction);
         handleRow = clearLabel;
@@ -469,6 +473,7 @@ final class RecentsOverlayView extends FrameLayout {
         LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, dip(26));
         handleLp.gravity = Gravity.CENTER_HORIZONTAL;
+        handleLp.bottomMargin = dip(6);
         panel.addView(handleRow, handleLp);
 
         handleRow.setFocusable(true);
