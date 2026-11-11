@@ -43,7 +43,7 @@ final class RecentsOverlayView extends FrameLayout {
         setClipChildren(false);
         setClickable(false);
         setFocusableInTouchMode(true);
-        setPadding(Ui.dp(ctx, 14), 0, Ui.dp(ctx, 14), Ui.dp(ctx, 14));
+        setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), Ui.dp(ctx, 10));
         build();
     }
 
@@ -81,9 +81,9 @@ final class RecentsOverlayView extends FrameLayout {
     private void build() {
         LinearLayout panel = new LinearLayout(ctx);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(Ui.dp(ctx, 14), Ui.dp(ctx, 12),
-                Ui.dp(ctx, 14), Ui.dp(ctx, 12));
-        panel.setBackground(Ui.rounded(0xF210141A, Ui.dp(ctx, 26),
+        panel.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 9),
+                Ui.dp(ctx, 10), Ui.dp(ctx, 9));
+        panel.setBackground(Ui.rounded(0xF210141A, Ui.dp(ctx, 22),
                 0x33FFFFFF, Ui.dp(ctx, 1)));
         panel.setClickable(true);
 
@@ -125,9 +125,9 @@ final class RecentsOverlayView extends FrameLayout {
 
             LinearLayout card = new LinearLayout(ctx);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(Ui.dp(ctx, 7), Ui.dp(ctx, 7),
-                    Ui.dp(ctx, 7), Ui.dp(ctx, 7));
-            card.setBackground(Ui.rounded(0xE814181F, Ui.dp(ctx, 20),
+            card.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 6),
+                    Ui.dp(ctx, 6), Ui.dp(ctx, 6));
+            card.setBackground(Ui.rounded(0xE814181F, Ui.dp(ctx, 18),
                     0x33FFFFFF, Ui.dp(ctx, 1)));
             card.setFocusable(true);
             card.setTag(CARD_TAG);
@@ -135,26 +135,26 @@ final class RecentsOverlayView extends FrameLayout {
             LinearLayout header = new LinearLayout(ctx);
             header.setOrientation(LinearLayout.HORIZONTAL);
             header.setGravity(Gravity.CENTER_VERTICAL);
-            header.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 4),
-                    Ui.dp(ctx, 4), Ui.dp(ctx, 4));
-            header.setBackground(Ui.rounded(0x14FFFFFF, Ui.dp(ctx, 12)));
+            header.setPadding(Ui.dp(ctx, 5), Ui.dp(ctx, 3),
+                    Ui.dp(ctx, 3), Ui.dp(ctx, 3));
+            header.setBackground(Ui.rounded(0x14FFFFFF, Ui.dp(ctx, 11)));
             ImageView appIcon = new ImageView(ctx);
             appIcon.setImageBitmap(e.icon);
             header.addView(appIcon, new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 22), Ui.dp(ctx, 22)));
+                    Ui.dp(ctx, 20), Ui.dp(ctx, 20)));
             TextView appName = text(e.label == null || e.label.isEmpty() ? e.pkg : e.label,
-                    11.5f, 0xF2FFFFFF, false);
+                    10.5f, 0xF2FFFFFF, false);
             appName.setSingleLine(true);
             appName.setEllipsize(android.text.TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
             nlp.leftMargin = Ui.dp(ctx, 7);
             header.addView(appName, nlp);
-            TextView close = text("\u2715", 11f, 0xCCFFFFFF, false);
+            TextView close = text("\u2715", 10f, 0xCCFFFFFF, false);
             close.setGravity(Gravity.CENTER);
             close.setFocusable(false);
-            close.setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 4),
-                    Ui.dp(ctx, 8), Ui.dp(ctx, 4));
+            close.setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 3),
+                    Ui.dp(ctx, 6), Ui.dp(ctx, 3));
             close.setOnClickListener(v -> {
                 boolean wasFocused = card.isFocused();
                 RecentApps.remove(ctx, e.pkg);
@@ -192,7 +192,7 @@ final class RecentsOverlayView extends FrameLayout {
                     @Override
                     public void getOutline(View view, Outline outline) {
                         outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(),
-                                Ui.dp(ctx, 14));
+                                Ui.dp(ctx, 12));
                     }
                 });
             } else {
@@ -200,14 +200,14 @@ final class RecentsOverlayView extends FrameLayout {
                 ImageView icon = new ImageView(ctx);
                 icon.setImageBitmap(e.icon);
                 preview.addView(icon, new FrameLayout.LayoutParams(
-                        Ui.dp(ctx, 54), Ui.dp(ctx, 54), Gravity.CENTER));
+                        Ui.dp(ctx, 46), Ui.dp(ctx, 46), Gravity.CENTER));
             }
 
             card.addView(header, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
             LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 132));
+                    ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 110));
             plp.topMargin = Ui.dp(ctx, 7);
             card.addView(preview, plp);
 
@@ -231,8 +231,8 @@ final class RecentsOverlayView extends FrameLayout {
             });
 
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 248), ViewGroup.LayoutParams.WRAP_CONTENT);
-            clp.rightMargin = Ui.dp(ctx, 10);
+                    Ui.dp(ctx, 210), ViewGroup.LayoutParams.WRAP_CONTENT);
+            clp.rightMargin = Ui.dp(ctx, 8);
             strip.addView(card, clp);
             visible.add(pkg);
             if (firstCard == null) firstCard = card;
@@ -245,9 +245,9 @@ final class RecentsOverlayView extends FrameLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        TextView clear = text("Clear all", 12f, 0xFFE8C86A, false);
+        TextView clear = text("Clear all", 11f, 0xFFE8C86A, false);
         clear.setGravity(Gravity.CENTER);
-        clear.setPadding(Ui.dp(ctx, 26), 0, Ui.dp(ctx, 26), 0);
+        clear.setPadding(Ui.dp(ctx, 20), 0, Ui.dp(ctx, 20), 0);
         clear.setBackground(Ui.rounded(0x1FFFFFFF, Ui.dp(ctx, 22),
                 0x33FFFFFF, Ui.dp(ctx, 1)));
         clear.setOnClickListener(v -> {
@@ -258,9 +258,9 @@ final class RecentsOverlayView extends FrameLayout {
             dismiss();
         });
         LinearLayout.LayoutParams clearLp = new LinearLayout.LayoutParams(
-                Ui.dp(ctx, 220), Ui.dp(ctx, 44));
+                Ui.dp(ctx, 190), Ui.dp(ctx, 36));
         clearLp.gravity = Gravity.CENTER_HORIZONTAL;
-        clearLp.topMargin = Ui.dp(ctx, 10);
+        clearLp.topMargin = Ui.dp(ctx, 8);
         panel.addView(clear, clearLp);
 
         addView(panel, new FrameLayout.LayoutParams(
