@@ -6891,25 +6891,14 @@ public final class MainActivity extends Activity {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         Bundle opts = null;
-        if (!fromLamp && source != null) {
-            try {
-                content.animate()
-                        .scaleX(1.025f).scaleY(1.025f).alpha(0.82f)
-                        .setDuration(150)
-                        .start();
-                opts = ActivityOptions.makeScaleUpAnimation(source, 0, 0,
-                        Math.max(1, source.getWidth()), Math.max(1, source.getHeight())).toBundle();
-            } catch (Throwable ignored) {
-            }
-        }
 
         try {
-            startActivity(intent, opts);
-            if (fromLamp) overridePendingTransition(0, 0);
+            startActivity(intent);
+            overridePendingTransition(0, 0);
         } catch (Throwable t) {
             try {
                 startActivity(intent);
-                if (fromLamp) overridePendingTransition(0, 0);
+                overridePendingTransition(0, 0);
             } catch (Throwable ignored) {
                 LToast.makeText(this, "Could not open " + (item.type == Item.TYPE_WEB
                         ? item.url : item.pkg), Toast.LENGTH_SHORT).show();
