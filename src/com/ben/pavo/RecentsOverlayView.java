@@ -11,6 +11,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -107,8 +108,20 @@ final class RecentsOverlayView extends FrameLayout {
             empty.setPadding(0, Ui.dp(ctx, 18), 0, Ui.dp(ctx, 18));
             card.addView(empty);
         } else {
-            View firstRow = null;
+            HorizontalScrollView scroll = new HorizontalScrollView(ctx);
+            scroll.setFillViewport(true);
+            scroll.setHorizontalScrollBarEnabled(false);
+            scroll.setClipToPadding(false);
+            scroll.setPadding(0, Ui.dp(ctx, 6), 0, Ui.dp(ctx, 2));
+            LinearLayout strip = new LinearLayout(ctx);
+            strip.setOrientation(LinearLayout.HORIZONTAL);
+            strip.setGravity(Gravity.CENTER_HORIZONTAL);
+            scroll.addView(strip, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+
             boolean added = false;
+            View firstTile = null;
             for (String pkg : recent) {
                 String cls = null;
                 try {
@@ -125,77 +138,90 @@ final class RecentsOverlayView extends FrameLayout {
                 one.add(e);
                 Apps.loadIcons(ctx, one, Ui.dp(ctx, 40));
 
-                LinearLayout row = new LinearLayout(ctx);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                row.setGravity(Gravity.CENTER_VERTICAL);
-                row.setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 7),
-                        Ui.dp(ctx, 8), Ui.dp(ctx, 7));
-                row.setBackground(Ui.rounded(0x14FFFFFF, Ui.dp(ctx, 12)));
-                row.setFocusable(true);
-                row.setTag(ROW_TAG);
+                LinearLayout cell = new LinearLayout(ctx);
+                cell.setOrientation(LinearLayout.VERTICAL);
+                cell.setGravity(Gravity.CENTER_HORIZONTAL);
+                cell.setFocusable(true);
+                cell.setTag(TILE_TAG);
 
+                FrameLayout thumb = new FrameLayout(ctx);
+                thumb.setBackground(Ui.rounded(0x24FFFFFF, Ui.dp(ctx, 14),
+                        0x33FFFFFF, Ui.dp(ctx, 1)));
                 ImageView icon = new ImageView(ctx);
                 icon.setImageBitmap(e.icon);
-                row.addView(icon, new LinearLayout.LayoutParams(
-                        Ui.dp(ctx, 40), Ui.dp(ctx, 40)));
+                FrameLayout.LayoutParams ilp = new FrameLayout.LayoutParams(
+                        Ui.dp(ctx, 40), Ui.dp(ctx, 40), Gravity.CENTER);
+                thumb.addView(icon, ilp);
 
-                TextView label = text(e.label == null || e.label.isEmpty() ? e.pkg : e.label,
-                        14f, 0xF2FFFFFF, false);
-                label.setSingleLine(true);
-                label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
-                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-                llp.leftMargin = Ui.dp(ctx, 12);
-                row.addView(label, llp);
-
-                TextView x = text("\u2715", 13f, 0x88FFFFFF, false);
-                x.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 8),
-                        Ui.dp(ctx, 8), Ui.dp(ctx, 8));
+                TextView x = text("\u2715", 11f, 0xAAFFFFFF, false);
+                x.setGravity(Gravity.CENTER);
+                x.setBackground(Ui.rounded(0x66000000, Ui.dp(ctx, 11)));
                 x.setFocusable(false);
+                FrameLayout.LayoutParams xlp = new FrameLayout.LayoutParams(
+                        Ui.dp(ctx, 22), Ui.dp(ctx, 22), Gravity.TOP | Gravity.END);
+                xlp.topMargin = Ui.dp(ctx, 3);
+                xlp.rightMargin = Ui.dp(ctx, 3);
+                thumb.addView(x, xlp);
                 x.setOnClickListener(v -> {
-                    boolean wasFocused = row.isFocused();
+                    boolean wasFocused = cell.isFocused();
                     RecentApps.remove(ctx, e.pkg);
                     new Thread(() -> RecentApps.removeSystemTask(e.pkg)).start();
-                    card.removeView(row);
-                    if (!hasRows(card)) {
+                    strip.removeView(cell);
+                    if (!hasTiles(strip)) {
                         dismiss();
                     } else if (wasFocused) {
-                        View next = firstRow(card);
+                        View next = firstTile(strip);
                         if (next != null) next.requestFocus();
                     }
                 });
-                row.addView(x);
+
+                TextView name = text(
+                        e.label == null || e.label.isEmpty() ? e.pkg : e.label,
+                        10.5f, 0xE6FFFFFF, false);
+                name.setSingleLine(true);
+                name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                name.setGravity(Gravity.CENTER);
+
+                cell.addView(thumb, new LinearLayout.LayoutParams(
+                        Ui.dp(ctx, 68), Ui.dp(ctx, 68)));
+                LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
+                        Ui.dp(ctx, 76), ViewGroup.LayoutParams.WRAP_CONTENT);
+                nlp.topMargin = Ui.dp(ctx, 4);
+                cell.addView(name, nlp);
 
                 final Apps.Entry entry = e;
-                row.setOnClickListener(v -> {
+                cell.setOnClickListener(v -> {
                     launch(entry);
                     dismiss();
                 });
-                row.setOnFocusChangeListener((v, has) -> row.setBackground(
-                        Ui.rounded(has ? 0x30FFFFFF : 0x14FFFFFF, Ui.dp(ctx, 12),
-                                has ? 0x66FFFFFF : 0, Ui.dp(ctx, 1))));
-                row.setOnKeyListener((v, keyCode, event) -> {
+                cell.setOnFocusChangeListener((v, has) -> thumb.setBackground(
+                        Ui.rounded(has ? 0x3DFFFFFF : 0x24FFFFFF, Ui.dp(ctx, 14),
+                                has ? 0x99FFFFFF : 0x33FFFFFF, Ui.dp(ctx, 1))));
+                cell.setOnKeyListener((v, keyCode, event) -> {
                     if (event.getAction() == KeyEvent.ACTION_DOWN
                             && (keyCode == KeyEvent.KEYCODE_BUTTON_A
                             || keyCode == KeyEvent.KEYCODE_DPAD_CENTER
                             || keyCode == KeyEvent.KEYCODE_ENTER)) {
-                        row.performClick();
+                        cell.performClick();
                         return true;
                     }
                     return false;
                 });
-                LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT);
-                rlp.topMargin = Ui.dp(ctx, 4);
-                card.addView(row, rlp);
+                LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                        Ui.dp(ctx, 76), ViewGroup.LayoutParams.WRAP_CONTENT);
+                clp.rightMargin = Ui.dp(ctx, 8);
+                strip.addView(cell, clp);
                 added = true;
-                if (firstRow == null) firstRow = row;
+                if (firstTile == null) firstTile = cell;
             }
             if (!added) {
                 TextView empty = text("No recent apps yet", 13f, 0x88FFFFFF, false);
                 empty.setPadding(0, Ui.dp(ctx, 18), 0, Ui.dp(ctx, 18));
                 card.addView(empty);
+            } else {
+                card.addView(scroll, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
             }
             TextView clear = text("Clear all", 11f, 0xFF8FB8FF, false);
             clear.setGravity(Gravity.CENTER);
@@ -209,7 +235,7 @@ final class RecentsOverlayView extends FrameLayout {
                 dismiss();
             });
             if (added) card.addView(clear);
-            if (firstRow != null) firstRow.requestFocus();
+            if (firstTile != null) firstTile.requestFocus();
         }
 
         wrapper.addView(card, new FrameLayout.LayoutParams(
@@ -230,19 +256,19 @@ final class RecentsOverlayView extends FrameLayout {
         return t;
     }
 
-    private static final String ROW_TAG = "pavo-recent-row";
+    private static final String TILE_TAG = "pavo-recent-tile";
 
-    private static boolean hasRows(LinearLayout card) {
-        for (int i = 0; i < card.getChildCount(); i++) {
-            if (ROW_TAG.equals(card.getChildAt(i).getTag())) return true;
+    private static boolean hasTiles(LinearLayout strip) {
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            if (TILE_TAG.equals(strip.getChildAt(i).getTag())) return true;
         }
         return false;
     }
 
-    private static View firstRow(LinearLayout card) {
-        for (int i = 0; i < card.getChildCount(); i++) {
-            View v = card.getChildAt(i);
-            if (ROW_TAG.equals(v.getTag())) return v;
+    private static View firstTile(LinearLayout strip) {
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            View v = strip.getChildAt(i);
+            if (TILE_TAG.equals(v.getTag())) return v;
         }
         return null;
     }
