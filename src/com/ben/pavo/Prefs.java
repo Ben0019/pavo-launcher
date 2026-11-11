@@ -930,7 +930,11 @@ final class Prefs {
         sp.edit().putString("recents_long_raw", key == null ? "" : key).apply();
     }
 
-    String recentsShortRaw() { return sp.getString("recents_short_raw", ""); }
+    static final String DEFAULT_RECENTS_SHORT_RAW = "KEY_BACK";
+
+    String recentsShortRaw() {
+        return sp.getString("recents_short_raw", DEFAULT_RECENTS_SHORT_RAW);
+    }
 
     void setRecentsShortRaw(String key) {
         sp.edit().putString("recents_short_raw", key == null ? "" : key).apply();

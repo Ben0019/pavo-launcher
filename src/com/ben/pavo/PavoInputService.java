@@ -844,6 +844,8 @@ public final class PavoInputService extends Service {
                 return "Select";
             case "BTN_START":
                 return "Start";
+            case "KEY_BACK":
+                return "Back";
             case "BTN_MODE":
                 return "Guide";
             case "BTN_THUMBL":

@@ -615,6 +615,33 @@ public final class OverlayActivity extends PavoGlassActivity {
 
         recentsLongRow = recentsCaptureRow(box, true);
         recentsShortRow = recentsCaptureRow(box, false);
+
+        LinearLayout clearRow = new LinearLayout(this);
+        clearRow.setOrientation(LinearLayout.HORIZONTAL);
+        clearRow.setPadding(dp(2), dp(7), 0, 0);
+        TextView clearHold = text("CLEAR HOLD", 8.5f, 0x99FFFFFF, true);
+        clearHold.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                haptic(v);
+                prefs.setRecentsLongRaw("");
+                refreshState();
+            }
+        });
+        clearRow.addView(clearHold, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView clearTap = text("CLEAR TAP", 8.5f, 0x99FFFFFF, true);
+        clearTap.setGravity(Gravity.END);
+        clearTap.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                haptic(v);
+                prefs.setRecentsShortRaw("");
+                refreshState();
+            }
+        });
+        clearRow.addView(clearTap);
+        box.addView(clearRow);
     }
 
     /** "Hold" and "tap" bindings for the recents sheet. */

@@ -458,7 +458,9 @@ public final class PavoA11yService extends AccessibilityService {
 
     static String recentsShortLabel(Prefs prefs) {
         String raw = prefs == null ? "" : prefs.recentsShortRaw();
-        return raw == null || raw.isEmpty() ? "Not set" : friendlyKey(raw);
+        if (raw == null || raw.isEmpty()) return "Not set";
+        String label = friendlyKey(raw);
+        return Prefs.DEFAULT_RECENTS_SHORT_RAW.equals(raw) ? label + " (default)" : label;
     }
 
     private static String friendlyKey(String raw) {
@@ -485,6 +487,8 @@ public final class PavoA11yService extends AccessibilityService {
                 return "Select";
             case "BTN_START":
                 return "Start";
+            case "KEY_BACK":
+                return "Back";
             case "BTN_MODE":
                 return "Guide";
             case "BTN_THUMBL":
