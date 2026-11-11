@@ -84,7 +84,7 @@ final class RecentsOverlayView extends FrameLayout {
     private void build() {
         panel = new LinearLayout(ctx);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 9),
+        panel.setPadding(Ui.dp(ctx, 10), 0,
                 Ui.dp(ctx, 10), Ui.dp(ctx, 9));
         panel.setBackground(Ui.rounded(0xF210141A, Ui.dp(ctx, 22),
                 0x33FFFFFF, Ui.dp(ctx, 1)));
@@ -97,8 +97,10 @@ final class RecentsOverlayView extends FrameLayout {
         handle.setBackground(Ui.rounded(0x66FFFFFF, Ui.dp(ctx, 2)));
         handleArea.addView(handle, new FrameLayout.LayoutParams(
                 Ui.dp(ctx, 40), Ui.dp(ctx, 4), Gravity.CENTER));
+        // Symmetrical header: the pill sits halfway between the sheet edge
+        // and the top of the cards.
         LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(
-                Ui.dp(ctx, 120), Ui.dp(ctx, 20));
+                Ui.dp(ctx, 120), Ui.dp(ctx, 26));
         handleLp.gravity = Gravity.CENTER_HORIZONTAL;
         panel.addView(handleArea, handleLp);
         final float[] handleDownY = {0f};
