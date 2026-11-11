@@ -139,18 +139,8 @@ final class RecentsOverlayView extends FrameLayout {
                 }
             });
 
-            TextView name = text(e.label == null || e.label.isEmpty() ? e.pkg : e.label,
-                    10.5f, 0xE6FFFFFF, false);
-            name.setSingleLine(true);
-            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            name.setGravity(Gravity.CENTER);
-
             cell.addView(thumb, new LinearLayout.LayoutParams(
                     Ui.dp(ctx, 68), Ui.dp(ctx, 68)));
-            LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 76), ViewGroup.LayoutParams.WRAP_CONTENT);
-            nlp.topMargin = Ui.dp(ctx, 2);
-            cell.addView(name, nlp);
 
             final Apps.Entry entry = e;
             cell.setOnClickListener(v -> {
@@ -169,7 +159,7 @@ final class RecentsOverlayView extends FrameLayout {
                 return false;
             });
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                    Ui.dp(ctx, 76), ViewGroup.LayoutParams.WRAP_CONTENT);
+                    Ui.dp(ctx, 68), ViewGroup.LayoutParams.WRAP_CONTENT);
             clp.rightMargin = Ui.dp(ctx, 6);
             bar.addView(cell, clp);
             added = true;

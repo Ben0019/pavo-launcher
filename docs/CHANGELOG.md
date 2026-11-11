@@ -26,7 +26,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Home on a secondary home page returns to the first page; Home on the first page opens the app drawer.
 - Back on the home screen opens Pavo's own recent-apps sheet with per-app close and Clear all; both also remove the matching system tasks, so the firmware Recents stays in sync. Drawers, folders and menus still close first.
 - Long-press the physical Back button over any app to open the same floating recents sheet. Short Back is unchanged, the app stays in front, and the current app is omitted from the list.
-- Recents is now a very thin floating dock: large square app icons with names underneath, no header/close/clear-all text, sized to its tiles and lifted above the bottom edge.
+- Recents is now a very thin floating dock: large square app icons, no text, sized to its tiles and lifted above the bottom edge.
 - Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
 - Back long-press is detected both on the front-key input node and inside the native controller remapper, so it works whether the button is routed through `ff_key` or the Odin Controller.
 - Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.
