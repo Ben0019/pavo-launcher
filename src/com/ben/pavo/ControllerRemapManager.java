@@ -30,7 +30,7 @@ final class ControllerRemapManager {
     private static final String LOG = "controller-remap.log";
     private static final String VERSION = "controller-daemon.version";
     private static final String PARK = "controller-passthrough";
-    private static final int DAEMON_VERSION = 24;
+    private static final int DAEMON_VERSION = 25;
     static final String SOCKET = "aurora-input";
 
     private static Process process;
