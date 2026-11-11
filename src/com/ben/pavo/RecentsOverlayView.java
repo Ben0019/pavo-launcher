@@ -132,6 +132,7 @@ final class RecentsOverlayView extends FrameLayout {
                         Ui.dp(ctx, 8), Ui.dp(ctx, 7));
                 row.setBackground(Ui.rounded(0x14FFFFFF, Ui.dp(ctx, 12)));
                 row.setFocusable(true);
+                row.setTag(ROW_TAG);
 
                 ImageView icon = new ImageView(ctx);
                 icon.setImageBitmap(e.icon);
@@ -152,9 +153,16 @@ final class RecentsOverlayView extends FrameLayout {
                         Ui.dp(ctx, 8), Ui.dp(ctx, 8));
                 x.setFocusable(false);
                 x.setOnClickListener(v -> {
+                    boolean wasFocused = row.isFocused();
                     RecentApps.remove(ctx, e.pkg);
                     new Thread(() -> RecentApps.removeSystemTask(e.pkg)).start();
-                    dismiss();
+                    card.removeView(row);
+                    if (!hasRows(card)) {
+                        dismiss();
+                    } else if (wasFocused) {
+                        View next = firstRow(card);
+                        if (next != null) next.requestFocus();
+                    }
                 });
                 row.addView(x);
 
@@ -220,6 +228,23 @@ final class RecentsOverlayView extends FrameLayout {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         if (bold) t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         return t;
+    }
+
+    private static final String ROW_TAG = "pavo-recent-row";
+
+    private static boolean hasRows(LinearLayout card) {
+        for (int i = 0; i < card.getChildCount(); i++) {
+            if (ROW_TAG.equals(card.getChildAt(i).getTag())) return true;
+        }
+        return false;
+    }
+
+    private static View firstRow(LinearLayout card) {
+        for (int i = 0; i < card.getChildCount(); i++) {
+            View v = card.getChildAt(i);
+            if (ROW_TAG.equals(v.getTag())) return v;
+        }
+        return null;
     }
 
     private void launch(Apps.Entry entry) {
