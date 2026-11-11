@@ -476,13 +476,7 @@ public final class PavoA11yService extends AccessibilityService {
     }
 
     private void showRecentsOverlayAsync() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                RecentsSnapshotCache.refresh(PavoA11yService.this);
-                main.post(PavoA11yService.this::showRecentsOverlay);
-            }
-        }, "pavo-recents-refresh").start();
+        main.post(this::showRecentsOverlay);
     }
 
     private void showRecentsOverlay() {

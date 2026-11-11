@@ -4,9 +4,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.Outline;
 import android.graphics.drawable.GradientDrawable;
 import android.os.SystemClock;
 import android.util.TypedValue;
@@ -14,13 +12,11 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -113,38 +109,12 @@ final class RecentsOverlayView extends FrameLayout {
             cell.setTag(TILE_TAG);
 
             FrameLayout thumb = new FrameLayout(ctx);
-            File snap = RecentsSnapshotCache.snapshotFor(ctx, pkg);
-            Bitmap previewBmp = null;
-            if (snap != null) {
-                try {
-                    previewBmp = BitmapFactory.decodeFile(snap.getAbsolutePath());
-                } catch (Throwable ignored) {
-                }
-            }
-            if (previewBmp != null) {
-                thumb.setBackgroundColor(0xFF10141A);
-                ImageView preview = new ImageView(ctx);
-                preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                preview.setImageBitmap(previewBmp);
-                thumb.addView(preview, new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT));
-                thumb.setClipToOutline(true);
-                thumb.setOutlineProvider(new ViewOutlineProvider() {
-                    @Override
-                    public void getOutline(View view, Outline outline) {
-                        outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(),
-                                Ui.dp(ctx, 10));
-                    }
-                });
-            } else {
-                thumb.setBackground(fallbackBackground(e.icon));
-                ImageView icon = new ImageView(ctx);
-                icon.setImageBitmap(e.icon);
-                FrameLayout.LayoutParams ilp = new FrameLayout.LayoutParams(
-                        Ui.dp(ctx, 52), Ui.dp(ctx, 52), Gravity.CENTER);
-                thumb.addView(icon, ilp);
-            }
+            thumb.setBackground(fallbackBackground(e.icon));
+            ImageView icon = new ImageView(ctx);
+            icon.setImageBitmap(e.icon);
+            FrameLayout.LayoutParams ilp = new FrameLayout.LayoutParams(
+                    Ui.dp(ctx, 56), Ui.dp(ctx, 56), Gravity.CENTER);
+            thumb.addView(icon, ilp);
 
             TextView x = text("\u2715", 11f, 0xAAFFFFFF, false);
             x.setGravity(Gravity.CENTER);
