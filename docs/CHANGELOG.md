@@ -24,7 +24,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 ### Navigation
 
 - Home on a secondary home page returns to the first page; Home on the first page opens the app drawer.
-- Back on the home screen opens Pavo's own recent-apps sheet with Clear all; drawers, folders and menus still close first. The firmware's system Recents is unreliable when Pavo is the default home.
+- Back on the home screen opens Pavo's own recent-apps sheet with per-app close and Clear all; both also remove the matching system tasks, so the firmware Recents stays in sync. Drawers, folders and menus still close first.
 - Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.
 
 

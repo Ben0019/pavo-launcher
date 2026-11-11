@@ -121,6 +121,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class MainActivity extends Activity {
 
@@ -1180,7 +1182,6 @@ public final class MainActivity extends Activity {
     /** Pavo's own recent-app sheet; system Recents is unreliable with a 3p home. */
     private void showRecents() {
         if (recentsDialog != null && recentsDialog.isShowing()) return;
-        android.util.Log.d("PavoLog", "show recents n=" + RecentApps.list(this).size());
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
@@ -1263,6 +1264,19 @@ public final class MainActivity extends Activity {
                     dialog.dismiss();
                     launch(Item.app(entry.pkg, entry.activity), null);
                 });
+                TextView closeRow = new LTextView(this);
+                closeRow.setText("\u2715");
+                closeRow.setTextColor(0x88FFFFFF);
+                closeRow.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                closeRow.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
+                        Ui.dp(this, 8), Ui.dp(this, 8));
+                closeRow.setFocusable(false);
+                closeRow.setOnClickListener(v -> {
+                    RecentApps.remove(this, entry.pkg);
+                    dialog.dismiss();
+                    new Thread(() -> removeSystemTask(entry.pkg)).start();
+                });
+                row.addView(closeRow);
                 row.setOnFocusChangeListener((v, has) -> row.setBackground(
                         Ui.rounded(has ? 0x30FFFFFF : 0x14FFFFFF, Ui.dp(this, 12),
                                 has ? 0x66FFFFFF : 0, Ui.dp(this, 1))));
@@ -1289,8 +1303,12 @@ public final class MainActivity extends Activity {
             clear.setGravity(Gravity.CENTER);
             clear.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 2));
             clear.setOnClickListener(v -> {
+                final List<String> closing = new ArrayList<>(RecentApps.list(this));
                 RecentApps.clear(this);
                 dialog.dismiss();
+                new Thread(() -> {
+                    for (String pkg : closing) removeSystemTask(pkg);
+                }).start();
             });
             card.addView(clear);
         }
@@ -1804,6 +1822,23 @@ public final class MainActivity extends Activity {
         // Back on the home screen opens the system Recents switcher instead
         // of leaving the launcher with no visible action.
         showRecents();
+    }
+
+    /** Remove the matching system tasks so the firmware Recents list follows. */
+    private void removeSystemTask(String pkg) {
+        if (pkg == null || pkg.isEmpty() || !PServer.available()) return;
+        String out = PServer.exec("dumpsys activity recents | grep -A1 -F \""
+                + pkg + "\"", 1400L);
+        if (out == null || out.isEmpty()) return;
+        Matcher root = Pattern.compile("rootTaskId=(\\d+)").matcher(out);
+        boolean any = false;
+        while (root.find()) {
+            any = true;
+            PServer.run("am stack remove " + root.group(1));
+        }
+        if (any) return;
+        Matcher task = Pattern.compile("Task\\{[^}]*#(\\d+)").matcher(out);
+        while (task.find()) PServer.run("am stack remove " + task.group(1));
     }
 
     /** Keep the dock within its visible capacity after older builds or odd drops. */

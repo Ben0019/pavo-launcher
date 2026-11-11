@@ -38,6 +38,21 @@ final class RecentApps {
         }
     }
 
+    static void remove(Context c, String pkg) {
+        if (c == null || pkg == null || pkg.isEmpty()) return;
+        synchronized (LOCK) {
+            List<String> list = read(c);
+            if (!list.remove(pkg)) return;
+            StringBuilder b = new StringBuilder();
+            for (String p : list) {
+                if (b.length() > 0) b.append('|');
+                b.append(p);
+            }
+            if (b.length() == 0) prefs(c).edit().remove(KEY).apply();
+            else prefs(c).edit().putString(KEY, b.toString()).apply();
+        }
+    }
+
     static void clear(Context c) {
         synchronized (LOCK) {
             prefs(c).edit().remove(KEY).apply();
