@@ -665,8 +665,10 @@ final class RecentsOverlayView extends FrameLayout {
                 dismiss();
             });
             final float[] downRawY = {0f};
+            final float[] downRawX = {0f};
             final boolean[] cardDragging = {false};
             final boolean[] cardLongFired = {false};
+            final android.view.VelocityTracker[] tracker = {null};
             final int touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
             final Runnable cardHold = () -> {
                 if (cardDragging[0]) return;
@@ -677,20 +679,33 @@ final class RecentsOverlayView extends FrameLayout {
                 switch (event.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
                         downRawY[0] = event.getRawY();
+                        downRawX[0] = event.getRawX();
                         cardDragging[0] = false;
                         cardLongFired[0] = false;
+                        card.setTranslationY(0f);
+                        card.setAlpha(1f);
+                        if (tracker[0] != null) tracker[0].recycle();
+                        tracker[0] = android.view.VelocityTracker.obtain();
+                        tracker[0].addMovement(event);
                         main.removeCallbacks(cardHold);
                         main.postDelayed(cardHold, ViewConfiguration.getLongPressTimeout());
                         return true;
                     case MotionEvent.ACTION_MOVE: {
+                        if (tracker[0] != null) tracker[0].addMovement(event);
                         float dy = event.getRawY() - downRawY[0];
-                        if (!cardDragging[0] && Math.abs(dy) > touchSlop) {
+                        float dx = event.getRawX() - downRawX[0];
+                        if (!cardDragging[0] && Math.abs(dy) > touchSlop * 1.6f
+                                && Math.abs(dy) > Math.abs(dx) * 1.2f) {
                             cardDragging[0] = true;
                             main.removeCallbacks(cardHold);
+                            hideRing();
+                            if (card.getParent() != null) {
+                                card.getParent().requestDisallowInterceptTouchEvent(true);
+                            }
                         }
                         if (cardDragging[0]) {
                             float limit = Math.max(dip(40), card.getHeight() * 0.65f);
-                            float travel = Math.max(-limit, Math.min(limit, dy));
+                            float travel = Math.max(-limit, Math.min(limit, dy * 0.96f));
                             card.setTranslationY(travel);
                             card.setAlpha(1f - Math.min(0.6f,
                                     Math.abs(travel) / limit * 0.6f));
@@ -699,40 +714,68 @@ final class RecentsOverlayView extends FrameLayout {
                     }
                     case MotionEvent.ACTION_UP: {
                         main.removeCallbacks(cardHold);
+                        if (card.getParent() != null) {
+                            card.getParent().requestDisallowInterceptTouchEvent(false);
+                        }
+                        float vy = 0f;
+                        if (tracker[0] != null) {
+                            tracker[0].addMovement(event);
+                            tracker[0].computeCurrentVelocity(1000);
+                            vy = tracker[0].getYVelocity();
+                            tracker[0].recycle();
+                            tracker[0] = null;
+                        }
                         if (cardLongFired[0]) return true;
+                        float dy = event.getRawY() - downRawY[0];
                         if (cardDragging[0]) {
-                            float dy = event.getRawY() - downRawY[0];
                             String key = cardPkg.get(card);
                             boolean locked = key != null && RecentApps.isLocked(ctx, key);
-                            if (Math.abs(dy) > dip(56) && locked) {
+                            boolean flung = Math.abs(vy) > 700f && Math.abs(dy) > dip(16)
+                                    && Math.signum(vy) == Math.signum(dy);
+                            boolean canClose = (Math.abs(dy) > dip(40) || flung) && !locked;
+                            if (locked && (Math.abs(dy) > dip(40) || flung)) {
                                 Haptics.longPress(card);
-                                card.animate().translationY(0f).alpha(1f)
-                                        .setDuration(130L).start();
-                            } else if (Math.abs(dy) > dip(56)) {
+                            }
+                            if (canClose) {
                                 Haptics.tick(card);
                                 float end = dy < 0f
                                         ? -(card.getHeight() + dip(30))
                                         : card.getHeight() + dip(30);
                                 card.animate().translationY(end).alpha(0f)
-                                        .setDuration(130L)
+                                        .setDuration(140L)
+                                        .setInterpolator(new DecelerateInterpolator(1.4f))
                                         .withEndAction(() -> removeCard(card))
                                         .start();
                             } else {
                                 card.animate().translationY(0f).alpha(1f)
-                                        .setDuration(130L).start();
+                                        .setDuration(140L)
+                                        .setInterpolator(new DecelerateInterpolator(1.5f))
+                                        .withEndAction(this::positionRing)
+                                        .start();
                             }
                         } else {
                             card.performClick();
                         }
                         return true;
                     }
-                    case MotionEvent.ACTION_CANCEL:
+                    case MotionEvent.ACTION_CANCEL: {
                         main.removeCallbacks(cardHold);
+                        if (tracker[0] != null) {
+                            tracker[0].recycle();
+                            tracker[0] = null;
+                        }
+                        if (card.getParent() != null) {
+                            card.getParent().requestDisallowInterceptTouchEvent(false);
+                        }
                         if (cardDragging[0]) {
                             card.animate().translationY(0f).alpha(1f)
-                                    .setDuration(130L).start();
+                                    .setDuration(160L)
+                                    .setInterpolator(new DecelerateInterpolator(1.5f))
+                                    .withEndAction(this::positionRing)
+                                    .start();
                         }
                         return true;
+                    }
                     default:
                         return false;
                 }
