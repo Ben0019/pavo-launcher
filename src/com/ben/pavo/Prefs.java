@@ -916,7 +916,8 @@ final class Prefs {
     }
 
     // --- recents sheet ---
-    boolean recentsOverlayEnabled() { return sp.getBoolean("recents_overlay", true); }
+    /** Off on a fresh install; the Recents card in Overlay & Drawer enables it. */
+    boolean recentsOverlayEnabled() { return sp.getBoolean("recents_overlay", false); }
 
     void setRecentsOverlayEnabled(boolean value) {
         sp.edit().putBoolean("recents_overlay", value).apply();

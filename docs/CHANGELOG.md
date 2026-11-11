@@ -35,6 +35,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Closing the last app no longer flashes the focus ring in the top-left corner as the sheet disappears.
 - Quick Controls has its own drawer icon now: three multicoloured sliders whose knobs glide back and forth, matching the other built-in icons.
 - Pavo's own apps (Fan Control, Display, File Manager, Screen Recorder, ...) now appear as their own cards in the recents sheet, with the same icons as the launcher, and can be locked or closed like any app.
+- The recents sheet is off on a fresh install until it is switched on in Overlay & Drawer → Recents.
 - Overlay & Drawer has a new Recents card: turn the sheet on or off, resize it from 60 % to 170 % (every side scales, text included), and remap the controller buttons for holding and tapping to open it (the tap default is Back, which is what already opens it from the home screen). Turning it off also stops Back on the home screen from opening the old fallback dialog.
 - Recents is now a compact bottom panel that wraps its cards: task-preview cards with app headers, centred and sized to fit, with a Clear all label at the top and horizontal scrolling when they don't fit.
 - Swipe a card up or down in the recents sheet to close that app: a deliberate drag or a quick flick closes it, a short nudge springs back, horizontal drags still scroll the row, and locked apps resist the swipe just like Y and the X button.
