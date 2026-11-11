@@ -373,13 +373,14 @@ final class RecentsOverlayView extends FrameLayout {
     }
 
     private void positionRing(boolean animate) {
-        if (ring == null) return;
+        if (ring == null || dismissing) return;
         View target = focusedView;
         if (ringAnim != null) {
             ringAnim.cancel();
             ringAnim = null;
         }
-        if (target == null || target.getWidth() <= 0 || target.getHeight() <= 0) {
+        if (target == null || target.getWindowToken() == null
+                || target.getWidth() <= 0 || target.getHeight() <= 0) {
             ring.setBounds(0, 0, 0, 0);
             ring.invalidateSelf();
             return;
@@ -702,6 +703,8 @@ final class RecentsOverlayView extends FrameLayout {
         RecentApps.remove(ctx, pkg);
         new Thread(() -> RecentApps.removeSystemTask(pkg)).start();
         Haptics.tick(card);
+        if (focusedView == card) focusedView = null;
+        if (cards.size() <= 1) hideRing();
         strip.removeView(card);
         cards.remove(card);
         cardPkg.remove(card);
@@ -913,7 +916,20 @@ final class RecentsOverlayView extends FrameLayout {
         dismissing = true;
         cancelAHold();
         cancelRepeat();
+        focusedView = null;
+        hideRing();
         if (listener != null) listener.onDismiss();
+    }
+
+    private void hideRing() {
+        if (ringAnim != null) {
+            ringAnim.cancel();
+            ringAnim = null;
+        }
+        if (ring != null) {
+            ring.setBounds(0, 0, 0, 0);
+            ring.invalidateSelf();
+        }
     }
 
     /** Small padlock badge shown on locked cards. */

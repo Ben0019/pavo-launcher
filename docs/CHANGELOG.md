@@ -31,6 +31,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - The sheet no longer comes up empty: when the app you are in is the only recent, it stays in the list instead of the hold doing nothing.
 - Controller support for the recents sheet: the D-pad or left stick moves a focus ring across the cards, A opens the focused app, A on the Clear all label clears them all, and Y closes the focused one. Hold a direction to sweep quickly through the row, with the cards gliding instead of jumping.
 - Long-press a card, or hold A on it, to lock or unlock the app. Locked apps show a padlock, keep their X dimmed and survive Y, the close button and clear-all until unlocked.
+- Closing the last app no longer flashes the focus ring in the top-left corner as the sheet disappears.
 - Recents is now a compact bottom panel that wraps its cards: task-preview cards with app headers, centred and sized to fit, with a Clear all label at the top and horizontal scrolling when they don't fit.
 - Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
 - The Z long-press is detected inside the native controller remapper and on the controller input node, so it works whether the button is routed through the daemon or straight to Android.
