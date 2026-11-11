@@ -1,5 +1,6 @@
 package com.ben.pavo;
 
+import android.animation.ValueAnimator;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -22,6 +23,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -48,9 +50,7 @@ final class RecentsOverlayView extends FrameLayout {
     private static final String CARD_TAG = "pavo-recent-card";
     private static final String LOCK_TAG = "pavo-recent-lock";
     private static final String CLOSE_TAG = "pavo-recent-close";
-    private static final long STICK_FIRST_MS = 300L;
-    private static final long STICK_REPEAT_MS = 190L;
-    private static final float STICK_THRESHOLD = 0.55f;
+    private static final float STICK_THRESHOLD = 0.60f;
 
     private final Context ctx;
     private final Listener listener;
@@ -66,11 +66,20 @@ final class RecentsOverlayView extends FrameLayout {
     private HorizontalScrollView hScroll;
     private View handleRow;
     private FocusRingDrawable ring;
+    private ValueAnimator ringAnim;
     private View focusedView;
     private Runnable aHold;
     private boolean aLongFired;
     private long dPadNext;
-    private long stickNext;
+    private long analogBlockedUntil;
+    private int hatXDir;
+    private int hatYDir;
+    private int stickXDir;
+    private int stickYDir;
+    private Runnable repeatRun;
+    private int repeatDx;
+    private int repeatDy;
+    private int repeatCount;
 
     RecentsOverlayView(Context c, Listener listener) {
         super(c);
@@ -117,6 +126,10 @@ final class RecentsOverlayView extends FrameLayout {
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         long now = SystemClock.uptimeMillis();
 
+        // The left stick also emits synthetic DPAD keys on this controller.
+        // Let the analog path be the only one that moves the ring.
+        if (ControllerNav.isSyntheticStickDpad(event)) return true;
+
         if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B) {
             if (!down && SystemClock.uptimeMillis() >= ignoreBackUntil) dismiss();
             return true;
@@ -128,16 +141,23 @@ final class RecentsOverlayView extends FrameLayout {
         if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
             if (down && (event.getRepeatCount() == 0 || now >= dPadNext)) {
                 dPadNext = now + 160L;
+                ControllerNav.noteExternalDpad(event);
                 moveCard(code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
             }
             return true;
         }
         if (code == KeyEvent.KEYCODE_DPAD_UP) {
-            if (down && event.getRepeatCount() == 0) focusHandle();
+            if (down && event.getRepeatCount() == 0) {
+                ControllerNav.noteExternalDpad(event);
+                focusHandle();
+            }
             return true;
         }
         if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
-            if (down && event.getRepeatCount() == 0) focusCard(0);
+            if (down && event.getRepeatCount() == 0) {
+                ControllerNav.noteExternalDpad(event);
+                focusCard(0);
+            }
             return true;
         }
         if (isSelectKey(code)) {
@@ -158,31 +178,115 @@ final class RecentsOverlayView extends FrameLayout {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_MOVE
-                && (event.getSource() & InputDevice.SOURCE_JOYSTICK)
-                == InputDevice.SOURCE_JOYSTICK) {
-            float x = event.getAxisValue(MotionEvent.AXIS_X);
-            float y = event.getAxisValue(MotionEvent.AXIS_Y);
-            float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
-            float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
-            if (Math.abs(x) < STICK_THRESHOLD) x = hatX;
-            if (Math.abs(y) < STICK_THRESHOLD) y = hatY;
-            long now = SystemClock.uptimeMillis();
-            if (now >= stickNext) {
-                if (Math.abs(x) >= STICK_THRESHOLD) {
-                    moveCard(x > 0f ? 1 : -1);
-                    stickNext = now + STICK_REPEAT_MS;
-                    return true;
-                }
-                if (Math.abs(y) >= STICK_THRESHOLD) {
-                    if (y < 0f) focusHandle();
-                    else focusCard(0);
-                    stickNext = now + STICK_REPEAT_MS;
-                    return true;
-                }
-            }
+        if (event.getAction() != MotionEvent.ACTION_MOVE
+                || (event.getSource() & InputDevice.SOURCE_JOYSTICK) == 0) {
+            return super.dispatchGenericMotionEvent(event);
         }
-        return super.dispatchGenericMotionEvent(event);
+        long now = SystemClock.uptimeMillis();
+        // The Odin reports its D-pad as hat axes, so the hat is the digital
+        // path and AXIS_X/Y is the analog path. Never let both move the ring.
+        float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+        float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+        int hx = hatX > 0.5f ? 1 : (hatX < -0.5f ? -1 : 0);
+        int hy = hatY > 0.5f ? 1 : (hatY < -0.5f ? -1 : 0);
+        if (hx != 0 || hy != 0) {
+            analogBlockedUntil = now + 260L;
+            if (hx != hatXDir || hy != hatYDir) {
+                hatXDir = hx;
+                hatYDir = hy;
+                step(hx, hy);
+            }
+            return true;
+        }
+        if (hatXDir != 0 || hatYDir != 0) {
+            hatXDir = 0;
+            hatYDir = 0;
+            cancelRepeat();
+            return true;
+        }
+        if (now < analogBlockedUntil || ControllerNav.externalDpadRecent()) return true;
+        int dx = nextDirection(stickXDir, event.getAxisValue(MotionEvent.AXIS_X));
+        int dy = nextDirection(stickYDir, event.getAxisValue(MotionEvent.AXIS_Y));
+        if (dx == 0 && dy == 0) {
+            if (stickXDir != 0 || stickYDir != 0) {
+                stickXDir = 0;
+                stickYDir = 0;
+                cancelRepeat();
+            }
+            return true;
+        }
+        if (dx != stickXDir || dy != stickYDir) {
+            stickXDir = dx;
+            stickYDir = dy;
+            step(dx, dy);
+        }
+        return true;
+    }
+
+    /** Move once now and keep sweeping while the direction is held. */
+    private void step(int dx, int dy) {
+        if (dx != 0) moveCard(dx);
+        else if (dy != 0) moveVertical(dy);
+        startRepeat(dx, dy);
+    }
+
+    private void startRepeat(final int dx, final int dy) {
+        cancelRepeat();
+        repeatDx = dx;
+        repeatDy = dy;
+        repeatCount = 0;
+        scheduleRepeat();
+    }
+
+    private void scheduleRepeat() {
+        repeatRun = () -> {
+            repeatRun = null;
+            if (!isAttachedToWindow() || (repeatDx == 0 && repeatDy == 0)) return;
+            if (repeatDx != 0) moveCard(repeatDx);
+            else moveVertical(repeatDy);
+            scheduleRepeat();
+        };
+        main.postDelayed(repeatRun, repeatDelay(repeatCount++));
+    }
+
+    private void cancelRepeat() {
+        if (repeatRun != null) {
+            main.removeCallbacks(repeatRun);
+            repeatRun = null;
+        }
+        repeatDx = 0;
+        repeatDy = 0;
+        repeatCount = 0;
+    }
+
+    /** A held direction starts slow and then sweeps quickly through the row. */
+    private static long repeatDelay(int held) {
+        if (held <= 0) return 330L;
+        if (held <= 3) return 200L;
+        if (held <= 8) return 120L;
+        return 75L;
+    }
+
+    /** Hysteresis so a stick hovering at the edge does not re-trigger. */
+    private static int nextDirection(int current, float value) {
+        float on = STICK_THRESHOLD;
+        float off = 0.35f;
+        if (current == 0) {
+            if (value > on) return 1;
+            if (value < -on) return -1;
+            return 0;
+        }
+        if (current > 0) {
+            if (value < off) return value < -on ? -1 : 0;
+            return 1;
+        }
+        if (value > -off) return value > on ? 1 : 0;
+        return -1;
+    }
+
+    private void moveVertical(int direction) {
+        if (direction < 0) focusHandle();
+        else focusCard(0);
     }
 
     private static boolean isSelectKey(int code) {
@@ -234,7 +338,7 @@ final class RecentsOverlayView extends FrameLayout {
         focusedView = card;
         card.requestFocus();
         ensureVisible(card);
-        post(this::positionRing);
+        post(() -> positionRing(true));
     }
 
     private void moveCard(int direction) {
@@ -249,7 +353,7 @@ final class RecentsOverlayView extends FrameLayout {
         if (handleRow == null) return;
         focusedView = handleRow;
         handleRow.requestFocus();
-        post(this::positionRing);
+        post(() -> positionRing(true));
     }
 
     private void ensureVisible(View card) {
@@ -258,15 +362,23 @@ final class RecentsOverlayView extends FrameLayout {
         if (viewWidth <= 0) return;
         int scrollX = hScroll.getScrollX();
         if (card.getLeft() < scrollX) {
-            hScroll.scrollTo(card.getLeft(), 0);
+            hScroll.smoothScrollTo(card.getLeft(), 0);
         } else if (card.getRight() > scrollX + viewWidth) {
-            hScroll.scrollTo(card.getRight() - viewWidth, 0);
+            hScroll.smoothScrollTo(card.getRight() - viewWidth, 0);
         }
     }
 
     private void positionRing() {
+        positionRing(false);
+    }
+
+    private void positionRing(boolean animate) {
         if (ring == null) return;
         View target = focusedView;
+        if (ringAnim != null) {
+            ringAnim.cancel();
+            ringAnim = null;
+        }
         if (target == null || target.getWidth() <= 0 || target.getHeight() <= 0) {
             ring.setBounds(0, 0, 0, 0);
             ring.invalidateSelf();
@@ -277,13 +389,34 @@ final class RecentsOverlayView extends FrameLayout {
         getLocationOnScreen(self);
         target.getLocationOnScreen(loc);
         int pad = Ui.dp(ctx, 2);
-        int left = loc[0] - self[0] - pad;
-        int top = loc[1] - self[1] - pad;
+        final int left = loc[0] - self[0] - pad;
+        final int top = loc[1] - self[1] - pad;
+        final int right = left + target.getWidth() + pad * 2;
+        final int bottom = top + target.getHeight() + pad * 2;
         ring.setAccent(ThemeColors.accent());
         ring.setRingRadius(FocusRingView.radiusFor(target, ctx));
-        ring.setBounds(left, top, left + target.getWidth() + pad * 2,
-                top + target.getHeight() + pad * 2);
-        ring.invalidateSelf();
+
+        android.graphics.Rect old = new android.graphics.Rect(ring.getBounds());
+        if (!animate || old.width() <= 0 || old.height() <= 0) {
+            ring.setBounds(left, top, right, bottom);
+            ring.invalidateSelf();
+            return;
+        }
+        // Glide between cards when they are already on screen; while the row
+        // itself scrolls the ring is pinned to the card instead.
+        final int sl = old.left, st = old.top, sr = old.right, sb = old.bottom;
+        ringAnim = ValueAnimator.ofFloat(0f, 1f);
+        ringAnim.setDuration(130L);
+        ringAnim.setInterpolator(new DecelerateInterpolator(1.6f));
+        ringAnim.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            ring.setBounds(Math.round(sl + (left - sl) * f),
+                    Math.round(st + (top - st) * f),
+                    Math.round(sr + (right - sr) * f),
+                    Math.round(sb + (bottom - sb) * f));
+            ring.invalidateSelf();
+        });
+        ringAnim.start();
     }
 
     // ------------------------------------------------------------------
@@ -778,6 +911,7 @@ final class RecentsOverlayView extends FrameLayout {
         if (dismissing) return;
         dismissing = true;
         cancelAHold();
+        cancelRepeat();
         if (listener != null) listener.onDismiss();
     }
 
