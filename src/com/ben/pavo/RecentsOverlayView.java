@@ -120,7 +120,7 @@ final class RecentsOverlayView extends FrameLayout {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
 
-            boolean added = false;
+            int tileCount = 0;
             View firstTile = null;
             for (String pkg : recent) {
                 String cls = null;
@@ -211,10 +211,10 @@ final class RecentsOverlayView extends FrameLayout {
                         Ui.dp(ctx, 76), ViewGroup.LayoutParams.WRAP_CONTENT);
                 clp.rightMargin = Ui.dp(ctx, 8);
                 strip.addView(cell, clp);
-                added = true;
+                tileCount++;
                 if (firstTile == null) firstTile = cell;
             }
-            if (!added) {
+            if (tileCount == 0) {
                 TextView empty = text("No recent apps yet", 13f, 0x88FFFFFF, false);
                 empty.setPadding(0, Ui.dp(ctx, 18), 0, Ui.dp(ctx, 18));
                 card.addView(empty);
@@ -234,14 +234,35 @@ final class RecentsOverlayView extends FrameLayout {
                 }).start();
                 dismiss();
             });
-            if (added) card.addView(clear);
+            if (tileCount > 0) card.addView(clear);
             if (firstTile != null) firstTile.requestFocus();
         }
 
+        // Size the card to its tiles instead of leaving a huge empty bar.
+        int cell = Ui.dp(ctx, 76);
+        int gap = Ui.dp(ctx, 8);
+        int cardPad = Ui.dp(ctx, 36);
+        int contentW = 0;
+        // Count visible tiles from the strip if it was built.
+        View content = card.getChildCount() > 1 ? card.getChildAt(1) : null;
+        if (content instanceof HorizontalScrollView) {
+            View inner = ((HorizontalScrollView) content).getChildAt(0);
+            if (inner instanceof ViewGroup) {
+                ViewGroup group = (ViewGroup) inner;
+                int n = 0;
+                for (int i = 0; i < group.getChildCount(); i++) {
+                    if (TILE_TAG.equals(group.getChildAt(i).getTag())) n++;
+                }
+                contentW = n * cell + Math.max(0, n - 1) * gap + cardPad;
+            }
+        }
+        int maxW = Math.max(Ui.dp(ctx, 300),
+                screenWidth() - Ui.dp(ctx, 28));
+        int cardW = Math.min(maxW, Math.max(Ui.dp(ctx, 300), contentW));
         wrapper.addView(card, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                cardW,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM));
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
         addView(wrapper, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -271,6 +292,11 @@ final class RecentsOverlayView extends FrameLayout {
             if (TILE_TAG.equals(v.getTag())) return v;
         }
         return null;
+    }
+
+    private int screenWidth() {
+        android.util.DisplayMetrics dm = ctx.getResources().getDisplayMetrics();
+        return Math.max(dm.widthPixels, dm.heightPixels);
     }
 
     private void launch(Apps.Entry entry) {
