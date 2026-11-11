@@ -158,23 +158,17 @@ final class RecentsOverlayView extends FrameLayout {
         if (foreground == null || foreground.isEmpty()) {
             foreground = PavoA11yService.foregroundPackage();
         }
-        if (foreground != null && !foreground.isEmpty()) recent.remove(foreground);
-
         List<Apps.Entry> entries = new ArrayList<>();
-        for (String pkg : recent) {
-            String cls = null;
-            try {
-                Intent launch = ctx.getPackageManager().getLaunchIntentForPackage(pkg);
-                if (launch != null && launch.getComponent() != null) {
-                    cls = launch.getComponent().getClassName();
-                }
-            } catch (Throwable ignored) {
-            }
-            if (cls == null) continue;
-            Apps.Entry e = Apps.entryFor(ctx, pkg, cls);
-            if (e == null) continue;
-            entries.add(e);
+        boolean skippedForeground = false;
+        if (foreground != null && !foreground.isEmpty()) {
+            List<String> without = new ArrayList<>(recent);
+            without.remove(foreground);
+            entries = entriesFor(without);
+            // Holding Z from an app that is the only recent would otherwise
+            // show nothing at all, so fall back to listing it.
+            skippedForeground = !entries.isEmpty();
         }
+        if (!skippedForeground) entries = entriesFor(recent);
         Apps.loadIcons(ctx, entries, Ui.dp(ctx, 24));
 
         final int previewH = Ui.dp(ctx, 110);
@@ -314,6 +308,26 @@ final class RecentsOverlayView extends FrameLayout {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
         if (firstCard != null) firstCard.requestFocus();
+    }
+
+    /** Resolve stored packages to launchable app entries. */
+    private List<Apps.Entry> entriesFor(List<String> pkgs) {
+        List<Apps.Entry> list = new ArrayList<>();
+        for (String pkg : pkgs) {
+            String cls = null;
+            try {
+                Intent launch = ctx.getPackageManager().getLaunchIntentForPackage(pkg);
+                if (launch != null && launch.getComponent() != null) {
+                    cls = launch.getComponent().getClassName();
+                }
+            } catch (Throwable ignored) {
+            }
+            if (cls == null) continue;
+            Apps.Entry e = Apps.entryFor(ctx, pkg, cls);
+            if (e == null) continue;
+            list.add(e);
+        }
+        return list;
     }
 
     /** True when a touch lands on the empty area around the sheet. */

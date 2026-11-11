@@ -28,6 +28,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Back on the home screen opens Pavo's own recent-apps sheet with per-app close and swipe-down clear; both also remove the matching system tasks, so the firmware Recents stays in sync. Drawers, folders and menus still close first.
 - Hold the Z button on the controller to open the same floating recents sheet over any app, and hold it again to close. A short press keeps the button's normal action, the app stays in front, and the current app is omitted from the list.
 - Tap anywhere outside the recents sheet to dismiss it.
+- The sheet no longer comes up empty: when the app you are in is the only recent, it stays in the list instead of the hold doing nothing.
 - Recents is now a compact bottom panel that wraps its cards: task-preview cards with app headers, centred and sized to fit, with a grab handle at the top and horizontal scrolling when they don't fit.
 - Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
 - The Z long-press is detected inside the native controller remapper and on the controller input node, so it works whether the button is routed through the daemon or straight to Android.
