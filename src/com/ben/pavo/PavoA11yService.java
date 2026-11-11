@@ -522,7 +522,9 @@ public final class PavoA11yService extends AccessibilityService {
             wm.addView(view, lp);
             recentsOverlay = view;
             recentsOverlayParams = lp;
-            view.setIgnoreBackUntil(SystemClock.uptimeMillis() + 1200L);
+            // Only the key-up that opened the sheet is ignored, not a
+            // deliberate Back press a moment later.
+            view.setIgnoreBackUntil(SystemClock.uptimeMillis() + 250L);
             view.requestFocus();
         } catch (Throwable ignored) {
         }
