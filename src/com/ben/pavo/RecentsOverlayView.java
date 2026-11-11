@@ -44,9 +44,17 @@ final class RecentsOverlayView extends FrameLayout {
         ctx = c;
         this.listener = listener;
         setClipChildren(false);
-        setClickable(false);
+        setClickable(true);
         setFocusableInTouchMode(true);
         setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), Ui.dp(ctx, 10));
+        setOnTouchListener((v, event) -> {
+            if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN
+                    && isOutsideSheet(event)) {
+                dismiss();
+                return true;
+            }
+            return false;
+        });
         build();
     }
 
@@ -306,6 +314,17 @@ final class RecentsOverlayView extends FrameLayout {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
         if (firstCard != null) firstCard.requestFocus();
+    }
+
+    /** True when a touch lands on the empty area around the sheet. */
+    private boolean isOutsideSheet(android.view.MotionEvent event) {
+        if (panel == null || panel.getWidth() == 0) return false;
+        int[] loc = new int[2];
+        panel.getLocationOnScreen(loc);
+        float x = event.getRawX();
+        float y = event.getRawY();
+        return x < loc[0] || x > loc[0] + panel.getWidth()
+                || y < loc[1] || y > loc[1] + panel.getHeight();
     }
 
     private static final String CARD_TAG = "pavo-recent-card";
