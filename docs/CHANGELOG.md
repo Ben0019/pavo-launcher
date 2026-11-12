@@ -2,60 +2,38 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
-## 1.0.47 — 10 Nov 2026
+## 1.0.46 — 12 Nov 2026
+
+### Recents
+
+- A new app switcher: your recent apps as preview cards in a panel at the bottom of the screen.
+- Open it by holding the Z button over any app, or with Back on the home screen.
+- Tap a card to switch to that app, swipe it up or down to close it, or use Clear all at the top.
+- Hold a card, or hold A, to lock an app so it cannot be closed by accident. Locked cards show a padlock.
+- Controller ready: D-pad or left stick to move, A to open, Y to close, hold A to lock.
+- Pavo's own apps show up there too, with their usual icons.
+- Off on a fresh install. Turn it on in Overlay & Drawer → Recents, where you can also resize it and map the hold and tap buttons.
+
+### Home button
+
+- Home always takes you back to the first home page; press it again to open the app drawer.
+- A quick double press no longer opens the drawer by accident.
+- Settings → Gestures still has the optional "Home needs two presses" switch for the Odin guard.
 
 ### Performance overlay
 
-- Panel mode is now one adaptive instrument card: a framed FPS hero with a live frametime ribbon, followed by a compact single-column metric ledger with inline meters.
-- Removed the five panel size modes; scale is the only size control, with a new Size slider in Overlay & Drawer.
-- Removed the network, per-core and session-detail rows from the panel.
-- The panel is capped to 42% of the display width and 70% of its height, so it stays clear of the game.
-- Idle FPS shows a dim `--` until a live frame stream resolves.
-- CPU, GPU, RAM, battery, power and fan each own one row; watt is a dedicated POWER module.
-- The fan row now shows Pavo's own mode (CURVE, SMALL–LARGE, HOLD or a per-app override) instead of the firmware's limited `fan_mode` value.
-- Panel polish: header `PERF · profile`, POWER `DEVICE`, tighter dot/label alignment, clearer dividers and spacing.
-- The frametime caption shows a single steady millisecond value or min/max when it varies.
-- Holding the controller shortcut no longer opens the overlay menu, so the same hold can open recents. Long-press the panel itself for the menu.
-- Battery shows a charging bolt and a low-level tint; the FPS hero is heat-coloured.
-- Strip mode now groups `BATT % / temp`, `PWR` and `FAN mode / duty`, adds FPS average and 1% low, uses lighter separators, and wraps to a second line if the row is too long.
-- Strip mode has a 75% minimum scale so it cannot be pinched down to unreadable text.
-- Strip mode is unchanged and still switches with a double tap.
+- One clear panel: an FPS hero with a frametime graph above CPU, GPU, RAM, battery, power and fan rows.
+- One Size slider replaces the five layout modes, and the panel stays clear of the game.
+- FPS is one number again and now works in WinNative games.
+- The fan row shows Pavo's own mode: CURVE, SMALL–LARGE, HOLD or a per-app override.
+- Strip mode shows battery %, power and fan, adds average and 1% low FPS, and wraps instead of clipping.
+- Long-press the panel for the overlay menu; holding the controller shortcut opens recents now.
 
+### Also
 
-### Navigation
+- Quick Controls has a new animated sliders icon in the sideview drawer.
+- All new text is translated into the launcher's 25 languages.
 
-- Home on a secondary home page returns to the first page; Home on the first page opens the app drawer.
-- Back on the home screen opens Pavo's own recent-apps sheet with per-app close and swipe-down clear; both also remove the matching system tasks, so the firmware Recents stays in sync. Drawers, folders and menus still close first.
-- Hold the Z button on the controller to open the same floating recents sheet over any app, and hold it again to close. A short press keeps the button's normal action, the app stays in front, and the current app is omitted from the list.
-- Tap anywhere outside the recents sheet to dismiss it, and Back closes it right away instead of being ignored for the first second.
-- The clear-all control is a small accent capsule now: theme-tinted fill and edge, medium-weight tracked label, a ripple, inset from the sheet edge and centred above the cards, which are untouched.
-- The sheet no longer comes up empty: when the app you are in is the only recent, it stays in the list instead of the hold doing nothing.
-- Controller support for the recents sheet: the D-pad or left stick moves a focus ring across the cards, A opens the focused app, A on the Clear all label clears them all, and Y closes the focused one. Hold a direction to sweep quickly through the row, with the cards gliding instead of jumping.
-- Long-press a card, or hold A on it, to lock or unlock the app. Locked apps show a padlock, keep their X dimmed and survive Y, the close button and clear-all until unlocked.
-- Closing the last app no longer flashes the focus ring in the top-left corner as the sheet disappears.
-- Quick Controls has its own drawer icon now: three multicoloured sliders whose knobs glide back and forth, matching the other built-in icons.
-- Pavo's own apps (Fan Control, Display, File Manager, Screen Recorder, ...) now appear as their own cards in the recents sheet, with the same icons as the launcher, and can be locked or closed like any app.
-- The recents sheet is off on a fresh install until it is switched on in Overlay & Drawer → Recents.
-- Overlay & Drawer has a new Recents card: turn the sheet on or off, resize it from 60 % to 170 % (every side scales, text included), and remap the controller buttons for holding and tapping to open it (the tap default is Back, which is what already opens it from the home screen). Turning it off also stops Back on the home screen from opening the old fallback dialog.
-- Recents is now a compact bottom panel that wraps its cards: task-preview cards with app headers, centred and sized to fit, with a Clear all label at the top and horizontal scrolling when they don't fit.
-- Swipe a card up or down in the recents sheet to close that app: a deliberate drag or a quick flick closes it, a short nudge springs back, horizontal drags still scroll the row, and locked apps resist the swipe just like Y and the X button.
-- Closing one app in the recents sheet leaves the sheet open; it closes automatically when the last visible app is removed.
-- The Z long-press is detected inside the native controller remapper and on the controller input node, so it works whether the button is routed through the daemon or straight to Android.
-- Launcher settings → Gestures can disable Odin's "Home needs two presses" firmware guard when its double press is unreliable.
-- Home from another app always lands on the first home page with overlays closed. With Odin's two-press guard on, the second press is ignored for over a second, so a double press returns home instead of opening the app drawer.
-
-
-### Translations
-
-- Every new string from the recents sheet, its Overlay & Drawer card and the Home gesture is translated into all 25 launcher languages.
-
-
-## 1.0.46 — 10 Nov 2026
-
-### Performance overlay
-
-- The frame-generation figures are gone; the overlay shows one FPS number again.
-- FPS now resolves for long SurfaceView layers, including WinNative games.
 
 ## 1.0.45 — 10 Nov 2026
 
