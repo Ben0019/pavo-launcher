@@ -19,6 +19,7 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Home always takes you back to the first home page; press it again to open the app drawer.
 - A quick double press no longer opens the drawer by accident.
 - Settings → Gestures still has the optional "Home needs two presses" switch for the Odin guard.
+- DISABLE "DOUBLE PRESS HOME TO PREVENT ACCIDENTAL PRESSING" IN THE ODIN OR RETROID SETTINGS TO USE HOME NORMALLY OUTSIDE THE LAUNCHER.
 
 ### Performance overlay
 
