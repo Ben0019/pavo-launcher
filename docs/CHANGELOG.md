@@ -45,6 +45,11 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Home from another app always lands on the first home page with overlays closed. With Odin's two-press guard on, the second press is ignored for over a second, so a double press returns home instead of opening the app drawer.
 
 
+### Translations
+
+- Every new string from the recents sheet, its Overlay & Drawer card and the Home gesture is translated into all 25 launcher languages.
+
+
 ## 1.0.46 — 10 Nov 2026
 
 ### Performance overlay

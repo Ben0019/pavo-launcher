@@ -707,14 +707,22 @@ public final class PavoInputService extends Service {
             main.post(new Runnable() {
                 @Override
                 public void run() {
-                    String prefix = target == CAPTURE_DRAWER ? "App drawer shortcut: "
-                            : target == CAPTURE_PERFLOG ? "Perf Log popup shortcut: "
-                            : target == CAPTURE_QUICK ? "Quick controls shortcut: "
-                            : target == CAPTURE_RECENTS_LONG ? "Recents hold: "
-                            : target == CAPTURE_RECENTS_SHORT ? "Recents tap: "
-                            : "Controller shortcut: ";
-                    LToast.makeText(PavoInputService.this, prefix + label
-                            + (movedFrom == null ? "" : "  ·  moved from " + movedFrom),
+                    String message;
+                    if (target == CAPTURE_RECENTS_LONG) {
+                        message = String.format(Loc.s(PavoInputService.this,
+                                "Recents hold: %s"), label);
+                    } else if (target == CAPTURE_RECENTS_SHORT) {
+                        message = String.format(Loc.s(PavoInputService.this,
+                                "Recents tap: %s"), label);
+                    } else {
+                        String prefix = target == CAPTURE_DRAWER ? "App drawer shortcut: "
+                                : target == CAPTURE_PERFLOG ? "Perf Log popup shortcut: "
+                                : target == CAPTURE_QUICK ? "Quick controls shortcut: "
+                                : "Controller shortcut: ";
+                        message = prefix + label;
+                    }
+                    if (movedFrom != null) message += "  ·  moved from " + movedFrom;
+                    LToast.makeText(PavoInputService.this, message,
                             Toast.LENGTH_SHORT).show();
                 }
             });
