@@ -63,6 +63,10 @@ final class ControllerProfiles {
         }
         String foreground = ForegroundApp.read(c);
         if (foreground != null && foreground.equals(c.getPackageName())) foreground = null;
+        // Unless the user opted into system-wide remapping, keep the
+        // controller out of other apps: no grab, no injected input there.
+        boolean confined = !new Prefs(c).controllerSystemWide() && foreground != null;
+        ControllerRemapManager.setLauncherOnly(c, confined);
         updateBypass(c, foreground);
         String pkg = foreground;
         // Auto-switch is optional: when off, the global profile keeps applying

@@ -21,6 +21,10 @@ Every release in plain language: what changed, why it matters, and nothing else.
 - Settings → Gestures still has the optional "Home needs two presses" switch for the Odin guard.
 - DISABLE "DOUBLE PRESS HOME TO PREVENT ACCIDENTAL PRESSING" IN THE ODIN OR RETROID SETTINGS TO USE HOME NORMALLY OUTSIDE THE LAUNCHER.
 
+### Controller
+
+- Controller remapping now stays inside Pavo by default: games and other apps get your controller untouched. Turn on System-wide in Controller Remapper to apply remaps everywhere.
+
 ### Performance overlay
 
 - One clear panel: an FPS hero with a frametime graph above CPU, GPU, RAM, battery, power and fan rows.

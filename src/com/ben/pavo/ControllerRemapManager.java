@@ -30,7 +30,7 @@ final class ControllerRemapManager {
     private static final String LOG = "controller-remap.log";
     private static final String VERSION = "controller-daemon.version";
     private static final String PARK = "controller-passthrough";
-    private static final int DAEMON_VERSION = 24;
+    private static final int DAEMON_VERSION = 25;
     static final String SOCKET = "aurora-input";
 
     private static Process process;
@@ -57,6 +57,21 @@ final class ControllerRemapManager {
             }
         } catch (Throwable t) {
             Log.w(TAG, "could not update L3/R3 marker", t);
+        }
+    }
+
+    /** Marker the daemon polls: present = keep remapping inside Pavo. */
+    static void setLauncherOnly(Context c, boolean confined) {
+        if (c == null) return;
+        File marker = new File(c.getFilesDir(), "controller-launcher-only");
+        if (confined) {
+            try {
+                if (!marker.isFile()) marker.createNewFile();
+                marker.setReadable(true, false);
+            } catch (Throwable ignored) {
+            }
+        } else if (marker.exists()) {
+            marker.delete();
         }
     }
 

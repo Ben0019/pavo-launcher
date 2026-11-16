@@ -108,6 +108,12 @@ static int swallow_l3r3;
 static int l3r3_marker;
 static int socket_enabled;
 static int passthrough;
+static int launcher_only;
+
+static void refresh_scope(void);
+static void update_grab(void);
+static long long next_scope_check;
+static char launcher_only_path[512];
 static char socket_name[108];
 static char command_buffer[1024];
 static size_t command_length;
@@ -307,6 +313,7 @@ static int open_socket_server(void) {
 }
 
 static void emit_event(int type, int code, int value) {
+    if (launcher_only) return;
     struct input_event ev;
     memset(&ev, 0, sizeof(ev));
     ev.type = (uint16_t)type;
@@ -324,7 +331,7 @@ static void emit_sync(void) {
 
 static void output_key(int code, int down) {
     if (code < 0 || code > KEY_MAX) return;
-    if (swallow_all) return;
+    if (swallow_all || launcher_only) return;
     if (down) {
         if (held[code]++ == 0) emit_event(EV_KEY, code, 1);
     } else if (held[code] > 0) {
@@ -492,6 +499,11 @@ static void on_key(int code, int value) {
 
 static void tick(void) {
     now_ms = monotonic_ms();
+    if (now_ms >= next_scope_check) {
+        next_scope_check = now_ms + 500;
+        refresh_scope();
+        update_grab();
+    }
     for (int i = 0; i <= KEY_MAX; i++) {
         if (pending[i] && pressed[i] && now_ms >= pending_at[i]) {
             pending[i] = 0;
@@ -1010,7 +1022,15 @@ static void derive_side_path(char *out, size_t size, const char *name) {
     snprintf(out, size, "%.*s/%s", dir, config_path, name);
 }
 
+/* Marker file: present means remapping stays inside Pavo; absent = system-wide. */
+static void refresh_scope(void) {
+    launcher_only = launcher_only_path[0]
+            && access(launcher_only_path, F_OK) == 0;
+}
+
 static void derive_park_path(void) {
+    derive_side_path(launcher_only_path, sizeof(launcher_only_path),
+            "controller-launcher-only");
     derive_side_path(park_path, sizeof(park_path), "controller-passthrough");
     derive_side_path(l3r3_path, sizeof(l3r3_path), "controller-l3r3-swallow");
     derive_side_path(trace_path, sizeof(trace_path), "controller-trace");
@@ -1044,7 +1064,7 @@ static void trace_tick(void) {
  * directly.  Parking releases EVIOCGRAB and discards input until the marker
  * disappears, then re-grabs and resumes normal remapping. */
 static void update_grab(void) {
-    int park = park_path[0] && access(park_path, F_OK) == 0;
+    int park = (park_path[0] && access(park_path, F_OK) == 0) || launcher_only;
     if (park && grabbed) {
         ioctl(src_fd, EVIOCGRAB, 0);
         grabbed = 0;
@@ -1082,6 +1102,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     derive_park_path();
+    refresh_scope();
     if (!device[0] && !find_default_device(device, sizeof(device))) {
         fprintf(stderr, "controller not found\n");
         return 1;
@@ -1202,7 +1223,9 @@ int main(int argc, char **argv) {
             continue;
         }
         if (n <= 0) continue;
-        if (!grabbed) continue;
+        /* Launcher-only mode keeps reading so Pavo still sees its shortcuts,
+           but output is suppressed and the physical pad stays with Android. */
+        if (!grabbed && !launcher_only) continue;
         for (size_t i = 0; i < (size_t)n / sizeof(ev[0]); i++) {
             switch (ev[i].type) {
                 case EV_KEY:

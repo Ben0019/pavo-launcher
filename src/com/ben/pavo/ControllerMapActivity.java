@@ -55,12 +55,14 @@ public final class ControllerMapActivity extends PavoGlassActivity {
     private ScrollView scroll;
     private final long[] scrollStickAt = {0L};
     private Switch masterSwitch;
+    private Switch scopeSwitch;
     private OdinOutlineView outlineView;
     private TextView controllerText;
     private TextView statusText;
     private TextView hintText;
     private TextView cancelButton;
     private boolean updatingSwitch;
+    private boolean updatingScope;
     private long lastStickMotionAt;
     private final PavoA11yService.VisualListener visualListener =
             new PavoA11yService.VisualListener() {
@@ -545,6 +547,36 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         masterRow.addView(masterSwitch);
         controls.addView(masterRow);
 
+        LinearLayout scopeRow = new LinearLayout(this);
+        scopeRow.setOrientation(LinearLayout.HORIZONTAL);
+        scopeRow.setGravity(Gravity.CENTER_VERTICAL);
+        scopeRow.setPadding(0, dp(1), 0, dp(1));
+        TextView scopeLabel = text("System-wide", 12f, TEXT, false);
+        scopeLabel.setPadding(0, 0, dp(6), 0);
+        scopeRow.addView(scopeLabel, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        scopeSwitch = new Switch(this);
+        scopeSwitch.setChecked(prefs.controllerSystemWide());
+        scopeSwitch.setShowText(false);
+        scopeSwitch.setOnCheckedChangeListener(
+                new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(android.widget.CompoundButton buttonView,
+                                         boolean isChecked) {
+                if (updatingScope) return;
+                Haptics.click(buttonView);
+                prefs.setControllerSystemWide(isChecked);
+                ControllerProfiles.sync(ControllerMapActivity.this);
+            }
+        });
+        scopeRow.addView(scopeSwitch);
+        controls.addView(scopeRow);
+
+        TextView scopeHint = text("Off: remapping only runs while Pavo is on screen. "
+                + "On: it also applies in games and other apps.", 8.6f, MUTED, false);
+        scopeHint.setPadding(0, 0, 0, dp(2));
+        controls.addView(scopeHint);
+
         hintText = text("", 8.8f, 0x99FFFFFF, false);
         hintText.setGravity(Gravity.END);
         hintText.setPadding(0, dp(5), 0, 0);
@@ -612,6 +644,11 @@ public final class ControllerMapActivity extends PavoGlassActivity {
         updatingSwitch = true;
         masterSwitch.setChecked(enabled);
         updatingSwitch = false;
+        if (scopeSwitch != null) {
+            updatingScope = true;
+            scopeSwitch.setChecked(prefs.controllerSystemWide());
+            updatingScope = false;
+        }
     }
 
     private void refreshControllerUi() {

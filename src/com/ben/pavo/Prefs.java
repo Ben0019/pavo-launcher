@@ -915,6 +915,14 @@ final class Prefs {
         sp.edit().putString("quick_combo", value == null ? "" : value).apply();
     }
 
+    // --- controller scope ---
+    /** Off: remapping applies only while Pavo is on screen. */
+    boolean controllerSystemWide() { return sp.getBoolean("controller_system_wide", false); }
+
+    void setControllerSystemWide(boolean value) {
+        sp.edit().putBoolean("controller_system_wide", value).apply();
+    }
+
     // --- recents sheet ---
     /** Off on a fresh install; the Recents card in Overlay & Drawer enables it. */
     boolean recentsOverlayEnabled() { return sp.getBoolean("recents_overlay", false); }
