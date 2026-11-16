@@ -20,6 +20,7 @@ final class Builtins {
             case "com.ben.pavo.PerformanceTunerActivity": return "Performance Tuner";
             case "com.ben.pavo.PerfLogActivity": return "Perf Logs";
             case "com.ben.pavo.DisplayActivity": return "Display";
+            case "com.ben.pavo.HapticsActivity": return "Haptics";
             case "com.ben.pavo.SoundTunerActivity": return "Sound Tuner";
             case "com.ben.pavo.ControllerMapActivity": return "Controller Remapper";
             case "com.ben.pavo.JoystickActivity": return "JOYSTICKS";
@@ -55,6 +56,9 @@ final class Builtins {
                 break;
             case "com.ben.pavo.DisplayActivity":
                 e.icon = Apps.displayIcon(px, accent);
+                break;
+            case "com.ben.pavo.HapticsActivity":
+                e.icon = Apps.hapticsIcon(px, accent);
                 break;
             case "com.ben.pavo.SoundTunerActivity":
                 e.icon = Apps.soundIcon(px, accent);

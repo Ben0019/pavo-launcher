@@ -33,6 +33,7 @@ final class LiveBuiltinIcons {
     static final String SOUND = "com.ben.pavo.sound";
     static final String GALLERY = "com.ben.pavo.gallery";
     static final String QUICK = "com.ben.pavo.quick";
+    static final String HAPTICS = "com.ben.pavo.haptics";
 
     private LiveBuiltinIcons() {}
 
@@ -46,7 +47,7 @@ final class LiveBuiltinIcons {
                 || SCREEN_RECORDER.equals(pkg) || OVERLAY.equals(pkg)
                 || FTP.equals(pkg) || UPDATES.equals(pkg)
                 || SOUND.equals(pkg) || GALLERY.equals(pkg)
-                || QUICK.equals(pkg);
+                || QUICK.equals(pkg) || HAPTICS.equals(pkg);
     }
 
     static long duration(String pkg) {
@@ -67,6 +68,7 @@ final class LiveBuiltinIcons {
         if (SOUND.equals(pkg)) return 3000L;
         if (GALLERY.equals(pkg)) return 6200L;
         if (QUICK.equals(pkg)) return 5200L;
+        if (HAPTICS.equals(pkg)) return 3200L;
         return 2400L;
     }
 
@@ -113,6 +115,8 @@ final class LiveBuiltinIcons {
             drawGallery(c, size, accent, phase);
         } else if (QUICK.equals(pkg)) {
             drawQuick(c, size, accent, phase);
+        } else if (HAPTICS.equals(pkg)) {
+            drawHaptics(c, size, accent, phase);
         }
         if (UPDATES.equals(pkg) && Updater.isUpdateAvailable()) {
             drawUpdateBadge(c, size, phase);
@@ -138,6 +142,40 @@ final class LiveBuiltinIcons {
         rim.setStrokeWidth(Math.max(1f, size * 0.012f));
         rim.setColor(0x66FFFFFF);
         c.drawCircle(cx, cy, radius, rim);
+    }
+
+    /** Haptics: two arcs pulse out from the phone. */
+    private static void drawHaptics(Canvas c, int size, int accent, float phase) {
+        Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeCap(Paint.Cap.ROUND);
+        stroke.setStrokeWidth(Math.max(1.6f, size * 0.045f));
+        stroke.setColor(accent);
+        RectF phone = new RectF(size * 0.38f, size * 0.26f,
+                size * 0.62f, size * 0.74f);
+        c.drawRoundRect(phone, size * 0.065f, size * 0.065f, stroke);
+        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dot.setColor(accent);
+        c.drawCircle(size * 0.50f, size * 0.63f, size * 0.032f, dot);
+
+        Paint wave = new Paint(Paint.ANTI_ALIAS_FLAG);
+        wave.setStyle(Paint.Style.STROKE);
+        wave.setStrokeCap(Paint.Cap.ROUND);
+        wave.setStrokeWidth(Math.max(1.2f, size * 0.028f));
+        for (int i = 0; i < 2; i++) {
+            float grow = (float) (0.5 + 0.5 * Math.sin((phase + i * 0.5f) * Math.PI * 2.0));
+            float reach = size * (0.10f + 0.075f * grow);
+            int alpha = (int) (0xE0 - 0x80 * grow);
+            wave.setColor((alpha << 24) | (accent & 0x00FFFFFF));
+            float left = size * 0.16f - reach;
+            float right = size * 0.50f;
+            c.drawArc(new RectF(left, size * 0.50f - reach, right,
+                    size * 0.50f + reach), 140f, 80f, false, wave);
+            float left2 = size * 0.50f;
+            float right2 = size * 0.84f + reach;
+            c.drawArc(new RectF(left2, size * 0.50f - reach, right2,
+                    size * 0.50f + reach), -40f, 80f, false, wave);
+        }
     }
 
     /** Quick controls: three sliders whose knobs glide back and forth. */

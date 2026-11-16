@@ -835,6 +835,47 @@ final class Apps {
         return b;
     }
 
+    /** Haptics: a phone with vibration arcs on the shared tile. */
+    static Bitmap hapticsIcon(int px, int accent) {
+        int size = Math.max(24, px);
+        Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        float r = size * 0.225f;
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0xFF101820);
+        c.drawRoundRect(new RectF(0, 0, size, size), r, r, bg);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(Math.max(1f, size * 0.018f));
+        border.setColor((0x66 << 24) | (accent & 0x00FFFFFF));
+        c.drawRoundRect(new RectF(1, 1, size - 1, size - 1), r, r, border);
+
+        Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeCap(Paint.Cap.ROUND);
+        stroke.setStrokeWidth(Math.max(1.8f, size * 0.05f));
+        stroke.setColor(accent);
+        RectF phone = new RectF(size * 0.36f, size * 0.26f,
+                size * 0.64f, size * 0.74f);
+        c.drawRoundRect(phone, size * 0.07f, size * 0.07f, stroke);
+        Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fill.setColor(alpha(accent, 0xD0));
+        c.drawCircle(size * 0.50f, size * 0.62f, size * 0.035f, fill);
+        Paint wave = new Paint(Paint.ANTI_ALIAS_FLAG);
+        wave.setStyle(Paint.Style.STROKE);
+        wave.setStrokeCap(Paint.Cap.ROUND);
+        wave.setStrokeWidth(Math.max(1.4f, size * 0.032f));
+        for (int i = 0; i < 2; i++) {
+            float inset = size * (0.10f + i * 0.06f);
+            wave.setColor(alpha(accent, i == 0 ? 0xE0 : 0x80));
+            c.drawArc(new RectF(size * 0.14f - inset, size * 0.50f - inset,
+                    size * 0.50f, size * 0.50f + inset), 140f, 80f, false, wave);
+            c.drawArc(new RectF(size * 0.50f, size * 0.50f - inset,
+                    size * 0.86f + inset, size * 0.50f + inset), -40f, 80f, false, wave);
+        }
+        return b;
+    }
+
     /** Quick controls: three multicoloured sliders on the shared tile. */
     static Bitmap quickControlsIcon(int px, int accent) {
         int size = Math.max(24, px);

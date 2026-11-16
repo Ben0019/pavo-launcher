@@ -158,6 +158,7 @@ public final class MainActivity extends Activity {
     private static final String CONTROLLER_MAP_PKG = "com.ben.pavo.controllermap";
     private static final String PERF_TUNER_PKG = "com.ben.pavo.perftuner";
     private static final String DISPLAY_PKG = "com.ben.pavo.display";
+    private static final String HAPTICS_PKG = "com.ben.pavo.haptics";
     private static final String SOUND_PKG = "com.ben.pavo.sound";
     private static final String RGB_PKG = "com.ben.pavo.rgb";
     private static final String FAN_PKG = "com.ben.pavo.fan";
@@ -371,6 +372,7 @@ public final class MainActivity extends Activity {
     private final List<Apps.Entry> drawerApps = new ArrayList<>();
     private Apps.Entry perfLogEntry;
     private Apps.Entry displayEntry;
+    private Apps.Entry hapticsEntry;
     private Apps.Entry soundEntry;
     private Apps.Entry rgbEntry;
     private Apps.Entry fanEntry;
@@ -2555,6 +2557,7 @@ public final class MainActivity extends Activity {
         if (JOYSTICK_PKG.equals(pkg)) return joystickEntry();
         if (PERF_TUNER_PKG.equals(pkg)) return perfTunerEntry();
         if (DISPLAY_PKG.equals(pkg)) return displayEntry();
+        if (HAPTICS_PKG.equals(pkg)) return hapticsEntry();
         if (SOUND_PKG.equals(pkg)) return soundEntry();
         if (RGB_PKG.equals(pkg)) return rgbEntry();
         if (FAN_PKG.equals(pkg)) return fanEntry();
@@ -2581,6 +2584,7 @@ public final class MainActivity extends Activity {
         return PERF_LOG_PKG.equals(pkg) || CONTROLLER_MAP_PKG.equals(pkg)
                 || JOYSTICK_PKG.equals(pkg)
                 || PERF_TUNER_PKG.equals(pkg) || DISPLAY_PKG.equals(pkg)
+                || HAPTICS_PKG.equals(pkg)
                 || SOUND_PKG.equals(pkg)
                 || RGB_PKG.equals(pkg) || FAN_PKG.equals(pkg)
                 || UPDATES_PKG.equals(pkg)
@@ -2626,6 +2630,16 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return perfTunerEntry;
+    }
+
+    private Apps.Entry hapticsEntry() {
+        if (hapticsEntry == null) {
+            hapticsEntry = new Apps.Entry(Loc.s(MainActivity.this, "Haptics"),
+                    HAPTICS_PKG, "");
+            hapticsEntry.icon = Apps.hapticsIcon(Ui.dp(this, 72),
+                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
+        }
+        return hapticsEntry;
     }
 
     private Apps.Entry displayEntry() {
@@ -6862,6 +6876,10 @@ public final class MainActivity extends Activity {
             startBuiltIn(new Intent(this, DisplayActivity.class), source);
             return;
         }
+        if (HAPTICS_PKG.equals(item.pkg)) {
+            startBuiltIn(new Intent(this, HapticsActivity.class), source);
+            return;
+        }
         if (SOUND_PKG.equals(item.pkg)) {
             startBuiltIn(new Intent(this, SoundTunerActivity.class), source);
             return;
@@ -11019,6 +11037,11 @@ public final class MainActivity extends Activity {
                 || displayEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
             drawerApps.add(displayEntry);
         }
+        if (hapticsEntry != null && (q.isEmpty()
+                || hapticsEntry.label.toLowerCase(Locale.getDefault()).contains(q)
+                || hapticsEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
+            drawerApps.add(hapticsEntry);
+        }
         Apps.Entry sound = soundEntry();
         if (q.isEmpty()
                 || sound.label.toLowerCase(Locale.getDefault()).contains(q)
@@ -11836,6 +11859,9 @@ public final class MainActivity extends Activity {
                                 Ui.dp(MainActivity.this, 72), wallpaper.accent());
                         displayEntry = new Apps.Entry(Loc.s(MainActivity.this, "Display"), DISPLAY_PKG, "");
                         displayEntry.icon = Apps.displayIcon(
+                                Ui.dp(MainActivity.this, 72), wallpaper.accent());
+                        hapticsEntry = new Apps.Entry(Loc.s(MainActivity.this, "Haptics"), HAPTICS_PKG, "");
+                        hapticsEntry.icon = Apps.hapticsIcon(
                                 Ui.dp(MainActivity.this, 72), wallpaper.accent());
                         soundEntry = new Apps.Entry(Loc.s(MainActivity.this, "Sound Tuner"), SOUND_PKG, "");
                         soundEntry.icon = Apps.soundIcon(
