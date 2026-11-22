@@ -4,6 +4,10 @@ Every release in plain language: what changed, why it matters, and nothing else.
 
 ## 1.0.48 — 22 Nov 2026
 
+### Language
+
+- Launcher settings now use the selected language for section titles, switches, sliders, dock options and service status instead of staying in English.
+
 ### Controller
 
 - Removed the Controller Remapper and Joystick Calibration apps.

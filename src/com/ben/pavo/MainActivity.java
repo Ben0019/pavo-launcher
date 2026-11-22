@@ -15136,11 +15136,11 @@ public final class MainActivity extends Activity {
         final TextView serviceStatus = new LTextView(this);
         boolean inputReady = PavoInputService.isReady();
         boolean inputActive = PavoInputService.isActive();
-        serviceStatus.setText(inputReady
+        serviceStatus.setText(Loc.s(this, inputReady
                 ? "Controller service: PServer connected"
                 : inputActive
                 ? "Controller service: starting"
-                : "Controller service unavailable — PServer required");
+                : "Controller service unavailable. Check PServer or accessibility."));
         serviceStatus.setTextColor(inputReady ? 0xFF69D98B : 0xFFFFC857);
         serviceStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
         serviceStatus.setPadding(Ui.dp(this, 9), Ui.dp(this, 7),
@@ -16164,7 +16164,7 @@ public final class MainActivity extends Activity {
 
     private void addSection(LinearLayout parent, String name) {
         TextView t = new LTextView(this);
-        t.setText(name);
+        t.setText(Loc.s(this, name));
         t.setAllCaps(true);
         t.setTextColor(0x66FFFFFF);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
@@ -16176,7 +16176,7 @@ public final class MainActivity extends Activity {
 
     private void addDockPositionChooser(LinearLayout parent) {
         TextView label = new LTextView(this);
-        label.setText("Dock position");
+        label.setText(Loc.s(this, "Dock position"));
         label.setTextColor(0xE6FFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         label.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 4));
@@ -16197,7 +16197,7 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < keys.length; i++) {
             final int index = i;
             TextView chip = new LTextView(this);
-            chip.setText(labels[i]);
+            chip.setText(Loc.s(this, labels[i]));
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             chip.setPadding(Ui.dp(this, 13), Ui.dp(this, 7),
                     Ui.dp(this, 13), Ui.dp(this, 7));
@@ -16220,7 +16220,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("Hidden removes the dock. Swipe up still opens the full app drawer.");
+        hint.setText(Loc.s(this, "Hidden removes the dock. Swipe up still opens the full app drawer."));
         hint.setTextColor(0x66FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
@@ -16236,7 +16236,7 @@ public final class MainActivity extends Activity {
 
     private void addUiScaleChooser(LinearLayout parent) {
         TextView label = new LTextView(this);
-        label.setText("UI size");
+        label.setText(Loc.s(this, "UI size"));
         label.setTextColor(0xE6FFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         label.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 4));
@@ -16255,7 +16255,7 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < keys.length; i++) {
             final String key = keys[i];
             TextView chip = new LTextView(this);
-            chip.setText(labels[i]);
+            chip.setText(Loc.s(this, labels[i]));
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             chip.setPadding(Ui.dp(this, 13), Ui.dp(this, 7),
                     Ui.dp(this, 13), Ui.dp(this, 7));
@@ -16286,7 +16286,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("Auto uses the physical panel size. Larger values increase text and spacing everywhere; reopen built-in apps to apply.");
+        hint.setText(Loc.s(this, "Auto uses the physical panel size. Larger values increase text and spacing everywhere; reopen built-in apps to apply."));
         hint.setTextColor(0x66FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 3));
@@ -16295,7 +16295,7 @@ public final class MainActivity extends Activity {
 
     private void addSleepMethodChooser(LinearLayout parent) {
         TextView label = new LTextView(this);
-        label.setText("Sleep method");
+        label.setText(Loc.s(this, "Sleep method"));
         label.setTextColor(0xE6FFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         label.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 4));
@@ -16314,7 +16314,7 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < keys.length; i++) {
             final String key = keys[i];
             TextView chip = new LTextView(this);
-            chip.setText(labels[i]);
+            chip.setText(Loc.s(this, labels[i]));
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             chip.setPadding(Ui.dp(this, 13), Ui.dp(this, 7),
                     Ui.dp(this, 13), Ui.dp(this, 7));
@@ -16336,14 +16336,14 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("PServer runs the privileged sleep; Accessibility uses Pavo's enabled service to lock the screen. The other method is used as a fallback.");
+        hint.setText(Loc.s(this, "PServer runs the privileged sleep; Accessibility uses Pavo's enabled service to lock the screen. The other method is used as a fallback."));
         hint.setTextColor(0x66FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         parent.addView(hint);
 
         TextView open = new LTextView(this);
-        open.setText("Open accessibility settings");
+        open.setText(Loc.s(this, "Open accessibility settings"));
         styleTextButton(open, false);
         open.setGravity(Gravity.CENTER);
         open.setIncludeFontPadding(false);
@@ -16366,7 +16366,7 @@ public final class MainActivity extends Activity {
 
     private void addPageAnimationChooser(LinearLayout parent) {
         TextView label = new LTextView(this);
-        label.setText("Page animation");
+        label.setText(Loc.s(this, "Page animation"));
         label.setTextColor(0xE6FFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         label.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 4));
@@ -16385,7 +16385,7 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < keys.length; i++) {
             final String key = keys[i];
             TextView chip = new LTextView(this);
-            chip.setText(labels[i]);
+            chip.setText(Loc.s(this, labels[i]));
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             chip.setPadding(Ui.dp(this, 13), Ui.dp(this, 7),
                     Ui.dp(this, 13), Ui.dp(this, 7));
@@ -16408,7 +16408,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new LTextView(this);
-        hint.setText("Transition effects are temporarily disabled while drag/page-card reliability is being fixed; all page changes use Slide for now.");
+        hint.setText(Loc.s(this, "Transition effects are temporarily disabled while drag/page-card reliability is being fixed; all page changes use Slide for now."));
         hint.setTextColor(0x66FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 6));
@@ -16441,7 +16441,7 @@ public final class MainActivity extends Activity {
         row.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView label = new LTextView(this);
-        label.setText(name);
+        label.setText(Loc.s(this, name));
         label.setTextColor(0xE6FFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         row.addView(label, new LinearLayout.LayoutParams(0,
@@ -16544,7 +16544,7 @@ public final class MainActivity extends Activity {
         row.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
 
         TextView label = new LTextView(this);
-        label.setText(name);
+        label.setText(Loc.s(this, name));
         label.setTextColor(0xE6FFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         row.addView(label, new LinearLayout.LayoutParams(0,

@@ -427,54 +427,6 @@ final class LiveBuiltinIcons {
                 frame.right - size * 0.04f, sy, scan);
     }
 
-    private static void drawController(Canvas c, int size, int accent, float phase) {
-        Paint body = new Paint(Paint.ANTI_ALIAS_FLAG);
-        body.setStyle(Paint.Style.STROKE);
-        body.setStrokeWidth(Math.max(1.4f, size * 0.042f));
-        body.setStrokeCap(Paint.Cap.ROUND);
-        body.setStrokeJoin(Paint.Join.ROUND);
-        body.setColor(accent);
-        RectF pad = new RectF(size * 0.17f, size * 0.31f, size * 0.83f, size * 0.70f);
-        c.drawRoundRect(pad, size * 0.16f, size * 0.16f, body);
-        c.drawLine(size * 0.30f, size * 0.50f, size * 0.44f, size * 0.50f, body);
-        c.drawLine(size * 0.37f, size * 0.43f, size * 0.37f, size * 0.57f, body);
-        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int[] colors = {accent, p2, p3, p4};
-        float[] xs = {0.66f, 0.73f, 0.66f, 0.59f};
-        float[] ys = {0.43f, 0.50f, 0.57f, 0.50f};
-        int active = Math.min(colors.length - 1, (int) (phase * colors.length));
-        for (int i = 0; i < colors.length; i++) {
-            dot.setColor(colors[i]);
-            float radius = size * (i == active ? 0.045f : 0.035f);
-            c.drawCircle(size * xs[i], size * ys[i], radius, dot);
-        }
-    }
-
-    /** Two live stick pads with dots circling in opposite directions. */
-    private static void drawJoystick(Canvas c, int size, int accent, float phase) {
-        Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
-        ring.setStyle(Paint.Style.STROKE);
-        ring.setStrokeWidth(Math.max(1.4f, size * 0.038f));
-        ring.setColor(alpha(p2, 0xCC));
-        float radius = size * 0.165f;
-        float cy = size * 0.52f;
-        float lx = size * 0.30f;
-        float rx = size * 0.70f;
-        c.drawCircle(lx, cy, radius, ring);
-        c.drawCircle(rx, cy, radius, ring);
-
-        double angle = phase * Math.PI * 2.0;
-        float orbit = radius * 0.62f;
-        Paint left = new Paint(Paint.ANTI_ALIAS_FLAG);
-        left.setColor(accent);
-        c.drawCircle(lx + (float) Math.cos(angle) * orbit,
-                cy + (float) Math.sin(angle) * orbit, size * 0.048f, left);
-        Paint right = new Paint(Paint.ANTI_ALIAS_FLAG);
-        right.setColor(p2);
-        c.drawCircle(rx + (float) Math.cos(angle + Math.PI) * orbit,
-                cy + (float) Math.sin(angle + Math.PI) * orbit, size * 0.048f, right);
-    }
-
     private static void drawHealth(Canvas c, int size, int accent, float phase) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.STROKE);
