@@ -1350,6 +1350,7 @@ public final class MainActivity extends Activity {
                     current.load();
                     for (ShortcutInfo info : pinned) {
                         String url = "shortcut://" + info.getPackage() + "/" + info.getId();
+                        if (prefs.isPinnedShortcutDismissed(url)) continue;
                         Item item = Item.web(url, shortcutLabel(info));
                         if (current.contains(item.key())) continue;
                         missing.add(item);
@@ -1364,6 +1365,8 @@ public final class MainActivity extends Activity {
                     public void run() {
                         for (int i = 0; i < missing.size(); i++) {
                             Item item = missing.get(i);
+                            if (item.url != null
+                                    && prefs.isPinnedShortcutDismissed(item.url)) continue;
                             placeNewItem(item);
                             if (icons.get(i) != null) store.setIcon(item, icons.get(i));
                         }
@@ -1401,6 +1404,7 @@ public final class MainActivity extends Activity {
         // The launcher is not given the shortcut's intent, only its identity.
         // Keep the identity and start it later through LauncherApps.
         String url = "shortcut://" + info.getPackage() + "/" + info.getId();
+        prefs.restorePinnedShortcut(url);
         CharSequence label = info.getShortLabel();
         if (label == null || label.length() == 0) label = info.getLongLabel();
         String name = label == null ? null : label.toString();
@@ -9376,9 +9380,22 @@ public final class MainActivity extends Activity {
         trackActiveMenu();
     }
 
+    /** Keeps a removed pinned shortcut from being re-added by the system sync. */
+    private void rememberShortcutRemoval(Item item) {
+        if (item == null) return;
+        if (item.type == Item.TYPE_FOLDER) {
+            for (Item child : item.children) rememberShortcutRemoval(child);
+            return;
+        }
+        if (item.type == Item.TYPE_WEB && item.url != null && !item.url.isEmpty()) {
+            prefs.dismissPinnedShortcut(item.url);
+        }
+    }
+
     /** Remove exactly the icon that owns this menu, not every copy with the same key. */
     private void removeItemView(ItemView v) {
         if (v == null) return;
+        rememberShortcutRemoval(v.item);
         if (v.dockIndex >= 0) {
             store.removeDockAt(v.dockIndex);
         } else {
@@ -9696,6 +9713,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean removeItemEverywhere(Item target) {
+        rememberShortcutRemoval(target);
         for (List<Item> pageItems : store.pages) {
             for (int i = 0; i < pageItems.size(); i++) {
                 if (pageItems.get(i) == target) {

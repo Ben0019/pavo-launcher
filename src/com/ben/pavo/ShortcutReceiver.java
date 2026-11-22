@@ -73,6 +73,7 @@ public final class ShortcutReceiver extends BroadcastReceiver {
     static void add(Context context, String url, String title, Bitmap icon) {
         if (url == null || url.isEmpty()) return;
         Prefs prefs = new Prefs(context);
+        if (prefs.isPinnedShortcutDismissed(url)) return;
         Store store = new Store(context, prefs);
         store.load();
         Item item = Item.web(url, title == null || title.trim().isEmpty()
@@ -86,6 +87,7 @@ public final class ShortcutReceiver extends BroadcastReceiver {
 
     static void remove(Context context, String url) {
         Prefs prefs = new Prefs(context);
+        prefs.dismissPinnedShortcut(url);
         Store store = new Store(context, prefs);
         store.load();
         store.removeFromHome("web:" + url);

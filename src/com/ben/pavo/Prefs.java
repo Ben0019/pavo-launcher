@@ -738,6 +738,38 @@ final class Prefs {
     }
     String drawerFavorites() { return sp.getString("drawer_favorites", ""); }
 
+    // Pinned shortcuts the user removed from home. Android keeps the system
+    // pin until the owning app releases it, so remember the dismissal and do
+    // not re-add it during the pinned-shortcut sync.
+    private static final String KEY_PINNED_DISMISSED = "pinned_shortcut_dismissed";
+
+    java.util.Set<String> dismissedPinnedShortcuts() {
+        return new java.util.HashSet<>(sp.getStringSet(KEY_PINNED_DISMISSED,
+                java.util.Collections.emptySet()));
+    }
+
+    boolean isPinnedShortcutDismissed(String url) {
+        return url != null && !url.isEmpty()
+                && sp.getStringSet(KEY_PINNED_DISMISSED,
+                        java.util.Collections.emptySet()).contains(url);
+    }
+
+    void dismissPinnedShortcut(String url) {
+        if (url == null || url.isEmpty()) return;
+        java.util.Set<String> set = dismissedPinnedShortcuts();
+        if (set.add(url)) {
+            sp.edit().putStringSet(KEY_PINNED_DISMISSED, set).apply();
+        }
+    }
+
+    void restorePinnedShortcut(String url) {
+        if (url == null || url.isEmpty()) return;
+        java.util.Set<String> set = dismissedPinnedShortcuts();
+        if (set.remove(url)) {
+            sp.edit().putStringSet(KEY_PINNED_DISMISSED, set).apply();
+        }
+    }
+
     boolean perfHoldEnabled() { return sp.getBoolean("perf_hold_enabled", true); }
     /** Junction temperature at which the hold lets the firmware take over. */
     int perfHoldLimitC() { return clamp(sp.getInt("perf_hold_limit_c", 95), 60, 100); }
