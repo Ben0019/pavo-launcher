@@ -1235,7 +1235,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
                 if (focused) Haptics.tick(v);
             }
         });
-        TextView transparencyHint = text("Applies to both the log list and session detail cards. Shared with Controller Remapper.",
+        TextView transparencyHint = text("Applies to both the log list and session detail cards.",
                 10.5f, MUTED, false);
         transparencyHint.setPadding(0, dp(2), 0, 0);
         card.addView(transparencyHint);

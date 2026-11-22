@@ -155,7 +155,6 @@ public final class MainActivity extends Activity {
     private static final int PICK_ICON = 1;
     private static final int PICK_DOCK_ICON = 2;
     private static final String PERF_LOG_PKG = "com.ben.pavo.perflogs";
-    private static final String CONTROLLER_MAP_PKG = "com.ben.pavo.controllermap";
     private static final String PERF_TUNER_PKG = "com.ben.pavo.perftuner";
     private static final String DISPLAY_PKG = "com.ben.pavo.display";
     private static final String HAPTICS_PKG = "com.ben.pavo.haptics";
@@ -166,7 +165,6 @@ public final class MainActivity extends Activity {
     private static final String OVERLAY_PKG = "com.ben.pavo.overlay";
     private static final String TOUCH_MAP_PKG = "com.ben.pavo.touchmapper";
     private static final String DEVICE_HEALTH_PKG = "com.ben.pavo.devicehealth";
-    private static final String JOYSTICK_PKG = "com.ben.pavo.joystick";
     private static final String BENCHMARK_PKG = "com.ben.pavo.benchmark";
     private static final String FILE_MANAGER_PKG = "com.ben.pavo.files";
     private static final String GALLERY_PKG = "com.ben.pavo.gallery";
@@ -385,8 +383,6 @@ public final class MainActivity extends Activity {
     private Apps.Entry galleryEntry;
     private Apps.Entry screenRecorderEntry;
     private Apps.Entry ftpEntry;
-    private Apps.Entry controllerMapEntry;
-    private Apps.Entry joystickEntry;
     private Apps.Entry perfTunerEntry;
 
     private int lastHapticPage = -1;
@@ -1522,7 +1518,6 @@ public final class MainActivity extends Activity {
         handler.removeCallbacks(endQuiet);
         handler.postDelayed(endQuiet, 900L);
         syncPinnedShortcuts();
-        ControllerRemapManager.setPassthrough(this, false);
         Updater.checkDaily(this);
         if (Loc.applyLocale(this)) {
             recreate();
@@ -1572,7 +1567,7 @@ public final class MainActivity extends Activity {
                 }
             }, "panel-calibration").start();
         }
-        if (prefs.controllerRemapEnabled()) ControllerRemapManager.ensureStarted(this);
+        ControllerRemapManager.ensureInputDaemon(this);
         if (PavoInputService.shouldRun(this)) PavoInputService.ensureStarted(this);
         else PavoInputService.stop(this);
         DeviceProfile.get(this);
@@ -1843,10 +1838,49 @@ public final class MainActivity extends Activity {
                 changed = true;
             }
         }
+        if (removeRetiredBuiltins()) changed = true;
         if (changed) {
             store.trim();
             store.save();
         }
+    }
+
+    /** Drop home, dock and folder entries for apps that no longer exist. */
+    private boolean removeRetiredBuiltins() {
+        boolean changed = false;
+        for (List<Item> page : store.pages) {
+            for (int i = 0; i < page.size(); i++) {
+                Item it = page.get(i);
+                if (it == null) continue;
+                if (it.type == Item.TYPE_FOLDER) {
+                    int before = it.children.size();
+                    for (int k = it.children.size() - 1; k >= 0; k--) {
+                        if (retiredBuiltin(it.children.get(k).pkg)) it.children.remove(k);
+                    }
+                    if (it.children.size() != before) changed = true;
+                    if (it.children.isEmpty()) {
+                        page.set(i, null);
+                        changed = true;
+                    }
+                } else if (retiredBuiltin(it.pkg)) {
+                    page.set(i, null);
+                    changed = true;
+                }
+            }
+        }
+        for (int i = store.dock.size() - 1; i >= 0; i--) {
+            Item it = store.dock.get(i);
+            if (it != null && retiredBuiltin(it.pkg)) {
+                store.dock.remove(i);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private static boolean retiredBuiltin(String pkg) {
+        return "com.ben.pavo.controllermap".equals(pkg)
+                || "com.ben.pavo.joystick".equals(pkg);
     }
 
     private void configureWindow() {
@@ -2553,8 +2587,6 @@ public final class MainActivity extends Activity {
 
     private Apps.Entry findEntry(String pkg, String cls) {
         if (PERF_LOG_PKG.equals(pkg)) return perfLogsEntry();
-        if (CONTROLLER_MAP_PKG.equals(pkg)) return controllerMapEntry();
-        if (JOYSTICK_PKG.equals(pkg)) return joystickEntry();
         if (PERF_TUNER_PKG.equals(pkg)) return perfTunerEntry();
         if (DISPLAY_PKG.equals(pkg)) return displayEntry();
         if (HAPTICS_PKG.equals(pkg)) return hapticsEntry();
@@ -2581,8 +2613,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean isBuiltinApp(String pkg) {
-        return PERF_LOG_PKG.equals(pkg) || CONTROLLER_MAP_PKG.equals(pkg)
-                || JOYSTICK_PKG.equals(pkg)
+        return PERF_LOG_PKG.equals(pkg)
                 || PERF_TUNER_PKG.equals(pkg) || DISPLAY_PKG.equals(pkg)
                 || HAPTICS_PKG.equals(pkg)
                 || SOUND_PKG.equals(pkg)
@@ -2602,25 +2633,6 @@ public final class MainActivity extends Activity {
                     wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
         }
         return perfLogEntry;
-    }
-
-    private Apps.Entry controllerMapEntry() {
-        if (controllerMapEntry == null) {
-            controllerMapEntry = new Apps.Entry(Loc.s(MainActivity.this, "Controller Remapper"), CONTROLLER_MAP_PKG, "");
-            controllerMapEntry.icon = Apps.controllerMapIcon(Ui.dp(this, 72),
-                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
-        }
-        return controllerMapEntry;
-    }
-
-    private Apps.Entry joystickEntry() {
-        if (joystickEntry == null) {
-            joystickEntry = new Apps.Entry(Loc.s(MainActivity.this, "JOYSTICKS"),
-                    JOYSTICK_PKG, "");
-            joystickEntry.icon = Apps.joystickIcon(Ui.dp(this, 72),
-                    wallpaper != null ? wallpaper.accent() : 0xFF8BE9FF);
-        }
-        return joystickEntry;
     }
 
     private Apps.Entry perfTunerEntry() {
@@ -2770,12 +2782,6 @@ public final class MainActivity extends Activity {
         int accent = wallpaper.accent();
         if (perfLogEntry != null) {
             perfLogEntry.icon = Apps.performanceLogsIcon(px, accent);
-        }
-        if (controllerMapEntry != null) {
-            controllerMapEntry.icon = Apps.controllerMapIcon(px, accent);
-        }
-        if (joystickEntry != null) {
-            joystickEntry.icon = Apps.joystickIcon(px, accent);
         }
         if (perfTunerEntry != null) {
             perfTunerEntry.icon = Apps.performanceTunerIcon(px, accent);
@@ -6292,6 +6298,7 @@ public final class MainActivity extends Activity {
                 if (c.type != Item.TYPE_APP) continue;
                 Apps.Entry ce = findEntry(c.pkg, c.cls);
                 if (ce == null) ce = Apps.entryFor(this, c.pkg, c.cls);
+                if (ce == null) continue;
                 Bitmap themed = iconPack == null ? null : iconPack.iconFor(c.pkg, c.cls);
                 if (themed != null) {
                     Apps.Entry copy = new Apps.Entry(ce.label, ce.pkg, ce.activity);
@@ -6858,14 +6865,6 @@ public final class MainActivity extends Activity {
         }
         if (isPerfLogs(item.pkg)) {
             startBuiltIn(new Intent(this, PerfLogActivity.class), source);
-            return;
-        }
-        if (CONTROLLER_MAP_PKG.equals(item.pkg)) {
-            startBuiltIn(new Intent(this, ControllerMapActivity.class), source);
-            return;
-        }
-        if (JOYSTICK_PKG.equals(item.pkg)) {
-            startBuiltIn(new Intent(this, JoystickActivity.class), source);
             return;
         }
         if (PERF_TUNER_PKG.equals(item.pkg)) {
@@ -11048,17 +11047,6 @@ public final class MainActivity extends Activity {
                 || sound.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
             drawerApps.add(sound);
         }
-        if (controllerMapEntry != null && (q.isEmpty()
-                || controllerMapEntry.label.toLowerCase(Locale.getDefault()).contains(q)
-                || controllerMapEntry.pkg.toLowerCase(Locale.getDefault()).contains(q))) {
-            drawerApps.add(controllerMapEntry);
-        }
-        Apps.Entry joystick = joystickEntry();
-        if (q.isEmpty()
-                || joystick.label.toLowerCase(Locale.getDefault()).contains(q)
-                || joystick.pkg.toLowerCase(Locale.getDefault()).contains(q)) {
-            drawerApps.add(joystick);
-        }
         DeviceProfile profile = DeviceProfile.get(this);
         if (profile.rgb) {
             Apps.Entry rgb = rgbEntry();
@@ -11229,11 +11217,6 @@ public final class MainActivity extends Activity {
             if (v.entry != null && PERF_TUNER_PKG.equals(v.entry.pkg)) {
                 Haptics.click(v);
                 startBuiltIn(new Intent(MainActivity.this, PerformanceTunerActivity.class), v);
-                return;
-            }
-            if (v.entry != null && CONTROLLER_MAP_PKG.equals(v.entry.pkg)) {
-                Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, ControllerMapActivity.class), v);
                 return;
             }
             if (v.entry != null && DISPLAY_PKG.equals(v.entry.pkg)) {
@@ -11852,10 +11835,6 @@ public final class MainActivity extends Activity {
                         allApps.addAll(list);
                         perfLogEntry = new Apps.Entry(Loc.s(MainActivity.this, "Perf Logs"), PERF_LOG_PKG, "");
                         perfLogEntry.icon = Apps.performanceLogsIcon(
-                                Ui.dp(MainActivity.this, 72), wallpaper.accent());
-                        controllerMapEntry = new Apps.Entry(Loc.s(MainActivity.this, "Controller Remapper"),
-                                CONTROLLER_MAP_PKG, "");
-                        controllerMapEntry.icon = Apps.controllerMapIcon(
                                 Ui.dp(MainActivity.this, 72), wallpaper.accent());
                         displayEntry = new Apps.Entry(Loc.s(MainActivity.this, "Display"), DISPLAY_PKG, "");
                         displayEntry.icon = Apps.displayIcon(
@@ -15153,30 +15132,7 @@ public final class MainActivity extends Activity {
         });
 
         panel.use("Controls");
-        addSection(panel, "Controller remapping");
-        addSwitch(panel, "Enable system-wide remapping",
-                prefs.controllerRemapEnabled(), new BoolCallback() {
-                    @Override
-                    public void onValue(boolean value) {
-                        prefs.setControllerRemapEnabled(value);
-                        if (value) {
-                            ControllerRemapManager.start(MainActivity.this,
-                                    new ControllerRemapManager.Callback() {
-                                        @Override
-                                        public void onResult(boolean running) {
-                                            if (!running) {
-                                                prefs.setControllerRemapEnabled(false);
-                                                LToast.makeText(MainActivity.this,
-                                                        "Remapper could not start. PServer is required.",
-                                                        Toast.LENGTH_LONG).show();
-                                            }
-                                        }
-                                    });
-                        } else {
-                            ControllerRemapManager.stop(MainActivity.this);
-                        }
-                    }
-                });
+        addSection(panel, "Controller shortcuts");
         final TextView serviceStatus = new LTextView(this);
         boolean inputReady = PavoInputService.isReady();
         boolean inputActive = PavoInputService.isActive();
@@ -15205,28 +15161,6 @@ public final class MainActivity extends Activity {
             reconnectHint.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 2));
             panel.addView(reconnectHint);
         }
-
-        TextView openRemap = new LTextView(this);
-        openRemap.setText("Open Controller Remapper");
-        styleTextButton(openRemap, false);
-        LinearLayout.LayoutParams remapLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        remapLp.topMargin = Ui.dp(this, 10);
-        openRemap.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Haptics.click(v);
-                startBuiltIn(new Intent(MainActivity.this, ControllerMapActivity.class));
-            }
-        });
-        panel.addView(openRemap, remapLp);
-        TextView remapHint = new LTextView(this);
-        remapHint.setText("Maps the Odin controller system-wide, including inside games. "
-                + "Uses PServer only.");
-        remapHint.setTextColor(0x66FFFFFF);
-        remapHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
-        remapHint.setPadding(0, Ui.dp(this, 7), 0, Ui.dp(this, 3));
-        panel.addView(remapHint);
 
         panel.use("Drawer");
         addSection(panel, "App drawer");

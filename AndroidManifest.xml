@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ben.pavo"
-    android:versionCode="244"
-    android:versionName="1.0.47">
+    android:versionCode="245"
+    android:versionName="1.0.48">
 
     <uses-sdk
         android:minSdkVersion="31"
@@ -201,17 +201,6 @@
                 android:value="controller_touch_mapping" />
         </service>
 
-        <activity
-            android:name=".ControllerMapActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:label="Controller Remapper"
-            android:launchMode="singleTask"
-            android:screenOrientation="user"
-            android:stateNotNeeded="true"
-            android:taskAffinity="com.ben.pavo.controllermap"
-            android:theme="@style/Theme.Pavo.Transparent" />
 
         <activity
             android:name=".PerfLogActivity"
@@ -371,17 +360,6 @@
             android:theme="@style/Theme.Pavo.Transparent" />
 
 
-        <activity
-            android:name=".JoystickActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|navigation|uiMode|density"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:label="Joystick Calibration"
-            android:launchMode="singleTask"
-            android:screenOrientation="user"
-            android:stateNotNeeded="true"
-            android:taskAffinity="com.ben.pavo.joystick"
-            android:theme="@style/Theme.Pavo.Transparent" />
 
         <activity
             android:name=".BenchmarkActivity"

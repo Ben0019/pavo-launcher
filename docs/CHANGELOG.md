@@ -2,6 +2,14 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.48 — 22 Nov 2026
+
+### Controller
+
+- Removed the Controller Remapper and Joystick Calibration apps.
+- Controller shortcuts keep working: hold Z for recents, and the app drawer and quick controls still respond to the controller.
+- Remapping and stick calibration are no longer available.
+
 ## 1.0.47 — 22 Nov 2026
 
 ### Controller

@@ -29,9 +29,8 @@ final class ControllerRemapManager {
     private static final String LAUNCHER = "controller-launch.sh";
     private static final String LOG = "controller-remap.log";
     private static final String VERSION = "controller-daemon.version";
-    private static final String PARK = "controller-passthrough";
     private static final String CAPTURE = "controller-capture";
-    private static final int DAEMON_VERSION = 26;
+    private static final int DAEMON_VERSION = 27;
     static final String SOCKET = "aurora-input";
 
     private static Process process;
@@ -58,30 +57,6 @@ final class ControllerRemapManager {
             }
         } catch (Throwable t) {
             Log.w(TAG, "could not update L3/R3 marker", t);
-        }
-    }
-
-    /**
-     * Refreshes the daemon's capture lease.  The lease is only written while
-     * remapping applies to the focused window.  Older than a few seconds and
-     * the daemon falls back to passive mode on its own, so a dead app can
-     * never leave a game without its controller.
-     */
-    static void setCaptureAllowed(Context c, boolean allowed) {
-        if (c == null) return;
-        File marker = new File(c.getFilesDir(), CAPTURE);
-        File legacy = new File(c.getFilesDir(), "controller-launcher-only");
-        if (legacy.exists()) legacy.delete();
-        if (allowed) {
-            try {
-                if (!marker.isFile()) new FileOutputStream(marker).close();
-                long now = System.currentTimeMillis();
-                if (now - marker.lastModified() > 900L) marker.setLastModified(now);
-            } catch (Throwable t) {
-                Log.w(TAG, "could not refresh capture lease", t);
-            }
-        } else if (marker.exists() && !marker.delete()) {
-            Log.w(TAG, "could not clear " + marker);
         }
     }
 
@@ -113,18 +88,16 @@ final class ControllerRemapManager {
      * socket, so mapped shortcuts and the floating drawer keep working.
      */
     static void ensureInputDaemon(Context context) {
-        if (context == null || ControllerProfiles.bypassActive) return;
+        if (context == null) return;
         // Touch Mapper grabs the controller exclusively; keep the pass-through
         // daemon out of the way for as long as any touch map is enabled.
         if (TouchMapManager.isActive() || TouchMapManager.isRunning(context)) return;
         if (isRunning(context) || starting) return;
-        startInternal(context, null, true);
+        startInternal(context, null);
     }
 
     static void ensureStarted(final Context context) {
-        if (context == null || ControllerProfiles.bypassActive) return;
-        if (new Prefs(context).controllerRemapEnabled()) start(context, null);
-        else ensureInputDaemon(context);
+        ensureInputDaemon(context);
     }
 
     interface Callback {
@@ -132,13 +105,11 @@ final class ControllerRemapManager {
     }
 
     static synchronized void start(final Context context, final Callback callback) {
-        startInternal(context, callback, false);
+        startInternal(context, callback);
     }
 
     private static synchronized void startInternal(final Context context,
-                                                   final Callback callback,
-                                                   final boolean forInput) {
-        if (ControllerProfiles.bypassActive) return;
+                                                   final Callback callback) {
         if (starting) {
             if (callback != null) notifyWhenReady(context, callback);
             return;
@@ -155,7 +126,7 @@ final class ControllerRemapManager {
             public void run() {
                 boolean ok = false;
                 try {
-                    ok = startBlocking(app, forInput);
+                    ok = startBlocking(app);
                 } catch (Throwable t) {
                     Log.w(TAG, "start failed", t);
                 } finally {
@@ -180,12 +151,13 @@ final class ControllerRemapManager {
         }, "PavoRemapStart").start();
     }
 
-    private static boolean startBlocking(Context c, boolean forInput) throws Exception {
+    private static boolean startBlocking(Context c) throws Exception {
         File config = configFile(c);
         ControllerMapConfig cfg = new ControllerMapConfig();
         cfg.load(config);
-        boolean enabled = new Prefs(c).controllerRemapEnabled();
-        cfg.save(config, enabled, PavoInputService.isRemapUiActive());
+        // Remapping is gone; the daemon only streams raw buttons as shortcuts.
+        cfg.save(config, false, false);
+        clearCaptureLease(c);
 
         File binary = binaryFile(c);
         if (!extractBinary(c, binary)) return false;
@@ -212,22 +184,6 @@ final class ControllerRemapManager {
         }
         Log.w(TAG, "remapper did not open " + SOCKET + "; see " + LOG);
         return false;
-    }
-
-    /** Lets the joystick app read the physical axes with the remapper idle. */
-    static void setPassthrough(Context context, boolean parked) {
-        if (context == null) return;
-        try {
-            File f = new File(context.getFilesDir(), PARK);
-            if (parked) {
-                f.getParentFile().mkdirs();
-                if (!f.exists()) new FileOutputStream(f).close();
-            } else if (f.exists() && !f.delete()) {
-                Log.w(TAG, "could not clear " + PARK);
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "passthrough failed", t);
-        }
     }
 
     static synchronized void stop(final Context context) {
@@ -290,8 +246,7 @@ final class ControllerRemapManager {
             File config = configFile(c);
             ControllerMapConfig cfg = new ControllerMapConfig();
             cfg.load(config);
-            cfg.save(config, new Prefs(c).controllerRemapEnabled(),
-                    PavoInputService.isRemapUiActive());
+            cfg.save(config, false, false);
         } catch (Throwable ignored) {
         }
     }

@@ -2119,7 +2119,8 @@
     "PSERVER UNAVAILABLE": "PSERVER NEDOSTUPNÝ",
     "SYSTEM WIDE": "CELÝ SYSTÉM",
     "Uses the current touch strength.": "Použije aktuální sílu dotyku.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Platí pro všechny aplikace. Rozsah 0,8× až 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Platí pro všechny aplikace. Rozsah 0,8× až 1,2×.",
+    "Applies to both the log list and session detail cards.": "Platí pro seznam protokolů i karty podrobností relace."
   },
   "da": {
     "Quick Controls": "Hurtigbetjening",
@@ -4241,7 +4242,8 @@
     "PSERVER UNAVAILABLE": "PSERVER IKKE TILGÆNGELIG",
     "SYSTEM WIDE": "HELE SYSTEMET",
     "Uses the current touch strength.": "Bruger den aktuelle berøringsstyrke.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Gælder alle apps. Område 0,8× til 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Gælder alle apps. Område 0,8× til 1,2×.",
+    "Applies to both the log list and session detail cards.": "Gælder både loglisten og sessionsdetaljekort."
   },
   "de": {
     "Quick Controls": "Schnellsteuerung",
@@ -6363,7 +6365,8 @@
     "PSERVER UNAVAILABLE": "PSERVER NICHT VERFÜGBAR",
     "SYSTEM WIDE": "SYSTEMWEIT",
     "Uses the current touch strength.": "Nutzt die aktuelle Touch-Stärke.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Gilt für alle Apps. Bereich 0,8× bis 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Gilt für alle Apps. Bereich 0,8× bis 1,2×.",
+    "Applies to both the log list and session detail cards.": "Gilt sowohl für die Protokollliste als auch für die Sitzungsdetailkarten."
   },
   "el": {
     "Quick Controls": "Γρήγοροι έλεγχοι",
@@ -8485,7 +8488,8 @@
     "PSERVER UNAVAILABLE": "PSERVER ΜΗ ΔΙΑΘΕΣΙΜΟ",
     "SYSTEM WIDE": "ΣΕ ΟΛΟ ΤΟ ΣΥΣΤΗΜΑ",
     "Uses the current touch strength.": "Χρησιμοποιεί την τρέχουσα ένταση αφής.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Ισχύει για όλες τις εφαρμογές. Εύρος 0,8× έως 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Ισχύει για όλες τις εφαρμογές. Εύρος 0,8× έως 1,2×.",
+    "Applies to both the log list and session detail cards.": "Ισχύει για τη λίστα καταγραφής και τις κάρτες λεπτομερειών συνεδρίας."
   },
   "es": {
     "Quick Controls": "Controles rápidos",
@@ -10607,7 +10611,8 @@
     "PSERVER UNAVAILABLE": "PSERVER NO DISPONIBLE",
     "SYSTEM WIDE": "TODO EL SISTEMA",
     "Uses the current touch strength.": "Usa la intensidad táctil actual.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Se aplica a todas las apps. Rango de 0,8× a 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Se aplica a todas las apps. Rango de 0,8× a 1,2×.",
+    "Applies to both the log list and session detail cards.": "Se aplica tanto a la lista de registros como a las tarjetas de detalles de la sesión."
   },
   "fi": {
     "Quick Controls": "Pika-asetukset",
@@ -12729,7 +12734,8 @@
     "PSERVER UNAVAILABLE": "PSERVER EI KÄYTETTÄVISSÄ",
     "SYSTEM WIDE": "KOKO JÄRJESTELMÄ",
     "Uses the current touch strength.": "Käyttää nykyistä kosketusvoimakkuutta.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Koskee kaikkia sovelluksia. Alue 0,8×–1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Koskee kaikkia sovelluksia. Alue 0,8×–1,2×.",
+    "Applies to both the log list and session detail cards.": "Koskee sekä lokiluetteloa että istunnon tietokortteja."
   },
   "fr": {
     "Quick Controls": "Contrôles rapides",
@@ -14851,7 +14857,8 @@
     "PSERVER UNAVAILABLE": "PSERVER INDISPONIBLE",
     "SYSTEM WIDE": "TOUT LE SYSTÈME",
     "Uses the current touch strength.": "Utilise l’intensité tactile actuelle.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "S’applique à toutes les apps. Plage de 0,8× à 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "S’applique à toutes les apps. Plage de 0,8× à 1,2×.",
+    "Applies to both the log list and session detail cards.": "S'applique à la fois à la liste des journaux et aux cartes de détails de session."
   },
   "he": {
     "Quick Controls": "בקרות מהירות",
@@ -16973,7 +16980,8 @@
     "PSERVER UNAVAILABLE": "PSERVER לא זמין",
     "SYSTEM WIDE": "בכל המערכת",
     "Uses the current touch strength.": "משתמש בעוצמת המגע הנוכחית.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "חל על כל האפליקציות. טווח 0.8× עד 1.2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "חל על כל האפליקציות. טווח 0.8× עד 1.2×.",
+    "Applies to both the log list and session detail cards.": "חל על רשימת היומן ועל כרטיסי פרטי הפעלה."
   },
   "hu": {
     "Quick Controls": "Gyorsvezérlők",
@@ -19095,7 +19103,8 @@
     "PSERVER UNAVAILABLE": "PSERVER NEM ÉRHETŐ EL",
     "SYSTEM WIDE": "RENDSZERSZINTŰ",
     "Uses the current touch strength.": "Az aktuális érintési erősséget használja.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Minden alkalmazásra érvényes. Tartomány 0,8×–1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Minden alkalmazásra érvényes. Tartomány 0,8×–1,2×.",
+    "Applies to both the log list and session detail cards.": "A naplólistára és a munkamenet részleteit tartalmazó kártyákra egyaránt vonatkozik."
   },
   "id": {
     "Quick Controls": "Kontrol Cepat",
@@ -21217,7 +21226,8 @@
     "PSERVER UNAVAILABLE": "PSERVER TIDAK TERSEDIA",
     "SYSTEM WIDE": "SELURUH SISTEM",
     "Uses the current touch strength.": "Memakai kekuatan sentuh saat ini.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Berlaku untuk semua aplikasi. Rentang 0,8× hingga 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Berlaku untuk semua aplikasi. Rentang 0,8× hingga 1,2×.",
+    "Applies to both the log list and session detail cards.": "Berlaku untuk daftar log dan kartu detail sesi."
   },
   "it": {
     "Quick Controls": "Controlli rapidi",
@@ -23339,7 +23349,8 @@
     "PSERVER UNAVAILABLE": "PSERVER NON DISPONIBILE",
     "SYSTEM WIDE": "TUTTO IL SISTEMA",
     "Uses the current touch strength.": "Usa l'intensità tattile attuale.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Vale per tutte le app. Intervallo da 0,8× a 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Vale per tutte le app. Intervallo da 0,8× a 1,2×.",
+    "Applies to both the log list and session detail cards.": "Si applica sia all'elenco dei registri che alle schede dei dettagli della sessione."
   },
   "ja": {
     "Quick Controls": "クイックコントロール",
@@ -25461,7 +25472,8 @@
     "PSERVER UNAVAILABLE": "PSERVER 利用不可",
     "SYSTEM WIDE": "システム全体",
     "Uses the current touch strength.": "現在のタッチの強さを使います。",
-    "Applies to every app. Range is 0.8x to 1.2x.": "すべてのアプリに適用されます。範囲は0.8×〜1.2×です。"
+    "Applies to every app. Range is 0.8x to 1.2x.": "すべてのアプリに適用されます。範囲は0.8×〜1.2×です。",
+    "Applies to both the log list and session detail cards.": "ログ リスト カードとセッション詳細カードの両方に適用されます。"
   },
   "ko": {
     "Quick Controls": "빠른 컨트롤",
@@ -27583,7 +27595,8 @@
     "PSERVER UNAVAILABLE": "PSERVER 사용 불가",
     "SYSTEM WIDE": "시스템 전체",
     "Uses the current touch strength.": "현재 터치 세기를 사용합니다.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "모든 앱에 적용됩니다. 범위는 0.8×~1.2×입니다."
+    "Applies to every app. Range is 0.8x to 1.2x.": "모든 앱에 적용됩니다. 범위는 0.8×~1.2×입니다.",
+    "Applies to both the log list and session detail cards.": "로그 목록과 세션 세부정보 카드 모두에 적용됩니다."
   },
   "nb": {
     "Quick Controls": "Hurtigkontroller",
@@ -29705,7 +29718,8 @@
     "PSERVER UNAVAILABLE": "PSERVER UTILGJENGELIG",
     "SYSTEM WIDE": "HELE SYSTEMET",
     "Uses the current touch strength.": "Bruker gjeldende berøringsstyrke.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Gjelder alle apper. Område 0,8× til 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Gjelder alle apper. Område 0,8× til 1,2×.",
+    "Applies to both the log list and session detail cards.": "Gjelder både logglisten og sesjonsdetaljkort."
   },
   "nl": {
     "Quick Controls": "Snelle bediening",
@@ -31827,7 +31841,8 @@
     "PSERVER UNAVAILABLE": "PSERVER NIET BESCHIKBAAR",
     "SYSTEM WIDE": "SYSTEEMBREED",
     "Uses the current touch strength.": "Gebruikt de huidige tiksterkte.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Geldt voor alle apps. Bereik 0,8× tot 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Geldt voor alle apps. Bereik 0,8× tot 1,2×.",
+    "Applies to both the log list and session detail cards.": "Geldt voor zowel de loglijst als de sessiedetailkaarten."
   },
   "pl": {
     "Quick Controls": "Szybkie sterowanie",
@@ -33949,7 +33964,8 @@
     "PSERVER UNAVAILABLE": "PSERVER NIEDOSTĘPNY",
     "SYSTEM WIDE": "CAŁY SYSTEM",
     "Uses the current touch strength.": "Używa bieżącej siły dotyku.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Dotyczy wszystkich aplikacji. Zakres 0,8×–1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Dotyczy wszystkich aplikacji. Zakres 0,8×–1,2×.",
+    "Applies to both the log list and session detail cards.": "Dotyczy zarówno listy dzienników, jak i kart szczegółów sesji."
   },
   "pt": {
     "Quick Controls": "Controles rápidos",
@@ -36071,7 +36087,8 @@
     "PSERVER UNAVAILABLE": "PSERVER INDISPONÍVEL",
     "SYSTEM WIDE": "TODO O SISTEMA",
     "Uses the current touch strength.": "Usa a intensidade tátil atual.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Aplica-se a todas as apps. Intervalo de 0,8× a 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Aplica-se a todas as apps. Intervalo de 0,8× a 1,2×.",
+    "Applies to both the log list and session detail cards.": "Aplica-se à lista de registros e aos cartões de detalhes da sessão."
   },
   "ro": {
     "Quick Controls": "Comenzi rapide",
@@ -38193,7 +38210,8 @@
     "PSERVER UNAVAILABLE": "PSERVER INDISPONIBIL",
     "SYSTEM WIDE": "TOT SISTEMUL",
     "Uses the current touch strength.": "Folosește intensitatea tactilă curentă.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Se aplică tuturor aplicațiilor. Interval 0,8× până la 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Se aplică tuturor aplicațiilor. Interval 0,8× până la 1,2×.",
+    "Applies to both the log list and session detail cards.": "Se aplică atât listei de jurnal, cât și cardurilor cu detalii de sesiune."
   },
   "ru": {
     "Quick Controls": "Быстрое управление",
@@ -40315,7 +40333,8 @@
     "PSERVER UNAVAILABLE": "PSERVER НЕДОСТУПЕН",
     "SYSTEM WIDE": "ВСЯ СИСТЕМА",
     "Uses the current touch strength.": "Использует текущую силу касания.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Действует для всех приложений. Диапазон 0,8×–1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Действует для всех приложений. Диапазон 0,8×–1,2×.",
+    "Applies to both the log list and session detail cards.": "Применяется как к списку журналов, так и к карточкам сведений о сеансе."
   },
   "sv": {
     "Quick Controls": "Snabbkontroller",
@@ -42437,7 +42456,8 @@
     "PSERVER UNAVAILABLE": "PSERVER OTILLGÄNGLIG",
     "SYSTEM WIDE": "HELA SYSTEMET",
     "Uses the current touch strength.": "Använder aktuell beröringsstyrka.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Gäller alla appar. Intervall 0,8× till 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Gäller alla appar. Intervall 0,8× till 1,2×.",
+    "Applies to both the log list and session detail cards.": "Gäller både logglistan och sessionsdetaljkort."
   },
   "th": {
     "Quick Controls": "การควบคุมด่วน",
@@ -44559,7 +44579,8 @@
     "PSERVER UNAVAILABLE": "PSERVER ไม่พร้อมใช้งาน",
     "SYSTEM WIDE": "ทั้งระบบ",
     "Uses the current touch strength.": "ใช้ความแรงสัมผัสปัจจุบัน",
-    "Applies to every app. Range is 0.8x to 1.2x.": "ใช้กับทุกแอป ช่วง 0.8× ถึง 1.2×"
+    "Applies to every app. Range is 0.8x to 1.2x.": "ใช้กับทุกแอป ช่วง 0.8× ถึง 1.2×",
+    "Applies to both the log list and session detail cards.": "ใช้กับทั้งรายการบันทึกและการ์ดรายละเอียดเซสชัน"
   },
   "tr": {
     "Quick Controls": "Hızlı Kontroller",
@@ -46681,7 +46702,8 @@
     "PSERVER UNAVAILABLE": "PSERVER KULLANILAMIYOR",
     "SYSTEM WIDE": "TÜM SİSTEM",
     "Uses the current touch strength.": "Geçerli dokunma gücünü kullanır.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Tüm uygulamalarda geçerli. Aralık 0,8×–1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Tüm uygulamalarda geçerli. Aralık 0,8×–1,2×.",
+    "Applies to both the log list and session detail cards.": "Hem günlük listesi hem de oturum ayrıntı kartları için geçerlidir."
   },
   "uk": {
     "Quick Controls": "Швидке керування",
@@ -48803,7 +48825,8 @@
     "PSERVER UNAVAILABLE": "PSERVER НЕДОСТУПНИЙ",
     "SYSTEM WIDE": "УСЯ СИСТЕМА",
     "Uses the current touch strength.": "Використовує поточну силу дотику.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Діє для всіх програм. Діапазон 0,8×–1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Діє для всіх програм. Діапазон 0,8×–1,2×.",
+    "Applies to both the log list and session detail cards.": "Застосовується як до списку журналів, так і до карток деталей сеансу."
   },
   "vi": {
     "Quick Controls": "Điều khiển nhanh",
@@ -50925,7 +50948,8 @@
     "PSERVER UNAVAILABLE": "PSERVER KHÔNG KHẢ DỤNG",
     "SYSTEM WIDE": "TOÀN HỆ THỐNG",
     "Uses the current touch strength.": "Dùng độ mạnh chạm hiện tại.",
-    "Applies to every app. Range is 0.8x to 1.2x.": "Áp dụng cho mọi ứng dụng. Phạm vi 0,8× đến 1,2×."
+    "Applies to every app. Range is 0.8x to 1.2x.": "Áp dụng cho mọi ứng dụng. Phạm vi 0,8× đến 1,2×.",
+    "Applies to both the log list and session detail cards.": "Áp dụng cho cả danh sách nhật ký và thẻ chi tiết phiên."
   },
   "zh-CN": {
     "Quick Controls": "快捷控制",
@@ -53047,6 +53071,7 @@
     "PSERVER UNAVAILABLE": "PSERVER 不可用",
     "SYSTEM WIDE": "全系统",
     "Uses the current touch strength.": "使用当前触摸强度。",
-    "Applies to every app. Range is 0.8x to 1.2x.": "适用于所有应用。范围 0.8× 到 1.2×。"
+    "Applies to every app. Range is 0.8x to 1.2x.": "适用于所有应用。范围 0.8× 到 1.2×。",
+    "Applies to both the log list and session detail cards.": "适用于日志列表和会话详细信息卡。"
   }
 }

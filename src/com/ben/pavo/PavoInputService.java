@@ -90,13 +90,6 @@ public final class PavoInputService extends Service {
     private float quickHatY;
 
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final Runnable profileTick = new Runnable() {
-        @Override
-        public void run() {
-            ControllerProfiles.sync(PavoInputService.this);
-            if (running) main.postDelayed(this, 1200L);
-        }
-    };
     private volatile boolean running;
     private LocalSocket socket;
     private BufferedWriter writer;
@@ -229,8 +222,7 @@ public final class PavoInputService extends Service {
     static boolean shouldRun(Context c) {
         if (c == null) return false;
         Prefs prefs = new Prefs(c);
-        return prefs.controllerRemapEnabled()
-                || !prefs.perfControllerRaw().isEmpty()
+        return !prefs.perfControllerRaw().isEmpty()
                 || !prefs.drawerControllerRaw().isEmpty()
                 || !prefs.perfLogControllerRaw().isEmpty()
                 || !prefs.quickControllerRaw().isEmpty()
@@ -400,7 +392,6 @@ public final class PavoInputService extends Service {
                 && !TouchMapService.isMapperEnabledForForeground(this)) {
             ControllerRemapManager.ensureInputDaemon(this);
         }
-        main.postDelayed(profileTick, 1200L);
         main.postDelayed(new Runnable() {
             @Override
             public void run() {

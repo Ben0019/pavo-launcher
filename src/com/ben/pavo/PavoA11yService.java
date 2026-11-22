@@ -214,13 +214,6 @@ public final class PavoA11yService extends AccessibilityService {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
-    private long lastQuickControllerSync;
-    private final Runnable quickControllerSync = new Runnable() {
-        @Override
-        public void run() {
-            ControllerProfiles.sync(PavoA11yService.this);
-        }
-    };
     private volatile boolean controllerRunning;
     private volatile int controllerGeneration;
     private Thread controllerThread;
@@ -848,30 +841,19 @@ public final class PavoA11yService extends AccessibilityService {
 
     private long lastRemapWatchdogAt;
 
-    /**
-     * The joystick layer and the button remapper both need the daemon. If it
-     * dies while a game is in front, revive it here so the correction does not
-     * silently fall back to raw input.
-     */
+    /** Keeps the shortcut daemon alive; it no longer remaps anything. */
     private void remapWatchdog() {
         if (TouchMapManager.isRunning(this) || TouchMapManager.isStarting()) return;
-        boolean wanted = new Prefs(this).controllerRemapEnabled();
-        if (!wanted) {
-            ControllerMapConfig cfg = new ControllerMapConfig();
-            cfg.load(ControllerRemapManager.configFile(this));
-            wanted = cfg.stickEnabled;
-        }
-        if (!wanted || ControllerRemapManager.isRunning(this)) return;
+        if (ControllerRemapManager.isRunning(this)) return;
         long now = SystemClock.uptimeMillis();
         if (now - lastRemapWatchdogAt < 5000L) return;
         lastRemapWatchdogAt = now;
-        ControllerRemapManager.start(this, null);
+        ControllerRemapManager.ensureInputDaemon(this);
     }
 
     private final Runnable profileSync = new Runnable() {
         @Override
         public void run() {
-            ControllerProfiles.sync(PavoA11yService.this);
             remapWatchdog();
             // Keep ticking even if the service is briefly unbound, so a reconnect
             // never leaves per-app controller profiles stale.
@@ -1039,22 +1021,12 @@ public final class PavoA11yService extends AccessibilityService {
         PavoInputService.ensureStarted(this);
         QuickPanelEdgeHandle.attach(this);
         registerRecentsReceiver();
-        if (new Prefs(this).controllerRemapEnabled()
-                && !TouchMapManager.isRunning(this)
-                && !TouchMapManager.isStarting()
-                && !TouchMapService.isMapperEnabledForForeground(this)) {
-            main.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (!TouchMapManager.isRunning(PavoA11yService.this)
-                            && !TouchMapManager.isStarting()
-                            && !TouchMapService.isMapperEnabledForForeground(
-                                    PavoA11yService.this)) {
-                        ControllerRemapManager.ensureStarted(PavoA11yService.this);
-                    }
-                }
-            }, 700L);
-        }
+        main.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                ControllerRemapManager.ensureInputDaemon(PavoA11yService.this);
+            }
+        }, 700L);
     }
 
     /**
@@ -1438,7 +1410,6 @@ public final class PavoA11yService extends AccessibilityService {
                 }
             }
         }
-        if (new Prefs(this).controllerRemapEnabled() && virtual != null) return virtual;
         return odin != null ? odin : virtual;
     }
 
@@ -1991,14 +1962,6 @@ public final class PavoA11yService extends AccessibilityService {
                     foregroundClass = cls;
                     foregroundAt = SystemClock.uptimeMillis();
                     RecentApps.note(this, name, cls);
-                    // Switching in or out of the launcher must release or take
-                    // the controller immediately, not on the next 1.2 s tick.
-                    long now = foregroundAt;
-                    if (now - lastQuickControllerSync >= 250L) {
-                        lastQuickControllerSync = now;
-                        main.removeCallbacks(quickControllerSync);
-                        main.postDelayed(quickControllerSync, 120L);
-                    }
                 }
             }
         }

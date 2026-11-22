@@ -18,8 +18,6 @@ final class LiveBuiltinIcons {
     static final String PERF_LOG = "com.ben.pavo.perflogs";
     static final String PERF_TUNER = "com.ben.pavo.perftuner";
     static final String DISPLAY = "com.ben.pavo.display";
-    static final String CONTROLLER = "com.ben.pavo.controllermap";
-    static final String JOYSTICK = "com.ben.pavo.joystick";
     static final String RGB = "com.ben.pavo.rgb";
     static final String FAN = "com.ben.pavo.fan";
     static final String TOUCH = "com.ben.pavo.touchmapper";
@@ -39,8 +37,7 @@ final class LiveBuiltinIcons {
 
     static boolean supports(String pkg) {
         return PERF_LOG.equals(pkg) || PERF_TUNER.equals(pkg)
-                || DISPLAY.equals(pkg) || CONTROLLER.equals(pkg)
-                || JOYSTICK.equals(pkg)
+                || DISPLAY.equals(pkg)
                 || RGB.equals(pkg) || FAN.equals(pkg)
                 || TOUCH.equals(pkg) || HEALTH.equals(pkg)
                 || BENCHMARK.equals(pkg) || FILE_MANAGER.equals(pkg)
@@ -55,8 +52,6 @@ final class LiveBuiltinIcons {
         if (FAN.equals(pkg)) return 9000L;
         if (PERF_TUNER.equals(pkg)) return 5200L;
         if (DISPLAY.equals(pkg)) return 6200L;
-        if (CONTROLLER.equals(pkg)) return 4800L;
-        if (JOYSTICK.equals(pkg)) return 4200L;
         if (PERF_LOG.equals(pkg)) return 4200L;
         if (BENCHMARK.equals(pkg)) return 3600L;
         if (FILE_MANAGER.equals(pkg)) return 6200L;
@@ -85,10 +80,6 @@ final class LiveBuiltinIcons {
             drawTuner(c, size, accent, phase);
         } else if (DISPLAY.equals(pkg)) {
             drawDisplay(c, size, accent, phase);
-        } else if (CONTROLLER.equals(pkg)) {
-            drawController(c, size, accent, phase);
-        } else if (JOYSTICK.equals(pkg)) {
-            drawJoystick(c, size, accent, phase);
         } else if (RGB.equals(pkg)) {
             drawRgb(c, size, accent, phase);
         } else if (FAN.equals(pkg)) {
@@ -315,8 +306,6 @@ final class LiveBuiltinIcons {
         if (PERF_LOG.equals(pkg)) return 0xFF8BE9FF;
         if (PERF_TUNER.equals(pkg)) return 0xFFFFC857;
         if (DISPLAY.equals(pkg)) return 0xFF7CF7C4;
-        if (CONTROLLER.equals(pkg)) return 0xFFB49DFF;
-        if (JOYSTICK.equals(pkg)) return 0xFFFF8FB1;
         if (RGB.equals(pkg)) return 0xFFFF6BD6;
         if (FAN.equals(pkg)) return 0xFF6BE3FF;
         if (TOUCH.equals(pkg)) return 0xFF9CFF6B;
@@ -336,8 +325,6 @@ final class LiveBuiltinIcons {
         if (PERF_LOG.equals(pkg)) return 0xFF69D98B;
         if (PERF_TUNER.equals(pkg)) return 0xFFFF8A5B;
         if (DISPLAY.equals(pkg)) return 0xFF22D3EE;
-        if (CONTROLLER.equals(pkg)) return 0xFFFF6BD6;
-        if (JOYSTICK.equals(pkg)) return 0xFF8B5CF6;
         if (RGB.equals(pkg)) return 0xFFFFC857;
         if (FAN.equals(pkg)) return 0xFF22D3EE;
         if (TOUCH.equals(pkg)) return 0xFF22C55E;
@@ -357,8 +344,6 @@ final class LiveBuiltinIcons {
         if (PERF_TUNER.equals(pkg)) return 0xFF8BE9FF;
         if (PERF_LOG.equals(pkg)) return 0xFFFFC857;
         if (DISPLAY.equals(pkg)) return 0xFFFFC857;
-        if (CONTROLLER.equals(pkg)) return 0xFF7CF7C4;
-        if (JOYSTICK.equals(pkg)) return 0xFF22D3EE;
         if (FAN.equals(pkg)) return 0xFFFFC857;
         if (TOUCH.equals(pkg)) return 0xFFFFC857;
         if (HEALTH.equals(pkg)) return 0xFF22D3EE;
@@ -375,8 +360,6 @@ final class LiveBuiltinIcons {
     private static int colorFor4(String pkg, int accent) {
         if (BENCHMARK.equals(pkg) || HEALTH.equals(pkg)) return 0xFFD26BFF;
         if (PERF_LOG.equals(pkg) || FAN.equals(pkg)) return 0xFFD26BFF;
-        if (CONTROLLER.equals(pkg)) return 0xFFFFC857;
-        if (JOYSTICK.equals(pkg)) return 0xFFFFC857;
         return 0xFFFFFFFF;
     }
 
