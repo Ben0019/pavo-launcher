@@ -2,6 +2,17 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.48 — 22 Nov 2026
+
+### Home button
+
+- Double-tapping Home now returns to the home screen instead of opening the app drawer.
+
+### Shortcuts
+
+- Pinned shortcuts can now be removed from the home screen and stay gone.
+- Pinning the same shortcut again brings it back once.
+
 ## 1.0.47 — 22 Nov 2026
 
 ### Controller
