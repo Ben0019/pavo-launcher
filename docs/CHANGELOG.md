@@ -2,7 +2,7 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
-## 1.0.46 — 12 Nov 2026
+## 1.0.46 — 22 Nov 2026
 
 ### Recents
 
