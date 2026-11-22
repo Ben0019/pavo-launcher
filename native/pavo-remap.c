@@ -1187,7 +1187,10 @@ static void update_scope(void) {
         }
     }
 
-    int guard = !capture && (swallow_all || swallow_l3r3 || l3r3_marker);
+    /* The file marker only counts while Pavo is connected: a killed app must
+     * not leave the physical pad grabbed forever. */
+    int guard = !capture
+            && (swallow_all || swallow_l3r3 || (l3r3_marker && client_fd >= 0));
     int want_grab = (capture && virtual_verified) || guard;
 
     if (want_grab && !grabbed) {
