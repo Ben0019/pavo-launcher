@@ -30,7 +30,8 @@ final class ControllerRemapManager {
     private static final String LOG = "controller-remap.log";
     private static final String VERSION = "controller-daemon.version";
     private static final String PARK = "controller-passthrough";
-    private static final int DAEMON_VERSION = 25;
+    private static final String CAPTURE = "controller-capture";
+    private static final int DAEMON_VERSION = 26;
     static final String SOCKET = "aurora-input";
 
     private static Process process;
@@ -60,19 +61,34 @@ final class ControllerRemapManager {
         }
     }
 
-    /** Marker the daemon polls: present = keep remapping inside Pavo. */
-    static void setLauncherOnly(Context c, boolean confined) {
+    /**
+     * Refreshes the daemon's capture lease.  The lease is only written while
+     * remapping applies to the focused window.  Older than a few seconds and
+     * the daemon falls back to passive mode on its own, so a dead app can
+     * never leave a game without its controller.
+     */
+    static void setCaptureAllowed(Context c, boolean allowed) {
         if (c == null) return;
-        File marker = new File(c.getFilesDir(), "controller-launcher-only");
-        if (confined) {
+        File marker = new File(c.getFilesDir(), CAPTURE);
+        File legacy = new File(c.getFilesDir(), "controller-launcher-only");
+        if (legacy.exists()) legacy.delete();
+        if (allowed) {
             try {
-                if (!marker.isFile()) marker.createNewFile();
-                marker.setReadable(true, false);
-            } catch (Throwable ignored) {
+                if (!marker.isFile()) new FileOutputStream(marker).close();
+                long now = System.currentTimeMillis();
+                if (now - marker.lastModified() > 900L) marker.setLastModified(now);
+            } catch (Throwable t) {
+                Log.w(TAG, "could not refresh capture lease", t);
             }
-        } else if (marker.exists()) {
-            marker.delete();
+        } else if (marker.exists() && !marker.delete()) {
+            Log.w(TAG, "could not clear " + marker);
         }
+    }
+
+    static void clearCaptureLease(Context c) {
+        if (c == null) return;
+        File marker = new File(c.getFilesDir(), CAPTURE);
+        if (marker.exists()) marker.delete();
     }
 
     static File configFile(Context c) {
@@ -221,6 +237,7 @@ final class ControllerRemapManager {
             @Override
             public void run() {
                 try {
+                    clearCaptureLease(app);
                     File config = configFile(app);
                     ControllerMapConfig cfg = new ControllerMapConfig();
                     cfg.load(config);

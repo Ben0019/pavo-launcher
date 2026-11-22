@@ -2,6 +2,16 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.47 — 22 Nov 2026
+
+### Controller
+
+- With System-wide off, games and emulators now get the real controller: Pavo no longer creates a second virtual pad or holds the pad exclusively outside the launcher.
+- Pavo only takes over the controller while remapping is actually needed, and gives it back within a few seconds even if the app is closed or crashes.
+- Before taking the controller, Pavo now checks that its virtual pad is actually usable. If the firmware blocks it, the game keeps the real controller instead of losing it.
+- System-wide stays opt-in and still applies your remaps in every app.
+- Launcher overlays still swallow controller input while they are open.
+
 ## 1.0.46 — 22 Nov 2026
 
 ### Recents

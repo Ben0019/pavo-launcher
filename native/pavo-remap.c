@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <dirent.h>
 #include <errno.h>
 #include <math.h>
 #include <fcntl.h>
@@ -23,10 +24,21 @@
 /*
  * Aurora controller remapper.
  *
- * The daemon owns the physical controller with EVIOCGRAB, applies the mapping
- * config and exposes one virtual controller through uinput.  Games and the
- * launcher therefore see a single controller whose buttons have already been
- * remapped, while analogue axes are copied through untouched.
+ * The daemon has two modes:
+ *
+ *   passive  The physical controller is only read.  Nothing is grabbed and no
+ *            virtual device exists, so games and emulators see the real pad
+ *            untouched.  Raw buttons still stream to Pavo over the socket for
+ *            shortcuts and overlays.
+ *
+ *   capture  The pad is grabbed with EVIOCGRAB, the mapping config is applied
+ *            and one virtual controller is published through uinput.
+ *
+ * capture is only entered while a short lease file is fresh.  The app writes
+ * the lease while remapping applies to the focused window (Pavo itself, or any
+ * app when System-wide is on).  A missing, unreadable or stale lease always
+ * falls back to passive, so a killed app or a crash can never leave a game
+ * without its controller.
  *
  * Config format (one directive per line, '#' comments):
  *   enabled=1
@@ -53,6 +65,11 @@
 #define TURBO_INTERVAL_MS 65
 #define COMBO_PULSE_MS 45
 #define CONFIG_POLL_MS 250
+#define SCOPE_POLL_MS 150
+#define CAPTURE_LEASE_MS 3500
+#define VIRTUAL_PROBE_MS 600
+#define VIRTUAL_RECHECK_MS 1000
+#define CAPTURE_RETRY_MIN_MS 5000
 
 typedef struct {
     int keys[MAX_COMBO_KEYS];
@@ -108,12 +125,16 @@ static int swallow_l3r3;
 static int l3r3_marker;
 static int socket_enabled;
 static int passthrough;
-static int launcher_only;
+static int capture_active;
+static int virtual_verified;
+static int capture_failures;
+static long long next_virtual_check;
+static long long capture_retry_at;
 
-static void refresh_scope(void);
-static void update_grab(void);
+static int lease_fresh(void);
+static void update_scope(void);
 static long long next_scope_check;
-static char launcher_only_path[512];
+static char capture_path[512];
 static char socket_name[108];
 static char command_buffer[1024];
 static size_t command_length;
@@ -313,7 +334,7 @@ static int open_socket_server(void) {
 }
 
 static void emit_event(int type, int code, int value) {
-    if (launcher_only) return;
+    if (!capture_active || ui_fd < 0) return;
     struct input_event ev;
     memset(&ev, 0, sizeof(ev));
     ev.type = (uint16_t)type;
@@ -331,7 +352,7 @@ static void emit_sync(void) {
 
 static void output_key(int code, int down) {
     if (code < 0 || code > KEY_MAX) return;
-    if (swallow_all || launcher_only) return;
+    if (swallow_all || !capture_active) return;
     if (down) {
         if (held[code]++ == 0) emit_event(EV_KEY, code, 1);
     } else if (held[code] > 0) {
@@ -499,11 +520,6 @@ static void on_key(int code, int value) {
 
 static void tick(void) {
     now_ms = monotonic_ms();
-    if (now_ms >= next_scope_check) {
-        next_scope_check = now_ms + 500;
-        refresh_scope();
-        update_grab();
-    }
     for (int i = 0; i <= KEY_MAX; i++) {
         if (pending[i] && pressed[i] && now_ms >= pending_at[i]) {
             pending[i] = 0;
@@ -763,7 +779,10 @@ static int create_virtual(void) {
     setup.id.vendor = 0x045e;
     setup.id.product = 0x0b13;
     setup.id.version = 0x0903;
-    snprintf(setup.name, sizeof(setup.name), "Xbox Wireless Controller");
+    /* A distinct name keeps firmware input managers from treating the
+     * virtual pad as a duplicate of the built-in "Xbox Wireless Controller"
+     * node and unlinking it. */
+    snprintf(setup.name, sizeof(setup.name), "Pavo Virtual Controller");
     char phys[] = "pavo-remap";
     ioctl(ui_fd, UI_SET_PHYS, phys);
     if (ioctl(ui_fd, UI_DEV_SETUP, &setup) < 0
@@ -773,6 +792,48 @@ static int create_virtual(void) {
         return 0;
     }
     return 1;
+}
+
+/* Removes the virtual pad entirely.  This is what keeps emulators from seeing
+ * a second controller while Pavo is not remapping. */
+static void destroy_virtual(void) {
+    virtual_verified = 0;
+    if (ui_fd < 0) return;
+    ioctl(ui_fd, UI_DEV_DESTROY);
+    close(ui_fd);
+    ui_fd = -1;
+}
+
+/* The virtual pad only counts if its /dev/input node exists: Android apps
+ * (and emulators) open the node, not the kernel device. */
+static int virtual_node_present(void) {
+    DIR *dir = opendir("/sys/class/input");
+    if (!dir) return 0;
+    struct dirent *entry;
+    int found = 0;
+    while (!found && (entry = readdir(dir)) != NULL) {
+        if (strncmp(entry->d_name, "event", 5) != 0) continue;
+        char path[256];
+        snprintf(path, sizeof(path), "/sys/class/input/%s/device/phys", entry->d_name);
+        FILE *f = fopen(path, "r");
+        if (!f) continue;
+        char phys[64];
+        if (fgets(phys, sizeof(phys), f) && strstr(phys, "pavo-remap")) {
+            char node[128];
+            snprintf(node, sizeof(node), "/dev/input/%s", entry->d_name);
+            if (access(node, F_OK) == 0) found = 1;
+        }
+        fclose(f);
+    }
+    closedir(dir);
+    return found;
+}
+
+static long long capture_retry_delay(void) {
+    long long delay = CAPTURE_RETRY_MIN_MS;
+    for (int i = 1; i < capture_failures && i < 8; i++) delay *= 2;
+    if (delay > 600000LL) delay = 600000LL;
+    return delay;
 }
 
 static int event_node(const char *handlers, char *out, size_t out_size) {
@@ -965,21 +1026,19 @@ static int axis_code(int idx) {
     }
 }
 
-/* Opens the physical controller and records the identity of the node we hold. */
+/* Opens the physical controller and records the identity of the node we hold.
+ * Opening is read-only from Android's point of view: no grab happens until the
+ * capture lease says remapping is actually wanted. */
 static int open_source(void) {
     int fd = open(device, O_RDWR | O_CLOEXEC);
     if (fd < 0) return 0;
-    if (ioctl(fd, EVIOCGRAB, 1) < 0) {
-        close(fd);
-        return 0;
-    }
     struct stat st;
     if (fstat(fd, &st) == 0) {
         src_dev_id = st.st_dev;
         src_ino = st.st_ino;
     }
     src_fd = fd;
-    grabbed = 1;
+    grabbed = 0;
     return 1;
 }
 
@@ -993,14 +1052,20 @@ static int source_alive(void) {
     return st.st_dev == src_dev_id && st.st_ino == src_ino;
 }
 
+static void destroy_virtual(void);
+
 static int reconnect_source(void) {
+    release_all_targets();
     if (src_fd >= 0) {
-        ioctl(src_fd, EVIOCGRAB, 0);
+        if (grabbed) ioctl(src_fd, EVIOCGRAB, 0);
         close(src_fd);
         src_fd = -1;
     }
     grabbed = 0;
-    release_all_targets();
+    capture_active = 0;
+    /* Capabilities come from the old node; rebuild the virtual pad on the
+     * new one rather than keeping a stale copy. */
+    destroy_virtual();
     char found[256];
     if (find_default_device(found, sizeof(found)) && strcmp(found, device)) {
         snprintf(device, sizeof(device), "%s", found);
@@ -1022,15 +1087,24 @@ static void derive_side_path(char *out, size_t size, const char *name) {
     snprintf(out, size, "%.*s/%s", dir, config_path, name);
 }
 
-/* Marker file: present means remapping stays inside Pavo; absent = system-wide. */
-static void refresh_scope(void) {
-    launcher_only = launcher_only_path[0]
-            && access(launcher_only_path, F_OK) == 0;
+/*
+ * The app refreshes this lease file every second while remapping applies to
+ * the focused window.  It is deliberately fail-safe: an absent, unreadable or
+ * older-than-CAPTURE_LEASE_MS lease means passive mode.  Nothing in the daemon
+ * keeps a grab alive just because the file exists.
+ */
+static int lease_fresh(void) {
+    if (!capture_path[0]) return 0;
+    struct stat st;
+    if (stat(capture_path, &st) != 0) return 0;
+    long long now = (long long)time(NULL) * 1000LL;
+    long long written = (long long)st.st_mtime * 1000LL;
+    if (written <= 0) return 0;
+    return now >= written && now - written <= CAPTURE_LEASE_MS;
 }
 
 static void derive_park_path(void) {
-    derive_side_path(launcher_only_path, sizeof(launcher_only_path),
-            "controller-launcher-only");
+    derive_side_path(capture_path, sizeof(capture_path), "controller-capture");
     derive_side_path(park_path, sizeof(park_path), "controller-passthrough");
     derive_side_path(l3r3_path, sizeof(l3r3_path), "controller-l3r3-swallow");
     derive_side_path(trace_path, sizeof(trace_path), "controller-trace");
@@ -1060,18 +1134,84 @@ static void trace_tick(void) {
     }
 }
 
-/* The Joystick app parks the remapper so it can read the physical axes
- * directly.  Parking releases EVIOCGRAB and discards input until the marker
- * disappears, then re-grabs and resumes normal remapping. */
-static void update_grab(void) {
-    int park = (park_path[0] && access(park_path, F_OK) == 0) || launcher_only;
-    if (park && grabbed) {
+/*
+ * Decides whether the daemon is allowed to touch the pad at all.
+ *
+ *   - capture: remapping is enabled and the lease is fresh.
+ *   - guard:   a Pavo overlay is open, so grab briefly to swallow controller
+ *              input from the app underneath.  No virtual pad is created.
+ *   - passive: everything else.  No grab, no virtual device.
+ *
+ * The Joystick app parks the daemon through its own marker so calibration can
+ * read the physical axes even while remapping is enabled.
+ */
+static void update_scope(void) {
+    int park = park_path[0] && access(park_path, F_OK) == 0;
+    int wanted = config.enabled && lease_fresh();
+    if (!wanted) {
+        capture_failures = 0;
+        capture_retry_at = 0;
+    }
+    int capture = wanted && !park && src_fd >= 0 && now_ms >= capture_retry_at;
+
+    if (capture && ui_fd < 0) {
+        if (create_virtual()) {
+            virtual_verified = 0;
+            next_virtual_check = now_ms + VIRTUAL_PROBE_MS;
+        } else {
+            capture = 0;
+            capture_failures++;
+            capture_retry_at = now_ms + capture_retry_delay();
+        }
+    }
+
+    /*
+     * Some firmware input managers unlink newly created input nodes (the Odin
+     * PService does).  Never grab while the virtual pad has no usable node:
+     * the game would lose its controller and get nothing in return.
+     */
+    if (capture && ui_fd >= 0 && now_ms >= next_virtual_check) {
+        int present = virtual_node_present();
+        next_virtual_check = now_ms + VIRTUAL_RECHECK_MS;
+        if (present) {
+            virtual_verified = 1;
+            capture_failures = 0;
+        } else {
+            int had = virtual_verified;
+            virtual_verified = 0;
+            if (had) release_all_targets();
+            destroy_virtual();
+            capture = 0;
+            capture_failures++;
+            capture_retry_at = now_ms + capture_retry_delay();
+        }
+    }
+
+    int guard = !capture && (swallow_all || swallow_l3r3 || l3r3_marker);
+    int want_grab = (capture && virtual_verified) || guard;
+
+    if (want_grab && !grabbed) {
+        if (ioctl(src_fd, EVIOCGRAB, 1) >= 0) {
+            grabbed = 1;
+        } else if (capture) {
+            destroy_virtual();
+            virtual_verified = 0;
+            capture = 0;
+            capture_failures++;
+            capture_retry_at = now_ms + capture_retry_delay();
+        }
+    } else if (!want_grab && grabbed) {
         ioctl(src_fd, EVIOCGRAB, 0);
         grabbed = 0;
-        release_all_targets();
-    } else if (!park && !grabbed) {
-        if (ioctl(src_fd, EVIOCGRAB, 1) >= 0) grabbed = 1;
     }
+
+    if (!capture && ui_fd >= 0) {
+        if (capture_active) release_all_targets();
+        destroy_virtual();
+        virtual_verified = 0;
+    }
+
+    capture_active = capture && virtual_verified && grabbed && ui_fd >= 0;
 }
 
 static void usage(const char *name) {
@@ -1101,8 +1241,12 @@ int main(int argc, char **argv) {
         usage(argv[0]);
         return 2;
     }
+    /* PService runs the launcher from its own shell, which keeps private
+     * sockets open (/dev/rsinput).  Inheriting them makes PService treat this
+     * daemon as an input client and unlink the virtual pad node.  stdio is
+     * already redirected to the log; drop everything else. */
+    for (int fd = 3; fd < 1024; fd++) close(fd);
     derive_park_path();
-    refresh_scope();
     if (!device[0] && !find_default_device(device, sizeof(device))) {
         fprintf(stderr, "controller not found\n");
         return 1;
@@ -1114,26 +1258,18 @@ int main(int argc, char **argv) {
         fprintf(stderr, "open %s: %s\n", device, strerror(errno));
         return 1;
     }
-    if (!create_virtual()) {
-        fprintf(stderr, "uinput create failed: %s\n", strerror(errno));
-        ioctl(src_fd, EVIOCGRAB, 0);
-        close(src_fd);
-        return 1;
-    }
     reset_config();
     load_config();
     config_changed();
     socket_enabled = socket_name[0] && open_socket_server();
     if (!config.enabled && !socket_enabled) {
-        ioctl(ui_fd, UI_DEV_DESTROY);
-        close(ui_fd);
-        ioctl(src_fd, EVIOCGRAB, 0);
         close(src_fd);
         return 0;
     }
     passthrough = !config.enabled;
     write_pid();
     now_ms = monotonic_ms();
+    next_scope_check = now_ms;
     next_source_check = now_ms + 1000;
     long long next_config_check = now_ms;
 
@@ -1148,20 +1284,23 @@ int main(int argc, char **argv) {
             }
             next_config_check = now_ms + CONFIG_POLL_MS;
         }
-        update_grab();
-        int marker = l3r3_path[0] && access(l3r3_path, F_OK) == 0;
-        if (marker != l3r3_marker) {
-            l3r3_marker = marker;
-            if (marker) {
-                pressed[317] = 0;
-                pressed[318] = 0;
-                release_all_targets();
+        if (now_ms >= next_scope_check) {
+            next_scope_check = now_ms + SCOPE_POLL_MS;
+            int marker = l3r3_path[0] && access(l3r3_path, F_OK) == 0;
+            if (marker != l3r3_marker) {
+                l3r3_marker = marker;
+                if (marker) {
+                    pressed[317] = 0;
+                    pressed[318] = 0;
+                    release_all_targets();
+                }
             }
+            update_scope();
         }
         if (now_ms >= next_source_check) {
             next_source_check = now_ms + 1000;
             if (!source_alive() && reconnect_source()) {
-                update_grab();
+                update_scope();
             }
         }
         tick();
@@ -1213,19 +1352,19 @@ int main(int argc, char **argv) {
 
         if (!(pfds[0].revents & POLLIN)) continue;
         if (pfds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-            if (reconnect_source()) update_grab();
+            if (reconnect_source()) update_scope();
             continue;
         }
         struct input_event ev[64];
         ssize_t n = read(src_fd, ev, sizeof(ev));
         if (n < 0 && errno == ENODEV) {
-            if (reconnect_source()) update_grab();
+            if (reconnect_source()) update_scope();
             continue;
         }
         if (n <= 0) continue;
-        /* Launcher-only mode keeps reading so Pavo still sees its shortcuts,
-           but output is suppressed and the physical pad stays with Android. */
-        if (!grabbed && !launcher_only) continue;
+        /* Events are always read, even when passive: Pavo needs the raw
+           buttons for shortcuts and overlays, while emit_event/output_key
+           stay silent unless capture is active. */
         for (size_t i = 0; i < (size_t)n / sizeof(ev[0]); i++) {
             switch (ev[i].type) {
                 case EV_KEY:

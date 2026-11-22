@@ -44,34 +44,48 @@ final class ControllerProfiles {
         android.os.UserManager um =
                 (android.os.UserManager) c.getSystemService(Context.USER_SERVICE);
         if (um != null && !um.isUserUnlocked()) return;
-        if (activityOpen) {
-            // Editing a controller screen needs the daemon even if the app that
-            // was in front asked for a bypass. Re-evaluate when it closes.
-            updateBypass(c, null);
-            return;
-        }
+
+        Prefs prefs = new Prefs(c);
         ControllerProfileStore store = new ControllerProfileStore(c);
-        // App profiles need a fresh foreground snapshot. Other services only
-        // refresh it while their own per-app features are active, so request it
-        // here too when at least one app profile exists.
-        if (store.hasOverrides()) {
-            long now = android.os.SystemClock.uptimeMillis();
-            if (now - lastRequestAt > 1800L) {
-                lastRequestAt = now;
-                ForegroundApp.request(c);
+        String foreground = null;
+        // Editing a controller screen needs the daemon even if the app that was
+        // in front asked for a bypass. Re-evaluate when it closes.
+        // Accessibility ignores Pavo's own overlay windows, so a drawer or
+        // recents sheet over a game never counts as "Pavo is in front".
+        String visible = PavoA11yService.foregroundPackage();
+        boolean ownForeground = activityOpen
+                || (visible != null && visible.equals(c.getPackageName()));
+        if (!activityOpen) {
+            // App profiles need a fresh foreground snapshot. Other services only
+            // refresh it while their own per-app features are active, so request
+            // it here too when at least one app profile exists.
+            if (store.hasOverrides()) {
+                long now = android.os.SystemClock.uptimeMillis();
+                if (now - lastRequestAt > 1800L) {
+                    lastRequestAt = now;
+                    ForegroundApp.request(c);
+                }
+            }
+            foreground = ForegroundApp.read(c);
+            if (foreground != null && foreground.equals(c.getPackageName())) {
+                foreground = null;
             }
         }
-        String foreground = ForegroundApp.read(c);
-        if (foreground != null && foreground.equals(c.getPackageName())) foreground = null;
-        // Unless the user opted into system-wide remapping, keep the
-        // controller out of other apps: no grab, no injected input there.
-        boolean confined = !new Prefs(c).controllerSystemWide() && foreground != null;
-        ControllerRemapManager.setLauncherOnly(c, confined);
-        updateBypass(c, foreground);
+
+        // The daemon is only allowed to grab the controller and publish a
+        // virtual pad while remapping applies to the focused window. With
+        // System-wide off that means Pavo's own UI only; everywhere else the
+        // daemon stays passive and leaves the real pad to games/emulators.
+        boolean capture = prefs.controllerRemapEnabled()
+                && (prefs.controllerSystemWide() || ownForeground);
+        ControllerRemapManager.setCaptureAllowed(c, capture);
+
+        updateBypass(c, activityOpen ? null : foreground);
+        if (activityOpen) return;
         String pkg = foreground;
         // Auto-switch is optional: when off, the global profile keeps applying
         // to every app, including the stick tuning stored with it.
-        if (!new Prefs(c).controllerStickAutoApp()) pkg = null;
+        if (!prefs.controllerStickAutoApp()) pkg = null;
         if (pkg != null && pkg.equals(c.getPackageName())) pkg = null;
         String text = pkg == null ? null : store.app(pkg);
         String key = (pkg == null ? "global" : pkg) + "#" + (text == null ? "-" : text);

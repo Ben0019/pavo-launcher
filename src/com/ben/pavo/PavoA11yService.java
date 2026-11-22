@@ -214,6 +214,13 @@ public final class PavoA11yService extends AccessibilityService {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
+    private long lastQuickControllerSync;
+    private final Runnable quickControllerSync = new Runnable() {
+        @Override
+        public void run() {
+            ControllerProfiles.sync(PavoA11yService.this);
+        }
+    };
     private volatile boolean controllerRunning;
     private volatile int controllerGeneration;
     private Thread controllerThread;
@@ -1984,6 +1991,14 @@ public final class PavoA11yService extends AccessibilityService {
                     foregroundClass = cls;
                     foregroundAt = SystemClock.uptimeMillis();
                     RecentApps.note(this, name, cls);
+                    // Switching in or out of the launcher must release or take
+                    // the controller immediately, not on the next 1.2 s tick.
+                    long now = foregroundAt;
+                    if (now - lastQuickControllerSync >= 250L) {
+                        lastQuickControllerSync = now;
+                        main.removeCallbacks(quickControllerSync);
+                        main.postDelayed(quickControllerSync, 120L);
+                    }
                 }
             }
         }
