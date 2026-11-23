@@ -4001,8 +4001,9 @@ public final class MainActivity extends Activity {
      */
     private void liquidCard(GlassPanel glass) {
         if (glass == null) return;
-        glass.setBackdropSaturation(prefs.settingsSaturation() / 100f);
-        glass.setBackdropDarkness(prefs.settingsBackdropDarkness() / 100f);
+        glass.setBackdropSaturation(prefs.drawerSaturation() / 100f);
+        glass.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
+        glass.setDeepBackdrop(true);
         glass.setClearGlass(true);
         glass.setClearBodyAlpha(0x14);
         glass.setLiquidClear(true);
@@ -13803,7 +13804,6 @@ public final class MainActivity extends Activity {
         });
         GlassPanel card = new GlassPanel(this, backdrop, ThemeColors.accent(), 0x4D0B0E14, 26, true);
         liquidCard(card);
-        drawerGlassLook(card);
         card.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 16), Ui.dp(this, 14));
         card.setClickable(true);
         // Keep the sheet itself out of the focus order so the ring lands on a
@@ -14406,6 +14406,7 @@ public final class MainActivity extends Activity {
         settingsSubmenuGlass.setRimWidthDp(1.3f);
         settingsSubmenuGlass.setSheenStrength(0.9f);
         settingsSubmenuGlass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        drawerGlassLook(settingsSubmenuGlass);
         settingsSubmenuGlass.setPadding(Ui.dp(this, 14), Ui.dp(this, 12),
                 Ui.dp(this, 14), Ui.dp(this, 8));
         ScrollView subScroll = new ScrollView(this);
@@ -16030,6 +16031,7 @@ public final class MainActivity extends Activity {
         glass.setRimWidthDp(1.3f);
         glass.setSheenStrength(0.9f);
         glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        drawerGlassLook(glass);
         glass.addView(settingsHeader, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         glass.addView(scroll, new LinearLayout.LayoutParams(

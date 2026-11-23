@@ -1050,6 +1050,9 @@ final class AppDrawerOverlayView extends FrameLayout {
         styleGlass.setSheenStrength(0.9f);
         styleGlass.setBackdropScreenAnchored(true);
         styleGlass.setSurfaceAlpha(prefs.drawerOverlayAlpha() / 100f);
+        styleGlass.setBackdropSaturation(prefs.drawerSaturation() / 100f);
+        styleGlass.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
+        styleGlass.setDeepBackdrop(true);
         stylePanel = styleGlass;
         stylePanel.setOrientation(LinearLayout.VERTICAL);
         stylePanel.setPadding(Ui.dp(context, 16), Ui.dp(context, 14),
@@ -1328,6 +1331,9 @@ final class AppDrawerOverlayView extends FrameLayout {
         appMenuGlass.setLiquidClear(true);
         appMenuGlass.setRimWidthDp(1.3f);
         appMenuGlass.setSheenStrength(0.9f);
+        appMenuGlass.setBackdropSaturation(prefs.drawerSaturation() / 100f);
+        appMenuGlass.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
+        appMenuGlass.setDeepBackdrop(true);
         appMenuGlass.setPadding(Ui.dp(context, 10), Ui.dp(context, 10),
                 Ui.dp(context, 10), Ui.dp(context, 10));
         appMenuGlass.setClickable(true);
