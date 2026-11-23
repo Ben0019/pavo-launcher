@@ -2031,7 +2031,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 18));
         content.addView(dots, dlp);
 
-        dock = new DockView(this, wallpaper, prefs);
+        dock = new DockView(this, wallpaper, pager, prefs);
         dock.setGlassTuning(prefs.dockSaturation() / 100f,
                 prefs.dockBackdropDarkness() / 100f);
         LinearLayout.LayoutParams dockLp = new LinearLayout.LayoutParams(
@@ -15836,7 +15836,10 @@ public final class MainActivity extends Activity {
         glass.setBackdropSaturation(prefs.settingsSaturation() / 100f);
         glass.setBackdropDarkness(prefs.settingsBackdropDarkness() / 100f);
         glass.setClearGlass(true);
-        glass.setClearBodyAlpha(0x40);
+        glass.setClearBodyAlpha(0x14);
+        glass.setLiquidClear(true);
+        glass.setRimWidthDp(1.3f);
+        glass.setSheenStrength(0.9f);
         glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
         glass.addView(settingsHeader, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));

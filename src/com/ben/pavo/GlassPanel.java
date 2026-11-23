@@ -54,6 +54,7 @@ final class GlassPanel extends LinearLayout {
     private float backdropSaturation = 1.5f;
     private float backdropDarkness;
     private boolean liquidEffect;
+    private boolean liquidClear;
     private int clearBodyAlpha = 0xCC;
     private float rimWidthDp;
     private float sheenScale = 1f;
@@ -257,6 +258,15 @@ final class GlassPanel extends LinearLayout {
         invalidate();
     }
 
+    /**
+     * The clear dock material for menus: almost no tint, no readability
+     * shades, and the same polished rim as the dock.
+     */
+    void setLiquidClear(boolean value) {
+        liquidClear = value;
+        invalidate();
+    }
+
     /** Replace the refractive liquid-glass treatment with frosted glass. */
     private boolean frozenFrostedBefore;
     private boolean frozenLiquidBefore;
@@ -412,6 +422,7 @@ final class GlassPanel extends LinearLayout {
                 cardRenderer.setSaturation(backdropSaturation);
                 cardRenderer.setDarkness(backdropDarkness);
             }
+            cardRenderer.setDockStyle(liquidClear);
             if (cardRenderer.draw(canvas, (int) w, (int) h, radius, backdrop)) {
                 drawReadabilityScrim(canvas, w, h, radius);
                 drawLiquidOverlay(canvas, w, h, radius);
@@ -651,17 +662,20 @@ final class GlassPanel extends LinearLayout {
 
         int ta = tintColor >>> 24;
         if (ta <= 0) ta = 0x4D;
+        if (liquidClear) ta = Math.min(ta, 0x24);
         tintPaint.setColor((ta << 24) | (tintColor & 0x00FFFFFF));
         canvas.drawRoundRect(rect, radius, radius, tintPaint);
 
-        Paint topShade = new Paint(Paint.ANTI_ALIAS_FLAG);
-        topShade.setShader(new LinearGradient(0, 0, 0, h * 0.24f,
-                0x730B0E14, 0x000B0E14, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(rect, radius, radius, topShade);
-        Paint bottomShade = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bottomShade.setShader(new LinearGradient(0, h * 0.74f, 0, h,
-                0x000B0E14, 0x590B0E14, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(rect, radius, radius, bottomShade);
+        if (!liquidClear) {
+            Paint topShade = new Paint(Paint.ANTI_ALIAS_FLAG);
+            topShade.setShader(new LinearGradient(0, 0, 0, h * 0.24f,
+                    0x730B0E14, 0x000B0E14, Shader.TileMode.CLAMP));
+            canvas.drawRoundRect(rect, radius, radius, topShade);
+            Paint bottomShade = new Paint(Paint.ANTI_ALIAS_FLAG);
+            bottomShade.setShader(new LinearGradient(0, h * 0.74f, 0, h,
+                    0x000B0E14, 0x590B0E14, Shader.TileMode.CLAMP));
+            canvas.drawRoundRect(rect, radius, radius, bottomShade);
+        }
 
         int accent = accentLight();
         liquidPaint.setShader(new RadialGradient(w * 0.30f, h * 0.10f, w * 0.50f,
@@ -680,7 +694,7 @@ final class GlassPanel extends LinearLayout {
             Matrix nm = new Matrix();
             nm.setScale(2f, 2f);
             noise.setLocalMatrix(nm);
-            noisePaint.setAlpha(7);
+            noisePaint.setAlpha(liquidClear ? 4 : 7);
             noisePaint.setShader(noise);
             canvas.drawRoundRect(rect, radius, radius, noisePaint);
             noisePaint.setShader(null);
@@ -688,11 +702,15 @@ final class GlassPanel extends LinearLayout {
         }
 
         if (rimEnabled) {
-            GlassHighlightView.drawHighlight(canvas, (int) w, (int) h, radius,
-                    getResources().getDisplayMetrics().density);
-            borderPaint.setColor(0x2EFFFFFF);
-            borderPaint.setStrokeWidth(Math.max(1f, Ui.dpf(getContext(), 1f)));
-            canvas.drawRoundRect(rect, radius, radius, borderPaint);
+            if (liquidClear) {
+                LiquidRim.draw(canvas, rect, radius, sheenScale);
+            } else {
+                GlassHighlightView.drawHighlight(canvas, (int) w, (int) h, radius,
+                        getResources().getDisplayMetrics().density);
+                borderPaint.setColor(0x2EFFFFFF);
+                borderPaint.setStrokeWidth(Math.max(1f, Ui.dpf(getContext(), 1f)));
+                canvas.drawRoundRect(rect, radius, radius, borderPaint);
+            }
         }
 
         if (layer >= 0) canvas.restoreToCount(layer);

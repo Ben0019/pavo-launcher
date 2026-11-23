@@ -30,6 +30,7 @@ import java.util.Random;
 
 final class DockView extends LinearLayout {
     private final WallpaperView wallpaper;
+    private final View contentSource;
     private final Prefs prefs;
 
     private final Paint tintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -67,9 +68,10 @@ final class DockView extends LinearLayout {
         invalidate();
     }
 
-    DockView(Context c, WallpaperView wallpaper, Prefs prefs) {
+    DockView(Context c, WallpaperView wallpaper, View contentSource, Prefs prefs) {
         super(c);
         this.wallpaper = wallpaper;
+        this.contentSource = contentSource;
         this.prefs = prefs;
 
         setOrientation(HORIZONTAL);
@@ -279,34 +281,7 @@ final class DockView extends LinearLayout {
 
         if (surfaceLayer >= 0) canvas.restoreToCount(surfaceLayer);
 
-        // Bright specular rim and chromatic hairline on top of the tint, so the
-        // lens reads as a polished capsule rather than a flat translucent bar.
-        Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
-        rim.setStyle(Paint.Style.STROKE);
-        rim.setStrokeWidth(Math.max(1.2f, Ui.dpf(getContext(), 1.3f)));
-        rim.setShader(new LinearGradient(0f, 0f, w, h,
-                new int[]{0xB0FFFFFF, 0x33FFFFFF, 0x90FFFFFF},
-                new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));
-        RectF rimRect = new RectF(0.7f, 0.7f, w - 0.7f, h - 0.7f);
-        canvas.drawRoundRect(rimRect, radius, radius, rim);
-        rim.setShader(null);
-
-        Paint topGlow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        topGlow.setShader(new LinearGradient(0f, 0f, 0f, h * 0.55f,
-                0x10FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(rect, radius, radius, topGlow);
-        topGlow.setShader(null);
-
-        Paint fringe = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fringe.setStyle(Paint.Style.STROKE);
-        fringe.setStrokeWidth(Math.max(1.6f, Ui.dpf(getContext(), 1.5f)));
-        fringe.setShader(new LinearGradient(0f, 0f, w, 0f,
-                new int[]{0x20FF5C7A, 0x0012D3EE, 0x205B8CFF},
-                new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
-        RectF fr = new RectF(1.6f, 1.6f, w - 1.6f, h - 1.6f);
-        canvas.drawRoundRect(fr, Math.max(0f, radius - 1.6f),
-                Math.max(0f, radius - 1.6f), fringe);
-        fringe.setShader(null);
+        LiquidRim.draw(canvas, rect, radius, sheen);
 
         drawDropIndicator(canvas, w, h, radius);
     }
@@ -388,6 +363,16 @@ final class DockView extends LinearLayout {
             recording.translate(wallpaperLoc[0] - dockLoc[0],
                     wallpaperLoc[1] - dockLoc[1]);
             wallpaper.draw(recording);
+            if (contentSource != null && contentSource.getVisibility() == VISIBLE
+                    && contentSource.getWidth() > 0 && contentSource.getHeight() > 0) {
+                int[] contentLoc = new int[2];
+                contentSource.getLocationOnScreen(contentLoc);
+                recording.save();
+                recording.translate(contentLoc[0] - wallpaperLoc[0],
+                        contentLoc[1] - wallpaperLoc[1]);
+                contentSource.draw(recording);
+                recording.restore();
+            }
             glassNode.endRecording();
 
             glassClip.reset();

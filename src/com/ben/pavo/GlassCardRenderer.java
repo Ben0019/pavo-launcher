@@ -40,6 +40,7 @@ final class GlassCardRenderer {
 
     private float saturation = 1.5f;
     private float darkness;
+    private boolean dockStyle;
 
     GlassCardRenderer(View view) {
         this.view = view;
@@ -52,6 +53,13 @@ final class GlassCardRenderer {
 
     void setDarkness(float value) {
         darkness = Math.max(0f, Math.min(1f, value));
+        lastBitmap = null;
+    }
+
+    /** Use the dock's clear gravity lens instead of the older card lens. */
+    void setDockStyle(boolean value) {
+        if (dockStyle == value) return;
+        dockStyle = value;
         lastBitmap = null;
     }
 
@@ -137,10 +145,17 @@ final class GlassCardRenderer {
                 RecordingCanvas recording = node.beginRecording(sw, sh);
                 recording.drawBitmap(bitmap, src, new RectF(0, 0, sw, sh), bitmapPaint);
                 node.endRecording();
-                effect = LiveGlassEffect.build(
-                        view.getResources().getDisplayMetrics().density,
-                        0, 0, sw, sh, radius * scale, scale, 16f, true, saturation,
-                        darkness);
+                if (dockStyle) {
+                    effect = LiveGlassEffect.buildDock(
+                            view.getResources().getDisplayMetrics().density,
+                            sw, sh, radius * scale, scale, 10f, saturation,
+                            0f, 30f, 70f, 1.8f, 0.8f, 0.2f);
+                } else {
+                    effect = LiveGlassEffect.build(
+                            view.getResources().getDisplayMetrics().density,
+                            0, 0, sw, sh, radius * scale, scale, 16f, true, saturation,
+                            darkness);
+                }
                 node.setRenderEffect(effect);
                 lastBitmap = bitmap;
                 lastLocX = location[0];

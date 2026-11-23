@@ -120,7 +120,10 @@ final class Menu {
                                List<Entry> entries, boolean focusable) {
         final GlassPanel card = new GlassPanel(c, backdrop, accent, 0x330B0E14, 18, true);
         card.setClearGlass(true);
-        card.setClearBodyAlpha(0x4D);
+        card.setClearBodyAlpha(0x14);
+        card.setLiquidClear(true);
+        card.setRimWidthDp(1.3f);
+        card.setSheenStrength(0.9f);
         Prefs prefs = new Prefs(c);
         card.setSurfaceAlpha(prefs.menuTransparency() / 100f);
         card.setBackdropSaturation(prefs.menuSaturation() / 100f);
