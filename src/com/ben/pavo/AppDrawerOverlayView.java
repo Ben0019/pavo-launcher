@@ -464,7 +464,10 @@ final class AppDrawerOverlayView extends FrameLayout {
         glass = new GlassPanel(c, null, accent(), 0x4D0B0E14, 26, true);
         glass.setBackdropScreenAnchored(true);
         glass.setClearGlass(true);
-        glass.setClearBodyAlpha(0);
+        glass.setClearBodyAlpha(0x14);
+        glass.setLiquidClear(true);
+        glass.setRimWidthDp(1.3f);
+        glass.setSheenStrength(0.9f);
         glass.setSurfaceAlpha(prefs.drawerOverlayAlpha() / 100f);
         glass.setBackdropSaturation(prefs.popupDrawerSaturation() / 100f);
         glass.setBackdropDarkness(prefs.popupDrawerBackdropDarkness() / 100f);
