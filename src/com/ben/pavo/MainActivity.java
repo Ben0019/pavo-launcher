@@ -270,6 +270,7 @@ public final class MainActivity extends Activity {
     private LiquidGlassShadowView drawerShadow;
     private GlassHighlightView drawerHighlight;
     private LiveBackdropView drawerBackdrop;
+    private final ArrayList<LiveBackdropView> cardBackdrops = new ArrayList<>();
     private GlassPanel drawerGlass;
     private EditText search;
     private GridView drawerGrid;
@@ -607,8 +608,11 @@ public final class MainActivity extends Activity {
     private long lastUserActivityAt;
 
     private boolean homeIdleEligible() {
+        // A floating card shows the home behind live glass, so keep the icons
+        // animating underneath it instead of freezing the background.
         return activityResumed && !isDrawerVisible() && !isFolderVisible()
-                && activeMenu == null && settingsDialog == null && !dragging;
+                && activeMenu == null && settingsDialog == null && !dragging
+                && cardBackdrops.isEmpty();
     }
 
     private boolean homeVisualsIdle;
@@ -3990,6 +3994,17 @@ public final class MainActivity extends Activity {
         LToast.makeText(this, "Widget removed", Toast.LENGTH_SHORT).show();
     }
 
+    /** Clear liquid material for the floating wallpaper, widget and icon cards. */
+    private void liquidCard(GlassPanel glass) {
+        if (glass == null) return;
+        glass.setFrosted(false);
+        glass.setClearGlass(true);
+        glass.setClearBodyAlpha(0x14);
+        glass.setLiquidClear(true);
+        glass.setRimWidthDp(1.3f);
+        glass.setSheenStrength(0.9f);
+    }
+
     private void showWidgetResizeDialog(final Store.PlacedWidget w) {
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -3998,8 +4013,7 @@ public final class MainActivity extends Activity {
 
         final GlassPanel glass = new GlassPanel(this, backdrop,
                 wallpaper.accent(), 0x330B0E14, 22, true);
-        glass.setClearGlass(true);
-        glass.setClearBodyAlpha(0);
+        liquidCard(glass);
         glass.setPadding(Ui.dp(this, 22), Ui.dp(this, 18), Ui.dp(this, 22), Ui.dp(this, 16));
 
         TextView title = new LTextView(this);
@@ -4062,7 +4076,7 @@ public final class MainActivity extends Activity {
         buttons.addView(apply);
         glass.addView(buttons);
 
-        showGlassDialog(dialog, glass, backdrop, 420, 0f);
+        showGlassDialog(dialog, glass, backdrop, 420, 0f, false, true);
         dialog.show();
     }
 
@@ -4130,9 +4144,96 @@ public final class MainActivity extends Activity {
      * @param liftForKeyboard keeps an input dialog in the upper half so a
      *        landscape keyboard cannot cover its field or buttons.
      */
+    /**
+     * The video wallpaper is a TextureView, so a render-node capture only sees
+     * a frozen frame. Stamp fresh frames into the open card backdrops, the same
+     * way the app drawer keeps its glass live.
+     */
+    private final Runnable cardVideoFrameTick = new Runnable() {
+        @Override public void run() {
+            if (cardBackdrops.isEmpty()) return;
+            boolean live = videoWallpaper != null
+                    && videoWallpaper.getVisibility() == View.VISIBLE
+                    && videoWallpaper.getWidth() > 0;
+            for (int i = cardBackdrops.size() - 1; i >= 0; i--) {
+                LiveBackdropView view = cardBackdrops.get(i);
+                if (!view.isAttachedToWindow()
+                        || view.getWindowVisibility() != View.VISIBLE) {
+                    continue;
+                }
+                if (live) stampVideoFrame(view);
+            }
+            if (!cardBackdrops.isEmpty()) handler.postDelayed(this, 100L);
+        }
+    };
+
+    private void stampVideoFrame(LiveBackdropView target) {
+        Bitmap frame = videoWallpaper.grabFrame(
+                Math.max(1, videoWallpaper.getWidth() / 4),
+                Math.max(1, videoWallpaper.getHeight() / 4));
+        if (frame == null) return;
+        int[] loc = new int[2];
+        videoWallpaper.getLocationOnScreen(loc);
+        target.setVideoFrame(frame, loc[0], loc[1],
+                videoWallpaper.getWidth(), videoWallpaper.getHeight());
+    }
+
+    /** Live, blurred home backdrop for a floating card, matching the drawer. */
+    private LiveBackdropView createLiveCardBackdrop() {
+        return createLiveBackdrop(26f, prefs.drawerSaturation() / 100f,
+                prefs.drawerBackdropDarkness() / 100f);
+    }
+
+    /** Same live material for the long-press and dock popup menus. */
+    LiveBackdropView createLiveMenuBackdrop() {
+        return createLiveBackdrop(18f, prefs.menuSaturation() / 100f,
+                prefs.menuBackdropDarkness() / 100f);
+    }
+
+    private LiveBackdropView createLiveBackdrop(float radiusDp,
+                                                float saturation, float darkness) {
+        final LiveBackdropView live = new LiveBackdropView(this);
+        live.setRadiusDp(radiusDp);
+        live.setGlassTuning(saturation, darkness);
+        live.setSource(homeLayer);
+        cardBackdrops.add(live);
+        live.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override public void onViewAttachedToWindow(View v) {
+                handler.removeCallbacks(cardVideoFrameTick);
+                handler.post(cardVideoFrameTick);
+                // Keep the home icons, dock sheen and labels moving behind the
+                // card, exactly like they do behind the app drawer.
+                homeVisualsIdle = false;
+                setHomeMarqueePaused(false);
+                setHomeLiquidPaused(false);
+                setHomeIconsPaused(false);
+                handler.removeCallbacks(homeIdleTick);
+                handler.postDelayed(homeIdleTick, HOME_IDLE_MS);
+            }
+            @Override public void onViewDetachedFromWindow(View v) {
+                cardBackdrops.remove(live);
+                live.clearVideoFrame();
+                if (cardBackdrops.isEmpty()) {
+                    handler.removeCallbacks(cardVideoFrameTick);
+                    noteUserActivity();
+                }
+            }
+        });
+        live.setBackdropEnabled(true);
+        return live;
+    }
+
     private void showGlassDialog(final Dialog dialog, final GlassPanel card,
                                  Backdrop backdrop, int cardWidthDp,
                                  float heightFraction, boolean liftForKeyboard) {
+        showGlassDialog(dialog, card, backdrop, cardWidthDp, heightFraction,
+                liftForKeyboard, false);
+    }
+
+    private void showGlassDialog(final Dialog dialog, final GlassPanel card,
+                                 Backdrop backdrop, int cardWidthDp,
+                                 float heightFraction, boolean liftForKeyboard,
+                                 boolean liveBackdrop) {
         FrameLayout root = new FrameLayout(this);
         root.setClipChildren(false);
         root.setClipToPadding(false);
@@ -4180,6 +4281,37 @@ public final class MainActivity extends Activity {
                 cardWidth, cardHeight, lifted ? (Gravity.TOP | Gravity.CENTER_HORIZONTAL)
                         : Gravity.CENTER);
         if (lifted) cardLp.topMargin = Ui.dp(this, 18);
+        LiveBackdropView live = null;
+        if (liveBackdrop) {
+            card.setBackdrop(null);
+            card.setLiquidClear(true);
+            live = createLiveCardBackdrop();
+            final FrameLayout.LayoutParams liveLp = new FrameLayout.LayoutParams(
+                    cardWidth, cardHeight, cardLp.gravity);
+            liveLp.leftMargin = cardLp.leftMargin;
+            liveLp.topMargin = cardLp.topMargin;
+            liveLp.rightMargin = cardLp.rightMargin;
+            liveLp.bottomMargin = cardLp.bottomMargin;
+            root.addView(live, liveLp);
+            // WRAP_CONTENT cards only know their height after layout; keep the
+            // live backdrop the exact same size as the card.
+            final LiveBackdropView trackedLive = live;
+            card.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+                @Override public void onLayoutChange(View v, int left, int top,
+                                                     int right, int bottom,
+                                                     int oldLeft, int oldTop,
+                                                     int oldRight, int oldBottom) {
+                    int w = right - left;
+                    int h = bottom - top;
+                    if (w <= 0 || h <= 0) return;
+                    if (liveLp.width == w && liveLp.height == h) return;
+                    liveLp.width = w;
+                    liveLp.height = h;
+                    trackedLive.setLayoutParams(liveLp);
+                }
+            });
+        }
+        final LiveBackdropView entranceLive = live;
         card.setClickable(true);
         card.setElevation(Ui.dpf(this, 18));
         root.addView(card, cardLp);
@@ -4214,6 +4346,9 @@ public final class MainActivity extends Activity {
                     @Override
                     public void run() {
                         Motion.giggleIn(card, 0.90f, 360L, 1.25f, 0.80f, true);
+                        if (entranceLive != null) {
+                            Motion.giggleIn(entranceLive, 0.90f, 360L, 1.25f, 0.80f, true);
+                        }
                     }
                 });
             }
@@ -4769,8 +4904,7 @@ public final class MainActivity extends Activity {
 
         final GlassPanel glass = new GlassPanel(this, backdrop,
                 wallpaper.accent(), 0x4D0B0E14, 26, true);
-        glass.setClearGlass(true);
-        glass.setClearBodyAlpha(0);
+        liquidCard(glass);
         glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
         glass.setPadding(Ui.dp(this, 22), Ui.dp(this, 18), Ui.dp(this, 22), Ui.dp(this, 12));
 
@@ -4982,7 +5116,7 @@ public final class MainActivity extends Activity {
 
         styleChooserChip(chips, selected[0], packs);
 
-        showGlassDialog(dialog, glass, backdrop, 720, 0.84f);
+        showGlassDialog(dialog, glass, backdrop, 720, 0.84f, false, true);
         attachIconGridController(dialog, grid, glass, chips, buttons);
         dialog.show();
     }
@@ -5021,8 +5155,7 @@ public final class MainActivity extends Activity {
 
         GlassPanel glass = new GlassPanel(this, backdrop,
                 wallpaper.accent(), 0x330B0E14, 24, true);
-        glass.setClearGlass(true);
-        glass.setClearBodyAlpha(0);
+        liquidCard(glass);
         glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
         glass.setPadding(Ui.dp(this, 20), Ui.dp(this, 16), Ui.dp(this, 20), Ui.dp(this, 10));
 
@@ -5141,7 +5274,7 @@ public final class MainActivity extends Activity {
             }
         });
 
-        showGlassDialog(dialog, glass, backdrop, 380, 0.64f);
+        showGlassDialog(dialog, glass, backdrop, 380, 0.64f, false, true);
         final LinearLayout pavoRows = auroraList;
         final LinearLayout installedRows = installedList;
         final Runnable switchToPavo = new Runnable() {
@@ -13619,8 +13752,8 @@ public final class MainActivity extends Activity {
             @Override public void onClick(View v) { dialog.dismiss(); }
         });
         GlassPanel card = new GlassPanel(this, backdrop, ThemeColors.accent(), 0x4D0B0E14, 26, true);
-        card.setFrosted(true);
-        card.setScrimAlpha(0xC4);
+        liquidCard(card);
+        card.setBackdrop(null);
         card.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 16), Ui.dp(this, 14));
         card.setClickable(true);
         // Keep the sheet itself out of the focus order so the ring lands on a
@@ -13628,6 +13761,8 @@ public final class MainActivity extends Activity {
         card.setFocusable(false);
         int cw = Math.min(getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 32), Ui.dp(this, 720));
         int ch = Math.min(getResources().getDisplayMetrics().heightPixels - Ui.dp(this, 32), Ui.dp(this, 620));
+        LiveBackdropView liveBackdrop = createLiveCardBackdrop();
+        root.addView(liveBackdrop, new FrameLayout.LayoutParams(cw, ch, Gravity.CENTER));
         root.addView(card, new FrameLayout.LayoutParams(cw, ch, Gravity.CENTER));
 
         LinearLayout header = new LinearLayout(this);

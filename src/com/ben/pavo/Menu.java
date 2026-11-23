@@ -134,8 +134,9 @@ final class Menu {
 
         // The popup is full-screen with a dim over the *live* screen. Drawing a
         // full-screen snapshot here made frozen copies of the clock and widgets
-        // ghost over a video wallpaper; the card still samples the backdrop for
-        // its own glass. Outside taps dismiss through the root.
+        // ghost over a video wallpaper. The card gets its own live backdrop, so
+        // the home icons behind it keep animating like they do behind the app
+        // drawer. Outside taps dismiss through the root.
         final FrameLayout root = new FrameLayout(c);
         root.setClipChildren(false);
         root.setClipToPadding(false);
@@ -143,6 +144,14 @@ final class Menu {
         dim.setBackgroundColor(0x33000000);
         root.addView(dim, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        final LiveBackdropView live = c instanceof MainActivity
+                ? ((MainActivity) c).createLiveMenuBackdrop() : null;
+        if (live != null) {
+            card.setBackdrop(null);
+            live.setVisibility(View.GONE);
+            root.addView(live, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
         root.addView(card, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -225,7 +234,7 @@ final class Menu {
 
         card.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-        return new Panel(popup, root, card,
+        return new Panel(popup, root, card, live,
                 card.getMeasuredWidth(), card.getMeasuredHeight());
     }
 
@@ -233,16 +242,19 @@ final class Menu {
         final PopupWindow popup;
         final FrameLayout root;
         final View card;
+        final LiveBackdropView live;
         final int width;
         final int height;
         private Bitmap lampBitmap;
         private MagicLampView lamp;
         private ValueAnimator lampAnim;
 
-        Panel(PopupWindow popup, FrameLayout root, View card, int width, int height) {
+        Panel(PopupWindow popup, FrameLayout root, View card, LiveBackdropView live,
+              int width, int height) {
             this.popup = popup;
             this.root = root;
             this.card = card;
+            this.live = live;
             this.width = width;
             this.height = height;
         }
@@ -259,6 +271,19 @@ final class Menu {
             lp.topMargin = top;
             card.setLayoutParams(lp);
             card.setVisibility(View.VISIBLE);
+            if (live != null) {
+                FrameLayout.LayoutParams liveLp =
+                        new FrameLayout.LayoutParams(width, height);
+                liveLp.leftMargin = left;
+                liveLp.topMargin = top;
+                live.setLayoutParams(liveLp);
+                live.setVisibility(View.VISIBLE);
+                live.setPivotX(card.getPivotX());
+                live.setPivotY(card.getPivotY());
+                live.setAlpha(0f);
+                live.setScaleX(0.92f);
+                live.setScaleY(0.92f);
+            }
             // Animate the real shader-backed card. Snapshotting a card containing
             // a RenderEffect into a software bitmap loses the effect, which made
             // menus look plain until the entry animation ended.
@@ -276,6 +301,9 @@ final class Menu {
                     // Keep the live shader-backed card and restore the popup's
                     // springy arrival.
                     Motion.giggleIn(card, 0.92f, 340L, 1.35f, 1.1f, true);
+                    if (live != null) {
+                        Motion.giggleIn(live, 0.92f, 340L, 1.35f, 1.1f, true);
+                    }
                 }
             });
         }
