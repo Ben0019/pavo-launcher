@@ -86,7 +86,7 @@ final class DockView extends LinearLayout {
         edgePaint.setStyle(Paint.Style.STROKE);
         edgePaint.setStrokeWidth(Math.max(1f, Ui.dpf(c, 1)));
         noiseTile = makeNoiseTile();
-        noisePaint.setAlpha(13);
+        noisePaint.setAlpha(8);
 
         dropGlowPaint.setColor(0x33FFFFFF);
         dropBarPaint.setColor(0xD9FFFFFF);
@@ -189,7 +189,7 @@ final class DockView extends LinearLayout {
         float h = getHeight();
         if (w <= 0 || h <= 0) return;
 
-        float radius = Math.min(cornerPx(), h / 2f);
+        float radius = h / 2f;
         rect.set(0, 0, w, h);
 
         // Like the app drawer, the live blurred backdrop is always drawn fully
@@ -228,22 +228,22 @@ final class DockView extends LinearLayout {
         // localized shading and the liquid rim on top.
         // Same body as the app drawer card: one low-alpha smoky tint over the
         // live glass, with no extra readability scrim.
-        tintPaint.setColor(0x4D0B0E14);
+        tintPaint.setColor(0x04070A12);
         canvas.drawRoundRect(rect, radius, radius, tintPaint);
         // The drawer reads as a milky veil that lifts the backdrop; a faint
         // white layer gives the dock the same lift instead of a dark slab.
-        tintPaint.setColor(0x14E6EEFA);
+        tintPaint.setColor(0x02E6EEFA);
         canvas.drawRoundRect(rect, radius, radius, tintPaint);
         // Frosted depth: lighter at the top, clearing towards the bottom, as
         // in the glass slab reference.
         tintPaint.setShader(new LinearGradient(0f, 0f, 0f, h,
-                0x22FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+                0x08FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(rect, radius, radius, tintPaint);
         tintPaint.setShader(null);
         // Underside shading: the glass gets thicker towards the bottom edge,
         // which is what makes it read as a slab and not a flat sticker.
         tintPaint.setShader(new LinearGradient(0f, h * 0.45f, 0f, h,
-                0x00000000, 0x4A000000, Shader.TileMode.CLAMP));
+                0x00000000, 0x10000000, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(rect, radius, radius, tintPaint);
         tintPaint.setShader(null);
 
@@ -278,6 +278,35 @@ final class DockView extends LinearLayout {
         noisePaint.setShader(null);
 
         if (surfaceLayer >= 0) canvas.restoreToCount(surfaceLayer);
+
+        // Bright specular rim and chromatic hairline on top of the tint, so the
+        // lens reads as a polished capsule rather than a flat translucent bar.
+        Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
+        rim.setStyle(Paint.Style.STROKE);
+        rim.setStrokeWidth(Math.max(1.2f, Ui.dpf(getContext(), 1.3f)));
+        rim.setShader(new LinearGradient(0f, 0f, w, h,
+                new int[]{0xB0FFFFFF, 0x33FFFFFF, 0x90FFFFFF},
+                new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));
+        RectF rimRect = new RectF(0.7f, 0.7f, w - 0.7f, h - 0.7f);
+        canvas.drawRoundRect(rimRect, radius, radius, rim);
+        rim.setShader(null);
+
+        Paint topGlow = new Paint(Paint.ANTI_ALIAS_FLAG);
+        topGlow.setShader(new LinearGradient(0f, 0f, 0f, h * 0.55f,
+                0x10FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(rect, radius, radius, topGlow);
+        topGlow.setShader(null);
+
+        Paint fringe = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fringe.setStyle(Paint.Style.STROKE);
+        fringe.setStrokeWidth(Math.max(1.6f, Ui.dpf(getContext(), 1.5f)));
+        fringe.setShader(new LinearGradient(0f, 0f, w, 0f,
+                new int[]{0x20FF5C7A, 0x0012D3EE, 0x205B8CFF},
+                new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        RectF fr = new RectF(1.6f, 1.6f, w - 1.6f, h - 1.6f);
+        canvas.drawRoundRect(fr, Math.max(0f, radius - 1.6f),
+                Math.max(0f, radius - 1.6f), fringe);
+        fringe.setShader(null);
 
         drawDropIndicator(canvas, w, h, radius);
     }
@@ -342,8 +371,8 @@ final class DockView extends LinearLayout {
                     || glassNodeRadius != radius) {
                 glassEffect = LiveGlassEffect.buildDock(
                         getResources().getDisplayMetrics().density, sw, sh,
-                        radius * scale, scale, 26f, glassSaturation,
-                        Math.min(glassDarkness, 0.45f), 30f, 60f, 2f, 0.14f, 0f);
+                        radius * scale, scale, 2f, glassSaturation,
+                        0f, 30f, 70f, 1.8f, 0.8f, 0.2f);
                 glassNode.setRenderEffect(glassEffect);
                 glassNodeWidth = sw;
                 glassNodeHeight = sh;
