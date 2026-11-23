@@ -10053,6 +10053,9 @@ public final class MainActivity extends Activity {
         drawerGlass.setBackdropScreenAnchored(true);
         drawerGlass.setClearGlass(true);
         drawerGlass.setClearBodyAlpha(0);
+        drawerGlass.setLiquidClear(true);
+        drawerGlass.setRimWidthDp(1.3f);
+        drawerGlass.setSheenStrength(0.9f);
         drawerGlass.setSurfaceAlpha(prefs.appDrawerTransparency() / 100f);
         drawerBackdrop = new LiveBackdropView(this);
         drawerBackdrop.setRadiusDp(26);

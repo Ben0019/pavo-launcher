@@ -430,6 +430,12 @@ final class GlassPanel extends LinearLayout {
                 return;
             }
         }
+        if (liquidClear) {
+            // Overlay-only clear glass: no sampled body of its own, just the
+            // tint, specular and rim over whatever is already behind it.
+            drawLiquidOverlay(canvas, w, h, radius);
+            return;
+        }
         if (frosted) {
             drawFrosted(canvas, w, h, radius);
             drawReadabilityScrim(canvas, w, h, radius);

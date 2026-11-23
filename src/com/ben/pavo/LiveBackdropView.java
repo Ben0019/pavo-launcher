@@ -198,10 +198,10 @@ final class LiveBackdropView extends View {
                 && effectRadius == radiusPx) {
             return effect;
         }
-        effect = LiveGlassEffect.build(
+        effect = LiveGlassEffect.buildDock(
                 getResources().getDisplayMetrics().density,
-                0, 0, width, height, radiusPx * scale, scale, 8f, false,
-                glassSaturation, glassDarkness);
+                width, height, radiusPx * scale, scale, 8f, glassSaturation,
+                Math.min(glassDarkness, 0.20f), 30f, 70f, 1.8f, 0.8f, 0.2f);
         effectWidth = width;
         effectHeight = height;
         effectRadius = radiusPx;
