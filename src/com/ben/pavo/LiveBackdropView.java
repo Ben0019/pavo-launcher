@@ -46,6 +46,8 @@ final class LiveBackdropView extends View {
     private static final float RENDER_SCALE = 0.5f;
     private boolean refreshPosted;
     private float glassSaturation = 1.5f;
+    private float blurDp = 8f;
+    private boolean deepTuning;
     private float glassDarkness;
 
     private final Runnable refresh = new Runnable() {
@@ -109,6 +111,20 @@ final class LiveBackdropView extends View {
         effect = null;
         node = null;
         invalidate();
+    }
+
+    /** Cards and menus need more diffusion/darkening than the app drawer. */
+    void setDeepTuning(boolean value) {
+        if (deepTuning == value) return;
+        deepTuning = value;
+        updateEffect();
+    }
+
+    void setBlurDp(float dp) {
+        float value = Math.max(0f, dp);
+        if (value == blurDp) return;
+        blurDp = value;
+        updateEffect();
     }
 
     void setSnapshot(Bitmap bitmap) {
@@ -200,8 +216,8 @@ final class LiveBackdropView extends View {
         }
         effect = LiveGlassEffect.buildDock(
                 getResources().getDisplayMetrics().density,
-                width, height, radiusPx * scale, scale, 8f, glassSaturation,
-                Math.min(glassDarkness, 0.20f), 30f, 70f, 1.8f, 0.8f, 0.2f);
+                width, height, radiusPx * scale, scale, blurDp, glassSaturation,
+                glassDarkness, 30f, 70f, 1.8f, 0.8f, 0.2f);
         effectWidth = width;
         effectHeight = height;
         effectRadius = radiusPx;

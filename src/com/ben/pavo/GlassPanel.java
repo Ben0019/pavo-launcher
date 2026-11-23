@@ -55,6 +55,7 @@ final class GlassPanel extends LinearLayout {
     private float backdropDarkness;
     private boolean liquidEffect;
     private boolean liquidClear;
+    private boolean deepBackdrop;
     private int clearBodyAlpha = 0xCC;
     private float rimWidthDp;
     private float sheenScale = 1f;
@@ -189,7 +190,18 @@ final class GlassPanel extends LinearLayout {
     /** 0 = untouched capture, 1 = black. */
     void setBackdropDarkness(float value) {
         backdropDarkness = Math.max(0f, Math.min(1f, value));
-        if (cardRenderer != null) cardRenderer.setDarkness(backdropDarkness);
+        if (cardRenderer != null && deepBackdrop) {
+            cardRenderer.setDarkness(backdropDarkness);
+        }
+        invalidate();
+    }
+
+    /** Apply the app drawer's darkening to this card's captured backdrop. */
+    void setDeepBackdrop(boolean value) {
+        deepBackdrop = value;
+        if (cardRenderer != null) {
+            cardRenderer.setDarkness(value ? backdropDarkness : 0f);
+        }
         invalidate();
     }
 
@@ -420,7 +432,7 @@ final class GlassPanel extends LinearLayout {
             if (cardRenderer == null) {
                 cardRenderer = new GlassCardRenderer(this);
                 cardRenderer.setSaturation(backdropSaturation);
-                cardRenderer.setDarkness(backdropDarkness);
+                cardRenderer.setDarkness(deepBackdrop ? backdropDarkness : 0f);
             }
             cardRenderer.setDockStyle(liquidClear);
             if (cardRenderer.draw(canvas, (int) w, (int) h, radius, backdrop)) {

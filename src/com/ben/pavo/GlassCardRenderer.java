@@ -149,7 +149,7 @@ final class GlassCardRenderer {
                     effect = LiveGlassEffect.buildDock(
                             view.getResources().getDisplayMetrics().density,
                             sw, sh, radius * scale, scale, 10f, saturation,
-                            0f, 30f, 70f, 1.8f, 0.8f, 0.2f);
+                            darkness, 30f, 70f, 1.8f, 0.8f, 0.2f);
                 } else {
                     effect = LiveGlassEffect.build(
                             view.getResources().getDisplayMetrics().density,

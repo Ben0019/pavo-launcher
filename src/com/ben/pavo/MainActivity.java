@@ -3994,15 +3994,29 @@ public final class MainActivity extends Activity {
         LToast.makeText(this, "Widget removed", Toast.LENGTH_SHORT).show();
     }
 
-    /** Clear liquid material for the floating wallpaper, widget and icon cards. */
+    /**
+     * Exactly the launcher settings material: the captured backdrop is blurred
+     * and lensed by GlassCardRenderer, then the clear overlay adds the tint,
+     * specular and rim. No live view and no extra tint overrides.
+     */
     private void liquidCard(GlassPanel glass) {
         if (glass == null) return;
-        glass.setFrosted(false);
+        glass.setBackdropSaturation(prefs.settingsSaturation() / 100f);
+        glass.setBackdropDarkness(prefs.settingsBackdropDarkness() / 100f);
         glass.setClearGlass(true);
         glass.setClearBodyAlpha(0x14);
         glass.setLiquidClear(true);
         glass.setRimWidthDp(1.3f);
         glass.setSheenStrength(0.9f);
+        glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+    }
+
+    /** The app drawer's darker glass: fuller colour and deep backdrop. */
+    private void drawerGlassLook(GlassPanel glass) {
+        if (glass == null) return;
+        glass.setBackdropSaturation(prefs.drawerSaturation() / 100f);
+        glass.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
+        glass.setDeepBackdrop(true);
     }
 
     private void showWidgetResizeDialog(final Store.PlacedWidget w) {
@@ -4076,7 +4090,7 @@ public final class MainActivity extends Activity {
         buttons.addView(apply);
         glass.addView(buttons);
 
-        showGlassDialog(dialog, glass, backdrop, 420, 0f, false, true);
+        showGlassDialog(dialog, glass, backdrop, 420, 0f);
         dialog.show();
     }
 
@@ -4180,21 +4194,36 @@ public final class MainActivity extends Activity {
 
     /** Live, blurred home backdrop for a floating card, matching the drawer. */
     private LiveBackdropView createLiveCardBackdrop() {
-        return createLiveBackdrop(26f, prefs.drawerSaturation() / 100f,
-                prefs.drawerBackdropDarkness() / 100f);
+        // Exactly the normal app drawer's material and tuning.
+        // Strong diffusion on purpose: these cards have sparse content, so the
+        // home icon tiles must read as soft colour, not recognisable squares.
+        return createLiveBackdrop(26f, 1.4f, 0.55f, 30f);
     }
 
     /** Same live material for the long-press and dock popup menus. */
     LiveBackdropView createLiveMenuBackdrop() {
-        return createLiveBackdrop(18f, prefs.menuSaturation() / 100f,
-                prefs.menuBackdropDarkness() / 100f);
+        return createLiveBackdrop(18f, 1.4f, 0.55f, 30f);
     }
 
     private LiveBackdropView createLiveBackdrop(float radiusDp,
-                                                float saturation, float darkness) {
+                                                float saturation, float darkness,
+                                                float blurDp) {
         final LiveBackdropView live = new LiveBackdropView(this);
         live.setRadiusDp(radiusDp);
+        // The lens shader rounds its sample, but the view's square bounds still
+        // show at the corners. Clip the live material to the card outline so it
+        // matches the glass panel's rounded edge exactly.
+        final float clipRadiusDp = radiusDp;
+        live.setClipToOutline(true);
+        live.setOutlineProvider(new ViewOutlineProvider() {
+            @Override public void getOutline(View v, Outline outline) {
+                outline.setRoundRect(0, 0, v.getWidth(), v.getHeight(),
+                        Ui.dpf(v.getContext(), clipRadiusDp));
+            }
+        });
         live.setGlassTuning(saturation, darkness);
+        live.setBlurDp(blurDp);
+        live.setDeepTuning(true);
         live.setSource(homeLayer);
         cardBackdrops.add(live);
         live.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
@@ -4701,9 +4730,7 @@ public final class MainActivity extends Activity {
 
         GlassPanel glass = new GlassPanel(this, backdrop,
                 wallpaper.accent(), 0x330B0E14, 26, true);
-        glass.setClearGlass(true);
-        glass.setClearBodyAlpha(0);
-        glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
+        liquidCard(glass);
         glass.setPadding(Ui.dp(this, 22), Ui.dp(this, 18), Ui.dp(this, 22), Ui.dp(this, 12));
 
         TextView title = new LTextView(this);
@@ -4748,7 +4775,11 @@ public final class MainActivity extends Activity {
 
         glass.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        showGlassDialog(dialog, glass, backdrop, 480, 0.78f);
+        int screenDp = Math.round(getResources().getDisplayMetrics().heightPixels
+                / getResources().getDisplayMetrics().density);
+        float packsHeight = Math.min(0.78f,
+                (packs.size() * 56f + 190f) / Math.max(1, screenDp));
+        showGlassDialog(dialog, glass, backdrop, 480, packsHeight);
         dialog.show();
         attachCardListController(dialog, glass, glass, new RowSource() {
             @Override public List<View> rows() {
@@ -4905,7 +4936,6 @@ public final class MainActivity extends Activity {
         final GlassPanel glass = new GlassPanel(this, backdrop,
                 wallpaper.accent(), 0x4D0B0E14, 26, true);
         liquidCard(glass);
-        glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
         glass.setPadding(Ui.dp(this, 22), Ui.dp(this, 18), Ui.dp(this, 22), Ui.dp(this, 12));
 
         TextView title = new LTextView(this);
@@ -4933,18 +4963,17 @@ public final class MainActivity extends Activity {
         if (selected[0] == null && !packs.isEmpty()) selected[0] = packs.get(0);
 
         final int iconPx = Ui.dp(this, 52);
+        final List<String> iconNames = new ArrayList<>();
         final BaseAdapter adapter = new BaseAdapter() {
             @Override
             public int getCount() {
-                return selected[0] == null || selected[0].resolver == null
-                        ? 0 : selected[0].resolver.iconNames().size();
+                return iconNames.size();
             }
 
             @Override
             public Object getItem(int position) {
-                if (selected[0] == null || selected[0].resolver == null) return null;
-                List<String> names = selected[0].resolver.iconNames();
-                return position >= 0 && position < names.size() ? names.get(position) : null;
+                return position >= 0 && position < iconNames.size()
+                        ? iconNames.get(position) : null;
             }
 
             @Override
@@ -4966,9 +4995,8 @@ public final class MainActivity extends Activity {
                 }
                 image.setImageDrawable(null);
                 if (selected[0] == null || selected[0].resolver == null) return image;
-                List<String> names = selected[0].resolver.iconNames();
-                if (position < 0 || position >= names.size()) return image;
-                final String name = names.get(position);
+                if (position < 0 || position >= iconNames.size()) return image;
+                final String name = iconNames.get(position);
                 image.setContentDescription(name);
                 Bitmap bmp = selected[0].resolver.iconByName(name, iconPx);
                 if (bmp != null) image.setImageBitmap(bmp);
@@ -5002,6 +5030,26 @@ public final class MainActivity extends Activity {
             }
         };
 
+        final Runnable loadIconNames = new Runnable() {
+            @Override public void run() {
+                iconNames.clear();
+                if (selected[0] != null && selected[0].resolver != null) {
+                    List<String> all = selected[0].resolver.iconNames();
+                    for (String name : all) {
+                        // Some packs list names without a drawable; those left
+                        // blank cells that made the rows look misaligned.
+                        if (name != null
+                                && selected[0].resolver.iconByName(name,
+                                        Ui.dp(MainActivity.this, 8)) != null) {
+                            iconNames.add(name);
+                        }
+                    }
+                }
+                adapter.notifyDataSetChanged();
+            }
+        };
+        loadIconNames.run();
+
         final List<TextView> chips = new ArrayList<>();
         HorizontalScrollView chipScroll = new HorizontalScrollView(this);
         chipScroll.setHorizontalScrollBarEnabled(false);
@@ -5030,7 +5078,7 @@ public final class MainActivity extends Activity {
                 public void onClick(View v) {
                     selected[0] = pack;
                     styleChooserChip(chips, selected[0], packs);
-                    adapter.notifyDataSetChanged();
+                    loadIconNames.run();
                 }
             });
         }
@@ -5045,6 +5093,8 @@ public final class MainActivity extends Activity {
         grid.setClipToPadding(false);
         grid.setAdapter(adapter);
         grid.setVerticalScrollBarEnabled(false);
+        grid.setVerticalFadingEdgeEnabled(true);
+        grid.setFadingEdgeLength(Ui.dp(this, 20));
         glass.addView(grid, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -5116,7 +5166,7 @@ public final class MainActivity extends Activity {
 
         styleChooserChip(chips, selected[0], packs);
 
-        showGlassDialog(dialog, glass, backdrop, 720, 0.84f, false, true);
+        showGlassDialog(dialog, glass, backdrop, 720, 0.84f);
         attachIconGridController(dialog, grid, glass, chips, buttons);
         dialog.show();
     }
@@ -5156,7 +5206,6 @@ public final class MainActivity extends Activity {
         GlassPanel glass = new GlassPanel(this, backdrop,
                 wallpaper.accent(), 0x330B0E14, 24, true);
         liquidCard(glass);
-        glass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
         glass.setPadding(Ui.dp(this, 20), Ui.dp(this, 16), Ui.dp(this, 20), Ui.dp(this, 10));
 
         LinearLayout titleRow = new LinearLayout(this);
@@ -5274,7 +5323,7 @@ public final class MainActivity extends Activity {
             }
         });
 
-        showGlassDialog(dialog, glass, backdrop, 380, 0.64f, false, true);
+        showGlassDialog(dialog, glass, backdrop, 380, 0.64f);
         final LinearLayout pavoRows = auroraList;
         final LinearLayout installedRows = installedList;
         final Runnable switchToPavo = new Runnable() {
@@ -10195,6 +10244,7 @@ public final class MainActivity extends Activity {
         drawerBackdrop.setAlpha(1f);
         drawerBackdrop.setGlassTuning(prefs.drawerSaturation() / 100f,
                 prefs.drawerBackdropDarkness() / 100f);
+        drawerBackdrop.setBlurDp(10f);
         drawerGlass.setBackdropSaturation(prefs.drawerSaturation() / 100f);
         drawerGlass.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
         drawerCard.addView(drawerBackdrop, match());
@@ -13753,16 +13803,21 @@ public final class MainActivity extends Activity {
         });
         GlassPanel card = new GlassPanel(this, backdrop, ThemeColors.accent(), 0x4D0B0E14, 26, true);
         liquidCard(card);
-        card.setBackdrop(null);
+        drawerGlassLook(card);
         card.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 16), Ui.dp(this, 14));
         card.setClickable(true);
         // Keep the sheet itself out of the focus order so the ring lands on a
         // wallpaper tile instead of the container after a list refresh.
         card.setFocusable(false);
+        final List<File> history = wallpaperHistory();
+        final List<LiveWallpaper> live = liveWallpapers();
+        final List<VideoWallpaper> videos = videoWallpapers();
+        final List<Object> items = new ArrayList<>();
+        items.addAll(live);
+        items.addAll(videos);
+        items.addAll(history);
         int cw = Math.min(getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 32), Ui.dp(this, 720));
         int ch = Math.min(getResources().getDisplayMetrics().heightPixels - Ui.dp(this, 32), Ui.dp(this, 620));
-        LiveBackdropView liveBackdrop = createLiveCardBackdrop();
-        root.addView(liveBackdrop, new FrameLayout.LayoutParams(cw, ch, Gravity.CENTER));
         root.addView(card, new FrameLayout.LayoutParams(cw, ch, Gravity.CENTER));
 
         LinearLayout header = new LinearLayout(this);
@@ -13798,13 +13853,6 @@ public final class MainActivity extends Activity {
         card.addView(hint, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        final List<File> history = wallpaperHistory();
-        final List<LiveWallpaper> live = liveWallpapers();
-        final List<VideoWallpaper> videos = videoWallpapers();
-        final List<Object> items = new ArrayList<>();
-        items.addAll(live);
-        items.addAll(videos);
-        items.addAll(history);
         GridView grid = new GridView(this);
         grid.setNumColumns(3);
         grid.setHorizontalSpacing(Ui.dp(this, 8));
