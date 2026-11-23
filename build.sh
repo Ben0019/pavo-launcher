@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-SDK="${ANDROID_SDK_ROOT:-$HOME/.local/opt/android-sdk}"
+SDK="${ANDROID_SDK_ROOT:-$HOME/Work/.local-toolchain/sdk}"
 BT="$SDK/build-tools/35.0.0"
 PLATFORM="$SDK/platforms/android-35/android.jar"
-JAVA_HOME="${JAVA_HOME:-$HOME/.local/opt/jdk}"
+JAVA_HOME="${JAVA_HOME:-$HOME/Work/.local-toolchain/jdk}"
 PATH="$JAVA_HOME/bin:$PATH"
 
 # Signing material is never committed. Override these for your own key.
@@ -48,9 +48,7 @@ echo "==> link"
   build/res.zip \
   --java build/gen \
   --min-sdk-version 31 \
-  --target-sdk-version 35 \
-  --version-code 243 \
-  --version-name 1.0.47
+  --target-sdk-version 35
 
 echo "==> compile"
 javac -Xlint:-options -source 17 -target 17 \
@@ -65,7 +63,11 @@ echo "==> dex"
 
 echo "==> package"
 cp build/apk/base.apk build/apk/unsigned.apk
-(cd build/dex && zip -q -j ../apk/unsigned.apk classes.dex)
+python3 - <<'PYZIP'
+import zipfile
+with zipfile.ZipFile("build/apk/unsigned.apk", "a", zipfile.ZIP_DEFLATED) as z:
+    z.write("build/dex/classes.dex", "classes.dex")
+PYZIP
 
 "$BT/zipalign" -f 4 build/apk/unsigned.apk build/apk/aligned.apk
 
