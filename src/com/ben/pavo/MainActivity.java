@@ -2038,6 +2038,8 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(this, 94));
         dockLp.gravity = Gravity.CENTER_HORIZONTAL;
         dockLp.topMargin = Ui.dp(this, 2);
+        content.setClipChildren(false);
+        content.setClipToPadding(false);
         content.addView(dock, dockLp);
         applyDockPosition();
 

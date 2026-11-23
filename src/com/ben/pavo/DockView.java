@@ -43,6 +43,8 @@ final class DockView extends LinearLayout {
     private Bitmap noiseTile;
     private LiquidGlassShader liquidShader;
     private RenderNode glassNode;
+    private RenderNode shadowNode;
+    private boolean shadowEffectSet;
     private RenderEffect glassEffect;
     private float glassSaturation = 1.5f;
     private float glassDarkness;
@@ -190,17 +192,18 @@ final class DockView extends LinearLayout {
         float radius = Math.min(cornerPx(), h / 2f);
         rect.set(0, 0, w, h);
 
+        // Like the app drawer, the live blurred backdrop is always drawn fully
+        // opaque; only the tint, highlights and noise on top follow the
+        // transparency setting. Fading the blur itself lets the crisp
+        // wallpaper show through and the dock stops reading as frosted glass.
+        drawDropShadow(canvas, w, h, radius);
+        boolean live = drawLiveGlassBody(canvas, w, h, radius);
+
         int surfaceLayer = -1;
         if (surfaceAlpha < 0.999f) {
             surfaceLayer = canvas.saveLayerAlpha(0f, 0f, w, h,
                     (int) (255f * surfaceAlpha));
         }
-
-        // The dock uses the same live glass pipeline as the app drawer: the
-        // wallpaper is recorded into a half-resolution RenderNode and passed
-        // through saturation, blur and edge-lens effects. The result is drawn
-        // only inside the dock's rounded shape.
-        boolean live = drawLiveGlassBody(canvas, w, h, radius);
 
         // Software fallback (and API < 31): use the old pre-blurred sample.
         Bitmap wallpaperBlur = live || wallpaper == null
@@ -223,16 +226,26 @@ final class DockView extends LinearLayout {
         // The built-in launcher apps use a genuinely clear glass body: the
         // wallpaper and icons stay live underneath, with only a tinted veil,
         // localized shading and the liquid rim on top.
-        int alpha = 0x1A + Math.round(prefs.glassPercent() * (0x7A - 0x1A) / 50f);
-        int base = prefs.lightGlass() ? 0x1A2230 : 0x0B0E14;
-        tintPaint.setColor((alpha << 24) | base);
+        // Same body as the app drawer card: one low-alpha smoky tint over the
+        // live glass, with no extra readability scrim.
+        tintPaint.setColor(0x4D0B0E14);
         canvas.drawRoundRect(rect, radius, radius, tintPaint);
-
-        // Uniform readability scrim instead of gradient bands, which left a
-        // visible horizontal seam under the icons on bright/video wallpapers.
-        int dockScrim = prefs.lightGlass() ? 0x40 : 0x52;
-        tintPaint.setColor((dockScrim << 24) | 0x0B0E14);
+        // The drawer reads as a milky veil that lifts the backdrop; a faint
+        // white layer gives the dock the same lift instead of a dark slab.
+        tintPaint.setColor(0x14E6EEFA);
         canvas.drawRoundRect(rect, radius, radius, tintPaint);
+        // Frosted depth: lighter at the top, clearing towards the bottom, as
+        // in the glass slab reference.
+        tintPaint.setShader(new LinearGradient(0f, 0f, 0f, h,
+                0x22FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(rect, radius, radius, tintPaint);
+        tintPaint.setShader(null);
+        // Underside shading: the glass gets thicker towards the bottom edge,
+        // which is what makes it read as a slab and not a flat sticker.
+        tintPaint.setShader(new LinearGradient(0f, h * 0.45f, 0f, h,
+                0x00000000, 0x4A000000, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(rect, radius, radius, tintPaint);
+        tintPaint.setShader(null);
 
         float sheen = Math.max(0.15f, Math.min(1f, prefs.dockSheen() / 100f));
 
@@ -264,8 +277,6 @@ final class DockView extends LinearLayout {
         canvas.drawRoundRect(rect, radius, radius, noisePaint);
         noisePaint.setShader(null);
 
-        // Borderless dock: the blur/tint body carries the material without a
-        // white rim or hairline.
         if (surfaceLayer >= 0) canvas.restoreToCount(surfaceLayer);
 
         drawDropIndicator(canvas, w, h, radius);
@@ -279,6 +290,39 @@ final class DockView extends LinearLayout {
         glassDarkness = dark;
         glassEffect = null;
         invalidate();
+    }
+
+    /** Soft drop shadow like the app drawer's: it lifts the dock off the wallpaper. */
+    private void drawDropShadow(Canvas canvas, float w, float h, float radius) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !canvas.isHardwareAccelerated()) {
+            return;
+        }
+        try {
+            float density = getResources().getDisplayMetrics().density;
+            float blur = 24f * density;
+            float offset = 4f * density;
+            float pad = blur * 2f + offset;
+            int nw = Math.round(w + pad * 2f);
+            int nh = Math.round(h + pad * 2f);
+            if (shadowNode == null) shadowNode = new RenderNode("pavo-dock-shadow");
+            shadowNode.setPosition(0, 0, nw, nh);
+            if (!shadowEffectSet) {
+                shadowNode.setRenderEffect(RenderEffect.createBlurEffect(
+                        blur, blur, Shader.TileMode.CLAMP));
+                shadowEffectSet = true;
+            }
+            Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+            p.setColor(0x33000000);
+            RecordingCanvas rec = shadowNode.beginRecording(nw, nh);
+            rec.drawRoundRect(pad, pad + offset, pad + w, pad + h + offset, radius, radius, p);
+            shadowNode.endRecording();
+            int save = canvas.save();
+            canvas.translate(-pad, -pad);
+            canvas.drawRenderNode(shadowNode);
+            canvas.restoreToCount(save);
+        } catch (Throwable ignored) {
+            // Decorative only.
+        }
     }
 
     private boolean drawLiveGlassBody(Canvas canvas, float w, float h, float radius) {
@@ -296,10 +340,10 @@ final class DockView extends LinearLayout {
             glassNode.setPosition(0, 0, sw, sh);
             if (glassEffect == null || glassNodeWidth != sw || glassNodeHeight != sh
                     || glassNodeRadius != radius) {
-                glassEffect = LiveGlassEffect.build(
-                        getResources().getDisplayMetrics().density,
-                        0, 0, sw, sh, radius * scale, scale, 8f, false,
-                        glassSaturation, glassDarkness);
+                glassEffect = LiveGlassEffect.buildDock(
+                        getResources().getDisplayMetrics().density, sw, sh,
+                        radius * scale, scale, 26f, glassSaturation,
+                        Math.min(glassDarkness, 0.45f), 30f, 60f, 2f, 0.14f, 0f);
                 glassNode.setRenderEffect(glassEffect);
                 glassNodeWidth = sw;
                 glassNodeHeight = sh;

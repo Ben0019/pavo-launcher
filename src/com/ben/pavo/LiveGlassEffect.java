@@ -147,6 +147,17 @@ final class LiveGlassEffect {
                               int cardWidth, int cardHeight, float radiusPx,
                               float scale, float blurDp, boolean chromatic,
                               float saturationAmount, float darkness) {
+        return build(density, cardLeft, cardTop, cardWidth, cardHeight, radiusPx,
+                scale, blurDp, chromatic, saturationAmount, darkness, 24f, 24f);
+    }
+
+    /** Same stack with an explicit lens: {@code refractionDp} is the rim width
+     *  and {@code bendDp} how far the backdrop is pulled at the very edge. */
+    static RenderEffect build(float density, int cardLeft, int cardTop,
+                              int cardWidth, int cardHeight, float radiusPx,
+                              float scale, float blurDp, boolean chromatic,
+                              float saturationAmount, float darkness,
+                              float refractionDp, float bendDp) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null;
 
         ColorMatrix saturation = new ColorMatrix();
@@ -175,11 +186,100 @@ final class LiveGlassEffect {
         shader.setFloatUniform("size", cardWidth, cardHeight);
         shader.setFloatUniform("offset", -cardLeft, -cardTop);
         shader.setFloatUniform("cornerRadii", radiusPx, radiusPx, radiusPx, radiusPx);
-        shader.setFloatUniform("refractionHeight", 24f * density * scale);
-        shader.setFloatUniform("refractionAmount", -24f * density * scale);
+        shader.setFloatUniform("refractionHeight", refractionDp * density * scale);
+        shader.setFloatUniform("refractionAmount", -bendDp * density * scale);
         shader.setFloatUniform("depthEffect", 1f);
         if (chromatic) shader.setFloatUniform("chromaticAberration", 1f);
         RenderEffect lens = RenderEffect.createRuntimeShaderEffect(shader, "content");
         return RenderEffect.createChainEffect(lens, blurred);
+    }
+
+    /**
+     * Dock lens: a gravity-lens refraction profile (almost all of the bend in
+     * the outermost pixels, a gentle tail inwards), per-channel dispersion and
+     * a directional rim light. Samples inwards only, so it never reads outside
+     * the recorded backdrop.
+     */
+    private static final String DOCK_LENS =
+            "uniform shader content;\n" +
+            "uniform float2 size;\n" +
+            "uniform float radius;\n" +
+            "uniform float bevel;\n" +
+            "uniform float refractPx;\n" +
+            "uniform float falloff;\n" +
+            "uniform float dispersion;\n" +
+            "uniform float2 lightDir;\n" +
+            "uniform float spec;\n" +
+            "uniform float hairPx;\n" +
+            "float sdBox(float2 p, float2 b, float r) {\n" +
+            "  float2 q = abs(p) - (b - float2(r));\n" +
+            "  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;\n" +
+            "}\n" +
+            "half4 main(float2 coord) {\n" +
+            "  float2 hs = size * 0.5;\n" +
+            "  float2 p = coord - hs;\n" +
+            "  float d = min(sdBox(p, hs, radius), 0.0);\n" +
+            "  if (-d >= bevel) return content.eval(coord);\n" +
+            "  float2 n = float2(\n" +
+            "      sdBox(p + float2(1.0, 0.0), hs, radius) - sdBox(p - float2(1.0, 0.0), hs, radius),\n" +
+            "      sdBox(p + float2(0.0, 1.0), hs, radius) - sdBox(p - float2(0.0, 1.0), hs, radius));\n" +
+            "  float nl = length(n);\n" +
+            "  n = nl > 0.0001 ? n / nl : float2(0.0, -1.0);\n" +
+            "  float t = clamp(-d / bevel, 0.0, 1.0);\n" +
+            "  float gB = pow(5.0, -falloff);\n" +
+            "  float slope = (pow(1.0 + 4.0 * t, -falloff) - gB) / (1.0 - gB);\n" +
+            "  float2 off = n * (-slope * refractPx);\n" +
+            "  float2 lo = float2(0.0);\n" +
+            "  float2 cR = clamp(coord + off * (1.0 - dispersion * slope), lo, size);\n" +
+            "  float2 cG = clamp(coord + off, lo, size);\n" +
+            "  float2 cB = clamp(coord + off * (1.0 + dispersion * slope), lo, size);\n" +
+            "  float3 col = float3(content.eval(cR).r, content.eval(cG).g, content.eval(cB).b);\n" +
+            "  float facing = dot(n, -lightDir);\n" +
+            "  float lobeF = pow(max(facing, 0.0), 4.5);\n" +
+            "  float lobeB = pow(max(-facing, 0.0), 4.5);\n" +
+            "  float hair = clamp(1.0 - abs(d + hairPx) / (hairPx * 1.6), 0.0, 1.0);\n" +
+            "  float glow = pow(clamp(1.0 - (-d - hairPx * 2.0) / (hairPx * 5.0), 0.0, 1.0), 1.5);\n" +
+            "  col += float3(spec * (hair * 0.75 * (lobeF + lobeB) + glow * 0.12 * lobeF));\n" +
+            "  return half4(half3(clamp(col, 0.0, 1.0)), 1.0);\n" +
+            "}\n";
+
+    /** Blur + saturation + dimming, then the dock lens. Sizes are in dp. */
+    static RenderEffect buildDock(float density, int cardWidth, int cardHeight,
+                                  float radiusPx, float scale, float blurDp,
+                                  float saturationAmount, float darkness,
+                                  float bevelDp, float refractDp, float falloff,
+                                  float dispersion, float spec) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                || cardWidth <= 2 || cardHeight <= 2) {
+            return build(density, 0, 0, cardWidth, cardHeight, radiusPx, scale, blurDp,
+                    true, saturationAmount, darkness);
+        }
+        ColorMatrix color = new ColorMatrix();
+        color.setSaturation(Math.max(0f, saturationAmount));
+        float keep = 1f - Math.max(0f, Math.min(1f, darkness));
+        if (keep < 0.999f) {
+            color.postConcat(new ColorMatrix(new float[]{
+                    keep, 0f, 0f, 0f, 0f,
+                    0f, keep, 0f, 0f, 0f,
+                    0f, 0f, keep, 0f, 0f,
+                    0f, 0f, 0f, 1f, 0f}));
+        }
+        float blur = blurDp * density * scale;
+        RenderEffect blurred = RenderEffect.createBlurEffect(blur, blur,
+                RenderEffect.createColorFilterEffect(new ColorMatrixColorFilter(color)),
+                Shader.TileMode.CLAMP);
+        float px = density * scale;
+        RuntimeShader shader = new RuntimeShader(DOCK_LENS);
+        shader.setFloatUniform("size", cardWidth, cardHeight);
+        shader.setFloatUniform("radius", radiusPx);
+        shader.setFloatUniform("bevel", bevelDp * px);
+        shader.setFloatUniform("refractPx", refractDp * px);
+        shader.setFloatUniform("falloff", falloff);
+        shader.setFloatUniform("dispersion", dispersion);
+        shader.setFloatUniform("lightDir", 0.5f, 0.85f);
+        shader.setFloatUniform("spec", spec);
+        shader.setFloatUniform("hairPx", Math.max(1f, 0.75f * px));
+        return RenderEffect.createChainEffect(
+                RenderEffect.createRuntimeShaderEffect(shader, "content"), blurred);
     }
 }

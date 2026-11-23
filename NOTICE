@@ -6,6 +6,10 @@ This product includes software adapted from Kyant0/backdrop
 Apache License, Version 2.0.
 
 The liquid-glass material is also inspired by BitChord's implementation.
+The dock lens profile (inverse-power refraction falloff, per-channel dispersion
+and directional rim light) follows the technique used by Liquid-Glass-Android
+(https://github.com/QWEA0/Liquid-Glass-Android, MIT); the shader is
+independently written.
 
 The CQ8725S underclock preset values and the privileged PServer daemon
 approach are credited to ClusterTune by Aurelio Bernal (AurelioB),
