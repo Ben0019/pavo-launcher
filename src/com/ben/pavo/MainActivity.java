@@ -14215,7 +14215,10 @@ public final class MainActivity extends Activity {
         settingsSubmenuGlass.setBackdropSaturation(prefs.settingsSaturation() / 100f);
         settingsSubmenuGlass.setBackdropDarkness(prefs.settingsBackdropDarkness() / 100f);
         settingsSubmenuGlass.setClearGlass(true);
-        settingsSubmenuGlass.setClearBodyAlpha(0x40);
+        settingsSubmenuGlass.setClearBodyAlpha(0x14);
+        settingsSubmenuGlass.setLiquidClear(true);
+        settingsSubmenuGlass.setRimWidthDp(1.3f);
+        settingsSubmenuGlass.setSheenStrength(0.9f);
         settingsSubmenuGlass.setSurfaceAlpha(prefs.settingsTransparency() / 100f);
         settingsSubmenuGlass.setPadding(Ui.dp(this, 14), Ui.dp(this, 12),
                 Ui.dp(this, 14), Ui.dp(this, 8));
