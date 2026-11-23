@@ -145,7 +145,13 @@ final class PerfOverlayMenuView extends FrameLayout {
         card = new GlassPanel(c, backdrop, accent, 0x4D0B0E14, 26, true);
         card.setBackdropScreenAnchored(true);
         card.setClearGlass(true);
-        card.setClearBodyAlpha(0);
+        card.setClearBodyAlpha(0x14);
+        card.setLiquidClear(true);
+        card.setRimWidthDp(1.3f);
+        card.setSheenStrength(0.9f);
+        card.setBackdropSaturation(prefs.drawerSaturation() / 100f);
+        card.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
+        card.setDeepBackdrop(true);
         card.setSurfaceAlpha(prefs.perfOverlayAlpha() / 100f);
         card.setFrosted(backdrop == null);
         card.setClickable(true);
