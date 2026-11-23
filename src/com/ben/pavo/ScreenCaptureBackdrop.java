@@ -185,27 +185,24 @@ final class ScreenCaptureBackdrop {
                 w = Math.max(1, c.getResources().getDisplayMetrics().widthPixels);
                 h = Math.max(1, c.getResources().getDisplayMetrics().heightPixels);
             }
-            int sw = Math.max(1, w / 4);
-            int sh = Math.max(1, h / 4);
-            Bitmap small = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(small);
+            // Full resolution: the tall overlay menu card samples this in screen
+            // space, and a quarter-res capture ran out of rows at the card's
+            // height (smearing it into a flat gradient).
+            int sw = Math.max(1, w);
+            int sh = Math.max(1, h);
+            Bitmap full = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(full);
             canvas.drawColor(Color.BLACK);
-            float sx = sw / (float) w;
-            float sy = sh / (float) h;
-            float left = Math.max(0, bounds.left) * sx;
-            float top = Math.max(0, bounds.top) * sy;
-            float right = Math.min(w, bounds.right) * sx;
-            float bottom = Math.min(h, bounds.bottom) * sy;
+            float left = Math.max(0, bounds.left);
+            float top = Math.max(0, bounds.top);
+            float right = Math.min(w, bounds.right);
+            float bottom = Math.min(h, bounds.bottom);
             if (right > left && bottom > top) {
                 canvas.drawBitmap(window, null, new RectF(left, top, right, bottom),
                         new Paint(Paint.FILTER_BITMAP_FLAG));
             }
-            float density = c.getResources().getDisplayMetrics().density;
-            int radius = Math.max(8, Math.round(28f * density / 4f));
-            Bitmap blurred = Blur.blur(small, radius);
-            small.recycle();
             window.recycle();
-            return new Backdrop(blurred, w, h);
+            return new Backdrop(full, w, h);
         } catch (Throwable ignored) {
             window.recycle();
             return null;
