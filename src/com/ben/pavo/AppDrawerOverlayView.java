@@ -1042,7 +1042,12 @@ final class AppDrawerOverlayView extends FrameLayout {
 
         GlassPanel styleGlass = new GlassPanel(context, null, accent(),
                 0x330B0E14, 18, true);
-        styleGlass.setFrosted(true);
+        styleGlass.setFrosted(false);
+        styleGlass.setClearGlass(true);
+        styleGlass.setClearBodyAlpha(0x14);
+        styleGlass.setLiquidClear(true);
+        styleGlass.setRimWidthDp(1.3f);
+        styleGlass.setSheenStrength(0.9f);
         styleGlass.setBackdropScreenAnchored(true);
         styleGlass.setSurfaceAlpha(prefs.drawerOverlayAlpha() / 100f);
         stylePanel = styleGlass;
@@ -1319,7 +1324,10 @@ final class AppDrawerOverlayView extends FrameLayout {
         GlassPanel appMenuGlass = new GlassPanel(context, null,
                 ColorTuning.colour(accent()), 0x330B0E14, 18, true);
         appMenuGlass.setClearGlass(true);
-        appMenuGlass.setClearBodyAlpha(0);
+        appMenuGlass.setClearBodyAlpha(0x14);
+        appMenuGlass.setLiquidClear(true);
+        appMenuGlass.setRimWidthDp(1.3f);
+        appMenuGlass.setSheenStrength(0.9f);
         appMenuGlass.setPadding(Ui.dp(context, 10), Ui.dp(context, 10),
                 Ui.dp(context, 10), Ui.dp(context, 10));
         appMenuGlass.setClickable(true);
