@@ -553,7 +553,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
         header.addView(titles, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView clear = text("CLEAR ALL", 10f, 0xFFFF8A80, false);
+        TextView clear = text("CLEAR ALL", 10f, StatusColors.ALERT, false);
         clear.setPadding(dp(12), dp(7), dp(12), dp(7));
         clear.setBackground(Ui.rounded(0x22FF5C6C, dp(12), 0x66FF5C6C, dp(1)));
         clear.setFocusable(false);
@@ -674,7 +674,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
             app.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             head.addView(app, new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            TextView delete = text("\u00d7", 20f, 0xFFFF8A80, false);
+            TextView delete = text("\u00d7", 20f, StatusColors.ALERT, false);
             delete.setGravity(Gravity.CENTER);
             delete.setPadding(dp(10), dp(2), dp(4), dp(2));
             delete.setContentDescription("Delete this log");
@@ -933,7 +933,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
                 PerfOverlayView.heat(e.memPercent / 100f));
         addDetailCell(sys, "SAMPLES", String.valueOf(e.samples), 0xE6FFFFFF);
 
-        TextView delete = text("DELETE THIS SESSION", 10f, 0xFFFF8A80, false);
+        TextView delete = text("DELETE THIS SESSION", 10f, StatusColors.ALERT, false);
         delete.setGravity(Gravity.CENTER);
         delete.setPadding(dp(12), dp(9), dp(12), dp(9));
         delete.setBackground(Ui.rounded(0x22FF5C6C, dp(12), 0x66FF5C6C, dp(1)));
@@ -1568,8 +1568,8 @@ public final class PerfLogActivity extends PavoGlassActivity {
 
     private static int throttleColor(String value) {
         if ("THERMAL".equals(value)) return 0xFFFF5C6C;
-        if ("CPU CAP".equals(value) || "GPU CAP".equals(value)) return 0xFFFFC857;
-        return 0xFF69D98B;
+        if ("CPU CAP".equals(value) || "GPU CAP".equals(value)) return StatusColors.WARN;
+        return StatusColors.OK;
     }
 
     private static String formatDuration(long ms) {
@@ -1725,7 +1725,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
             int fpsColor = PerfOverlayView.fpsColor(lastFps);
             int cpuColor = 0xFFFF8A65;
             int gpuColor = 0xFF64B5F6;
-            int cpuUseColor = 0xFFFFC857;
+            int cpuUseColor = StatusColors.WARN;
             int gpuUseColor = 0xFF7CF7C4;
 
             canvas.drawText(Loc.number(getContext(), "FPS " + (lastFps > 0 ? lastFps : "--")),

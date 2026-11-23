@@ -46,9 +46,9 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
     private int accent = 0xFFA9BEFF;
     private static final int TEXT = 0xF2FFFFFF;
     private static final int MUTED = 0x88FFFFFF;
-    private static final int GREEN = 0xFF69D98B;
-    private static final int AMBER = 0xFFFFC857;
-    private static final int RED = 0xFFFF8A80;
+    private static final int GREEN = StatusColors.OK;
+    private static final int AMBER = StatusColors.WARN;
+    private static final int RED = StatusColors.ALERT;
 
     static final int DARK_TEXT = 0xFF061015;
     private static final int RAMP_GREEN = 0xFF4DDB91;
@@ -581,7 +581,7 @@ public final class PerformanceTunerActivity extends PavoGlassActivity {
         addFocusable(appSelector, true);
         headerFocus.add(appSelector);
 
-        resetAppChip = text("USE GLOBAL", 8.5f, 0xFFFFC857, true);
+        resetAppChip = text("USE GLOBAL", 8.5f, StatusColors.WARN, true);
         resetAppChip.setLetterSpacing(0.06f);
         resetAppChip.setGravity(Gravity.CENTER);
         resetAppChip.setPadding(dp(8), dp(5), dp(8), dp(5));

@@ -370,7 +370,7 @@ final class PerfOverlayView extends LinearLayout {
                         heat((s.batteryTempC - 30f) / 40f));
                 if (s.charging) appendLocked(b, " ", TEXT);
             }
-            if (s.charging) appendLocked(b, "\u26A1", 0xFFFFC857);
+            if (s.charging) appendLocked(b, "\u26A1", StatusColors.WARN);
             any = true;
         }
         if (p.perfBattery() && s.powerW > 0f) {
@@ -1022,8 +1022,8 @@ final class PerfOverlayView extends LinearLayout {
 
     static int heat(float t) {
         float v = Math.max(0f, Math.min(1f, t));
-        int green = 0xFF69D98B;
-        int amber = 0xFFFFC857;
+        int green = StatusColors.OK;
+        int amber = StatusColors.WARN;
         int red = 0xFFFF5C6C;
         if (v < 0.5f) return blend(green, amber, v * 2f);
         return blend(amber, red, (v - 0.5f) * 2f);
@@ -1049,8 +1049,8 @@ final class PerfOverlayView extends LinearLayout {
     }
 
     static int batteryColor(int pct) {
-        if (pct >= 50) return 0xFF69D98B;
-        if (pct >= 20) return 0xFFFFC857;
+        if (pct >= 50) return StatusColors.OK;
+        if (pct >= 20) return StatusColors.WARN;
         return 0xFFFF5C6C;
     }
 

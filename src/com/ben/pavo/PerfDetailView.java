@@ -239,9 +239,9 @@ final class PerfDetailView extends FrameLayout {
         peakPower.setTextColor(PerfOverlayView.heat(d.peakPowerW / 9f));
 
         throttle.setText(Loc.s(getContext(), d.throttle));
-        if ("NONE".equals(d.throttle)) throttle.setTextColor(0xFF69D98B);
+        if ("NONE".equals(d.throttle)) throttle.setTextColor(StatusColors.OK);
         else if ("THERMAL".equals(d.throttle)) throttle.setTextColor(0xFFFF5C6C);
-        else throttle.setTextColor(0xFFFFC857);
+        else throttle.setTextColor(StatusColors.WARN);
 
         runtime.setText(formatDuration(d.runtimeMs));
         runtime.setTextColor(0xD9FFFFFF);

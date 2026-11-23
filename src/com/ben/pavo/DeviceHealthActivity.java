@@ -39,8 +39,8 @@ import java.util.concurrent.Executors;
 public final class DeviceHealthActivity extends PavoGlassActivity {
     private static final int TEXT = 0xF2FFFFFF;
     private static final int MUTED = 0x88FFFFFF;
-    private static final int GREEN = 0xFF69D98B;
-    private static final int AMBER = 0xFFFFC857;
+    private static final int GREEN = StatusColors.OK;
+    private static final int AMBER = StatusColors.WARN;
     private static final int RED = 0xFFFF6B6B;
     private static final int CARD = 0x12FFFFFF;
     private static final int CARD_BORDER = 0x22FFFFFF;
