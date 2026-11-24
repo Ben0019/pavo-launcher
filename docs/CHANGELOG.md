@@ -2,6 +2,21 @@
 
 Every release in plain language: what changed, why it matters, and nothing else.
 
+## 1.0.49 — 24 Nov 2026
+
+### Liquid glass
+
+- Bright liquid-glass material across the launcher: menus, wallpaper/widget/icon cards, icon packs, icon change, settings and its submenu, the performance overlay menu and the Perf Logs options popup.
+- App drawer's darker glass (full colour, 50% backdrop darkening) carried into those popups and cards.
+- Side view drawer's style popup and app menu use the same material.
+- Fan Control and the other built-in apps use the liquid card, and fall back to a readable frost when no capture is available.
+- Battery pill is a liquid capsule; it and the quick controls handle now follow the wallpaper's colour.
+
+### Fixes
+
+- Dock can go smaller (60% minimum) with matching icon and cell sizes.
+- Performance overlay menu backdrop is captured at full resolution instead of a flat gradient.
+
 ## 1.0.48 — 22 Nov 2026
 
 ### Home button
