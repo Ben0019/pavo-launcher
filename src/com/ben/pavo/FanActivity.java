@@ -35,6 +35,12 @@ import java.util.concurrent.Executors;
 
 /** Built-in Pavo app: system fan presets, precise curve and live rear fan model. */
 public final class FanActivity extends PavoGlassActivity {
+
+    @Override
+    protected boolean liquidGlassCard() {
+        return true;
+    }
+
     static final int MODE_CURVE = 7;
     static final int MODE_SMALL = FanProfile.MODE_SMALL;
     static final int MODE_MEDIUM = FanProfile.MODE_MEDIUM;

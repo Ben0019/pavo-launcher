@@ -64,6 +64,9 @@ abstract class PavoGlassActivity extends Activity {
     /** Built-ins can opt out when their typography has already been tuned. */
     protected boolean readableTextPass() { return true; }
 
+    /** Use the launcher's clear liquid glass instead of the textured frost. */
+    protected boolean liquidGlassCard() { return false; }
+
     /**
      * Whether the card samples a capture of the launcher behind it. A full-bleed
      * information sheet gains nothing from a copy of the home it covers, and that
@@ -167,6 +170,16 @@ abstract class PavoGlassActivity extends Activity {
                             card.setBackdropScreenAnchored(true);
                             card.setLiquidEffect(true);
                             liquidCard = true;
+                            if (liquidGlassCard()) {
+                                // Same material as the drawer/menus: clear body,
+                                // rim, specular and the deep drawer darkening.
+                                card.setClearGlass(true);
+                                card.setClearBodyAlpha(0x14);
+                                card.setLiquidClear(true);
+                                card.setRimWidthDp(1.3f);
+                                card.setSheenStrength(0.9f);
+                                card.setDeepBackdrop(true);
+                            }
                         } else {
                             // No capture (am start, automation, recovery, or an app
                             // that opts out): a clear card would be see-through, so
@@ -175,7 +188,8 @@ abstract class PavoGlassActivity extends Activity {
                             card.setClearGlass(false);
                             card.setClearBodyAlpha(0xF0);
                         }
-                        if (!usesLiveBackdrop()) {
+                        if (!usesLiveBackdrop()
+                                && !(liquidGlassCard() && appliedBackdrop != null)) {
                             // Static-backdrop apps get a quiet textured frost.
                             card.setFrosted(true);
                         }
