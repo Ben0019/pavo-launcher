@@ -1074,9 +1074,24 @@ public final class PerfLogActivity extends PavoGlassActivity {
             }
         });
 
-        final GlassPanel card = new GlassPanel(this, null, accent, 0x4D0B0E14, 26, true);
+        // Same liquid material as the launcher's menus: sample the log sheet
+        // behind this dialog, then lens, darken and rim it.
+        Backdrop logBackdrop = null;
+        try {
+            logBackdrop = Backdrop.capture(rootView, 8);
+        } catch (Throwable ignored) {
+        }
+        final GlassPanel card = new GlassPanel(this, logBackdrop, accent,
+                0x4D0B0E14, 26, true);
         card.setClearGlass(true);
-        card.setClearBodyAlpha(0);
+        card.setClearBodyAlpha(0x14);
+        card.setLiquidClear(true);
+        card.setRimWidthDp(1.3f);
+        card.setSheenStrength(0.9f);
+        card.setBackdropSaturation(prefs.builtinSaturation() / 100f);
+        card.setBackdropDarkness(prefs.builtinBackdropDarkness() / 100f);
+        card.setDeepBackdrop(true);
+        card.setLiquidEffect(true);
         card.setSurfaceAlpha(transparency[0] / 100f);
         card.setClickable(true);
         card.setPadding(dp(22), dp(16), dp(22), dp(14));
