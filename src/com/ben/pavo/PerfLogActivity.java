@@ -1066,7 +1066,7 @@ public final class PerfLogActivity extends PavoGlassActivity {
         dialog.setCanceledOnTouchOutside(true);
 
         FrameLayout overlay = new FrameLayout(this);
-        overlay.setBackgroundColor(0x99070A12);
+        overlay.setBackgroundColor(0x66070A12);
         overlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -1076,10 +1076,14 @@ public final class PerfLogActivity extends PavoGlassActivity {
 
         // Same liquid material as the launcher's menus: sample the log sheet
         // behind this dialog, then lens, darken and rim it.
-        Backdrop logBackdrop = null;
-        try {
-            logBackdrop = Backdrop.capture(rootView, 8);
-        } catch (Throwable ignored) {
+        // Reuse the home capture the log sheet already samples, so this popup
+        // looks like the launcher menus instead of picking up the green chart.
+        Backdrop logBackdrop = mainCard != null ? mainCard.getBackdrop() : null;
+        if (logBackdrop == null) {
+            try {
+                logBackdrop = Backdrop.capture(rootView, 8);
+            } catch (Throwable ignored) {
+            }
         }
         final GlassPanel card = new GlassPanel(this, logBackdrop, accent,
                 0x4D0B0E14, 26, true);
