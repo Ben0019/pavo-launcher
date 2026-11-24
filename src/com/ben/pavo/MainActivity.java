@@ -1950,6 +1950,8 @@ public final class MainActivity extends Activity {
             @Override
             public void onWallpaperChanged() {
                 if (dock != null) dock.invalidate();
+                refreshBatteryPillBackdrop();
+                QuickPanelEdgeHandle.refresh();
                 if (search != null) {
                     search.setCompoundDrawableTintList(ColorStateList.valueOf(
                             wallpaper != null ? wallpaper.accent() : ThemeColors.accent()));
@@ -1969,6 +1971,7 @@ public final class MainActivity extends Activity {
         videoWallpaper.setListener(color -> {
             if (prefs != null) prefs.setThemeAccent(color);
             if (wallpaper != null) wallpaper.setAccent(color);
+            QuickPanelEdgeHandle.refresh();
         });
         homeLayer.addView(videoWallpaper, 1, match());
 
@@ -2134,20 +2137,7 @@ public final class MainActivity extends Activity {
         batteryPill.setDeepBackdrop(true);
         batteryPill.setPadding(Ui.dp(this, 12), Ui.dp(this, 7), Ui.dp(this, 14), Ui.dp(this, 7));
         batteryPill.setClickable(true);
-        batteryPill.post(new Runnable() {
-            @Override public void run() {
-                try {
-                    // Sample the wallpaper behind the header rather than the
-                    // whole home, which would include this pill itself.
-                    Backdrop b = Backdrop.capture(wallpaper, 8);
-                    if (b != null) {
-                        batteryPill.setBackdrop(b);
-                        batteryPill.setLiquidEffect(true);
-                    }
-                } catch (Throwable ignored) {
-                }
-            }
-        });
+        refreshBatteryPillBackdrop();
         batteryPill.setContentDescription("Battery settings");
         batteryPill.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -6018,12 +6008,12 @@ public final class MainActivity extends Activity {
             int availableDp = Math.round(dm.heightPixels / dm.density) - 28;
             int slots = Math.max(1, pinned + buttonCount + 1);
             int perSlot = availableDp / slots;
-            int base = Math.max(26, Math.min(32, Math.round(36 * s)));
-            itemIconDp = Math.max(22, Math.min(base, perSlot - 23));
-            cellWidthDp = Math.max(44, itemIconDp + 18);
+            int base = Math.max(20, Math.min(32, Math.round(36 * s)));
+            itemIconDp = Math.max(18, Math.min(base, perSlot - 23));
+            cellWidthDp = Math.max(36, itemIconDp + 16);
         } else {
-            itemIconDp = Math.max(28, Math.round(Math.min(prefs.iconDp(), 46) * s));
-            cellWidthDp = Math.round(64 * s);
+            itemIconDp = Math.max(20, Math.round(Math.min(prefs.iconDp(), 46) * s));
+            cellWidthDp = Math.round(60 * s);
         }
         int cellWidthPx = Ui.dp(this, cellWidthDp);
         int iconPx = Ui.dp(this, itemIconDp);
@@ -6425,6 +6415,24 @@ public final class MainActivity extends Activity {
         int left = horizontal + (side && pos == Prefs.DOCK_LEFT ? sideInset : 0);
         int right = horizontal + (side && pos == Prefs.DOCK_RIGHT ? sideInset : 0);
         content.setPadding(left, Ui.dp(this, 14), right, Ui.dp(this, 10));
+    }
+
+    /** Re-sample the wallpaper behind the liquid battery pill. */
+    private void refreshBatteryPillBackdrop() {
+        if (batteryPill == null) return;
+        batteryPill.postDelayed(new Runnable() {
+            @Override public void run() {
+                if (batteryPill == null) return;
+                try {
+                    Backdrop b = Backdrop.capture(wallpaper, 8);
+                    if (b != null) {
+                        batteryPill.setBackdrop(b);
+                        batteryPill.setLiquidEffect(true);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        }, 120L);
     }
 
     private void applyDockSize() {
@@ -15190,7 +15198,7 @@ public final class MainActivity extends Activity {
                 populateDock();
             }
         });
-        addSlider(panel, "Dock size", 80, 130,
+        addSlider(panel, "Dock size", 60, 130,
                 Math.round(prefs.dockScale() * 100f), new IntCallback() {
             @Override
             public void onValue(int value) {

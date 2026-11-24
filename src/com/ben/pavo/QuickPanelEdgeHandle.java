@@ -285,6 +285,9 @@ final class QuickPanelEdgeHandle {
             barWidthDp = prefs.quickHandleWidth();
             barHeightDp = prefs.quickHandleHeight();
             edge = prefs.quickHandleEdge();
+            // Follow the wallpaper's accent, not the one captured when the
+            // handle was first attached.
+            ThemeColors.initialize(getContext());
             barPaint.setColor(ThemeColors.withAlpha(Math.round(
                     Math.max(0, Math.min(100, prefs.quickHandleAlpha())) * 2.55f)));
             invalidate();

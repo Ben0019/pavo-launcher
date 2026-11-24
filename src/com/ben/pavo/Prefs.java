@@ -181,7 +181,7 @@ final class Prefs {
     int dockCount() { return clamp(sp.getInt("dock_count", 7), 3, 8); }
     float dockScale() {
         float v = sp.getFloat("dock_scale", 0.8f);
-        return Math.max(0.8f, Math.min(1.3f, v));
+        return Math.max(0.6f, Math.min(1.3f, v));
     }
     int dockPosition() {
         return clamp(sp.getInt("dock_position", DOCK_CENTER), DOCK_CENTER, DOCK_HIDDEN);
@@ -881,7 +881,7 @@ final class Prefs {
     void setIconDp(int v) { sp.edit().putInt("icon_dp", clamp(v, 36, 72)).apply(); }
     void setDockCount(int v) { sp.edit().putInt("dock_count", clamp(v, 3, 8)).apply(); }
     void setDockScale(float v) {
-        sp.edit().putFloat("dock_scale", Math.max(0.8f, Math.min(1.3f, v))).apply();
+        sp.edit().putFloat("dock_scale", Math.max(0.6f, Math.min(1.3f, v))).apply();
     }
     void setDockPosition(int v) {
         sp.edit().putInt("dock_position", clamp(v, DOCK_CENTER, DOCK_HIDDEN)).apply();
