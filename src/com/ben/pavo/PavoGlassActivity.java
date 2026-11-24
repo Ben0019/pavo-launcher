@@ -5,7 +5,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -38,33 +37,6 @@ abstract class PavoGlassActivity extends Activity {
     private boolean returnWasLiquid;
     private boolean perfOverlayHidden;
     private int perfOverlayHideAttempts;
-    private VideoWallpaperView liveWallpaper;
-    private LiveBackdropView liveGlass;
-    private final android.os.Handler liveHandler =
-            new android.os.Handler(android.os.Looper.getMainLooper());
-    private final Runnable liveFrameTick = new Runnable() {
-        @Override public void run() {
-            VideoWallpaperView video = liveWallpaper;
-            LiveBackdropView glass = liveGlass;
-            if (video == null || glass == null) return;
-            try {
-                int w = video.getWidth();
-                int h = video.getHeight();
-                if (w > 0 && h > 0) {
-                    Bitmap frame = video.grabFrame(Math.max(1, w / 4),
-                            Math.max(1, h / 4));
-                    if (frame != null) {
-                        int[] loc = new int[2];
-                        video.getLocationOnScreen(loc);
-                        glass.setVideoFrame(frame, loc[0], loc[1], w, h);
-                        glass.invalidate();
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
-            liveHandler.postDelayed(this, 80L);
-        }
-    };
     private boolean hudHideAllowed;
     private boolean hasReturnTarget;
     private int returnLeft;
@@ -94,65 +66,6 @@ abstract class PavoGlassActivity extends Activity {
 
     /** Use the launcher's clear liquid glass instead of the textured frost. */
     protected boolean liquidGlassCard() { return true; }
-
-    /**
-     * Play Pavo's own video wallpaper behind the main card and feed its frames
-     * through the live dock lens, so the glass shows the moving wallpaper
-     * instead of one capture.
-     */
-    private boolean installLiveWallpaperGlass(View decor, GlassPanel card) {
-        Prefs prefs = new Prefs(this);
-        if (prefs.wallpaperMode() != Prefs.MODE_VIDEO) return false;
-        String path = prefs.videoWallpaper();
-        if (path == null || path.isEmpty() || !new java.io.File(path).isFile()) {
-            return false;
-        }
-        if (!(card.getParent() instanceof android.widget.FrameLayout)) return false;
-        View content = decor.findViewById(android.R.id.content);
-        if (!(content instanceof ViewGroup)) return false;
-        final ViewGroup parent = (ViewGroup) card.getParent();
-
-        VideoWallpaperView video = new VideoWallpaperView(this);
-        // Invisible, but VISIBLE so grabFrame() keeps producing frames.
-        video.setAlpha(0f);
-        video.setVideo(path);
-        video.play();
-        ((ViewGroup) content).addView(video, 0,
-                new android.widget.FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT));
-        liveWallpaper = video;
-
-        LiveBackdropView live = new LiveBackdropView(this);
-        live.setSource(video);
-        live.setRadiusDp(26f);
-        live.setGlassTuning(prefs.builtinSaturation() / 100f,
-                prefs.builtinBackdropDarkness() / 100f);
-        live.setBlurDp(10f);
-        live.setBackdropEnabled(true);
-        android.widget.FrameLayout.LayoutParams lp =
-                (android.widget.FrameLayout.LayoutParams) card.getLayoutParams();
-        android.widget.FrameLayout.LayoutParams copy =
-                new android.widget.FrameLayout.LayoutParams(
-                        lp.width, lp.height, lp.gravity);
-        copy.leftMargin = lp.leftMargin;
-        copy.topMargin = lp.topMargin;
-        copy.rightMargin = lp.rightMargin;
-        copy.bottomMargin = lp.bottomMargin;
-        parent.addView(live, parent.indexOfChild(card), copy);
-        liveGlass = live;
-
-        card.setBackdrop(null);
-        card.setClearGlass(true);
-        card.setClearBodyAlpha(0x14);
-        card.setLiquidClear(true);
-        card.setRimWidthDp(1.3f);
-        card.setSheenStrength(0.9f);
-
-        liveHandler.removeCallbacks(liveFrameTick);
-        liveHandler.post(liveFrameTick);
-        return true;
-    }
 
     /**
      * Whether the card samples a capture of the launcher behind it. A full-bleed
@@ -241,13 +154,8 @@ abstract class PavoGlassActivity extends Activity {
                             decor.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                         }
                         applyBuiltinSaturation(decor);
-                        boolean liveWallpaperGlass = false;
-                        if (!usesLiveBackdrop()) {
-                            liveWallpaperGlass = installLiveWallpaperGlass(decor, card);
-                        }
                         Backdrop appliedBackdrop = null;
-                        if (!liveWallpaperGlass && !usesLiveBackdrop()
-                                && samplesBackdrop()) {
+                        if (!usesLiveBackdrop() && samplesBackdrop()) {
                             appliedBackdrop = BuiltInBackdrop.take();
                             // A capture taken while the home layer was not drawn
                             // (screen just woke, charging overlay in front) is
@@ -257,10 +165,7 @@ abstract class PavoGlassActivity extends Activity {
                                 appliedBackdrop = null;
                             }
                         }
-                        if (liveWallpaperGlass) {
-                            // Card material is already configured by
-                            // installLiveWallpaperGlass(); no static capture.
-                        } else if (appliedBackdrop != null) {
+                        if (appliedBackdrop != null) {
                             card.setBackdrop(appliedBackdrop);
                             card.setBackdropScreenAnchored(true);
                             card.setLiquidEffect(true);
@@ -283,7 +188,7 @@ abstract class PavoGlassActivity extends Activity {
                             card.setClearGlass(false);
                             card.setClearBodyAlpha(0xF0);
                         }
-                        if (!usesLiveBackdrop() && !liveWallpaperGlass
+                        if (!usesLiveBackdrop()
                                 && !(liquidGlassCard() && appliedBackdrop != null)) {
                             // Static-backdrop apps get a quiet textured frost.
                             card.setFrosted(true);
@@ -616,18 +521,6 @@ abstract class PavoGlassActivity extends Activity {
             resetReturnVisuals();
         }
         ensureDecorVisible();
-        if (liveWallpaper != null) {
-            liveWallpaper.play();
-            liveHandler.removeCallbacks(liveFrameTick);
-            liveHandler.post(liveFrameTick);
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        liveHandler.removeCallbacks(liveFrameTick);
-        if (liveWallpaper != null) liveWallpaper.pause();
-        super.onPause();
     }
 
     @Override
@@ -883,12 +776,6 @@ abstract class PavoGlassActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        liveHandler.removeCallbacks(liveFrameTick);
-        if (liveWallpaper != null) {
-            liveWallpaper.release();
-            liveWallpaper = null;
-        }
-        liveGlass = null;
         if (screenReceiver != null) {
             try {
                 unregisterReceiver(screenReceiver);
