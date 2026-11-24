@@ -253,7 +253,7 @@ public final class MainActivity extends Activity {
     private Bitmap clockDragBitmap;
     private TextView batteryText;
     private Intent lastBatteryIntent;
-    private LinearLayout batteryPill;
+    private GlassPanel batteryPill;
     private TextView statsText;
     private BatteryGlyph batteryGlyph;
     private LinearLayout headerStatusCluster;
@@ -2120,12 +2120,34 @@ public final class MainActivity extends Activity {
         });
         controls.addView(headerStatusCluster);
 
-        batteryPill = new LinearLayout(this);
+        batteryPill = new GlassPanel(this, null, wallpaper.accent(), 0x4D0B0E14, 100, true);
         batteryPill.setOrientation(LinearLayout.HORIZONTAL);
         batteryPill.setGravity(Gravity.CENTER_VERTICAL);
-        batteryPill.setBackground(getDrawable(R.drawable.bg_pill));
+        batteryPill.setClearGlass(true);
+        batteryPill.setClearBodyAlpha(0x14);
+        batteryPill.setLiquidClear(true);
+        batteryPill.setRimWidthDp(1.3f);
+        batteryPill.setSheenStrength(0.9f);
+        batteryPill.setSurfaceAlpha(prefs.drawerOverlayAlpha() / 100f);
+        batteryPill.setBackdropSaturation(prefs.drawerSaturation() / 100f);
+        batteryPill.setBackdropDarkness(prefs.drawerBackdropDarkness() / 100f);
+        batteryPill.setDeepBackdrop(true);
         batteryPill.setPadding(Ui.dp(this, 12), Ui.dp(this, 7), Ui.dp(this, 14), Ui.dp(this, 7));
         batteryPill.setClickable(true);
+        batteryPill.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    // Sample the wallpaper behind the header rather than the
+                    // whole home, which would include this pill itself.
+                    Backdrop b = Backdrop.capture(wallpaper, 8);
+                    if (b != null) {
+                        batteryPill.setBackdrop(b);
+                        batteryPill.setLiquidEffect(true);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        });
         batteryPill.setContentDescription("Battery settings");
         batteryPill.setOnClickListener(new View.OnClickListener() {
             @Override
