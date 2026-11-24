@@ -65,7 +65,7 @@ abstract class PavoGlassActivity extends Activity {
     protected boolean readableTextPass() { return true; }
 
     /** Use the launcher's clear liquid glass instead of the textured frost. */
-    protected boolean liquidGlassCard() { return false; }
+    protected boolean liquidGlassCard() { return true; }
 
     /**
      * Whether the card samples a capture of the launcher behind it. A full-bleed
